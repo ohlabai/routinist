@@ -21,37 +21,27 @@ function CallbackHandler() {
     };
 
     const handleAuth = async () => {
+      // handleOAuthCallback 가 폴링·재시도 책임 보유. 여기서는 단발 시도 + 단발 폴백.
+      let session = null;
       try {
-        const session = await handleOAuthCallback(window.location.href);
-        if (session) {
-          await new Promise(r => setTimeout(r, 500));
-          goToDashboard();
-          return;
-        }
-
-        const supabase = getSupabase();
-        for (let i = 0; i < 3; i++) {
-          await new Promise(r => setTimeout(r, 1000));
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session) {
-            goToDashboard();
-            return;
-          }
-        }
-
-        // 모든 시도 실패
-        console.warn('[Auth Callback] 세션 확인 실패, 로그인 페이지로 이동');
-        goToLogin();
+        session = await handleOAuthCallback(window.location.href);
       } catch (err) {
         console.error('[Auth Callback] 처리 실패:', err);
-        // 에러 발생해도 세션이 이미 있을 수 있음
+      }
+
+      if (!session) {
+        // exchangeCode 실패해도 세션이 이미 저장됐을 수 있음 (web flow 의 detectSessionInUrl).
         const supabase = getSupabase();
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          goToDashboard();
-        } else {
-          goToLogin();
-        }
+        const { data: { session: existing } } = await supabase.auth.getSession();
+        session = existing;
+      }
+
+      if (session) {
+        await new Promise(r => setTimeout(r, 400));
+        goToDashboard();
+      } else {
+        console.warn('[Auth Callback] 세션 확인 실패, 로그인 페이지로 이동');
+        goToLogin();
       }
     };
 

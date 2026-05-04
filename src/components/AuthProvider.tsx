@@ -119,30 +119,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       let resolvedSession: Session | null = null;
       let lastError: unknown = null;
       try {
-        // exchangeCodeForSession 은 code 를 1회만 소비할 수 있으므로 재시도 없이 1번 시도.
-        // 실패 시 getSession 폴백으로 충분 (exchange 내부에서 이미 세션이 저장됐을 수 있음).
+        // handleOAuthCallback 가 폴링·재시도 책임 보유. 여기서는 단발 호출 + 단발 폴백만.
         try {
-          const s = await handleOAuthCallback(url);
-          if (s) {
-            authLog('OAuth 콜백 성공');
-            resolvedSession = s;
-          }
+          resolvedSession = await handleOAuthCallback(url);
+          if (resolvedSession) authLog('OAuth 콜백 성공');
         } catch (e) {
           lastError = e;
           authLog('OAuth 콜백 에러', { error: String(e) });
-        }
-
-        if (!resolvedSession) {
-          // 폴백: exchangeCode 가 throw 했어도 세션이 저장됐을 수 있음 (iOS WebKit 타이밍).
-          // 1~2초 간격으로 최대 3회 확인.
-          for (let i = 0; i < 3 && !resolvedSession; i++) {
-            await new Promise(r => setTimeout(r, 700));
-            const supabase = getSupabase();
-            const { data: { session: existingSession } } = await supabase.auth.getSession();
-            if (existingSession) {
-              resolvedSession = existingSession;
-              authLog('폴백: 세션 발견', { attempt: i + 1 });
-            }
+          // exchangeCode 가 throw 해도 세션이 저장됐을 수 있음 — 단발 확인
+          const supabase = getSupabase();
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            resolvedSession = session;
+            authLog('에러 폴백: 세션 발견');
           }
         }
 

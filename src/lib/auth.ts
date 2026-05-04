@@ -34,6 +34,15 @@ function getRedirectTo(): string {
   return `${window.location.origin}${WEB_CALLBACK_PATH}`;
 }
 
+// 네이티브 브라우저 닫기 — 닫혀있어도 OK, 못 닫혀도 흐름 막지 않음
+async function closeNativeBrowser(): Promise<void> {
+  if (!isNativeApp()) return;
+  try {
+    const { Browser } = await import('@capacitor/browser');
+    await Browser.close();
+  } catch {}
+}
+
 // 진단 로그 기록 — /login?debug=1 에서 확인 가능
 function logAuth(message: string) {
   if (typeof window === 'undefined') return;
@@ -96,7 +105,7 @@ async function signInWithOAuthProvider(
   if (native) {
     try {
       const { Browser } = await import('@capacitor/browser');
-      try { await Browser.close(); } catch {}
+      await closeNativeBrowser();
       await Browser.open({ url: data.url, presentationStyle: 'fullscreen' });
       logAuth('Browser.open success');
     } catch (e) {
@@ -124,9 +133,7 @@ export async function handleOAuthCallback(url: string): Promise<Session | null> 
   const oauthError = queryParams.get('error') || hashParams.get('error');
 
   if (oauthError) {
-    if (isNativeApp()) {
-      try { const { Browser } = await import('@capacitor/browser'); await Browser.close(); } catch {}
-    }
+    await closeNativeBrowser();
     const desc = queryParams.get('error_description') || hashParams.get('error_description') || '';
     const lower = `${oauthError} ${desc}`.toLowerCase();
     // 같은 이메일이 다른 provider 로 이미 가입된 경우 — 한국어로 명확 안내
@@ -147,9 +154,7 @@ export async function handleOAuthCallback(url: string): Promise<Session | null> 
   if (code) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
-      if (isNativeApp()) {
-        try { const { Browser } = await import('@capacitor/browser'); await Browser.close(); } catch {}
-      }
+      await closeNativeBrowser();
       console.error('[Auth] exchangeCode 실패:', error.message);
       throw new Error(`exchangeCode 실패: ${error.message}`);
     }
@@ -160,36 +165,22 @@ export async function handleOAuthCallback(url: string): Promise<Session | null> 
       refresh_token: refreshToken,
     });
     if (error) {
-      if (isNativeApp()) {
-        try { const { Browser } = await import('@capacitor/browser'); await Browser.close(); } catch {}
-      }
+      await closeNativeBrowser();
       console.error('[Auth] setSession 실패:', error.message);
       throw new Error(`setSession 실패: ${error.message}`);
     }
     resolvedSession = data.session;
-  }
-
-  // 세션이 실제로 storage 에 persist 되었는지 확인 (iOS WebKit localStorage 가 간혹 지연됨)
-  if (resolvedSession) {
-    for (let i = 0; i < 3; i++) {
-      const { data: { session: verify } } = await supabase.auth.getSession();
-      if (verify) { resolvedSession = verify; break; }
-      await new Promise(r => setTimeout(r, 200));
-    }
   } else {
-    // 폴백: 이미 세션이 붙어 있는지 확인
-    await new Promise(r => setTimeout(r, 800));
-    const { data: { session } } = await supabase.auth.getSession();
-    resolvedSession = session;
+    // 토큰/코드 없음 — 이미 세션이 붙어 있는지 폴링 (iOS WebKit localStorage 지연)
+    for (let i = 0; i < 4 && !resolvedSession; i++) {
+      await new Promise(r => setTimeout(r, 250));
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) resolvedSession = session;
+    }
   }
 
   // 세션 확정 후 Browser.close() — 포커스 전환이 AuthProvider 의 상태 업데이트를 방해하지 않도록
-  if (isNativeApp()) {
-    try {
-      const { Browser } = await import('@capacitor/browser');
-      await Browser.close();
-    } catch {}
-  }
+  await closeNativeBrowser();
 
   if (!resolvedSession) {
     console.warn('[Auth] OAuth callback에서 토큰/코드를 찾을 수 없음:', url);
@@ -234,12 +225,8 @@ export async function signOut() {
   const supabase = getSupabase();
   logAuth('signOut start');
 
-  // Browser.close 는 fire-and-forget — 닫혀있어도 OK, 못 닫혀도 흐름 막지 않음
-  if (isNativeApp()) {
-    import('@capacitor/browser')
-      .then(({ Browser }) => Browser.close().catch(() => {}))
-      .catch(() => {});
-  }
+  // Browser.close 는 fire-and-forget — signOut 흐름을 막지 않도록 await 하지 않음
+  void closeNativeBrowser();
 
   try {
     await Promise.race([

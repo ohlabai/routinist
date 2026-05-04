@@ -87,7 +87,5 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth;
 REVOKE ALL ON FUNCTION public.admin_cascade_delete_user(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.admin_cascade_delete_user(uuid) TO service_role;
 
--- ───────────────── 3. 1회성: 중복 가입된 Apple 계정 정리 ─────────────────
--- 본인의 Google(hans@openhan.kr) 계정과 데이터가 동일(58 activities ⊂ 282).
--- A안 — Google 메인, Apple 계정 폐기.
-SELECT public.admin_cascade_delete_user('1350f5a4-89da-4656-8ccb-753a200c5da0'::uuid);
+-- 1회성 데이터 정리(중복 Apple 계정 삭제)는 마이그레이션에서 분리 →
+-- supabase/scripts/20260429_cleanup_apple_duplicate.sql
