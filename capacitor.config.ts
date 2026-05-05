@@ -27,6 +27,16 @@ const config: CapacitorConfig = {
       showSpinner: false,
       backgroundColor: '#ffffff',
     },
+    SocialLogin: {
+      // Apple·Google 만 사용. Facebook·Twitter 는 번들 제외해 앱 크기 절감.
+      providers: {
+        google: true,
+        apple: true,
+        facebook: false,
+        twitter: false,
+      },
+      logLevel: 1,
+    },
   },
 };
 

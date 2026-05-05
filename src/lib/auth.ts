@@ -14,6 +14,14 @@ type CapacitorWindow = Window & {
 const APP_URL_SCHEME = 'routinist://auth/callback';
 const WEB_CALLBACK_PATH = '/auth/callback';
 
+// Google iOS Client IDs (Supabase 에 등록된 두 개 중 iOS / Web)
+const GOOGLE_IOS_CLIENT_ID =
+  '947408039210-ot86ap8tj2095noj2tfq9mkmbrh5me8b.apps.googleusercontent.com';
+const GOOGLE_WEB_CLIENT_ID =
+  '947408039210-2etn4o8629ivj30dr80nsiei3ihtri3p.apps.googleusercontent.com';
+// Apple Services ID — capgo plugin 은 iOS 에서 OS 에 전달하지 않고 식별용으로만 사용.
+const APPLE_SERVICES_ID = 'kr.routinist.auth';
+
 function getNativePlatform(): NativePlatform | null {
   if (typeof window === 'undefined') return null;
   const capacitor = (window as CapacitorWindow).Capacitor;
@@ -29,21 +37,6 @@ function isNativeApp(): boolean {
   return getNativePlatform() !== null;
 }
 
-function getRedirectTo(): string {
-  if (isNativeApp()) return APP_URL_SCHEME;
-  return `${window.location.origin}${WEB_CALLBACK_PATH}`;
-}
-
-// 네이티브 브라우저 닫기 — 닫혀있어도 OK, 못 닫혀도 흐름 막지 않음
-async function closeNativeBrowser(): Promise<void> {
-  if (!isNativeApp()) return;
-  try {
-    const { Browser } = await import('@capacitor/browser');
-    await Browser.close();
-  } catch {}
-}
-
-// 진단 로그 기록 — /login?debug=1 에서 확인 가능
 function logAuth(message: string) {
   if (typeof window === 'undefined') return;
   try {
@@ -54,76 +47,150 @@ function logAuth(message: string) {
   } catch {}
 }
 
-// 소셜 로그인
-// 모든 플랫폼에서 Supabase OAuth + redirect URL 플로우를 사용한다.
-// iOS 네이티브 SocialLogin 경로는 Apple AuthenticationServices error 1000과
-// Google 플러그인 대기 상태가 발생해 TestFlight에서 불안정했다.
-export async function signInWithProvider(provider: Provider) {
-  const supabase = getSupabase();
-  const native = isNativeApp();
-  const nativePlatform = getNativePlatform();
-  const redirectTo = getRedirectTo();
-
-  logAuth(`signInWithProvider(${provider}) platform=${nativePlatform ?? (native ? 'native' : 'web')} redirectTo=${redirectTo}`);
-
-  return await signInWithOAuthProvider(supabase, provider, native, redirectTo);
+// Apple nonce: 랜덤 raw nonce 를 SHA-256 해시해 Apple 요청에 넣고,
+// raw nonce 는 Supabase 검증용으로 보관. Supabase 가 raw → SHA-256 해서 idToken 의 nonce claim 과 비교.
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
-async function signInWithOAuthProvider(
-  supabase: ReturnType<typeof getSupabase>,
-  provider: Provider,
-  native: boolean,
-  redirectTo: string,
-) {
-  if (native && redirectTo !== APP_URL_SCHEME) {
-    throw new Error(`네이티브 OAuth redirect가 잘못되었습니다: ${redirectTo}`);
+function generateRawNonce(): string {
+  // crypto.randomUUID 는 모든 모던 브라우저·iOS WebView 에서 사용 가능
+  return crypto.randomUUID().replace(/-/g, '');
+}
+
+// 네이티브 SocialLogin 초기화 — AuthProvider mount 시 1회 호출.
+let socialLoginInitialized = false;
+export async function initializeSocialLogin(): Promise<void> {
+  if (socialLoginInitialized) return;
+  if (!isNativeApp()) return;
+  try {
+    const { SocialLogin } = await import('@capgo/capacitor-social-login');
+    await SocialLogin.initialize({
+      apple: { clientId: APPLE_SERVICES_ID },
+      google: {
+        iOSClientId: GOOGLE_IOS_CLIENT_ID,
+        iOSServerClientId: GOOGLE_WEB_CLIENT_ID,
+        mode: 'online',
+      },
+    });
+    socialLoginInitialized = true;
+    logAuth('SocialLogin initialized');
+  } catch (e) {
+    logAuth(`SocialLogin init 실패: ${e instanceof Error ? e.message : e}`);
+  }
+}
+
+// 소셜 로그인 — 네이티브에선 capgo 플러그인으로 idToken 받아 Supabase 에 직접 교환,
+// 웹에선 기존 signInWithOAuth + redirect 흐름.
+export async function signInWithProvider(provider: Provider) {
+  const native = isNativeApp();
+  logAuth(`signInWithProvider(${provider}) native=${native}`);
+
+  if (native) {
+    return await signInNative(provider);
+  }
+  return await signInWebOAuth(provider);
+}
+
+async function signInNative(provider: Provider) {
+  if (provider !== 'apple' && provider !== 'google') {
+    throw new Error(`네이티브 ${provider} 로그인은 지원되지 않아요.`);
+  }
+  await initializeSocialLogin();
+
+  const { SocialLogin } = await import('@capgo/capacitor-social-login');
+  const supabase = getSupabase();
+
+  if (provider === 'apple') {
+    const rawNonce = generateRawNonce();
+    const hashedNonce = await sha256Hex(rawNonce);
+    const res = await SocialLogin.login({
+      provider: 'apple',
+      options: { scopes: ['email', 'name'], nonce: hashedNonce },
+    });
+    if (res.provider !== 'apple') throw new Error('예상하지 못한 provider 응답');
+    const idToken = res.result.idToken;
+    if (!idToken) {
+      logAuth('Apple idToken 없음');
+      throw new Error('Apple 로그인이 취소됐거나 토큰을 받지 못했어요.');
+    }
+    const { data, error } = await supabase.auth.signInWithIdToken({
+      provider: 'apple',
+      token: idToken,
+      nonce: rawNonce,
+    });
+    if (error) {
+      logAuth(`Apple signInWithIdToken 실패: ${error.message}`);
+      if (error.message.toLowerCase().includes('already')) {
+        throw new Error('이미 다른 방법(Google·이메일 등)으로 가입된 계정입니다. 처음 가입했던 방법으로 로그인해주세요.');
+      }
+      throw new Error(`Apple 로그인 실패: ${error.message}`);
+    }
+    logAuth('Apple 로그인 성공');
+    return data;
   }
 
+  // Google
+  const res = await SocialLogin.login({
+    provider: 'google',
+    options: { scopes: ['email', 'profile'] },
+  });
+  if (res.provider !== 'google') throw new Error('예상하지 못한 provider 응답');
+  const result = res.result;
+  if (result.responseType !== 'online') {
+    throw new Error('Google 로그인 응답 형식이 올바르지 않아요.');
+  }
+  const idToken = result.idToken;
+  if (!idToken) {
+    logAuth('Google idToken 없음');
+    throw new Error('Google 로그인이 취소됐거나 토큰을 받지 못했어요.');
+  }
+  const { data, error } = await supabase.auth.signInWithIdToken({
+    provider: 'google',
+    token: idToken,
+  });
+  if (error) {
+    logAuth(`Google signInWithIdToken 실패: ${error.message}`);
+    if (error.message.toLowerCase().includes('already')) {
+      throw new Error('이미 다른 방법(Apple·이메일 등)으로 가입된 계정입니다. 처음 가입했던 방법으로 로그인해주세요.');
+    }
+    throw new Error(`Google 로그인 실패: ${error.message}`);
+  }
+  logAuth('Google 로그인 성공');
+  return data;
+}
+
+// 웹용 — 기존 signInWithOAuth 흐름. 브라우저 dev/배포 환경에서만 사용.
+async function signInWebOAuth(provider: Provider) {
+  const supabase = getSupabase();
+  const redirectTo = `${window.location.origin}${WEB_CALLBACK_PATH}`;
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
     options: {
       redirectTo,
-      skipBrowserRedirect: native,
-      queryParams: provider === 'google'
-        ? { prompt: 'select_account' }
-        : undefined,
+      queryParams: provider === 'google' ? { prompt: 'select_account' } : undefined,
     },
   });
-
   if (error) {
-    logAuth(`signInWithOAuth error: ${error.message}`);
+    logAuth(`signInWithOAuth(web) error: ${error.message}`);
     throw error;
   }
-
   if (!data?.url) {
-    logAuth(`signInWithOAuth returned empty url (provider=${provider})`);
-    throw new Error('OAuth URL을 받지 못했어요. Supabase 설정(Site URL / Redirect URLs)을 확인해주세요.');
+    throw new Error('OAuth URL 을 받지 못했어요.');
   }
-
-  logAuth(`OAuth URL length=${data.url.length} starts=${data.url.slice(0, 80)}`);
-
-  if (native) {
-    try {
-      const { Browser } = await import('@capacitor/browser');
-      await closeNativeBrowser();
-      await Browser.open({ url: data.url, presentationStyle: 'fullscreen' });
-      logAuth('Browser.open success');
-    } catch (e) {
-      logAuth(`Browser.open 실패: ${e instanceof Error ? e.message : e}`);
-      window.location.href = data.url;
-    }
-  }
-
   return data;
 }
 
-// Capacitor 딥링크에서 세션 토큰 추출 및 설정
+// 웹 /auth/callback 경로에서 호출 — 네이티브에선 사용 안 함.
 export async function handleOAuthCallback(url: string): Promise<Session | null> {
   const supabase = getSupabase();
 
   const hashPart = url.includes('#') ? url.split('#')[1] : '';
   const queryPart = url.includes('?') ? url.split('?')[1]?.split('#')[0] : '';
-
   const hashParams = new URLSearchParams(hashPart);
   const queryParams = new URLSearchParams(queryPart);
 
@@ -133,10 +200,8 @@ export async function handleOAuthCallback(url: string): Promise<Session | null> 
   const oauthError = queryParams.get('error') || hashParams.get('error');
 
   if (oauthError) {
-    await closeNativeBrowser();
     const desc = queryParams.get('error_description') || hashParams.get('error_description') || '';
     const lower = `${oauthError} ${desc}`.toLowerCase();
-    // 같은 이메일이 다른 provider 로 이미 가입된 경우 — 한국어로 명확 안내
     if (lower.includes('database error') || lower.includes('already') || lower.includes('email')) {
       throw new Error('이미 다른 방법(Google·이메일 등)으로 가입된 계정입니다. 처음 가입했던 방법으로 로그인해주세요.');
     }
@@ -146,46 +211,27 @@ export async function handleOAuthCallback(url: string): Promise<Session | null> 
     throw new Error(`OAuth 프로바이더 에러: ${oauthError} ${desc}`);
   }
 
-  // 세션 교환을 **먼저** 처리하고 Browser.close() 는 마지막에 호출 —
-  // 첫 실행 시 Browser.close() 가 webview 포커스 전환을 일으켜 exchangeCodeForSession 타이밍에
-  // 영향을 주는 케이스를 차단.
-  let resolvedSession: Session | null = null;
-
   if (code) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) {
-      await closeNativeBrowser();
-      console.error('[Auth] exchangeCode 실패:', error.message);
-      throw new Error(`exchangeCode 실패: ${error.message}`);
-    }
-    resolvedSession = data.session;
-  } else if (accessToken && refreshToken) {
+    if (error) throw new Error(`exchangeCode 실패: ${error.message}`);
+    return data.session;
+  }
+  if (accessToken && refreshToken) {
     const { data, error } = await supabase.auth.setSession({
       access_token: accessToken,
       refresh_token: refreshToken,
     });
-    if (error) {
-      await closeNativeBrowser();
-      console.error('[Auth] setSession 실패:', error.message);
-      throw new Error(`setSession 실패: ${error.message}`);
-    }
-    resolvedSession = data.session;
-  } else {
-    // 토큰/코드 없음 — 이미 세션이 붙어 있는지 폴링 (iOS WebKit localStorage 지연)
-    for (let i = 0; i < 4 && !resolvedSession; i++) {
-      await new Promise(r => setTimeout(r, 250));
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) resolvedSession = session;
-    }
+    if (error) throw new Error(`setSession 실패: ${error.message}`);
+    return data.session;
   }
 
-  // 세션 확정 후 Browser.close() — 포커스 전환이 AuthProvider 의 상태 업데이트를 방해하지 않도록
-  await closeNativeBrowser();
-
-  if (!resolvedSession) {
-    console.warn('[Auth] OAuth callback에서 토큰/코드를 찾을 수 없음:', url);
+  // 폴백: detectSessionInUrl 등 다른 경로로 이미 세션이 저장됐을 수 있음
+  for (let i = 0; i < 4; i++) {
+    await new Promise((r) => setTimeout(r, 250));
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) return session;
   }
-  return resolvedSession;
+  return null;
 }
 
 // 이메일/비밀번호 회원가입
@@ -213,20 +259,31 @@ export async function signInWithEmail(email: string, password: string) {
 // 비밀번호 재설정 메일
 export async function sendPasswordResetEmail(email: string) {
   const supabase = getSupabase();
-  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: getRedirectTo() });
+  const redirectTo = isNativeApp()
+    ? APP_URL_SCHEME
+    : `${window.location.origin}${WEB_CALLBACK_PATH}`;
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
   if (error) throw error;
 }
 
-// 로그아웃
-// 주의: scope:'global' 은 토큰이 무효한 경우 401 + 네트워크 hang 으로 멈춤.
-// 로컬 세션만 비우는 'local' 로 호출 + 3초 timeout + 어떤 실패도 swallow → 항상 빠르게 완료.
-// 호출부에서는 await signOut() 후 무조건 /login 으로 이동하면 OK.
+// 로그아웃 — scope:'local' + 3초 timeout 으로 hang 방지. 네이티브 SocialLogin 도 정리.
 export async function signOut() {
   const supabase = getSupabase();
   logAuth('signOut start');
 
-  // Browser.close 는 fire-and-forget — signOut 흐름을 막지 않도록 await 하지 않음
-  void closeNativeBrowser();
+  if (isNativeApp() && socialLoginInitialized) {
+    // SocialLogin 세션 정리 — fire-and-forget. 실패해도 흐름 막지 않음.
+    void (async () => {
+      try {
+        const { SocialLogin } = await import('@capgo/capacitor-social-login');
+        // 어떤 provider 였는지 모르면 둘 다 시도 (각각 독립적으로 동작, 실패 무시)
+        await Promise.allSettled([
+          SocialLogin.logout({ provider: 'apple' }),
+          SocialLogin.logout({ provider: 'google' }),
+        ]);
+      } catch {}
+    })();
+  }
 
   try {
     await Promise.race([
