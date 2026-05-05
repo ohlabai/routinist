@@ -24,11 +24,12 @@ import {
   type ClubChallenge, type ChallengeProgress, type ClubEvent, type CheerEmoji, type CheerAgg, type WeeklyMvp,
 } from '@/lib/club-activation';
 import InviteQRCard from '@/components/clubs/InviteQRCard';
+import ClubExternalArchive from '@/components/clubs/ClubExternalArchive';
 import Link from 'next/link';
 import type { Club, ClubMember } from '@/types';
 import AppLogo from '@/components/AppLogo';
 
-type TabId = 'dashboard' | 'feed' | 'challenges' | 'members' | 'activity' | 'settings';
+type TabId = 'dashboard' | 'feed' | 'challenges' | 'members' | 'activity' | 'archive' | 'settings';
 
 function ClubDetail() {
   const searchParams = useSearchParams();
@@ -230,6 +231,7 @@ function ClubDetail() {
     { id: 'challenges', label: '챌린지·모임', show: isMember },
     { id: 'members', label: `멤버 (${members.length})`, show: true },
     { id: 'activity', label: '활동', show: isMember },
+    { id: 'archive', label: '결산', show: true },
     { id: 'settings', label: '설정', show: isAdmin || isAppAdmin },
   ];
 
@@ -1269,6 +1271,11 @@ function ClubDetail() {
           inviteUrl={typeof window !== 'undefined' ? `${window.location.origin}/social/clubs/detail?id=${clubId}` : ''}
           onClose={() => setQrOpen(false)}
         />
+      )}
+
+      {/* 결산 탭 — 외부(앱 미가입) 멤버 월별 결산 */}
+      {activeTab === 'archive' && clubId && (
+        <ClubExternalArchive clubId={clubId} />
       )}
 
       {/* 설정 탭 */}
