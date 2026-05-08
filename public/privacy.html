@@ -1,34 +1,137 @@
 <!DOCTYPE html>
 <html lang="ko">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Routinist 개인정보처리방침</title>
-<style>body{font-family:-apple-system,sans-serif;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.8;color:#333}h1{font-size:24px}h2{font-size:18px;margin-top:30px}p{margin:8px 0}</style>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Routinist 개인정보처리방침</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:760px;margin:40px auto;padding:0 20px;line-height:1.75;color:#222}
+h1{font-size:24px;margin-bottom:6px}
+h2{font-size:17px;margin-top:28px;margin-bottom:8px;color:#0a8754}
+p,li{margin:4px 0;font-size:14px}
+ul{padding-left:20px}
+.meta{color:#888;font-size:12px;margin-bottom:24px}
+hr{border:none;border-top:1px solid #eee;margin:32px 0}
+.lang{margin-bottom:20px}
+.lang a{color:#0a8754;text-decoration:none;font-size:13px;margin-right:12px}
+</style>
 </head>
 <body>
-<h1>Routinist 개인정보처리방침</h1>
-<p>시행일: 2026년 4월 4일</p>
+<div class="lang">
+  <a href="#ko">한국어</a>
+  <a href="#en">English</a>
+</div>
 
-<h2>1. 수집하는 정보</h2>
-<p>• 이름, 러닝 기록 (거리, 시간, 날짜)</p>
-<p>• Health Connect를 통한 운동 데이터 (사용자 동의 시에만)</p>
+<h1 id="ko">Routinist 개인정보처리방침</h1>
+<p class="meta">시행일: 2026년 5월 8일 · Routinist (Openhan)</p>
+
+<h2>1. 수집하는 개인정보</h2>
+<ul>
+  <li><b>계정 정보</b>: 이메일 주소, 이름, 사용자 ID</li>
+  <li><b>프로필</b>: 닉네임, 자기소개, 출생연도, 성별, 지역(시·구·동), 프로필 사진</li>
+  <li><b>운동 기록</b>: Apple Health 또는 Google Fit 에서 가져오는 거리, 시간, 페이스, 칼로리, 심박수</li>
+  <li><b>위치 정보</b>: GPS 러닝 경로 (사용자 동의 시), 지역 자동 감지용 대략적 위치</li>
+  <li><b>사용자 콘텐츠</b>: 루틴 포토 (사용자가 직접 업로드)</li>
+  <li><b>충돌 진단 데이터</b>: 앱 안정성 개선용 오류 로그</li>
+</ul>
 
 <h2>2. 정보의 사용 목적</h2>
-<p>• 러닝 기록 관리 및 통계 제공</p>
-<p>• 모임 내 리더보드 및 목표 달성 현황 표시</p>
+<ul>
+  <li>러닝 기록 관리, 통계, 캘린더, 지도 표시</li>
+  <li>지역·또래 러너 매칭 랭킹 표시 (사용자 동의 항목)</li>
+  <li>친구·클럽 기능 (응원, 진행률 비교)</li>
+  <li>월 목표 + 마일리지 보상 시스템</li>
+  <li>앱 안정성 개선 (오류 로그)</li>
+</ul>
 
-<h2>3. 정보의 공유</h2>
-<p>• 같은 러닝 모임 멤버에게 러닝 거리 및 순위가 공유됩니다</p>
-<p>• 제3자에게 개인정보를 판매하거나 제공하지 않습니다</p>
+<h2>3. 제3자 공유</h2>
+<ul>
+  <li>같은 지역·또래·친구·클럽 러너에게 러닝 거리 및 순위가 표시될 수 있습니다 (공개 설정 시)</li>
+  <li>광고 회사 또는 추적 회사에 정보를 제공하지 않습니다</li>
+  <li>법적 의무 외에는 제3자에게 개인정보를 판매·제공하지 않습니다</li>
+</ul>
 
-<h2>4. 건강 데이터</h2>
-<p>• Health Connect를 통해 읽는 데이터: 운동 세션, 이동 거리</p>
-<p>• 건강 데이터는 러닝 기록 동기화 목적으로만 사용됩니다</p>
-<p>• 사용자가 언제든지 접근 권한을 철회할 수 있습니다</p>
+<h2>4. Apple Health (HealthKit) 데이터</h2>
+<ul>
+  <li>Apple Health 에서 읽어오는 데이터: 러닝/걷기 워크아웃, 거리, 시간, 칼로리, 심박수, GPS 경로</li>
+  <li>건강 데이터는 사용자 운동 기록 표시 목적으로만 사용됩니다</li>
+  <li>건강 데이터는 광고에 사용되지 않으며 제3자와 공유되지 않습니다</li>
+  <li>사용자는 iOS 설정 > 개인정보 보호 및 보안 > 건강 > Routinist 에서 언제든지 권한을 철회할 수 있습니다</li>
+</ul>
 
-<h2>5. 데이터 보관</h2>
-<p>• 데이터는 Supabase 클라우드에 안전하게 저장됩니다</p>
-<p>• 사용자 요청 시 데이터를 삭제합니다</p>
+<h2>5. 데이터 보관 및 보안</h2>
+<ul>
+  <li>데이터는 Supabase 클라우드에 암호화되어 저장됩니다</li>
+  <li>전송 중에는 HTTPS/TLS 로 암호화됩니다</li>
+  <li>사용자가 계정 삭제를 요청하면 30일 안에 영구 삭제됩니다</li>
+</ul>
 
-<h2>6. 연락처</h2>
-<p>• 개인정보 관련 문의: openhan.corp@gmail.com</p>
+<h2>6. 사용자 권리</h2>
+<ul>
+  <li>개인정보 열람·정정·삭제 요청권</li>
+  <li>처리 정지 및 동의 철회권</li>
+  <li>요청 방법: 아래 연락처로 이메일 발송</li>
+</ul>
+
+<h2>7. 연락처</h2>
+<p>개인정보 관리 책임: Openhan</p>
+<p>이메일: <a href="mailto:hans@openhan.kr">hans@openhan.kr</a></p>
+
+<hr>
+
+<h1 id="en">Routinist Privacy Policy</h1>
+<p class="meta">Effective: May 8, 2026 · Routinist (Openhan)</p>
+
+<h2>1. Information We Collect</h2>
+<ul>
+  <li><b>Account</b>: email, name, user ID</li>
+  <li><b>Profile</b>: nickname, bio, birth year, gender, region (city / district), profile photo</li>
+  <li><b>Activity records</b>: distance, duration, pace, calories, heart rate from Apple Health / Google Fit</li>
+  <li><b>Location</b>: GPS routes (with consent), coarse location for region matching</li>
+  <li><b>User content</b>: routine photos uploaded by users</li>
+  <li><b>Diagnostics</b>: crash logs for app stability</li>
+</ul>
+
+<h2>2. How We Use Information</h2>
+<ul>
+  <li>Display running records, stats, calendar, and map</li>
+  <li>Show neighborhood and age-group rankings (opt-in)</li>
+  <li>Friends, clubs, cheer features</li>
+  <li>Monthly goals and mileage rewards</li>
+  <li>App stability (error logs)</li>
+</ul>
+
+<h2>3. Sharing</h2>
+<ul>
+  <li>Distance and rank may be shown to runners in the same neighborhood, age group, friend list, or club (when public)</li>
+  <li>We do not share data with advertising or tracking companies</li>
+  <li>We do not sell personal data to third parties</li>
+</ul>
+
+<h2>4. Apple Health Data</h2>
+<ul>
+  <li>We read: running/walking workouts, distance, duration, calories, heart rate, GPS route</li>
+  <li>Used only to display your activity records</li>
+  <li>Never used for advertising or shared with third parties</li>
+  <li>Revoke anytime in iOS Settings > Privacy & Security > Health > Routinist</li>
+</ul>
+
+<h2>5. Storage and Security</h2>
+<ul>
+  <li>Data stored encrypted on Supabase</li>
+  <li>HTTPS/TLS in transit</li>
+  <li>Account deletion: data permanently removed within 30 days of request</li>
+</ul>
+
+<h2>6. Your Rights</h2>
+<ul>
+  <li>Access, correct, or delete your data</li>
+  <li>Stop processing or withdraw consent</li>
+  <li>Contact us at the address below</li>
+</ul>
+
+<h2>7. Contact</h2>
+<p>Operator: Openhan</p>
+<p>Email: <a href="mailto:hans@openhan.kr">hans@openhan.kr</a></p>
 </body>
 </html>
