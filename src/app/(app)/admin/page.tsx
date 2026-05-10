@@ -24,11 +24,20 @@ interface DashboardStats {
   daily_revenue_14d: { day: string; krw: number }[];
 }
 
+interface KpiExtended {
+  refund: { rate_30d: number; refunded_count_30d: number; paid_count_30d: number };
+  aov: { avg_order_30d: number; max_order_30d: number };
+  categories_30d: { category: string; krw: number; orders: number }[];
+  top_products_30d: { product_name: string; units: number; krw: number }[];
+  cart: { users_with_cart: number; total_items: number };
+}
+
 export default function AdminDashboardPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const isAdmin = user?.email === ADMIN_EMAIL;
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [kpi, setKpi] = useState<KpiExtended | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -42,9 +51,14 @@ export default function AdminDashboardPage() {
     const supabase = getSupabase();
     (async () => {
       try {
-        const { data, error } = await supabase.rpc('admin_dashboard_stats');
-        if (error) { console.warn('[admin/dash] fail', error); return; }
-        setStats(data as DashboardStats);
+        const [base, ext] = await Promise.all([
+          supabase.rpc('admin_dashboard_stats'),
+          supabase.rpc('admin_kpi_extended'),
+        ]);
+        if (base.error) console.warn('[admin/dash] base fail', base.error);
+        else setStats(base.data as DashboardStats);
+        if (ext.error) console.warn('[admin/dash] kpi fail', ext.error);
+        else setKpi(ext.data as KpiExtended);
       } finally { setLoading(false); }
     })();
   }, [isAdmin]);
@@ -178,6 +192,75 @@ export default function AdminDashboardPage() {
               <Stat label="이번 주 신규" value={`+${stats.users.new_week}`} tone="emerald" />
             </div>
           </Section>
+
+          {/* KPI 확장 — 환불률 / AOV / 카테고리 매출 */}
+          {kpi && (
+            <>
+              <Section title="30일 KPI" icon={<TrendingUp size={16} className="text-emerald-500" />}>
+                <div className="card p-4 grid grid-cols-3 gap-3">
+                  <Stat
+                    label="환불률"
+                    value={`${(kpi.refund.rate_30d * 100).toFixed(1)}%`}
+                    tone={kpi.refund.rate_30d > 0.05 ? 'red' : kpi.refund.rate_30d > 0 ? 'amber' : 'emerald'}
+                  />
+                  <Stat
+                    label="평균 주문"
+                    value={`${(kpi.aov.avg_order_30d / 1000).toFixed(1)}k`}
+                    unit="원"
+                  />
+                  <Stat
+                    label="장바구니"
+                    value={`${kpi.cart.users_with_cart}`}
+                    unit="명"
+                    tone="blue"
+                  />
+                </div>
+              </Section>
+
+              {kpi.categories_30d.length > 0 && (
+                <Section title="카테고리별 매출 (30일)" icon={<Package size={16} className="text-emerald-500" />}>
+                  <div className="card p-4 space-y-2">
+                    {kpi.categories_30d.slice(0, 5).map(c => {
+                      const top = kpi.categories_30d[0]?.krw || 1;
+                      const pct = Math.round((c.krw / top) * 100);
+                      return (
+                        <div key={c.category}>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="font-bold text-[var(--foreground)]">{c.category}</span>
+                            <span className="text-[var(--muted)]">{c.krw.toLocaleString()}원 · {c.orders}건</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30 overflow-hidden">
+                            <div className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 rounded-full" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Section>
+              )}
+
+              {kpi.top_products_30d.length > 0 && (
+                <Section title="인기 상품 TOP 5 (30일)" icon={<Sparkles size={16} className="text-emerald-500" />}>
+                  <div className="card p-4 space-y-2">
+                    {kpi.top_products_30d.map((p, i) => (
+                      <div key={p.product_name} className="flex items-center gap-3 text-xs">
+                        <span className={`w-6 h-6 rounded-full flex items-center justify-center font-extrabold text-[10px] ${
+                          i === 0 ? 'bg-amber-100 text-amber-700' :
+                          i === 1 ? 'bg-zinc-200 text-zinc-700' :
+                          i === 2 ? 'bg-orange-100 text-orange-700' :
+                          'bg-[var(--card-border)]/40 text-[var(--muted)]'
+                        }`}>
+                          {i + 1}
+                        </span>
+                        <span className="flex-1 font-bold text-[var(--foreground)] line-clamp-1">{p.product_name}</span>
+                        <span className="text-[var(--muted)]">{p.units}개</span>
+                      </div>
+                    ))}
+                  </div>
+                </Section>
+              )}
+            </>
+          )}
 
           {/* 어드민 메뉴 */}
           <Section title="관리 메뉴" icon={<Settings size={16} className="text-emerald-500" />}>

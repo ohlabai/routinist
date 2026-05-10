@@ -18,6 +18,8 @@ function PaymentFailContent() {
     if (orderUuid) {
       cancelOrder(orderUuid, `결제 실패: ${code} ${message}`).catch(() => {});
     }
+    // buyNow stale 데이터 정리 — 다음 결제 시 영향 차단
+    try { sessionStorage.removeItem('buyNowItem'); } catch {}
   }, [orderUuid, code, message]);
 
   return (

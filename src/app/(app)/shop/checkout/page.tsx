@@ -7,10 +7,13 @@ import { useEffect, useState, Suspense, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  ArrowLeft, MapPin, Plus, Coins, Package, Check, ShieldCheck, FileText, ChevronRight,
+  ArrowLeft, MapPin, Plus, Coins, Package, Check, ShieldCheck, FileText, ChevronRight, CreditCard,
 } from 'lucide-react';
+
+function CreditCardIcon() { return <CreditCard size={16} className="text-emerald-500" />; }
 import {
   fetchCart, fetchAddresses, createAddress, createOrderDraft,
+  validatePhone, validatePostalCode,
   type OrderDraftItem, type NewAddressInput,
 } from '@/lib/shop-data';
 import { fetchMileageBalance } from '@/lib/mileage-data';
@@ -38,6 +41,9 @@ function CheckoutContent() {
     recipient_name: '', phone: '', postal_code: '', address_line1: '',
     address_line2: '', is_default: true, label: '집',
   });
+  // 토스 SDK v1 이 직접 받는 결제수단만 노출. 카드 진입 후 결제창에서 카카오페이·네이버페이 선택 가능.
+  type PayMethod = '카드' | '계좌이체' | '가상계좌' | '휴대폰' | '토스페이';
+  const [payMethod, setPayMethod] = useState<PayMethod>('카드');
 
   useEffect(() => {
     if (authLoading) return;
@@ -113,6 +119,14 @@ function CheckoutContent() {
       showToast('필수 항목을 모두 입력해주세요', 'warn');
       return;
     }
+    if (!validatePhone(newAddr.phone)) {
+      showToast('전화번호 형식이 올바르지 않아요\n예) 010-1234-5678', 'warn', 3500);
+      return;
+    }
+    if (!validatePostalCode(newAddr.postal_code)) {
+      showToast('우편번호는 5자리 숫자예요', 'warn');
+      return;
+    }
     try {
       const created = await createAddress(newAddr);
       setAddresses(prev => [created, ...prev.map(a => created.is_default ? { ...a, is_default: false } : a)]);
@@ -161,7 +175,7 @@ function CheckoutContent() {
       const successUrl = `${window.location.origin}/shop/payment/success?orderUuid=${draft.order_id}`;
       const failUrl = `${window.location.origin}/shop/payment/fail?orderUuid=${draft.order_id}`;
 
-      await tossPayments.requestPayment('카드', {
+      await tossPayments.requestPayment(payMethod, {
         amount: draft.total_krw,
         orderId: draft.order_no,
         orderName: cartItems.length === 1
@@ -389,6 +403,27 @@ function CheckoutContent() {
               ✓ {totals.mileageUse.toLocaleString()}P 사용 → 결제 후 잔액 {(mileageBalance - totals.mileageUse).toLocaleString()}P
             </p>
           )}
+        </div>
+      </Section>
+
+      {/* 결제 수단 */}
+      <Section title="결제 수단" icon={<CreditCardIcon />}>
+        <div className="card p-3.5">
+          <div className="grid grid-cols-3 gap-2">
+            {(['카드', '토스페이', '계좌이체', '가상계좌', '휴대폰'] as const).map(m => (
+              <button
+                key={m}
+                onClick={() => setPayMethod(m)}
+                className={`py-2.5 px-2 rounded-xl text-xs font-extrabold transition active:scale-95 border-2 ${
+                  payMethod === m
+                    ? 'bg-emerald-500 text-white border-emerald-500 shadow-md shadow-emerald-500/25'
+                    : 'bg-[var(--card)] border-[var(--card-border)] text-[var(--foreground)]'
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
         </div>
       </Section>
 

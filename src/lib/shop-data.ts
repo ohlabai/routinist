@@ -32,7 +32,15 @@ export async function fetchProducts(opts: ProductListOptions = {}): Promise<Prod
   let q = supabase.from('products').select('*').eq('status', 'published');
   if (opts.category) q = q.eq('category', opts.category);
   if (opts.featuredOnly) q = q.eq('is_featured', true);
-  if (opts.search) q = q.ilike('name', `%${opts.search}%`);
+  if (opts.search) {
+    // 공백 기준 토큰 분리, 각 토큰은 name/description/brand 중 하나에 매치 (AND 조합)
+    const tokens = opts.search.trim().split(/\s+/).filter(Boolean).slice(0, 5);
+    for (const t of tokens) {
+      const safe = t.replace(/[%,]/g, ''); // injection 차단
+      if (!safe) continue;
+      q = q.or(`name.ilike.%${safe}%,description.ilike.%${safe}%,brand.ilike.%${safe}%`);
+    }
+  }
 
   switch (opts.sort) {
     case 'price_asc': q = q.order('price_krw', { ascending: true }); break;
@@ -113,30 +121,35 @@ export async function addToCart(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('로그인이 필요합니다');
 
-  // 같은 product+variant 면 quantity 증가
-  let existingQuery = supabase
-    .from('shop_cart_items')
-    .select('id, quantity')
-    .eq('user_id', user.id)
-    .eq('product_id', productId);
-  existingQuery = variantId
-    ? existingQuery.eq('variant_id', variantId)
-    : existingQuery.is('variant_id', null);
-
-  const { data: existing } = await existingQuery.maybeSingle();
-
-  if (existing) {
-    const row = existing as { id: string; quantity: number };
-    const { error } = await supabase
+  // race-safe — select-then-(insert|update) 사이의 race 로 unique 위반 시 1회 retry.
+  const trySelect = async () => {
+    let q = supabase
       .from('shop_cart_items')
-      .update({ quantity: row.quantity + quantity })
-      .eq('id', row.id);
-    if (error) throw error;
-  } else {
+      .select('id, quantity')
+      .eq('user_id', user.id)
+      .eq('product_id', productId);
+    q = variantId ? q.eq('variant_id', variantId) : q.is('variant_id', null);
+    return q.maybeSingle();
+  };
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { data: existing } = await trySelect();
+    if (existing) {
+      const row = existing as { id: string; quantity: number };
+      const { error } = await supabase
+        .from('shop_cart_items')
+        .update({ quantity: row.quantity + quantity })
+        .eq('id', row.id);
+      if (error) throw error;
+      return;
+    }
     const { error } = await supabase
       .from('shop_cart_items')
       .insert({ user_id: user.id, product_id: productId, variant_id: variantId, quantity });
-    if (error) throw error;
+    if (!error) return;
+    // unique 위반 (다른 탭이 먼저 insert) → 한 번 더 select 후 update
+    if (error.code === '23505' && attempt === 0) continue;
+    throw error;
   }
 }
 
@@ -307,6 +320,77 @@ export async function fetchOrder(id: string): Promise<{
     items: (itemsRes.data ?? []) as OrderItem[],
     payments: (paymentsRes.data ?? []) as ShopPayment[],
   };
+}
+
+// =============================================
+// 위시리스트 (찜)
+// =============================================
+
+export async function fetchWishlist(): Promise<Product[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('shop_wishlist')
+    .select('product:products(*)')
+    .order('added_at', { ascending: false });
+  if (error) throw error;
+  type Row = { product: Product | null };
+  return ((data ?? []) as unknown as Row[])
+    .map(r => r.product)
+    .filter((p): p is Product => !!p && p.status === 'published');
+}
+
+export async function fetchWishlistIds(): Promise<Set<string>> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.from('shop_wishlist').select('product_id');
+  if (error) return new Set();
+  return new Set(((data ?? []) as { product_id: string }[]).map(r => r.product_id));
+}
+
+export async function addToWishlist(productId: string): Promise<void> {
+  const supabase = getSupabase();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('로그인이 필요합니다');
+  const { error } = await supabase
+    .from('shop_wishlist')
+    .insert({ user_id: user.id, product_id: productId });
+  // 23505 (중복) 은 멱등으로 OK
+  if (error && error.code !== '23505') throw error;
+}
+
+export async function removeFromWishlist(productId: string): Promise<void> {
+  const supabase = getSupabase();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  const { error } = await supabase
+    .from('shop_wishlist')
+    .delete()
+    .eq('user_id', user.id)
+    .eq('product_id', productId);
+  if (error) throw error;
+}
+
+export async function toggleWishlist(productId: string, current: boolean): Promise<boolean> {
+  if (current) {
+    await removeFromWishlist(productId);
+    return false;
+  }
+  await addToWishlist(productId);
+  return true;
+}
+
+// =============================================
+// 검증 헬퍼 — 클라사이드 입력 검증
+// =============================================
+
+const PHONE_RE = /^(010-?\d{4}-?\d{4}|01[16789]-?\d{3,4}-?\d{4})$/;
+const POSTAL_RE = /^\d{5}$/;
+
+export function validatePhone(phone: string): boolean {
+  return PHONE_RE.test(phone.trim());
+}
+
+export function validatePostalCode(code: string): boolean {
+  return POSTAL_RE.test(code.trim());
 }
 
 export function orderStatusLabel(s: Order['status']): string {

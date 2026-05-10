@@ -4,6 +4,7 @@
   ],
   "crons": [
     { "path": "/api/push/send", "schedule": "* * * * *" },
-    { "path": "/api/cafe24/import", "schedule": "0 19 * * *" }
+    { "path": "/api/cafe24/import", "schedule": "0 19 * * *" },
+    { "path": "/api/cron/cleanup-stale-orders", "schedule": "*/5 * * * *" }
   ]
 }

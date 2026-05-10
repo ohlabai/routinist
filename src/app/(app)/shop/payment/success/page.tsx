@@ -27,6 +27,9 @@ function PaymentSuccessContent() {
     }
     setOrderUuid(orderUuidParam);
 
+    // buyNow 모드인지 결제 직전에 저장된 sessionStorage 로 판별
+    const wasBuyNow = !!sessionStorage.getItem('buyNowItem');
+
     fetch('/api/payments/toss/confirm', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -37,7 +40,10 @@ function PaymentSuccessContent() {
         if (!r.ok || !json.success) throw new Error(json.message || json.error || '결제 확정 실패');
         setStatus('success');
         sessionStorage.removeItem('buyNowItem');
-        clearCart().catch(() => {});
+        // 카트 결제 시에만 카트 비움 (buyNow 는 카트의 다른 상품 보존)
+        if (!wasBuyNow) {
+          clearCart().catch(() => {});
+        }
       })
       .catch(e => {
         console.warn('[payment/success] confirm fail', e);

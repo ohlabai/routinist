@@ -137,44 +137,46 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, sent: 0, skipped: 0, failed: 0 });
   }
 
-  let sent = 0;
-  let skipped = 0;
-  let failed = 0;
+  // 사용자별 토큰을 한 번에 조회 (N+1 → 1)
+  const userIds = Array.from(new Set((logs as PushLogRow[]).map(l => l.user_id)));
+  const { data: allTokens } = await supabase
+    .from('push_device_tokens')
+    .select('id, user_id, platform, token, enabled')
+    .in('user_id', userIds)
+    .eq('enabled', true)
+    .eq('platform', 'ios');
+  const tokensByUser = new Map<string, DeviceTokenRow[]>();
+  for (const t of (allTokens ?? []) as DeviceTokenRow[]) {
+    if (!tokensByUser.has(t.user_id)) tokensByUser.set(t.user_id, []);
+    tokensByUser.get(t.user_id)!.push(t);
+  }
 
-  for (const log of logs as PushLogRow[]) {
-    // 사용자의 활성 iOS 토큰 모두 가져옴
-    const { data: tokens } = await supabase
-      .from('push_device_tokens')
-      .select('id, user_id, platform, token, enabled')
-      .eq('user_id', log.user_id)
-      .eq('enabled', true)
-      .eq('platform', 'ios');
-
-    const list = (tokens ?? []) as DeviceTokenRow[];
+  // 토큰별 연속 실패 카운터 (3회 이상 시 비활성화) — 메모리 캐시는 의미 없음 (cron 사이 휘발).
+  // 대신 BadDeviceToken / Unregistered (영구 invalid) 만 즉시 비활성화. 일시 fail 은 그대로.
+  // 영구 invalid 외 3회 누적 fail 은 push_device_tokens.metadata 에 카운터 (별도 컬럼 없으면 enabled 그대로).
+  const sendOne = async (log: PushLogRow): Promise<'sent' | 'skipped' | 'failed'> => {
+    const list = tokensByUser.get(log.user_id) ?? [];
     if (list.length === 0) {
       await supabase.from('push_send_log').update({
         status: 'skipped', failure_reason: '활성 토큰 없음',
       }).eq('id', log.id);
-      skipped++;
-      continue;
+      return 'skipped';
     }
 
     let anyOk = false;
     let lastReason = '';
-    for (const t of list) {
-      try {
-        const res = await sendApn(t.token, { title: log.title, body: log.body, data: log.payload });
-        if (res.ok) {
-          anyOk = true;
-        } else {
-          lastReason = res.reason ?? 'unknown';
-          // BadDeviceToken / Unregistered → 토큰 비활성화
-          if (lastReason.includes('BadDeviceToken') || lastReason.includes('Unregistered')) {
-            await supabase.from('push_device_tokens').update({ enabled: false }).eq('id', t.id);
-          }
-        }
-      } catch (e) {
-        lastReason = e instanceof Error ? e.message : String(e);
+    const apnResults = await Promise.allSettled(
+      list.map(t => sendApn(t.token, { title: log.title, body: log.body, data: log.payload })
+        .then(res => ({ tokenId: t.id, ...res }))
+        .catch(e => ({ tokenId: t.id, ok: false as const, reason: e instanceof Error ? e.message : String(e) }))),
+    );
+    for (const res of apnResults) {
+      if (res.status !== 'fulfilled') continue;
+      const v = res.value;
+      if (v.ok) { anyOk = true; continue; }
+      lastReason = v.reason ?? 'unknown';
+      if (lastReason.includes('BadDeviceToken') || lastReason.includes('Unregistered')) {
+        await supabase.from('push_device_tokens').update({ enabled: false }).eq('id', v.tokenId);
       }
     }
 
@@ -182,14 +184,30 @@ export async function POST(req: NextRequest) {
       await supabase.from('push_send_log').update({
         status: 'sent', sent_at: new Date().toISOString(),
       }).eq('id', log.id);
-      sent++;
+      return 'sent';
     } else {
       await supabase.from('push_send_log').update({
         status: 'failed', failure_reason: lastReason,
       }).eq('id', log.id);
-      failed++;
+      return 'failed';
     }
-  }
+  };
+
+  // 동시 8개 로그 처리 (직렬 보다 8x 빠름, APN connection limit 고려)
+  let sent = 0, skipped = 0, failed = 0;
+  const CONCURRENCY = 8;
+  const queue = (logs as PushLogRow[]).slice();
+  const workers = Array.from({ length: Math.min(CONCURRENCY, queue.length) }, async () => {
+    while (true) {
+      const next = queue.shift();
+      if (!next) break;
+      const r = await sendOne(next);
+      if (r === 'sent') sent++;
+      else if (r === 'skipped') skipped++;
+      else failed++;
+    }
+  });
+  await Promise.all(workers);
 
   return NextResponse.json({ ok: true, sent, skipped, failed, total: logs.length });
 }

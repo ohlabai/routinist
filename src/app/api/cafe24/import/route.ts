@@ -176,7 +176,16 @@ async function runImport(mallId: string, token: string, supabase: SupabaseClient
     const isActive = data.display === 'T' && data.selling === 'T' && price > 0;
     const status = isActive ? 'published' : 'archived';
     const imagesArr: string[] = [];
-    if (data.detail_image) imagesArr.push(data.detail_image);
+    // 메인 detail 이미지 + 추가 이미지 슬라이드용
+    if (data.detail_image && data.detail_image !== data.list_image) imagesArr.push(data.detail_image);
+    // 추가 이미지 fetch (실패해도 무시)
+    try {
+      type AddImg = { image: string; image_no?: number; thumbnail?: string };
+      const r = await cf<{ additionalimages: AddImg[] }>(`/products/${data.product_no}/additionalimages`);
+      for (const img of r.additionalimages ?? []) {
+        if (img.image) imagesArr.push(img.image);
+      }
+    } catch {}
 
     let categoryName: string | null = null;
     if (Array.isArray(data.category) && data.category.length > 0) {
@@ -208,7 +217,7 @@ async function runImport(mallId: string, token: string, supabase: SupabaseClient
       brand: brandName,
       category: categoryName,
       status,
-      is_active: isActive,
+      // is_active 는 GENERATED column — 명시적 set 안 함
       metadata: {
         cafe24_product_code: data.product_code,
         cafe24_brand_code: data.brand_code,

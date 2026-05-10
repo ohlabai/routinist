@@ -10,7 +10,10 @@ import {
   ArrowLeft, ShoppingCart, Plus, Minus, Package, ChevronRight,
   Check, Heart, Share2, Star, Truck, ShieldCheck,
 } from 'lucide-react';
-import { fetchProduct, fetchProductVariants, addToCart } from '@/lib/shop-data';
+import {
+  fetchProduct, fetchProductVariants, addToCart,
+  fetchWishlistIds, toggleWishlist,
+} from '@/lib/shop-data';
 import { useAuth } from '@/components/AuthProvider';
 import AppToast from '@/components/AppToast';
 import ProductReviews from '@/components/shop/ProductReviews';
@@ -36,18 +39,23 @@ function ProductDetailContent() {
   useEffect(() => {
     if (!productId) { setLoading(false); return; }
     let cancelled = false;
-    Promise.all([fetchProduct(productId), fetchProductVariants(productId)])
-      .then(([p, vs]) => {
+    Promise.all([
+      fetchProduct(productId),
+      fetchProductVariants(productId),
+      user ? fetchWishlistIds().catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
+    ])
+      .then(([p, vs, wishIds]) => {
         if (cancelled) return;
         setProduct(p);
         setVariants(vs);
         const def = vs.find(v => v.is_default && v.stock > 0) ?? vs.find(v => v.stock > 0) ?? vs[0];
         if (def) setSelectedVariantId(def.id);
+        if (p) setLiked(wishIds.has(p.id));
       })
       .catch(e => { if (!cancelled) console.warn('[product detail] load fail', e); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [productId]);
+  }, [productId, user]);
 
   const selectedVariant = useMemo(
     () => variants.find(v => v.id === selectedVariantId) ?? null,
@@ -235,6 +243,13 @@ function ProductDetailContent() {
           </div>
         )}
 
+        {/* 재고 긴급 안내 */}
+        {!isSoldOut && availableStock > 0 && availableStock <= 5 && (
+          <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 text-[11px] font-extrabold mb-2.5 animate-pulse">
+            🔥 마지막 {availableStock}개 남음
+          </div>
+        )}
+
         {/* 가격 */}
         <div className="flex items-baseline gap-2 mb-4">
           {discount > 0 && (
@@ -326,7 +341,19 @@ function ProductDetailContent() {
       <div className="fixed bottom-0 left-1/2 -translate-x-1/2 max-w-lg w-full bg-[var(--background)]/95 backdrop-blur-lg border-t border-[var(--card-border)]/30 safe-area-bottom z-20">
         <div className="flex items-center gap-2 px-3 py-3">
           <button
-            onClick={() => setLiked(l => !l)}
+            onClick={async () => {
+              if (!user) { router.push('/login'); return; }
+              if (!product) return;
+              const prev = liked;
+              setLiked(!prev);  // optimistic
+              try {
+                await toggleWishlist(product.id, prev);
+                showToast(prev ? '찜 해제했어요' : '찜했어요 ❤️');
+              } catch {
+                setLiked(prev);
+                showToast('잠시 후 다시 시도해주세요', 'warn');
+              }
+            }}
             className={`w-12 h-12 flex items-center justify-center rounded-2xl border-2 transition active:scale-90 ${
               liked
                 ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900/40'

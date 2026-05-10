@@ -7,8 +7,26 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, Package, MapPin, CreditCard, AlertCircle, Receipt,
-  Truck, CheckCircle, Clock,
+  Truck, CheckCircle, Clock, ExternalLink, RotateCcw,
 } from 'lucide-react';
+
+// 운송장 추적 외부 링크 매핑 — carrier 이름 → URL 템플릿 ({n} 자리에 운송장 번호)
+const TRACKING_URLS: Array<[RegExp, (n: string) => string]> = [
+  [/cj|대한통운|cjlogistics/i, n => `https://trace.cjlogistics.com/web/detail.jsp?slipno=${n}`],
+  [/우체국|epost|koreapost/i, n => `https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=${n}`],
+  [/한진|hanjin/i, n => `https://www.hanjin.com/kor/CMS/DeliveryMgr/WaybillResult.do?mCode=MN038&schLang=KR&wblnumText2=${n}`],
+  [/롯데|lotte|현대|hd_cs/i, n => `https://www.lotteglogis.com/home/reservation/tracking/linkView?InvNo=${n}`],
+  [/로젠|logen/i, n => `https://www.ilogen.com/web/personal/trace/${n}`],
+  [/우편|epost/i, n => `https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=${n}`],
+];
+
+function trackingUrl(carrier: string | null, no: string): string | null {
+  if (!carrier) return null;
+  for (const [re, fn] of TRACKING_URLS) {
+    if (re.test(carrier)) return fn(no);
+  }
+  return null;
+}
 import { fetchOrder, cancelOrder, orderStatusLabel, orderStatusColor } from '@/lib/shop-data';
 import AppToast from '@/components/AppToast';
 import BusinessFooter from '@/components/shop/BusinessFooter';
@@ -90,6 +108,9 @@ function OrderDetailContent() {
   }
 
   const canCancel = order.status === 'pending' || order.status === 'paid';
+  // 배송 완료 후 7일 이내 청약 철회 (전자상거래법 17조)
+  const canRefundRequest = order.status === 'delivered' && order.delivered_at &&
+    (Date.now() - new Date(order.delivered_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
   const latestPayment = payments[0];
   const statusIcon = order.status === 'pending' ? <Clock size={18} /> :
                      order.status === 'paid' ? <CheckCircle size={18} /> :
@@ -130,15 +151,26 @@ function OrderDetailContent() {
             </div>
           </div>
           <p className="text-xs text-[var(--muted)] mt-2">주문번호 · <span className="font-bold text-[var(--foreground)]">{order.order_no ?? order.id.slice(0, 8)}</span></p>
-          {order.tracking_no && (
-            <div className="mt-3 pt-3 border-t border-emerald-200/30 dark:border-emerald-900/20 flex items-center gap-2">
-              <Truck size={14} className="text-emerald-600" />
-              <p className="text-xs">
-                <span className="text-[var(--muted)]">{order.tracking_carrier} </span>
-                <span className="font-bold">{order.tracking_no}</span>
-              </p>
-            </div>
-          )}
+          {order.tracking_no && (() => {
+            const url = trackingUrl(order.tracking_carrier, order.tracking_no);
+            const inner = (
+              <div className="flex items-center gap-2">
+                <Truck size={14} className="text-emerald-600 flex-shrink-0" />
+                <p className="text-xs flex-1">
+                  <span className="text-[var(--muted)]">{order.tracking_carrier} </span>
+                  <span className="font-bold">{order.tracking_no}</span>
+                </p>
+                {url && <ExternalLink size={12} className="text-emerald-600" />}
+              </div>
+            );
+            return (
+              <div className="mt-3 pt-3 border-t border-emerald-200/30 dark:border-emerald-900/20">
+                {url ? (
+                  <a href={url} target="_blank" rel="noopener noreferrer" className="block active:scale-[0.99] transition">{inner}</a>
+                ) : inner}
+              </div>
+            );
+          })()}
           {order.cancelled_reason && (
             <div className="mt-3 p-3 rounded-xl bg-red-50 dark:bg-red-950/20 flex items-start gap-2">
               <AlertCircle size={14} className="text-red-500 flex-shrink-0 mt-0.5" />
@@ -209,6 +241,19 @@ function OrderDetailContent() {
               {latestPayment.method ?? '카드'} · {new Date(latestPayment.approved_at).toLocaleString('ko-KR')}
             </p>
           )}
+          {(() => {
+            const raw = latestPayment?.raw_response as { receipt?: { url?: string } } | null | undefined;
+            const url = raw?.receipt?.url;
+            if (!url) return null;
+            return (
+              <a
+                href={url} target="_blank" rel="noopener noreferrer"
+                className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 active:scale-95"
+              >
+                <Receipt size={12} /> 영수증 보기 <ExternalLink size={11} />
+              </a>
+            );
+          })()}
         </div>
       </Section>
 
@@ -220,8 +265,24 @@ function OrderDetailContent() {
             disabled={cancelling}
             className="w-full py-3.5 rounded-2xl border-2 border-red-200 dark:border-red-900/40 bg-red-50/50 dark:bg-red-950/20 text-red-600 text-sm font-bold disabled:opacity-50 active:scale-[0.98]"
           >
-            {cancelling ? '처리 중…' : '주문 취소'}
+            {cancelling ? '처리 중…' : (order.status === 'pending' ? '주문 취소' : '결제 취소·환불')}
           </button>
+          {order.status === 'pending' && (
+            <p className="text-[11px] text-[var(--muted)] mt-2 text-center">결제 미완료 상태라 즉시 취소돼요</p>
+          )}
+        </div>
+      )}
+      {canRefundRequest && (
+        <div className="px-4 mt-5 space-y-2">
+          <a
+            href={`mailto:routinist@openhan.kr?subject=${encodeURIComponent(`반품·환불 요청 (${order.order_no ?? order.id.slice(0,8)})`)}&body=${encodeURIComponent(`주문번호: ${order.order_no}\n사유: \n\n수령일로부터 7일 이내 청약철회 가능합니다.`)}`}
+            className="w-full py-3.5 rounded-2xl border-2 border-amber-200 dark:border-amber-900/40 bg-amber-50/60 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300 text-sm font-bold inline-flex items-center justify-center gap-2 active:scale-[0.98]"
+          >
+            <RotateCcw size={15} /> 반품·환불 신청
+          </a>
+          <p className="text-[11px] text-[var(--muted)] text-center break-keep">
+            수령일로부터 7일 이내, 단순 변심 시 왕복 배송비 부담
+          </p>
         </div>
       )}
 
