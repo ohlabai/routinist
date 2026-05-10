@@ -95,15 +95,21 @@ public class WorkoutRoutePlugin: CAPPlugin, CAPBridgedPlugin {
             // 각 워크아웃에서 경로 추출.
             // build 58 안전망: 어떤 fetchRoute callback 이 안 오는 케이스 (HKWorkoutRouteQuery 의 done=true 가 영영
             // 안 오는 edge) 에 대비, 50s 후 부분 결과라도 강제 resolve. 사용자가 audit 페이지에서 영영 spinner 도는 회귀 차단.
+            // build 후속 fix: timeout 시 활성 HK query 들을 stop 하지 않으면 다음 audit 호출 때 누적 → 메모리 누수.
             let group = DispatchGroup()
             var results: [[String: Any]] = []
+            var activeQueries: [HKQuery] = []
             let lock = NSLock()
             var resolved = false
-            let resolveOnce: ([String: Any]) -> Void = { payload in
+            let resolveOnce: ([String: Any]) -> Void = { [weak self] payload in
                 lock.lock()
-                defer { lock.unlock() }
-                guard !resolved else { return }
+                guard !resolved else { lock.unlock(); return }
                 resolved = true
+                let queriesToStop = activeQueries
+                activeQueries.removeAll()
+                lock.unlock()
+                // 진행 중인 HK query 모두 정리 — leak 방지.
+                queriesToStop.forEach { self?.healthStore.stop($0) }
                 call.resolve(payload)
             }
 
@@ -116,7 +122,11 @@ public class WorkoutRoutePlugin: CAPPlugin, CAPBridgedPlugin {
 
             for workout in workouts {
                 group.enter()
-                self.fetchRoute(for: workout) { routeData in
+                self.fetchRoute(for: workout, registerQuery: { q in
+                    lock.lock()
+                    activeQueries.append(q)
+                    lock.unlock()
+                }) { routeData in
                     if let routeData = routeData {
                         lock.lock()
                         results.append(routeData)
@@ -137,7 +147,7 @@ public class WorkoutRoutePlugin: CAPPlugin, CAPBridgedPlugin {
         healthStore.execute(query)
     }
 
-    private func fetchRoute(for workout: HKWorkout, completion: @escaping ([String: Any]?) -> Void) {
+    private func fetchRoute(for workout: HKWorkout, registerQuery: @escaping (HKQuery) -> Void, completion: @escaping ([String: Any]?) -> Void) {
         let routeType = HKSeriesType.workoutRoute()
         let predicate = HKQuery.predicateForObjects(from: workout)
 
@@ -156,8 +166,18 @@ public class WorkoutRoutePlugin: CAPPlugin, CAPBridgedPlugin {
 
             // Route에서 CLLocation 배열 추출
             var allLocations: [[Double]] = []
+            var routeCompleted = false
 
-            let routeDataQuery = HKWorkoutRouteQuery(route: route) { _, locations, done, error in
+            let routeDataQuery = HKWorkoutRouteQuery(route: route) { query, locations, done, error in
+                // error 가 있고 done 이 false 면 callback 이 더 이상 안 올 수 있음 — completion 호출하고 종료.
+                if let _ = error, !done {
+                    if !routeCompleted {
+                        routeCompleted = true
+                        completion(nil)
+                    }
+                    return
+                }
+
                 if let locations = locations {
                     for location in locations {
                         // GeoJSON 형식: [lng, lat, elevation]
@@ -170,6 +190,8 @@ public class WorkoutRoutePlugin: CAPPlugin, CAPBridgedPlugin {
                 }
 
                 if done {
+                    if routeCompleted { return }
+                    routeCompleted = true
                     if allLocations.isEmpty {
                         completion(nil)
                         return
@@ -187,9 +209,11 @@ public class WorkoutRoutePlugin: CAPPlugin, CAPBridgedPlugin {
                 }
             }
 
+            registerQuery(routeDataQuery)
             self.healthStore.execute(routeDataQuery)
         }
 
+        registerQuery(routeQuery)
         healthStore.execute(routeQuery)
     }
 }

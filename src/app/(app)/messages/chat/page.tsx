@@ -10,6 +10,7 @@ import { ArrowLeft, Send, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import type { Message, Profile } from '@/types';
 import AppLogo from '@/components/AppLogo';
+import { logClientWarn } from '@/lib/error-logger';
 
 function ChatView() {
   const searchParams = useSearchParams();
@@ -52,7 +53,9 @@ function ChatView() {
 
       // 읽음 처리
       await markAsRead(conversationId, user.id);
-    } catch {} finally {
+    } catch (e) {
+      logClientWarn('chat', 'loadData 실패', { conversationId, err: String(e) });
+    } finally {
       setLoading(false);
       setTimeout(scrollToBottom, 100);
     }
@@ -85,13 +88,19 @@ function ChatView() {
     return () => { supabase.removeChannel(channel); };
   }, [conversationId, user]);
 
+  const [sendError, setSendError] = useState<string | null>(null);
   const handleSend = async () => {
     if (!newMessage.trim() || !conversationId || sending) return;
     setSending(true);
+    setSendError(null);
     try {
       await sendMessage(conversationId, newMessage.trim());
       setNewMessage('');
-    } catch {} finally {
+    } catch (e) {
+      logClientWarn('chat', 'sendMessage 실패', { conversationId, err: String(e) });
+      setSendError('전송 실패. 네트워크 확인 후 다시 시도해주세요.');
+      setTimeout(() => setSendError(null), 3500);
+    } finally {
       setSending(false);
     }
   };
@@ -155,6 +164,11 @@ function ChatView() {
 
       {/* 입력 영역 — 모바일 트렌드 (인스타/카톡 톤). 큰 폰트, 둥근 캡슐, safe-area-bottom 보정.
           layout 에서 채팅 페이지 nav 가 숨겨졌으니 입력창이 nav 에 가리지 않음. */}
+      {sendError && (
+        <div className="px-4 py-2 text-sm text-red-500 bg-red-500/10 border-t border-red-500/30 text-center">
+          {sendError}
+        </div>
+      )}
       <div className="flex-shrink-0 border-t border-[var(--card-border)] px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)] bg-[var(--background)]">
         <div className="flex items-center gap-2">
           <input

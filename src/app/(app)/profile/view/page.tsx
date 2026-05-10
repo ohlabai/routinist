@@ -13,6 +13,7 @@ import { ArrowLeft, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import type { Profile, Activity } from '@/types';
 import AppLogo from '@/components/AppLogo';
+import { logClientWarn } from '@/lib/error-logger';
 
 function UserProfile() {
   const searchParams = useSearchParams();
@@ -45,7 +46,9 @@ function UserProfile() {
       setActivities((activitiesRes.data || []) as Activity[]);
       setFollowing(isFollowingRes);
       setFollowCounts(countsRes);
-    } catch {} finally { setLoading(false); }
+    } catch (e) {
+      logClientWarn('profile-view', 'loadData 실패', { userId, err: String(e) });
+    } finally { setLoading(false); }
   }, [userId]);
 
   useEffect(() => { loadData(); }, [loadData]);

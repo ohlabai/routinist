@@ -8,6 +8,7 @@ import Link from 'next/link';
 import type { RegionalRanking } from '@/types';
 import AppLogo from '@/components/AppLogo';
 import { COUNTRIES as ALL_COUNTRIES, KR_REGIONS } from '@/lib/regions';
+import { logClientWarn } from '@/lib/error-logger';
 
 // 랭킹 페이지에서 보여줄 국가 목록 — 전체 국가 목록 사용 (다국가 사용자 대응)
 const COUNTRIES = ALL_COUNTRIES.map(c => ({ code: c.code, name: c.native }));
@@ -61,7 +62,9 @@ export default function RankingsPage() {
       const region = rankLevel === 'district' ? selectedDistrict : selectedProvince;
       const data = await fetchRegionalRankings(region, year, month);
       setRankings(data);
-    } catch {} finally { setLoading(false); }
+    } catch (e) {
+      logClientWarn('rankings', 'fetchRegionalRankings 실패', { region: rankLevel === 'district' ? selectedDistrict : selectedProvince, year, month, err: String(e) });
+    } finally { setLoading(false); }
   }, [selectedDistrict, selectedProvince, rankLevel, year, month]);
 
   useEffect(() => { loadRankings(); }, [loadRankings]);
