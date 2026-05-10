@@ -20,12 +20,19 @@ BEGIN NEW.updated_at = NOW(); RETURN NEW; END $$;
 
 ------------------------------------------------------------
 -- (b) products.is_active → GENERATED column
--- 기존 컬럼 drop 후 재생성. cafe24/import 가 INSERT 시 is_active 명시 안 하도록 동시 변경됨.
+-- 의존 정책 (products_select) 가 is_active 참조 — drop 전 정책도 같이 갱신.
+-- cafe24/import 도 INSERT 시 is_active 명시 안 하도록 동시 변경됨 (GENERATED 는 set 불가).
 ------------------------------------------------------------
+DROP POLICY IF EXISTS products_select ON public.products;
+
 ALTER TABLE public.products DROP COLUMN IF EXISTS is_active;
 ALTER TABLE public.products
   ADD COLUMN is_active BOOLEAN
   GENERATED ALWAYS AS (status = 'published') STORED;
+
+-- published 상품은 누구나 read (이전 정책 재생성, status 기반)
+CREATE POLICY products_select ON public.products
+  FOR SELECT USING (status = 'published');
 
 ------------------------------------------------------------
 -- (c) create_order_draft 재정의 — retry loop + 0원 거부
