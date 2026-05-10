@@ -1,10 +1,10 @@
 'use client';
 
-// 배송지 관리 — 추가 / 수정 / 기본 지정 / 삭제.
+// 배송지 관리 — 모던 모바일 UX/UI (에메랄드 그린).
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, MapPin, Plus, Edit2, Trash2, Star } from 'lucide-react';
+import { ArrowLeft, MapPin, Plus, Edit2, Trash2, Star, Home } from 'lucide-react';
 import {
   fetchAddresses, createAddress, updateAddress, deleteAddress,
   type NewAddressInput,
@@ -75,9 +75,7 @@ export default function AddressesPage() {
       if (editing === 'new') {
         const created = await createAddress(form);
         setList(prev => {
-          const updated = form.is_default
-            ? prev.map(a => ({ ...a, is_default: false }))
-            : prev;
+          const updated = form.is_default ? prev.map(a => ({ ...a, is_default: false })) : prev;
           return [created, ...updated];
         });
         showToast('새 배송지 추가 완료');
@@ -122,91 +120,66 @@ export default function AddressesPage() {
   if (loading || authLoading) {
     return (
       <div className="flex justify-center py-20">
-        <div className="animate-spin w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full" />
+        <div className="animate-spin w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-lg mx-auto pb-12">
-      <div className="flex items-center gap-3 px-4 py-3 sticky top-0 bg-[var(--background)]/95 backdrop-blur z-10">
-        <button onClick={() => router.back()} className="p-1 active:scale-90" aria-label="뒤로">
-          <ArrowLeft size={24} className="text-[var(--foreground)]" />
-        </button>
-        <h1 className="text-xl font-bold text-[var(--foreground)] flex-1">배송지 관리</h1>
-        {!editing && (
-          <button
-            onClick={startNew}
-            className="text-sm text-[var(--accent)] font-semibold inline-flex items-center gap-1 active:scale-95"
-          >
-            <Plus size={16} /> 추가
+    <div className="max-w-lg mx-auto pb-12 bg-[var(--background)] min-h-screen">
+      <header className="sticky top-0 z-30 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
+        <div className="flex items-center gap-2 px-3 py-3">
+          <button onClick={() => router.back()} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition">
+            <ArrowLeft size={20} />
           </button>
-        )}
-      </div>
+          <h1 className="text-xl font-extrabold tracking-tight flex-1">배송지 관리</h1>
+          {!editing && (
+            <button
+              onClick={startNew}
+              className="text-xs font-bold text-emerald-600 inline-flex items-center gap-1 active:scale-95 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30"
+            >
+              <Plus size={14} /> 추가
+            </button>
+          )}
+        </div>
+      </header>
 
       {/* 폼 (편집/추가) */}
       {editing && (
-        <div className="px-4 mb-3">
-          <div className="card p-4 space-y-2">
-            <p className="text-sm font-bold text-[var(--foreground)] mb-2">
-              {editing === 'new' ? '새 배송지' : '배송지 수정'}
+        <div className="px-4 mt-4">
+          <div className="card p-5 space-y-3 border-2 border-emerald-200 dark:border-emerald-900/40">
+            <p className="text-sm font-extrabold inline-flex items-center gap-1.5">
+              {editing === 'new' ? <><Plus size={14} className="text-emerald-500" /> 새 배송지</> : <><Edit2 size={14} className="text-emerald-500" /> 배송지 수정</>}
             </p>
-            <input
-              type="text" placeholder="별칭 (집, 회사 등)"
-              value={form.label ?? ''}
-              onChange={e => setForm({ ...form, label: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg bg-[var(--background)] border border-[var(--card-border)] text-sm"
-            />
-            <input
-              type="text" placeholder="받는 사람 이름 *"
-              value={form.recipient_name}
-              onChange={e => setForm({ ...form, recipient_name: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg bg-[var(--background)] border border-[var(--card-border)] text-sm"
-            />
-            <input
-              type="tel" placeholder="연락처 (010-1234-5678) *"
-              value={form.phone}
-              onChange={e => setForm({ ...form, phone: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg bg-[var(--background)] border border-[var(--card-border)] text-sm"
-            />
-            <input
-              type="text" placeholder="우편번호 *"
-              value={form.postal_code}
-              onChange={e => setForm({ ...form, postal_code: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg bg-[var(--background)] border border-[var(--card-border)] text-sm"
-            />
-            <input
-              type="text" placeholder="기본 주소 *"
-              value={form.address_line1}
-              onChange={e => setForm({ ...form, address_line1: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg bg-[var(--background)] border border-[var(--card-border)] text-sm"
-            />
-            <input
-              type="text" placeholder="상세 주소 (선택)"
-              value={form.address_line2 ?? ''}
-              onChange={e => setForm({ ...form, address_line2: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg bg-[var(--background)] border border-[var(--card-border)] text-sm"
-            />
-            <label className="flex items-center gap-2 mt-2">
+            <Input placeholder="별칭 (집, 회사 등)" value={form.label ?? ''} onChange={v => setForm({ ...form, label: v })} />
+            <Input placeholder="받는 사람 이름 *" value={form.recipient_name} onChange={v => setForm({ ...form, recipient_name: v })} />
+            <Input type="tel" placeholder="연락처 (010-1234-5678) *" value={form.phone} onChange={v => setForm({ ...form, phone: v })} />
+            <Input placeholder="우편번호 *" value={form.postal_code} onChange={v => setForm({ ...form, postal_code: v })} />
+            <Input placeholder="기본 주소 *" value={form.address_line1} onChange={v => setForm({ ...form, address_line1: v })} />
+            <Input placeholder="상세 주소 (선택)" value={form.address_line2 ?? ''} onChange={v => setForm({ ...form, address_line2: v })} />
+            <label className="flex items-center gap-2.5 mt-2 cursor-pointer">
               <input
                 type="checkbox"
                 checked={form.is_default}
                 onChange={e => setForm({ ...form, is_default: e.target.checked })}
-                className="w-4 h-4 accent-emerald-500"
+                className="w-5 h-5 rounded accent-emerald-500"
               />
-              <span className="text-sm text-[var(--foreground)]">기본 배송지로 설정</span>
+              <span className="text-sm text-[var(--foreground)] inline-flex items-center gap-1">
+                <Star size={12} className={form.is_default ? 'text-emerald-500 fill-emerald-500' : 'text-[var(--muted)]'} />
+                기본 배송지로 설정
+              </span>
             </label>
-            <div className="flex gap-2 mt-3">
+            <div className="flex gap-2 pt-2">
               <button
                 onClick={cancelEdit}
-                className="flex-1 py-2.5 rounded-xl border border-[var(--card-border)] text-sm font-semibold text-[var(--muted)]"
+                className="flex-1 py-3 rounded-2xl border border-[var(--card-border)] text-sm font-bold text-[var(--muted)] active:scale-[0.98]"
               >
                 취소
               </button>
               <button
                 onClick={handleSave}
                 disabled={submitting}
-                className="flex-1 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-bold active:scale-95 disabled:opacity-50"
+                className="flex-1 py-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-sm font-extrabold active:scale-[0.98] disabled:opacity-50 shadow-md shadow-emerald-500/25"
               >
                 {submitting ? '저장 중…' : '저장'}
               </button>
@@ -217,59 +190,65 @@ export default function AddressesPage() {
 
       {/* 목록 */}
       {list.length === 0 && !editing ? (
-        <div className="text-center py-20 px-4">
-          <MapPin size={48} className="mx-auto mb-4 text-[var(--muted)]" />
-          <p className="text-sm text-[var(--muted)]">등록된 배송지가 없어요</p>
+        <div className="text-center py-24 px-6">
+          <div className="w-24 h-24 rounded-full bg-emerald-50 dark:bg-emerald-950/30 mx-auto mb-5 flex items-center justify-center">
+            <MapPin size={42} className="text-emerald-500" />
+          </div>
+          <p className="text-lg font-extrabold mb-1.5">등록된 배송지가 없어요</p>
+          <p className="text-sm text-[var(--muted)] mb-7">첫 배송지를 추가해 주세요</p>
           <button
             onClick={startNew}
-            className="mt-4 inline-flex items-center gap-1 px-5 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-bold active:scale-95"
+            className="inline-flex items-center gap-1.5 px-6 py-3 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-bold shadow-md shadow-emerald-500/30 active:scale-95"
           >
             <Plus size={16} /> 첫 배송지 추가
           </button>
         </div>
       ) : (
-        <div className="px-4 space-y-2">
+        <div className="px-4 mt-4 space-y-2.5">
           {list.map(a => (
-            <div key={a.id} className="card p-4">
-              <div className="flex items-start justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-bold text-[var(--foreground)]">{a.recipient_name}</p>
+            <div
+              key={a.id}
+              className={`card p-4 ${a.is_default ? 'border-2 border-emerald-200 dark:border-emerald-900/40 bg-gradient-to-br from-emerald-50/30 to-transparent dark:from-emerald-950/10' : ''}`}
+            >
+              <div className="flex items-start justify-between mb-1.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-extrabold">{a.recipient_name}</p>
                   {a.label && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--card-border)]/60 text-[var(--muted)]">
-                      {a.label}
+                    <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 inline-flex items-center gap-1">
+                      <Home size={10} /> {a.label}
                     </span>
                   )}
                   {a.is_default && (
-                    <span className="text-xs text-emerald-600 font-bold inline-flex items-center gap-0.5">
-                      <Star size={12} fill="currentColor" /> 기본
+                    <span className="text-[10px] font-extrabold text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full bg-emerald-500 text-white inline-flex items-center gap-1">
+                      <Star size={10} fill="currentColor" /> 기본
                     </span>
                   )}
                 </div>
               </div>
-              <p className="text-xs text-[var(--muted)] mb-1">{a.phone}</p>
-              <p className="text-xs text-[var(--foreground)]">
+              <p className="text-[11px] text-[var(--muted)] mb-1">{a.phone}</p>
+              <p className="text-xs text-[var(--foreground)] leading-relaxed">
                 [{a.postal_code}] {a.address_line1} {a.address_line2 ?? ''}
               </p>
-              <div className="flex gap-1 mt-3 pt-3 border-t border-[var(--card-border)]">
+              <div className="flex gap-1 mt-3 pt-3 border-t border-[var(--card-border)]/40">
                 {!a.is_default && (
                   <button
                     onClick={() => handleSetDefault(a.id)}
-                    className="flex-1 py-2 rounded-lg text-xs font-semibold text-emerald-600 active:scale-95"
+                    className="flex-1 py-2 rounded-xl text-[11px] font-bold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-95"
                   >
                     기본 지정
                   </button>
                 )}
                 <button
                   onClick={() => startEdit(a)}
-                  className="flex-1 py-2 rounded-lg text-xs font-semibold text-[var(--muted)] active:scale-95 inline-flex items-center justify-center gap-1"
+                  className="flex-1 py-2 rounded-xl text-[11px] font-bold text-[var(--muted)] hover:bg-[var(--card)] active:scale-95 inline-flex items-center justify-center gap-1"
                 >
-                  <Edit2 size={12} /> 수정
+                  <Edit2 size={11} /> 수정
                 </button>
                 <button
                   onClick={() => handleDelete(a.id)}
-                  className="flex-1 py-2 rounded-lg text-xs font-semibold text-red-500 active:scale-95 inline-flex items-center justify-center gap-1"
+                  className="flex-1 py-2 rounded-xl text-[11px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 active:scale-95 inline-flex items-center justify-center gap-1"
                 >
-                  <Trash2 size={12} /> 삭제
+                  <Trash2 size={11} /> 삭제
                 </button>
               </div>
             </div>
@@ -279,5 +258,19 @@ export default function AddressesPage() {
 
       {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2500} />}
     </div>
+  );
+}
+
+function Input({
+  placeholder, value, onChange, type = 'text',
+}: { placeholder: string; value: string; onChange: (v: string) => void; type?: string }) {
+  return (
+    <input
+      type={type}
+      placeholder={placeholder}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--background)] border-2 border-[var(--card-border)] text-sm font-medium focus:outline-none focus:border-emerald-500 transition placeholder:text-[var(--muted)]"
+    />
   );
 }

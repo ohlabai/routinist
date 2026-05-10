@@ -1,11 +1,13 @@
 'use client';
 
-// 장바구니 — 수량 조정 / 삭제 / 결제로 진행.
+// 장바구니 — 모던 모바일 UX/UI (에메랄드 그린).
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Trash2, Plus, Minus, Package, ShoppingBag } from 'lucide-react';
+import {
+  ArrowLeft, Trash2, Plus, Minus, Package, ShoppingBag, Sparkles, ChevronRight,
+} from 'lucide-react';
 import { fetchCart, updateCartQuantity, removeFromCart } from '@/lib/shop-data';
 import { useAuth } from '@/components/AuthProvider';
 import AppToast from '@/components/AppToast';
@@ -22,12 +24,10 @@ export default function CartPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) {
-      router.replace('/login');
-      return;
-    }
+    if (!user) { router.replace('/login'); return; }
     let cancelled = false;
-    fetchCart().then(c => { if (!cancelled) setItems(c); })
+    fetchCart()
+      .then(c => { if (!cancelled) setItems(c); })
       .catch(e => { if (!cancelled) console.warn('[cart] load fail', e); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -45,6 +45,11 @@ export default function CartPage() {
     return { subtotal, shipping, total: subtotal + shipping, count };
   }, [items]);
 
+  const showToast = (text: string) => {
+    setToast(text);
+    setTimeout(() => setToast(null), 2500);
+  };
+
   const handleQty = async (itemId: string, next: number) => {
     setBusy(itemId);
     try {
@@ -55,8 +60,7 @@ export default function CartPage() {
         const item = items.find(i => i.id === itemId);
         const stock = item?.variant?.stock ?? item?.product?.stock ?? 99;
         if (next > stock) {
-          setToast(`재고가 부족해요 (최대 ${stock}개)`);
-          setTimeout(() => setToast(null), 2500);
+          showToast(`재고가 부족해요 (최대 ${stock}개)`);
           return;
         }
         await updateCartQuantity(itemId, next);
@@ -64,8 +68,7 @@ export default function CartPage() {
       }
     } catch (e) {
       console.warn('[cart] update fail', e);
-      setToast('실패했어요. 다시 시도해주세요');
-      setTimeout(() => setToast(null), 2500);
+      showToast('실패했어요. 다시 시도해주세요');
     } finally {
       setBusy(null);
     }
@@ -89,44 +92,97 @@ export default function CartPage() {
     router.push('/shop/checkout?mode=cart');
   };
 
+  const progressToFreeShipping = useMemo(() => {
+    if (totals.subtotal === 0 || totals.subtotal >= 50000) return null;
+    const remaining = 50000 - totals.subtotal;
+    const pct = Math.min(100, (totals.subtotal / 50000) * 100);
+    return { remaining, pct };
+  }, [totals.subtotal]);
+
   if (loading) {
     return (
-      <div className="flex justify-center py-20">
-        <div className="animate-spin w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full" />
+      <div className="max-w-lg mx-auto pb-32">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <div className="w-9 h-9 rounded-full bg-[var(--card)] animate-pulse" />
+          <div className="h-6 w-32 bg-[var(--card)] rounded animate-pulse" />
+        </div>
+        <div className="px-4 space-y-3">
+          {[0,1,2].map(i => (
+            <div key={i} className="card p-3 flex gap-3">
+              <div className="w-20 h-20 rounded-xl bg-[var(--card-border)]/50 animate-pulse" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3 w-3/4 bg-[var(--card-border)]/50 rounded animate-pulse" />
+                <div className="h-3 w-1/2 bg-[var(--card-border)]/50 rounded animate-pulse" />
+                <div className="h-4 w-2/3 bg-[var(--card-border)]/50 rounded animate-pulse" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-lg mx-auto pb-32">
-      <div className="flex items-center gap-3 px-4 py-3 sticky top-0 bg-[var(--background)]/95 backdrop-blur z-10">
-        <button onClick={() => router.back()} className="p-1 active:scale-90" aria-label="뒤로">
-          <ArrowLeft size={24} className="text-[var(--foreground)]" />
-        </button>
-        <h1 className="text-xl font-bold text-[var(--foreground)] flex-1">장바구니 ({items.length})</h1>
-      </div>
+    <div className="max-w-lg mx-auto pb-32 bg-[var(--background)] min-h-screen">
+      {/* Sticky Header */}
+      <header className="sticky top-0 z-30 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
+        <div className="flex items-center gap-2 px-3 py-3">
+          <button
+            onClick={() => router.back()}
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition"
+            aria-label="뒤로"
+          >
+            <ArrowLeft size={20} className="text-[var(--foreground)]" />
+          </button>
+          <h1 className="text-xl font-extrabold tracking-tight text-[var(--foreground)]">
+            장바구니 <span className="text-emerald-500">{items.length}</span>
+          </h1>
+        </div>
+      </header>
 
       {items.length === 0 ? (
-        <div className="text-center py-20 px-4">
-          <ShoppingBag size={48} className="mx-auto mb-4 text-[var(--muted)]" />
-          <p className="text-sm text-[var(--muted)]">장바구니가 비어있어요</p>
+        <div className="text-center py-24 px-6">
+          <div className="w-24 h-24 rounded-full bg-emerald-50 dark:bg-emerald-950/30 mx-auto mb-5 flex items-center justify-center">
+            <ShoppingBag size={42} className="text-emerald-500" />
+          </div>
+          <p className="text-lg font-extrabold text-[var(--foreground)] mb-1.5">장바구니가 비어있어요</p>
+          <p className="text-sm text-[var(--muted)] mb-7">관심있는 상품을 담아보세요</p>
           <Link
             href="/shop"
-            className="inline-block mt-4 px-5 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-bold active:scale-95"
+            className="inline-flex items-center gap-1.5 px-6 py-3 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-bold shadow-md shadow-emerald-500/30 active:scale-95"
           >
-            쇼핑하러 가기
+            <Sparkles size={16} /> 쇼핑하러 가기
           </Link>
         </div>
       ) : (
         <>
-          <div className="px-4 space-y-3">
+          {/* 무료배송 진행 바 */}
+          {progressToFreeShipping && (
+            <div className="px-4 mt-4 mb-3">
+              <div className="card p-4 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 border-emerald-200/50 dark:border-emerald-900/30">
+                <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300 mb-2 inline-flex items-center gap-1.5">
+                  <Sparkles size={12} className="text-emerald-500" />
+                  <span>{progressToFreeShipping.remaining.toLocaleString()}원 더 담으면 무료배송!</span>
+                </p>
+                <div className="w-full h-2 rounded-full bg-emerald-100 dark:bg-emerald-950/40 overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 rounded-full transition-all duration-300"
+                    style={{ width: `${progressToFreeShipping.pct}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 아이템 목록 */}
+          <div className="px-4 space-y-2.5">
             {items.map(it => {
               const unit = (it.product?.price_krw ?? 0) + (it.variant?.price_delta_krw ?? 0);
               return (
-                <div key={it.id} className="card p-3 flex gap-3">
+                <div key={it.id} className="card p-3.5 flex gap-3.5 group">
                   <Link
                     href={`/shop/product?id=${it.product_id}`}
-                    className="w-20 h-20 rounded-xl bg-[var(--card-border)] overflow-hidden flex-shrink-0"
+                    className="w-20 h-20 rounded-2xl bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-zinc-900 dark:to-zinc-950 overflow-hidden flex-shrink-0 active:scale-95 transition"
                   >
                     {it.product?.thumbnail_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -138,41 +194,46 @@ export default function CartPage() {
                   <div className="flex-1 min-w-0 flex flex-col justify-between">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-[var(--foreground)] line-clamp-2 leading-tight">
+                        {it.product?.brand && (
+                          <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">{it.product.brand}</p>
+                        )}
+                        <p className="text-sm font-semibold text-[var(--foreground)] line-clamp-2 leading-snug">
                           {it.product?.name ?? '(상품 없음)'}
                         </p>
                         {it.variant?.option_value && (
-                          <p className="text-xs text-[var(--muted)] mt-0.5">{it.variant.option_value}</p>
+                          <p className="text-[11px] text-[var(--muted)] mt-0.5 inline-block px-1.5 py-0.5 rounded bg-[var(--card-border)]/40">
+                            {it.variant.option_value}
+                          </p>
                         )}
                       </div>
                       <button
                         onClick={() => handleRemove(it.id)}
                         disabled={busy === it.id}
-                        className="text-[var(--muted)] active:scale-90 disabled:opacity-50"
+                        className="w-7 h-7 flex items-center justify-center text-[var(--muted)] hover:text-red-500 active:scale-90 disabled:opacity-50 transition"
                         aria-label="삭제"
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={15} />
                       </button>
                     </div>
                     <div className="flex items-center justify-between mt-2">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 px-1.5 py-1 rounded-full bg-[var(--card-border)]/30">
                         <button
                           onClick={() => handleQty(it.id, it.quantity - 1)}
                           disabled={busy === it.id}
-                          className="w-7 h-7 rounded-lg bg-[var(--card-border)]/50 flex items-center justify-center active:scale-90"
+                          className="w-7 h-7 rounded-full bg-white dark:bg-zinc-800 shadow-sm flex items-center justify-center active:scale-90 disabled:opacity-50"
                         >
-                          <Minus size={14} />
+                          <Minus size={13} />
                         </button>
-                        <span className="w-7 text-center text-sm font-bold">{it.quantity}</span>
+                        <span className="w-6 text-center text-sm font-extrabold">{it.quantity}</span>
                         <button
                           onClick={() => handleQty(it.id, it.quantity + 1)}
                           disabled={busy === it.id}
-                          className="w-7 h-7 rounded-lg bg-[var(--card-border)]/50 flex items-center justify-center active:scale-90"
+                          className="w-7 h-7 rounded-full bg-white dark:bg-zinc-800 shadow-sm flex items-center justify-center active:scale-90 disabled:opacity-50"
                         >
-                          <Plus size={14} />
+                          <Plus size={13} />
                         </button>
                       </div>
-                      <span className="text-base font-bold text-[var(--foreground)]">
+                      <span className="text-base font-extrabold text-[var(--foreground)]">
                         {(unit * it.quantity).toLocaleString()}원
                       </span>
                     </div>
@@ -182,47 +243,51 @@ export default function CartPage() {
             })}
           </div>
 
+          {/* 계속 쇼핑 link */}
+          <div className="px-4 mt-3">
+            <Link
+              href="/shop"
+              className="block text-center py-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 text-sm font-bold active:scale-[0.98] inline-flex items-center justify-center gap-1 w-full"
+            >
+              계속 쇼핑하기 <ChevronRight size={14} />
+            </Link>
+          </div>
+
           {/* 합계 카드 */}
           <div className="px-4 mt-5">
-            <div className="card p-4 space-y-2">
+            <div className="card p-5 space-y-2.5 bg-gradient-to-br from-emerald-50/30 to-transparent dark:from-emerald-950/10">
               <div className="flex justify-between text-sm">
                 <span className="text-[var(--muted)]">상품 금액</span>
-                <span className="text-[var(--foreground)] font-semibold">{totals.subtotal.toLocaleString()}원</span>
+                <span className="text-[var(--foreground)] font-bold">{totals.subtotal.toLocaleString()}원</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-[var(--muted)]">배송비</span>
-                <span className="text-[var(--foreground)] font-semibold">
-                  {totals.shipping === 0 ? '무료' : `${totals.shipping.toLocaleString()}원`}
+                <span className={`font-bold ${totals.shipping === 0 ? 'text-emerald-600' : 'text-[var(--foreground)]'}`}>
+                  {totals.shipping === 0 ? '무료 🎉' : `${totals.shipping.toLocaleString()}원`}
                 </span>
               </div>
-              {totals.shipping > 0 && (
-                <p className="text-xs text-[var(--accent)]">
-                  💡 {(50000 - totals.subtotal).toLocaleString()}원 더 담으면 배송비 무료!
-                </p>
-              )}
-              <div className="pt-2 border-t border-[var(--card-border)] flex justify-between items-baseline">
-                <span className="text-sm font-semibold">총 결제 금액</span>
-                <span className="text-xl font-extrabold text-[var(--accent)]">{totals.total.toLocaleString()}원</span>
+              <div className="pt-3 border-t border-emerald-200/40 dark:border-emerald-900/30 flex justify-between items-baseline">
+                <span className="text-sm font-bold">총 결제 금액</span>
+                <span className="text-2xl font-extrabold text-emerald-600">{totals.total.toLocaleString()}원</span>
               </div>
             </div>
           </div>
-        </>
-      )}
 
-      {items.length > 0 && <BusinessFooter variant="compact" />}
+          <BusinessFooter variant="compact" />
 
-      {/* 하단 sticky 결제 버튼 */}
-      {items.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-[var(--background)] border-t border-[var(--card-border)] safe-area-bottom">
-          <div className="max-w-lg mx-auto p-3">
-            <button
-              onClick={handleCheckout}
-              className="w-full py-3.5 rounded-xl bg-emerald-500 text-white font-bold text-base active:scale-95"
-            >
-              {totals.total.toLocaleString()}원 결제하기
-            </button>
+          {/* Sticky CTA */}
+          <div className="fixed bottom-0 left-1/2 -translate-x-1/2 max-w-lg w-full bg-[var(--background)]/95 backdrop-blur-lg border-t border-[var(--card-border)]/30 safe-area-bottom z-20">
+            <div className="p-3">
+              <button
+                onClick={handleCheckout}
+                className="w-full py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base active:scale-[0.98] shadow-md shadow-emerald-500/30 inline-flex items-center justify-center gap-2"
+              >
+                {totals.total.toLocaleString()}원 결제하기
+                <ChevronRight size={18} />
+              </button>
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {toast && <AppToast text={toast} tone="warn" onClose={() => setToast(null)} durationMs={2500} />}
