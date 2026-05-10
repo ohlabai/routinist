@@ -183,9 +183,9 @@ $$;
 -- ============================================================================
 ALTER FUNCTION public.award_mileage(UUID, TEXT, JSONB) SET search_path = public, pg_temp;
 ALTER FUNCTION public.award_distance_mileage(UUID) SET search_path = public, pg_temp;
-ALTER FUNCTION public.purge_old_client_error_logs(INT) SET search_path = public, pg_temp;
-ALTER FUNCTION public.routine_photos_trending(INT) SET search_path = public, pg_temp;
-ALTER FUNCTION public.daily_quote(DATE, TEXT) SET search_path = public, pg_temp;
+ALTER FUNCTION public.purge_old_client_error_logs(INTEGER) SET search_path = public, pg_temp;
+ALTER FUNCTION public.routine_photos_trending(UUID, INTEGER) SET search_path = public, pg_temp;
+ALTER FUNCTION public.daily_quote(DATE) SET search_path = public, pg_temp;
 ALTER FUNCTION public.toggle_quote_like(UUID) SET search_path = public, pg_temp;
 ALTER FUNCTION public.get_prediction_candidates(UUID, INTEGER) SET search_path = public, pg_temp;
 
