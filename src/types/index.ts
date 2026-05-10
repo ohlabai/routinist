@@ -245,16 +245,44 @@ export interface MileageTransaction {
 // 쇼핑 타입
 // =============================================
 
+export type ProductStatus = 'draft' | 'published' | 'archived';
+export type ProductSource = 'manual' | 'cafe24';
+
 export interface Product {
   id: string;
+  external_id: string | null;
+  source: ProductSource;
   name: string;
+  slug: string | null;
   description: string | null;
+  thumbnail_url: string | null;
+  image_url: string | null;          // legacy — thumbnail_url 우선
+  images: string[];                  // 추가 이미지 (gallery)
   price_krw: number;
-  mileage_price: number | null;
-  image_url: string | null;
-  stock: number;
-  is_active: boolean;
+  compare_price_krw: number | null;  // 정가 (할인 표시)
+  mileage_price: number | null;      // legacy — 마일리지로만 결제하는 가상 상품용
+  brand: string | null;
   category: string | null;
+  stock: number;
+  status: ProductStatus;
+  is_featured: boolean;
+  is_active: boolean;                // legacy
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductVariant {
+  id: string;
+  product_id: string;
+  external_id: string | null;
+  sku: string | null;
+  option_name: string | null;        // '사이즈'
+  option_value: string | null;       // 'M'
+  price_delta_krw: number;
+  stock: number;
+  is_default: boolean;
+  position: number;
   created_at: string;
   updated_at: string;
 }
@@ -263,26 +291,41 @@ export interface CartItem {
   id: string;
   user_id: string;
   product_id: string;
+  variant_id: string | null;
   quantity: number;
-  created_at: string;
+  added_at: string;
+  updated_at: string;
   product?: Product;
+  variant?: ProductVariant | null;
 }
 
-export type OrderStatus = 'pending' | 'paid' | 'shipping' | 'delivered' | 'cancelled' | 'refunded';
-export type PaymentMethod = 'card' | 'transfer' | 'mileage' | 'mixed';
+export type OrderStatus = 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled' | 'refunded';
+export type PaymentMethod = 'card' | 'kakaopay' | 'naverpay' | 'tosspay' | 'transfer' | 'mileage' | 'mixed';
 
 export interface Order {
   id: string;
   user_id: string;
+  order_no: string | null;
   status: OrderStatus;
-  total_krw: number;
+  subtotal_krw: number;
+  shipping_fee_krw: number;
   mileage_used: number;
+  total_krw: number;
   shipping_name: string | null;
   shipping_phone: string | null;
+  shipping_postal_code: string | null;
   shipping_address: string | null;
+  shipping_address_line2: string | null;
   shipping_memo: string | null;
   payment_method: PaymentMethod | null;
   payment_id: string | null;
+  paid_at: string | null;
+  shipped_at: string | null;
+  delivered_at: string | null;
+  tracking_carrier: string | null;
+  tracking_no: string | null;
+  cancelled_at: string | null;
+  cancelled_reason: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -291,10 +334,50 @@ export interface OrderItem {
   id: string;
   order_id: string;
   product_id: string;
+  variant_id: string | null;
   product_name: string;
-  quantity: number;
+  variant_label: string | null;
   unit_price_krw: number;
+  quantity: number;
+  subtotal_krw: number | null;       // unit_price_krw * quantity (legacy null 가능)
+  thumbnail_url: string | null;
   created_at: string;
+}
+
+export interface ShippingAddress {
+  id: string;
+  user_id: string;
+  recipient_name: string;
+  phone: string;
+  postal_code: string;
+  address_line1: string;
+  address_line2: string | null;
+  is_default: boolean;
+  label: string | null;              // '집' '회사' 등 별칭
+  created_at: string;
+  updated_at: string;
+}
+
+export type PaymentProvider = 'toss' | 'inicis' | 'mileage_only';
+export type PaymentStatus = 'pending' | 'done' | 'failed' | 'cancelled' | 'refunded' | 'partial_refunded';
+
+export interface ShopPayment {
+  id: string;
+  order_id: string;
+  provider: PaymentProvider;
+  provider_payment_key: string | null;
+  provider_order_id: string | null;
+  method: string | null;
+  amount_krw: number;
+  status: PaymentStatus;
+  raw_response: Record<string, unknown> | null;
+  failure_code: string | null;
+  failure_reason: string | null;
+  approved_at: string | null;
+  cancelled_at: string | null;
+  refunded_amount_krw: number;
+  created_at: string;
+  updated_at: string;
 }
 
 // =============================================
