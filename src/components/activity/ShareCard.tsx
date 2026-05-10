@@ -1,11 +1,11 @@
 'use client';
 
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { Share2, X, ChevronLeft, ChevronRight, ImagePlus, Check, Heart } from 'lucide-react';
+import { Share2, X, ChevronLeft, ChevronRight, ImagePlus, Check, ThumbsUp, Dices } from 'lucide-react';
 import { isNativeApp } from '@/lib/health-sync';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
-import { fetchDailyQuote, toggleQuoteLike, isFallbackQuote, type DailyQuote } from '@/lib/quotes-data';
+import { fetchRandomQuote, toggleQuoteLike, isFallbackQuote, type DailyQuote } from '@/lib/quotes-data';
 import { getSupabase } from '@/lib/supabase';
 import AppToast from '@/components/AppToast';
 import type { Activity } from '@/types';
@@ -84,29 +84,26 @@ const THEMES: Theme[] = [
   },
 ];
 
-// Canvas 에 하트 아이콘 그리기. filled 이면 채워진 빨강 하트, 아니면 외곽선만.
-function drawHeart(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number, filled: boolean, strokeColor: string) {
+// Canvas 에 thumbs-up (👍) 그리기 — lucide ThumbsUp 24x24 viewBox 기반 SVG path.
+// 색상은 에메랄드 그린 (emerald-500 #10b981). filled 이면 채움, 아니면 외곽선.
+function drawThumbsUp(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number, filled: boolean, strokeColor: string) {
   ctx.save();
-  ctx.beginPath();
-  const s = size / 24; // path 는 24x24 viewBox 기준 스케일
+  const s = size / 24;
   const x = cx - 12 * s;
-  const y = cy - 11 * s;
-  ctx.moveTo(x + 12 * s, y + 21 * s);
-  ctx.bezierCurveTo(x + 12 * s, y + 21 * s, x + 1 * s, y + 13.5 * s, x + 1 * s, y + 7 * s);
-  ctx.bezierCurveTo(x + 1 * s, y + 3.5 * s, x + 4 * s, y + 1 * s, x + 7 * s, y + 1 * s);
-  ctx.bezierCurveTo(x + 9.5 * s, y + 1 * s, x + 11 * s, y + 2.5 * s, x + 12 * s, y + 4 * s);
-  ctx.bezierCurveTo(x + 13 * s, y + 2.5 * s, x + 14.5 * s, y + 1 * s, x + 17 * s, y + 1 * s);
-  ctx.bezierCurveTo(x + 20 * s, y + 1 * s, x + 23 * s, y + 3.5 * s, x + 23 * s, y + 7 * s);
-  ctx.bezierCurveTo(x + 23 * s, y + 13.5 * s, x + 12 * s, y + 21 * s, x + 12 * s, y + 21 * s);
-  ctx.closePath();
+  const y = cy - 12 * s;
+  ctx.translate(x, y);
+  ctx.scale(s, s);
+  // lucide ThumbsUp path
+  const path = new Path2D('M7 10v12 M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z');
   if (filled) {
-    // 채워진 하트 — 외곽선 안 그림 (사진 배경 위에서 흰 외곽선이 거슬리는 신고).
-    ctx.fillStyle = '#ef4444';
-    ctx.fill();
+    ctx.fillStyle = '#10b981'; // emerald-500
+    ctx.fill(path);
   } else {
     ctx.strokeStyle = strokeColor;
     ctx.lineWidth = 2.5;
-    ctx.stroke();
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.stroke(path);
   }
   ctx.restore();
 }
@@ -212,14 +209,8 @@ function drawCard(
   const subColor = bgImage ? 'rgba(255,255,255,0.7)' : theme.textSub;
   const accentColor = bgImage ? '#ffffff' : theme.accent;
 
-  // 날짜 (상단)
+  // 날짜는 하단 월간 막대그래프의 today 라벨로 대체 (사용자 피드백 #13). 상단 공간 확보.
   ctx.textAlign = 'center';
-  ctx.font = '36px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillStyle = subColor;
-  const dateStr = new Date(activity.activity_date).toLocaleDateString('ko-KR', {
-    year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
-  });
-  ctx.fillText(dateStr, W / 2, 120);
 
   // 월간 합계 + 일별 거리 맵 — 그래프(하단) + stats 4번째 컬럼에서 사용.
   let monthSum = 0;
@@ -359,25 +350,34 @@ function drawCard(
     const startY = quoteY - ((lines.length - 1) * lineH) / 2;
     lines.forEach((line, i) => ctx.fillText(line, W / 2, startY + i * lineH));
 
-    // 하트 + 좋아요 숫자 — 명언 마지막 줄 아래 가운데 정렬. 모든 사용자에게 같은 카운트.
+    // 👍 좋아요 — 명언 마지막 줄과 같은 baseline 의 inline 위치 (사용자 피드백 #13).
+    // 마지막 줄 텍스트를 가운데 정렬한 후 그 끝 옆에 👍 + count 를 함께 그림.
     if (!isFallbackQuote(quote)) {
-      const heartSize = 32;
-      const gap = 12;
-      const heartY = startY + (lines.length - 1) * lineH + 70;
+      const thumbSize = 36;
+      const gap = 14;
+      const lastLineIdx = lines.length - 1;
+      const lastLineY = startY + lastLineIdx * lineH;
+      const lastLineText = lines[lastLineIdx];
 
-      ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
+      // 마지막 줄은 그대로 가운데 두고, 👍 + count 를 그 아래 inline 가까이 배치.
+      // 진짜 inline 은 가운데 정렬 깨져서 어색 — 마지막 줄 baseline 보다 0.55 lineH 아래.
+      ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, sans-serif';
       const countText = `${quote.like_count}`;
       const countW = ctx.measureText(countText).width;
-      const groupW = heartSize + gap + countW;
-      const heartCx = W / 2 - groupW / 2 + heartSize / 2;
-      const countX = heartCx + heartSize / 2 + gap;
+      const inlineGroupW = thumbSize + gap + countW;
 
-      drawHeart(ctx, heartCx, heartY, heartSize, quote.liked_by_me, subColor);
-      ctx.fillStyle = quote.liked_by_me ? '#ef4444' : subColor;
+      const thumbY = lastLineY + lineH * 0.55;
+      const thumbX = W / 2 - inlineGroupW / 2 + thumbSize / 2;
+      const countX = thumbX + thumbSize / 2 + gap;
+
+      drawThumbsUp(ctx, thumbX, thumbY, thumbSize, quote.liked_by_me, subColor);
+      ctx.fillStyle = quote.liked_by_me ? '#10b981' : subColor;
+      ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      ctx.fillText(countText, countX, heartY);
+      ctx.fillText(countText, countX, thumbY);
       ctx.textBaseline = 'alphabetic';
+      void lastLineText;
     }
   }
 
@@ -486,12 +486,18 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
   // 캘린더 저장은 항상 자동 (UI 표시 X — 사용자 의도).
   const [registerToGallery, setRegisterToGallery] = useState(true);
 
-  // 활동 날짜 기준 daily_quote 한 번 fetch. RPC 실패 시 fetchDailyQuote 안에서 fallback.
+  // 공유카드 열 때마다 random 명언 + 🎲 버튼으로 새로 굴릴 수 있음.
+  // SNS 도배 회피 + 사용자가 마음에 들 때까지 새로 받음.
   useEffect(() => {
     let cancelled = false;
-    fetchDailyQuote(activity.activity_date).then(q => { if (!cancelled) setQuote(q); });
+    fetchRandomQuote('ko').then(q => { if (!cancelled) setQuote(q); });
     return () => { cancelled = true; };
-  }, [activity.activity_date]);
+  }, [activity.id]);
+
+  const rerollQuote = useCallback(async () => {
+    const next = await fetchRandomQuote('ko', quote?.id);
+    setQuote(next);
+  }, [quote?.id]);
 
   const handleToggleLike = useCallback(async () => {
     if (!quote || likeBusy || isFallbackQuote(quote)) return;
@@ -679,10 +685,16 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="bg-[var(--background)] rounded-2xl max-w-sm w-full overflow-hidden max-h-[90vh] flex flex-col">
-        {/* 헤더 */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--card-border)] flex-shrink-0">
+        {/* 헤더 — 닫기 버튼 hit area 44+ (사용자 피드백 #1: 잘 안 눌림) */}
+        <div className="flex items-center justify-between pl-4 pr-2 py-2 border-b border-[var(--card-border)] flex-shrink-0">
           <h3 className="text-base font-bold text-[var(--foreground)]">공유 카드</h3>
-          <button onClick={onClose} className="text-[var(--muted)]"><X size={20} /></button>
+          <button
+            onClick={onClose}
+            aria-label="닫기"
+            className="p-3 -mr-1 text-[var(--muted)] active:scale-90 active:bg-[var(--card)] rounded-full transition"
+          >
+            <X size={24} strokeWidth={2.5} />
+          </button>
         </div>
 
         {/* 캔버스 */}
@@ -690,7 +702,7 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
           <canvas ref={canvasRef} className="w-full rounded-xl shadow-lg" style={{ aspectRatio: '9/16' }} />
         </div>
 
-        {/* 명언 좋아요 — 카드에 그려질 하트 상태와 동일. 클릭하면 카드 다시 그려짐. */}
+        {/* 명언 컨트롤 — 👍 좋아요 + 🎲 다른 명언. 클릭 시 카드 다시 그려짐. */}
         {quote && !isFallbackQuote(quote) && (
           <div className="px-4 pb-2 flex items-center justify-center gap-2 flex-shrink-0">
             <button
@@ -699,16 +711,23 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--card)] border border-[var(--card-border)] text-sm disabled:opacity-50"
               aria-label={quote.liked_by_me ? '좋아요 취소' : '명언 좋아요'}
             >
-              <Heart
+              <ThumbsUp
                 size={16}
-                className={quote.liked_by_me ? 'text-red-500' : 'text-[var(--muted)]'}
-                fill={quote.liked_by_me ? '#ef4444' : 'transparent'}
+                className={quote.liked_by_me ? 'text-emerald-500' : 'text-[var(--muted)]'}
+                fill={quote.liked_by_me ? '#10b981' : 'transparent'}
               />
-              <span className={quote.liked_by_me ? 'text-red-500 font-semibold' : 'text-[var(--muted)]'}>
+              <span className={quote.liked_by_me ? 'text-emerald-500 font-semibold' : 'text-[var(--muted)]'}>
                 {quote.like_count}
               </span>
             </button>
-            <span className="text-xs text-[var(--muted)]">오늘의 명언</span>
+            <button
+              onClick={rerollQuote}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--card)] border border-[var(--card-border)] text-sm text-[var(--muted)] active:scale-95"
+              aria-label="다른 명언"
+            >
+              <Dices size={16} />
+              <span>다른 명언</span>
+            </button>
           </div>
         )}
 

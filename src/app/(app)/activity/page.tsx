@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
-import { formatPace, formatDuration, deleteActivity } from '@/lib/routinist-data';
+import { formatPace, formatDuration } from '@/lib/routinist-data';
 import CommentSection from '@/components/social/CommentSection';
 import ShareCard from '@/components/activity/ShareCard';
 import { Share2 } from 'lucide-react';
@@ -17,7 +17,7 @@ function ActivityDetail() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user, profile } = useAuth();
-  const { activities, refresh } = useUserData();
+  const { activities } = useUserData();
   const id = searchParams.get('id');
 
   const [showShare, setShowShare] = useState(false);
@@ -31,13 +31,6 @@ function ActivityDetail() {
       </div>
     );
   }
-
-  const handleDelete = async () => {
-    if (!confirm('이 기록을 삭제하시겠습니까?')) return;
-    await deleteActivity(activity.id);
-    await refresh();
-    router.replace('/history');
-  };
 
   const sourceLabel = {
     manual: '수동 입력',
@@ -149,13 +142,15 @@ function ActivityDetail() {
         <CommentSection activityId={activity.id} activityOwnerId={activity.user_id} />
       </div>
 
-      {/* 삭제 (본인 활동만) */}
+      {/* 공유카드 만들기 — 사용자 피드백 #11: Apple Health sync 데이터 정합성 위해
+          기록 삭제는 제거. 활동 상세의 주된 동기는 공유이므로 큰 진입점으로 대체. */}
       {activity.user_id === user?.id && (
         <button
-          onClick={handleDelete}
-          className="w-full text-center text-sm text-red-500 py-3"
+          onClick={() => setShowShare(true)}
+          className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-emerald-500 text-white font-bold text-base active:scale-95 transition shadow-sm"
         >
-          기록 삭제
+          <Share2 size={20} />
+          공유카드 만들기
         </button>
       )}
     </div>

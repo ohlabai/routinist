@@ -96,3 +96,48 @@ export async function toggleQuoteLike(
 export function isFallbackQuote(q: DailyQuote): boolean {
   return q.id === FALLBACK_ID;
 }
+
+// 공유카드용 random 명언. 같은 날 같은 명언 (=daily_quote) 의 SNS 도배 회피 +
+// 사용자가 🎲 굴림 버튼으로 마음에 들 때까지 새로 받음.
+// `excludeId` 를 주면 직전 명언과 다른 명언이 나오도록 한 번 retry.
+export async function fetchRandomQuote(
+  lang: 'ko' | 'en' | 'ko_self' = 'ko',
+  excludeId?: string,
+): Promise<DailyQuote> {
+  try {
+    const supabase = getSupabase();
+    const pickOne = async (): Promise<DailyQuote | null> => {
+      // ORDER BY random() LIMIT 1 — 1095개 풀이라 비용 작음.
+      // 클라이언트가 직접 quotes 테이블 select. RLS 정책 'quotes_read' 가 모두 read 허용.
+      const { data, error } = await withTimeout(
+        supabase
+          .from('quotes')
+          .select('id, lang, category, text, author')
+          .eq('lang', lang)
+          .limit(50),
+        5000,
+        'quotes random select',
+      );
+      if (error) throw error;
+      const rows = (data ?? []) as Array<{ id: string; lang: 'ko' | 'en' | 'ko_self'; category: string | null; text: string; author: string | null }>;
+      if (rows.length === 0) return null;
+      const filtered = excludeId ? rows.filter((r) => r.id !== excludeId) : rows;
+      const pool = filtered.length > 0 ? filtered : rows;
+      const r = pool[Math.floor(Math.random() * pool.length)];
+      return {
+        id: r.id,
+        lang: r.lang,
+        category: r.category,
+        text: r.text,
+        author: r.author,
+        like_count: 0,
+        liked_by_me: false,
+      };
+    };
+    const q = await pickOne();
+    return q ?? staticFallback();
+  } catch (err) {
+    console.warn('quotes random select 실패, fallback:', err);
+    return staticFallback();
+  }
+}

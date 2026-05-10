@@ -233,10 +233,10 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
           />
           <button
             onClick={() => setShowLightbox(false)}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur flex items-center justify-center"
+            className="absolute top-3 right-3 w-12 h-12 rounded-full bg-white/20 active:bg-white/30 backdrop-blur flex items-center justify-center active:scale-95 transition"
             aria-label="닫기"
           >
-            <X size={20} className="text-white" />
+            <X size={26} strokeWidth={2.5} className="text-white" />
           </button>
           <div className="absolute left-4 right-4 bottom-[calc(env(safe-area-inset-bottom)+24px)] flex items-center justify-between gap-3" onClick={(e) => e.stopPropagation()}>
             <Link
