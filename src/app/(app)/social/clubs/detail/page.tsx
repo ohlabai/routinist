@@ -174,9 +174,12 @@ function ClubDetail() {
     try { await leaveClub(clubId); await loadData(); } catch {} finally { setActionLoading(false); }
   };
 
+  // 클럽 초대 URL — 네이티브 앱은 origin='capacitor://localhost' 라 외부에서 안 열림 (QR 스캔 시 "사용 가능한 데이터가 없음").
+  // 항상 public Vercel 도메인 사용. 받는 사람이 카메라로 스캔 → 브라우저 → 앱 설치된 경우 Universal Link (TODO).
+  const getInviteUrl = () => `https://bitrunners.kr/social/clubs/detail?id=${clubId}`;
+
   const handleCopyInvite = () => {
-    const url = `${window.location.origin}/social/clubs/detail?id=${clubId}`;
-    navigator.clipboard.writeText(url).then(() => {
+    navigator.clipboard.writeText(getInviteUrl()).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
@@ -1270,7 +1273,7 @@ function ClubDetail() {
           clubName={club.name}
           clubDescription={club.description ?? null}
           memberCount={club.member_count}
-          inviteUrl={typeof window !== 'undefined' ? `${window.location.origin}/social/clubs/detail?id=${clubId}` : ''}
+          inviteUrl={getInviteUrl()}
           onClose={() => setQrOpen(false)}
         />
       )}

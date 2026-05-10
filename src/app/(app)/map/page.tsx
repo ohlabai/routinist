@@ -300,7 +300,7 @@ export default function MapPage() {
             ? 'Apple Watch 러닝이 없어요'
             : `GPS 경로 0건 (${r.reason ?? '알 수 없음'})`);
         } else {
-          setRouteSyncMsg(`경로 ${r.fetched}건 확인 (이미 매칭됨)`);
+          setRouteSyncMsg(`GPS 경로 다 챙겨놨어요! ${r.fetched}건 ✨`);
         }
         setTimeout(() => setRouteSyncMsg(null), 4000);
       } catch (e) {

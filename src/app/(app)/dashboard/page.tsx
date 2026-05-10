@@ -409,15 +409,15 @@ export default function DashboardPage() {
         ]);
         if (r.success) {
           toast = r.synced > 0
-            ? `Apple Health: ${r.synced}건 추가됨`
+            ? `러닝 ${r.synced}건 새로 도착! 🎉`
             : r.meta?.totalFromHealth
-              ? `Apple Health: ${r.meta.totalFromHealth}건 확인 (이미 동기화됨)`
-              : 'Apple Health: 새 기록 없음';
+              ? `이미 최신이에요! ${r.meta.totalFromHealth}건 챙겨놨어요 ✨`
+              : '아직 새로운 기록은 없어요. 한 바퀴 돌아볼까요? 👟';
         } else {
-          toast = `동기화 실패: ${r.message}`;
+          toast = `동기화 중에 문제가 생겼어요\n${r.message}`;
         }
       } catch (e) {
-        toast = `동기화 실패: ${e instanceof Error ? e.message : '알 수 없음'}`;
+        toast = `동기화 중에 문제가 생겼어요\n${e instanceof Error ? e.message : '알 수 없음'}`;
       }
     }
     // 신문 모델 (build 58): hero 캐시도 같이 invalidate. UserDataProvider.refresh 만으론 hero 갱신 안 됨.
