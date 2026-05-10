@@ -18,6 +18,7 @@ import { ArrowLeft, UserPlus, Check, MapPin, MessageCircle, Gift, Trophy, Award,
 import { getSupabase } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthProvider';
 import { followUser, unfollowUser, isFollowing } from '@/lib/social-data';
+import { getOrCreateConversation } from '@/lib/message-data';
 import { PUBLIC_PROFILE_FIELDS } from '@/lib/profile-fields';
 import type { Profile } from '@/types';
 import AppLogo from '@/components/AppLogo';
@@ -334,13 +335,22 @@ function UserProfileContent() {
             {following ? <Check size={20} strokeWidth={3} /> : <UserPlus size={20} strokeWidth={2.5} />}
             <span className="text-xs">{following ? '친구' : '친구 추가'}</span>
           </button>
-          <Link
-            href={`/messages?to=${userId}`}
+          <button
+            onClick={async () => {
+              if (!user) return;
+              try {
+                const conv = await getOrCreateConversation(userId);
+                router.push(`/messages/chat?id=${conv.id}`);
+              } catch (e) {
+                logClientWarn('UserProfile', '쪽지 시작 실패', { userId, err: String(e) });
+                setToast({ text: '쪽지를 시작할 수 없어요', tone: 'warn' });
+              }
+            }}
             className="flex flex-col items-center justify-center gap-1 py-3 rounded-2xl bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 text-sm font-semibold active:scale-95 transition"
           >
             <MessageCircle size={20} />
             <span className="text-xs">쪽지</span>
-          </Link>
+          </button>
           <Link
             href={`/mileage/gift`}
             className="flex flex-col items-center justify-center gap-1 py-3 rounded-2xl bg-pink-50 dark:bg-pink-950/30 text-pink-700 dark:text-pink-300 text-sm font-semibold active:scale-95 transition"

@@ -1,6 +1,6 @@
 import { getSupabase } from './supabase';
 import type { Activity, UserMonthlyGoal } from '@/types';
-import { todayStr, daysAgoStr } from './kst';
+import { todayStr, daysAgoStr, startOfWeekStr } from './kst';
 
 // ===== Activities =====
 
@@ -150,12 +150,10 @@ export function getMonthlyDistance(activities: Activity[], year: number, month: 
 }
 
 export function getWeeklyActivities(activities: Activity[]): Activity[] {
-  const now = new Date();
-  const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - now.getDay()); // 일요일 시작
-  startOfWeek.setHours(0, 0, 0, 0);
-
-  return activities.filter(a => new Date(a.activity_date) >= startOfWeek);
+  // 주 시작 = 월요일 (KST). 일요일이 한 주의 마지막 날. activity_date 는 'YYYY-MM-DD' 문자열 (KST)
+  // 이라 string 비교가 정확. startOfWeekStr 은 사용자 timezone 의 그 주 월요일을 반환.
+  const monday = startOfWeekStr();
+  return activities.filter(a => a.activity_date >= monday);
 }
 
 export function getMaxStreak(activities: Activity[]): number {

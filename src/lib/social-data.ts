@@ -1,6 +1,24 @@
 import { getSupabase } from './supabase';
 import type { Profile, Club, ClubMember, Follow, RegionalRanking } from '@/types';
 
+// Supabase PostgrestError 가 일부 환경에서 Error 인스턴스가 아니라 plain object 로 전달돼
+// `String(err) = '[object Object]'` 토스트가 발생함. message/code 추출 후 Error wrap.
+function asError(e: unknown, fallback = '알 수 없는 오류'): Error {
+  if (e instanceof Error) return e;
+  if (e && typeof e === 'object') {
+    const o = e as Record<string, unknown>;
+    const msg =
+      (typeof o.message === 'string' && o.message) ||
+      (typeof o.details === 'string' && o.details) ||
+      (typeof o.hint === 'string' && o.hint) ||
+      (typeof o.code === 'string' && o.code) ||
+      fallback;
+    return new Error(msg);
+  }
+  if (typeof e === 'string') return new Error(e);
+  return new Error(fallback);
+}
+
 // =============================================
 // 팔로우
 // =============================================
@@ -14,7 +32,7 @@ export async function followUser(followingId: string) {
     follower_id: user.id,
     following_id: followingId,
   });
-  if (error) throw error;
+  if (error) throw asError(error);
 }
 
 export async function unfollowUser(followingId: string) {
@@ -26,7 +44,7 @@ export async function unfollowUser(followingId: string) {
     .delete()
     .eq('follower_id', user.id)
     .eq('following_id', followingId);
-  if (error) throw error;
+  if (error) throw asError(error);
 }
 
 export async function fetchFollowers(userId: string): Promise<Profile[]> {
@@ -35,7 +53,7 @@ export async function fetchFollowers(userId: string): Promise<Profile[]> {
     .from('follows')
     .select('follower_id, profiles!follows_follower_id_fkey(*)')
     .eq('following_id', userId);
-  if (error) throw error;
+  if (error) throw asError(error);
   return (data || []).map((d) => d.profiles as unknown as Profile);
 }
 
@@ -45,7 +63,7 @@ export async function fetchFollowing(userId: string): Promise<Profile[]> {
     .from('follows')
     .select('following_id, profiles!follows_following_id_fkey(*)')
     .eq('follower_id', userId);
-  if (error) throw error;
+  if (error) throw asError(error);
   return (data || []).map((d) => d.profiles as unknown as Profile);
 }
 
@@ -84,7 +102,7 @@ export async function searchUsers(query: string, limit = 20): Promise<Profile[]>
     .ilike('display_name', `%${query}%`)
     .eq('is_public', true)
     .limit(limit);
-  if (error) throw error;
+  if (error) throw asError(error);
   return (data || []) as Profile[];
 }
 
@@ -96,7 +114,7 @@ export async function fetchPublicUsers(limit = 50): Promise<Profile[]> {
     .eq('is_public', true)
     .order('total_distance_km', { ascending: false })
     .limit(limit);
-  if (error) throw error;
+  if (error) throw asError(error);
   return (data || []) as Profile[];
 }
 
@@ -110,7 +128,7 @@ export async function fetchClubs(): Promise<Club[]> {
     .from('clubs')
     .select('*')
     .order('member_count', { ascending: false });
-  if (error) throw error;
+  if (error) throw asError(error);
   return (data || []) as Club[];
 }
 
@@ -121,7 +139,7 @@ export async function fetchClub(clubId: string): Promise<Club | null> {
     .select('*')
     .eq('id', clubId)
     .maybeSingle();
-  if (error) throw error;
+  if (error) throw asError(error);
   return data as Club | null;
 }
 
@@ -132,7 +150,7 @@ export async function fetchClubMembers(clubId: string): Promise<ClubMember[]> {
     .select('*, profiles(*)')
     .eq('club_id', clubId)
     .order('joined_at');
-  if (error) throw error;
+  if (error) throw asError(error);
   return (data || []).map((d) => ({
     ...d,
     profile: d.profiles as unknown as Profile,
@@ -199,7 +217,7 @@ export async function joinClub(clubId: string) {
     user_id: user.id,
     role: 'member',
   });
-  if (error) throw error;
+  if (error) throw asError(error);
 }
 
 export async function leaveClub(clubId: string) {
@@ -211,7 +229,7 @@ export async function leaveClub(clubId: string) {
     .delete()
     .eq('club_id', clubId)
     .eq('user_id', user.id);
-  if (error) throw error;
+  if (error) throw asError(error);
 }
 
 export async function getMyClubs(): Promise<Club[]> {
@@ -223,7 +241,7 @@ export async function getMyClubs(): Promise<Club[]> {
     .from('club_members')
     .select('club_id, clubs(*)')
     .eq('user_id', user.id);
-  if (error) throw error;
+  if (error) throw asError(error);
   return (data || []).map((d) => d.clubs as unknown as Club);
 }
 
@@ -262,7 +280,7 @@ export async function updateMemberRole(clubId: string, userId: string, role: 'ad
     .update({ role })
     .eq('club_id', clubId)
     .eq('user_id', userId);
-  if (error) throw error;
+  if (error) throw asError(error);
 }
 
 export async function removeMember(clubId: string, userId: string) {
@@ -272,7 +290,7 @@ export async function removeMember(clubId: string, userId: string) {
     .delete()
     .eq('club_id', clubId)
     .eq('user_id', userId);
-  if (error) throw error;
+  if (error) throw asError(error);
 }
 
 export async function updateClub(clubId: string, updates: { name?: string; description?: string; is_public?: boolean }) {
@@ -281,7 +299,7 @@ export async function updateClub(clubId: string, updates: { name?: string; descr
     .from('clubs')
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', clubId);
-  if (error) throw error;
+  if (error) throw asError(error);
 }
 
 // 클럽 삭제 — 방장(owner) 또는 앱 관리자(hans@openhan.kr). 멤버십도 함께 정리.
@@ -290,7 +308,7 @@ export async function deleteClub(clubId: string) {
   // club_members 는 ON DELETE CASCADE 로 연결됐을 가능성이 높지만, 실패를 피하기 위해 선제 제거
   await supabase.from('club_members').delete().eq('club_id', clubId);
   const { error } = await supabase.from('clubs').delete().eq('id', clubId);
-  if (error) throw error;
+  if (error) throw asError(error);
 }
 
 export async function fetchClubActivities(clubId: string, limit = 20) {
@@ -308,7 +326,7 @@ export async function fetchClubActivities(clubId: string, limit = 20) {
     .in('user_id', userIds)
     .order('activity_date', { ascending: false })
     .limit(limit);
-  if (error) throw error;
+  if (error) throw asError(error);
   return data || [];
 }
 
@@ -331,7 +349,7 @@ export async function fetchRegionalRankings(
     .eq('month', month)
     .order('rank_in_gu')
     .limit(limit);
-  if (error) throw error;
+  if (error) throw asError(error);
   return (data || []) as RegionalRanking[];
 }
 
