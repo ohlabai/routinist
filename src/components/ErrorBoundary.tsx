@@ -14,7 +14,7 @@ interface State {
 
 // 빌드 번호 — iOS Xcode CURRENT_PROJECT_VERSION 과 sync. 회귀 디버그 가속용 (사용자 피드백 추가제안).
 // fastlane/Xcode 가 ios/App/App.xcodeproj 의 CURRENT_PROJECT_VERSION 만 올리므로 여기도 함께 갱신.
-const APP_BUILD = '86';
+const APP_BUILD = '88';
 
 export default class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
