@@ -21,6 +21,7 @@
     "@capgo/capacitor-health": "^8.4.5",
     "@capgo/capacitor-social-login": "^8.3.20",
     "@supabase/supabase-js": "^2.101.1",
+    "@tosspayments/payment-sdk": "^1.9.2",
     "@vis.gl/react-google-maps": "^1.8.3",
     "date-fns": "^4.1.0",
     "lucide-react": "^1.7.0",

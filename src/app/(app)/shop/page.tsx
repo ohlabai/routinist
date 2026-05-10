@@ -1,136 +1,246 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { ExternalLink, RefreshCw, AlertCircle } from 'lucide-react';
+// 네이티브 쇼핑 메인 — 상품 그리드 + 카테고리 필터 + 검색 + 장바구니 액세스.
+// 기존 Cafe24 iframe 풀 교체 (Phase 2 백엔드 + Phase 3 프론트엔드).
 
-// Cafe24 모바일 스토어. 앱 내 iframe 임베드 - 빈 응답이면 index.html 명시 폴백.
-const SHOP_BASE = 'https://routinist.kr';
-const SHOP_URLS = [
-  `${SHOP_BASE}/`,
-  `${SHOP_BASE}/index.html`,
-];
+import { useEffect, useState, useMemo, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { Search, ShoppingCart, Package } from 'lucide-react';
+import { fetchProducts, fetchProductCategories, fetchCart } from '@/lib/shop-data';
+import { useAuth } from '@/components/AuthProvider';
+import type { Product } from '@/types';
 
-const LOAD_TIMEOUT_MS = 15000;
+function ShopContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const { user } = useAuth();
+  const category = searchParams.get('category') ?? '';
+  const search = searchParams.get('q') ?? '';
 
-function isNativeApp() {
-  return typeof window !== 'undefined' && (window as unknown as { Capacitor?: unknown }).Capacitor !== undefined;
-}
-
-export default function ShopPage() {
-  // build 67: Cafe24 GNB 가 첫 화면부터 정상 노출되는 게 확인됐으므로 자체 헤더 제거.
-  // 햄버거/검색/카트 모두 Cafe24 의 모바일 헤더 사용 — 중복 제거.
-  const [urlIdx, setUrlIdx] = useState(0);
-  const [reloadKey, setReloadKey] = useState(0);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [cartCount, setCartCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [blocked, setBlocked] = useState(false);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const loadedRef = useRef(false);
-
-  const currentUrl = SHOP_URLS[urlIdx];
+  const [searchInput, setSearchInput] = useState(search);
 
   useEffect(() => {
-    loadedRef.current = false;
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => {
-      if (!loadedRef.current) {
-        // 첫 URL 실패하면 대체 URL 시도, 그래도 실패하면 blocked
-        if (urlIdx < SHOP_URLS.length - 1) {
-          setUrlIdx(i => i + 1);
-          setReloadKey(k => k + 1);
-        } else {
-          setBlocked(true);
-          setLoading(false);
-        }
-      }
-    }, LOAD_TIMEOUT_MS);
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-  }, [reloadKey, urlIdx]);
-
-  const handleReload = () => {
+    let cancelled = false;
     setLoading(true);
-    setBlocked(false);
-    setUrlIdx(0);
-    setReloadKey(k => k + 1);
+    Promise.all([
+      fetchProducts({
+        category: category || undefined,
+        search: search || undefined,
+        sort: 'featured',
+        limit: 50,
+      }),
+      fetchProductCategories(),
+      user ? fetchCart().then(c => c.length).catch(() => 0) : Promise.resolve(0),
+    ]).then(([prods, cats, cnt]) => {
+      if (cancelled) return;
+      setProducts(prods);
+      setCategories(cats);
+      setCartCount(cnt);
+    }).catch(e => {
+      if (!cancelled) console.warn('[shop] load fail', e);
+    }).finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [category, search, user]);
+
+  const featured = useMemo(() => products.filter(p => p.is_featured), [products]);
+  const regular = useMemo(() => products.filter(p => !p.is_featured), [products]);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    if (searchInput.trim()) params.set('q', searchInput.trim());
+    if (category) params.set('category', category);
+    router.push(`/shop?${params.toString()}`);
   };
 
-  const openExternal = async () => {
-    if (isNativeApp()) {
-      const { Browser } = await import('@capacitor/browser');
-      await Browser.open({ url: SHOP_URLS[0], presentationStyle: 'fullscreen' });
-    } else {
-      window.open(SHOP_URLS[0], '_blank', 'noopener,noreferrer');
-    }
+  const handleCategory = (cat: string) => {
+    const params = new URLSearchParams();
+    if (cat) params.set('category', cat);
+    if (search) params.set('q', search);
+    router.push(`/shop?${params.toString()}`);
   };
 
   return (
-    <div className="relative h-full min-h-full bg-white flex flex-col">
-      {/* iframe — Cafe24 모바일 스토어 임베드. 자체 헤더 제거 (build 67) — Cafe24 GNB 사용.
-          상단 safe-area 는 (app)/layout.tsx 가 isShop 일 때 흰 padding 으로 처리. */}
-      {!blocked && (
-        <iframe
-          ref={iframeRef}
-          key={`${urlIdx}-${reloadKey}`}
-          src={currentUrl}
-          className="flex-1 block w-full border-0 bg-white"
-          onLoad={() => {
-            loadedRef.current = true;
-            if (timeoutRef.current) clearTimeout(timeoutRef.current);
-            setLoading(false);
-          }}
-          onError={() => {
-            if (urlIdx < SHOP_URLS.length - 1) {
-              setUrlIdx(i => i + 1);
-              setReloadKey(k => k + 1);
-            } else {
-              setBlocked(true);
-            }
-          }}
-          allow="clipboard-read; clipboard-write; payment; geolocation; fullscreen; accelerometer; gyroscope"
-          sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation allow-modals allow-downloads"
-          referrerPolicy="no-referrer-when-downgrade"
-          title="Routinist Store"
-          loading="eager"
-        />
-      )}
+    <div className="max-w-lg mx-auto pb-12">
+      {/* 헤더 */}
+      <div className="flex items-center justify-between px-4 py-3 sticky top-0 bg-[var(--background)]/95 backdrop-blur z-10">
+        <h1 className="text-2xl font-bold text-[var(--foreground)]">쇼핑</h1>
+        <Link
+          href="/shop/cart"
+          className="relative p-2 active:scale-90"
+          aria-label="장바구니"
+        >
+          <ShoppingCart size={24} className="text-[var(--foreground)]" />
+          {cartCount > 0 && (
+            <span className="absolute top-0 right-0 w-5 h-5 rounded-full bg-emerald-500 text-white text-xs font-bold flex items-center justify-center">
+              {cartCount > 9 ? '9+' : cartCount}
+            </span>
+          )}
+        </Link>
+      </div>
 
-      {/* 로딩 중엔 흰 배경 + 아주 옅은 스피너만 — "불러오는 중" 문구 제거로 덜 튀게 */}
-      {!blocked && loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white z-10 pointer-events-none">
-          <div className="animate-spin w-7 h-7 border-2 border-emerald-400 border-t-transparent rounded-full opacity-70" />
+      {/* 검색 */}
+      <form onSubmit={handleSearch} className="px-4 mb-3">
+        <div className="relative">
+          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" />
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="상품 검색"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[var(--card)] border border-[var(--card-border)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+          />
+        </div>
+      </form>
+
+      {/* 카테고리 칩 */}
+      {categories.length > 0 && (
+        <div className="flex gap-2 px-4 mb-4 overflow-x-auto pb-1">
+          <button
+            onClick={() => handleCategory('')}
+            className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition active:scale-95 ${
+              !category
+                ? 'bg-[var(--accent)] text-white'
+                : 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--muted)]'
+            }`}
+          >
+            전체
+          </button>
+          {categories.map(cat => (
+            <button
+              key={cat}
+              onClick={() => handleCategory(cat)}
+              className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition active:scale-95 ${
+                category === cat
+                  ? 'bg-[var(--accent)] text-white'
+                  : 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--muted)]'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
         </div>
       )}
 
-      {blocked && (
-        <div className="h-full flex flex-col items-center justify-center px-6 space-y-5 bg-gradient-to-br from-emerald-50 to-white">
-          <div className="w-16 h-16 rounded-2xl bg-white shadow-lg flex items-center justify-center">
-            <AlertCircle size={28} className="text-emerald-600" />
-          </div>
-          <div className="text-center space-y-2 max-w-sm">
-            <h2 className="text-lg font-bold text-gray-800">쇼핑몰을 불러올 수 없어요</h2>
-            <p className="text-sm text-gray-500 leading-6">
-              네트워크가 느리거나 일시적인 연결 문제일 수 있어요.<br/>
-              다시 시도하거나 외부 브라우저로 여실 수 있습니다.
-            </p>
-          </div>
-          <div className="flex flex-col gap-2 w-full max-w-xs">
-            <button
-              onClick={handleReload}
-              className="flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 font-semibold py-3 rounded-xl shadow-sm"
-            >
-              <RefreshCw size={16} /> 다시 시도
-            </button>
-            <button
-              onClick={openExternal}
-              className="flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold py-3 rounded-xl shadow-md"
-            >
-              <ExternalLink size={16} /> 외부 브라우저로 열기
-            </button>
-          </div>
+      {/* 본문 */}
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <div className="animate-spin w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full" />
         </div>
+      ) : products.length === 0 ? (
+        <div className="text-center py-16">
+          <Package size={48} className="mx-auto mb-3 text-[var(--muted)]" />
+          <p className="text-sm text-[var(--muted)]">
+            {search ? `"${search}" 검색 결과가 없어요` : category ? `${category} 카테고리에 상품이 없어요` : '상품을 준비 중이에요'}
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* 추천 (featured) — 큰 가로 카드 */}
+          {featured.length > 0 && !category && !search && (
+            <div className="px-4 mb-6">
+              <h2 className="text-sm font-bold text-[var(--foreground)] mb-2">⭐ 추천 상품</h2>
+              <div className="flex gap-3 overflow-x-auto px-1 pb-1">
+                {featured.slice(0, 6).map(p => (
+                  <Link
+                    key={p.id}
+                    href={`/shop/product?id=${p.id}`}
+                    className="flex-shrink-0 w-40 active:scale-95 transition"
+                  >
+                    <div className="aspect-square bg-[var(--card)] rounded-xl overflow-hidden border border-[var(--card-border)]">
+                      {p.thumbnail_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={p.thumbnail_url} alt={p.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-[var(--muted)]">
+                          <Package size={32} />
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-sm font-semibold text-[var(--foreground)] mt-2 line-clamp-2">{p.name}</p>
+                    <p className="text-base font-bold text-[var(--accent)] mt-0.5">{p.price_krw.toLocaleString()}원</p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 일반 그리드 (2 cols) */}
+          <div className="px-4">
+            <h2 className="text-sm font-bold text-[var(--foreground)] mb-3">
+              {category || search ? `${products.length}개 상품` : '전체 상품'}
+            </h2>
+            <div className="grid grid-cols-2 gap-3">
+              {(category || search ? products : regular).map(p => {
+                const discount = p.compare_price_krw && p.compare_price_krw > p.price_krw
+                  ? Math.round((1 - p.price_krw / p.compare_price_krw) * 100)
+                  : 0;
+                return (
+                  <Link
+                    key={p.id}
+                    href={`/shop/product?id=${p.id}`}
+                    className="active:scale-95 transition"
+                  >
+                    <div className="aspect-square bg-[var(--card)] rounded-xl overflow-hidden border border-[var(--card-border)] relative">
+                      {p.thumbnail_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={p.thumbnail_url} alt={p.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-[var(--muted)]">
+                          <Package size={36} />
+                        </div>
+                      )}
+                      {discount > 0 && (
+                        <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-red-500 text-white text-xs font-bold">
+                          {discount}%
+                        </span>
+                      )}
+                      {p.stock <= 0 && (
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                          <span className="text-white text-xs font-bold">품절</span>
+                        </div>
+                      )}
+                    </div>
+                    {p.brand && (
+                      <p className="text-xs text-[var(--muted)] mt-2">{p.brand}</p>
+                    )}
+                    <p className="text-sm font-medium text-[var(--foreground)] mt-0.5 line-clamp-2 leading-tight">{p.name}</p>
+                    <div className="mt-1 flex items-baseline gap-1.5">
+                      <span className="text-base font-bold text-[var(--foreground)]">
+                        {p.price_krw.toLocaleString()}원
+                      </span>
+                      {p.compare_price_krw && p.compare_price_krw > p.price_krw && (
+                        <span className="text-xs text-[var(--muted)] line-through">
+                          {p.compare_price_krw.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </>
       )}
     </div>
+  );
+}
+
+export default function ShopPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex justify-center py-20">
+        <div className="animate-spin w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full" />
+      </div>
+    }>
+      <ShopContent />
+    </Suspense>
   );
 }
