@@ -23,6 +23,7 @@ import type { Profile } from '@/types';
 import AppLogo from '@/components/AppLogo';
 import AppToast from '@/components/AppToast';
 import { logClientWarn } from '@/lib/error-logger';
+import { daysAgoStr, toLocalMonthStr } from '@/lib/kst';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { dataCache, CACHE_KEYS } from '@/lib/data-cache';
 
@@ -106,7 +107,7 @@ function UserProfileContent() {
         setFollowing(followStatus);
 
         // 최근 60일 데이터 (이달 캘린더 + 최근 30일 그래프 + PB 모두 커버).
-        const sixtyDaysAgo = new Date(Date.now() - 60 * 86400000).toISOString().split('T')[0];
+        const sixtyDaysAgo = daysAgoStr(60);
         const { data: acts } = await supabase
           .from('activities')
           .select('activity_date, distance_km, duration_seconds, pace_avg_sec_per_km')
@@ -117,7 +118,7 @@ function UserProfileContent() {
         const list = (acts ?? []) as ActivityRow[];
         setActivities(list);
 
-        const ymPrefix = new Date().toISOString().slice(0, 7);
+        const ymPrefix = toLocalMonthStr();
         const monthly = list.filter(a => a.activity_date.startsWith(ymPrefix));
         const km = monthly.reduce((s, a) => s + Number(a.distance_km), 0);
         setStats({ monthly_km: km, run_count: monthly.length });

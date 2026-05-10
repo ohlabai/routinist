@@ -1,4 +1,5 @@
 import { getSupabase } from './supabase';
+import { toLocalDateStr } from './kst';
 
 export interface MemberProgress {
   user_id: string;
@@ -439,7 +440,7 @@ export async function fetchPaceTrend(userId: string): Promise<PaceTrend[]> {
   const supabase = getSupabase();
   const now = new Date();
 
-  const startDate = new Date(now.getFullYear() - 1, now.getMonth(), 1).toISOString().split('T')[0];
+  const startDate = toLocalDateStr(new Date(now.getFullYear() - 1, now.getMonth(), 1));
 
   const { data } = await supabase
     .from('activities')
@@ -520,12 +521,12 @@ export async function fetchDistanceByPeriod(
       const weekStart = new Date(weekEnd);
       weekStart.setDate(weekEnd.getDate() - 6);
 
-      const start = weekStart.toISOString().split('T')[0];
-      const end = new Date(weekEnd.getTime() + ONE_DAY).toISOString().split('T')[0];
+      const start = toLocalDateStr(weekStart);
+      const end = toLocalDateStr(new Date(weekEnd.getTime() + ONE_DAY));
 
       // 작년 동일 주 — 364일 전 (52주). 정확히 같은 요일/주차.
-      const prevStart = new Date(weekStart.getTime() - 364 * ONE_DAY).toISOString().split('T')[0];
-      const prevEnd = new Date(weekEnd.getTime() + ONE_DAY - 364 * ONE_DAY).toISOString().split('T')[0];
+      const prevStart = toLocalDateStr(new Date(weekStart.getTime() - 364 * ONE_DAY));
+      const prevEnd = toLocalDateStr(new Date(weekEnd.getTime() + ONE_DAY - 364 * ONE_DAY));
 
       results.push({
         label: `${weekStart.getMonth() + 1}/${weekStart.getDate()}`,

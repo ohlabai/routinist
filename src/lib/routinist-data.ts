@@ -1,5 +1,6 @@
 import { getSupabase } from './supabase';
 import type { Activity, UserMonthlyGoal } from '@/types';
+import { todayStr, daysAgoStr } from './kst';
 
 // ===== Activities =====
 
@@ -180,8 +181,8 @@ export function getStreak(activities: Activity[]): number {
   if (activities.length === 0) return 0;
 
   const dates = [...new Set(activities.map(a => a.activity_date))].sort().reverse();
-  const today = new Date().toISOString().split('T')[0];
-  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  const today = todayStr();
+  const yesterday = daysAgoStr(1);
 
   // 오늘이나 어제 달렸어야 스트릭 유지
   if (dates[0] !== today && dates[0] !== yesterday) return 0;

@@ -107,8 +107,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const fallbackTimer = setTimeout(() => {
       if (initialSettled) return;
       authLog('INITIAL_SESSION 지연 — getSession() 폴백');
-      supabase.auth.getSession().then(({ data: { session: s } }) => {
-        settleInitial(s, 'getSession-fallback');
+      // SDK 가 internally lock 된 케이스 대비 — getSession 자체에 5초 timeout.
+      const sessionPromise = supabase.auth.getSession();
+      Promise.race([
+        sessionPromise.then(({ data: { session: s } }) => ({ s, src: 'getSession-fallback' as const })),
+        new Promise<{ s: null; src: 'getSession-timeout' }>((resolve) =>
+          setTimeout(() => resolve({ s: null, src: 'getSession-timeout' }), 5000)
+        ),
+      ]).then(({ s, src }) => {
+        if (src === 'getSession-timeout') authLog('getSession 폴백 5초 timeout — 미로그인 처리');
+        settleInitial(s, src);
       }).catch((e) => {
         authLog(`getSession 폴백 실패: ${e instanceof Error ? e.message : e}`);
         settleInitial(null, 'getSession-fallback-error');
@@ -142,7 +150,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(s);
         setUser(s?.user ?? null);
         if (s?.user) {
-          await loadProfile(s.user.id);
+          // fire-and-forget — auth event 콜백을 차단하지 않음. profile 로딩이 hang 해도
+          // 다음 auth event (예: SIGNED_OUT) 가 즉시 처리됨.
+          void loadProfile(s.user.id);
         } else {
           setProfile(null);
         }

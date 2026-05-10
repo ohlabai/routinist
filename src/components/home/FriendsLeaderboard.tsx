@@ -9,6 +9,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import type { Profile } from '@/types';
 import { Users } from 'lucide-react';
+import { startOfWeekStr } from '@/lib/kst';
 
 interface Row {
   user_id: string;
@@ -19,11 +20,7 @@ interface Row {
 }
 
 function startOfWeek(): string {
-  const d = new Date();
-  const day = d.getDay(); // 0=일요일
-  const diff = day === 0 ? -6 : 1 - day; // 월요일 기준
-  d.setDate(d.getDate() + diff);
-  return d.toISOString().slice(0, 10);
+  return startOfWeekStr();
 }
 
 export default function FriendsLeaderboard() {

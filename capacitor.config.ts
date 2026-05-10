@@ -55,7 +55,7 @@ const config: CapacitorConfig = {
         facebook: false,
         twitter: false,
       },
-      logLevel: 1,
+      logLevel: 0,
     },
   },
 };

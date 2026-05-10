@@ -10,6 +10,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import type { Activity } from '@/types';
 import ShareCard from '@/components/activity/ShareCard';
+import { todayStr } from '@/lib/kst';
 
 interface Props {
   children: React.ReactNode;
@@ -28,7 +29,7 @@ export default function PhotoUploader({ children, className, onUploaded }: Props
     setLoading(true);
     try {
       const supabase = getSupabase();
-      const today = new Date().toISOString().slice(0, 10);
+      const today = todayStr();
       // 6초 타임아웃 — 네트워크 지연 시 "확인 중..." 고정되는 문제 방지
       const queryPromise = supabase
         .from('activities')

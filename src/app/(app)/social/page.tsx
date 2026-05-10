@@ -13,6 +13,7 @@ import UserRow from '@/components/social/UserRow';
 import PhotosTab from '@/components/photos/PhotosTab';
 import MileageRankingTab from '@/components/social/MileageRankingTab';
 import { User as UserIcon, Users, Trophy, Search, Plus, MapPin, Camera, Sparkles, TrendingUp, Coins } from 'lucide-react';
+import { startOfWeekStr } from '@/lib/kst';
 import type { Profile, Club } from '@/types';
 import AppLogo from '@/components/AppLogo';
 
@@ -40,11 +41,7 @@ interface HeroRank {
 type TimeAxis = 'today' | 'month' | 'year';
 
 function startOfWeek(): string {
-  const d = new Date();
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  return d.toISOString().slice(0, 10);
+  return startOfWeekStr();
 }
 
 function SocialPageInner() {

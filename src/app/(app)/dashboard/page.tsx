@@ -50,6 +50,7 @@ import {
   BarChart3, TrendingUp,
 } from 'lucide-react';
 import { chartStyle } from '@/lib/chart-theme';
+import { toLocalDateStr, todayStr as kstToday } from '@/lib/kst';
 
 type PeriodMode = 'weekly' | 'monthly' | 'quarterly' | 'half' | 'yearly';
 type ChartType = 'bar' | 'line';
@@ -314,7 +315,7 @@ export default function DashboardPage() {
     for (let i = 29; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(today.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
+      const key = toLocalDateStr(d);
       result.push({
         label: `${d.getMonth() + 1}/${d.getDate()}`,
         distance: Math.round((map.get(key) || 0) * 10) / 10,

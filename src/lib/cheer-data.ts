@@ -1,5 +1,6 @@
 // 사람 단위 응원 (랭킹/프로필) — 5종 이모지, 주 1회 한도
 import { getSupabase } from './supabase';
+import { startOfWeekStr } from './kst';
 
 export type CheerEmoji = '❤️' | '🔥' | '💪' | '👏' | '🎉';
 export const CHEER_EMOJIS: CheerEmoji[] = ['❤️', '🔥', '💪', '👏', '🎉'];
@@ -34,10 +35,7 @@ export async function unsendCheer(toUserId: string, emoji: CheerEmoji): Promise<
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return false;
   // 이번 주 행만 삭제
-  const monday = new Date();
-  const day = monday.getDay() || 7;  // 일요일이면 7
-  monday.setDate(monday.getDate() - day + 1);
-  const weekOf = monday.toISOString().slice(0, 10);
+  const weekOf = startOfWeekStr();
 
   const { error } = await supabase.from('user_cheers')
     .delete()

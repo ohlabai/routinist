@@ -33,13 +33,14 @@ async function logToServer(level: LogLevel, scope: string, message: string, deta
   const consoleMethod = level === 'error' ? console.error : level === 'warn' ? console.warn : console.log;
   consoleMethod(`[${scope}] ${message}`, details ?? '');
 
-  // Dedup
+  // Dedup — 같은 key 가 들어오면 timestamp 만 갱신하면 FIFO 가 hot-key 를 못 쫓아내는 버그
+  // 해결: delete 후 set 으로 insertion order 재정렬.
   const key = `${scope}|${message}`;
   const now = Date.now();
   const last = dedupCache.get(key);
   if (last && now - last < DEDUP_WINDOW_MS) return;
+  dedupCache.delete(key);
   dedupCache.set(key, now);
-  // 캐시 사이즈 제한
   if (dedupCache.size > 100) {
     const firstKey = dedupCache.keys().next().value;
     if (firstKey) dedupCache.delete(firstKey);
@@ -47,23 +48,30 @@ async function logToServer(level: LogLevel, scope: string, message: string, deta
 
   try {
     const supabase = getSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
+    // getUser() 는 토큰 만료 시 /user 네트워크 호출 + 내부 refresh 시도 → hang 위험.
+    // getSession() 은 캐시된 세션만 반환 (네트워크 X). user 가 null 이어도 익명 로그로 남음.
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id ?? null;
 
     // details 안에 Error 객체 있으면 직렬화. 너무 큰 객체 truncate.
     const safeDetails = details ? sanitizeDetails(details) : null;
 
-    await supabase.from('client_error_logs').insert({
-      user_id: user?.id ?? null,
-      scope,
-      level,
-      message: message.slice(0, 1000),
-      details: safeDetails,
-      platform: getPlatform(),
-      app_version: APP_VERSION,
-      user_agent: getUserAgent(),
-    });
+    // insert 자체에 5초 timeout — 네트워크 끊긴 상태에서 promise 누적 방지.
+    await Promise.race([
+      supabase.from('client_error_logs').insert({
+        user_id: userId,
+        scope,
+        level,
+        message: message.slice(0, 1000),
+        details: safeDetails,
+        platform: getPlatform(),
+        app_version: APP_VERSION,
+        user_agent: getUserAgent(),
+      }),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('log timeout')), 5000)),
+    ]);
   } catch {
-    // 로깅 자체가 실패해도 무시 (콘솔엔 이미 찍힘)
+    // 로깅 자체가 실패해도 무시 (콘솔엔 이미 찍힘). 재귀 호출 절대 금지.
   }
 }
 
