@@ -291,13 +291,19 @@ export async function cancelOrder(orderId: string, reason?: string): Promise<voi
   if (error) throw error;
 }
 
-export async function fetchMyOrders(limit: number = 20, offset: number = 0): Promise<Order[]> {
+export async function fetchMyOrders(
+  limit: number = 20,
+  offset: number = 0,
+  status?: Order['status'],
+): Promise<Order[]> {
   const supabase = getSupabase();
-  const { data, error } = await supabase
+  let q = supabase
     .from('orders')
     .select('*')
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+    .order('created_at', { ascending: false });
+  if (status) q = q.eq('status', status);
+  q = q.range(offset, offset + limit - 1);
+  const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as Order[];
 }
@@ -391,6 +397,44 @@ export function validatePhone(phone: string): boolean {
 
 export function validatePostalCode(code: string): boolean {
   return POSTAL_RE.test(code.trim());
+}
+
+// =============================================
+// 운송장 — 어드민/고객 단일 진실
+// =============================================
+
+export interface CarrierEntry {
+  /** 어드민 select / 고객 표시에 쓰이는 한글 라벨 */
+  label: string;
+  /** trackingUrl 매칭에 쓰이는 정규화된 키 */
+  key: string;
+  /** 운송장 번호로 외부 추적 페이지 URL 만들기 */
+  buildUrl: (n: string) => string;
+}
+
+export const CARRIERS: CarrierEntry[] = [
+  { label: 'CJ대한통운', key: 'cj',     buildUrl: n => `https://trace.cjlogistics.com/web/detail.jsp?slipno=${n}` },
+  { label: '우체국택배', key: 'epost',  buildUrl: n => `https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=${n}` },
+  { label: '한진택배',   key: 'hanjin', buildUrl: n => `https://www.hanjin.com/kor/CMS/DeliveryMgr/WaybillResult.do?mCode=MN038&schLang=KR&wblnumText2=${n}` },
+  { label: '롯데택배',   key: 'lotte',  buildUrl: n => `https://www.lotteglogis.com/home/reservation/tracking/linkView?InvNo=${n}` },
+  { label: '로젠택배',   key: 'logen',  buildUrl: n => `https://www.ilogen.com/web/personal/trace/${n}` },
+];
+
+export function carrierByLabel(label: string | null): CarrierEntry | null {
+  if (!label) return null;
+  const norm = label.trim().toLowerCase().replace(/\s+/g, '');
+  for (const c of CARRIERS) {
+    if (c.label === label) return c;
+    if (norm.includes(c.key)) return c;
+    if (norm.includes(c.label.toLowerCase().replace(/\s+/g, ''))) return c;
+  }
+  return null;
+}
+
+export function trackingUrl(carrier: string | null, no: string | null): string | null {
+  if (!carrier || !no) return null;
+  const c = carrierByLabel(carrier);
+  return c ? c.buildUrl(no) : null;
 }
 
 export function orderStatusLabel(s: Order['status']): string {

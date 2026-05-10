@@ -10,7 +10,8 @@ import {
   Search, ShoppingCart, Package, Sparkles, TrendingUp, X,
   Heart, Star, Tag, ChevronRight,
 } from 'lucide-react';
-import { fetchProducts, fetchProductCategories, fetchCart } from '@/lib/shop-data';
+import { fetchProducts, fetchProductCategories, fetchCart, fetchWishlistIds, toggleWishlist } from '@/lib/shop-data';
+import AppToast from '@/components/AppToast';
 import { useAuth } from '@/components/AuthProvider';
 import BusinessFooter from '@/components/shop/BusinessFooter';
 import type { Product } from '@/types';
@@ -45,9 +46,40 @@ function ShopContent() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [cartCount, setCartCount] = useState(0);
+  const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [searchInput, setSearchInput] = useState(search);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
+
+  const showToast = (text: string, tone: 'ok' | 'warn' = 'ok') => {
+    setToast({ text, tone });
+    setTimeout(() => setToast(null), 2200);
+  };
+
+  const handleHeartClick = async (e: React.MouseEvent, productId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user) { router.push('/login'); return; }
+    const wasLiked = wishlistIds.has(productId);
+    setWishlistIds(prev => {
+      const n = new Set(prev);
+      if (wasLiked) n.delete(productId); else n.add(productId);
+      return n;
+    });
+    try {
+      await toggleWishlist(productId, wasLiked);
+      showToast(wasLiked ? '찜 해제했어요' : '찜했어요 ❤️');
+    } catch {
+      // revert
+      setWishlistIds(prev => {
+        const n = new Set(prev);
+        if (wasLiked) n.add(productId); else n.delete(productId);
+        return n;
+      });
+      showToast('잠시 후 다시 시도해주세요', 'warn');
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -61,11 +93,13 @@ function ShopContent() {
       }),
       fetchProductCategories(),
       user ? fetchCart().then(c => c.length).catch(() => 0) : Promise.resolve(0),
-    ]).then(([prods, cats, cnt]) => {
+      user ? fetchWishlistIds().catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
+    ]).then(([prods, cats, cnt, wish]) => {
       if (cancelled) return;
       setProducts(prods);
       setCategories(cats);
       setCartCount(cnt);
+      setWishlistIds(wish);
     }).catch(e => {
       if (!cancelled) console.warn('[shop] load fail', e);
     }).finally(() => {
@@ -109,6 +143,13 @@ function ShopContent() {
             >
               <Search size={20} className="text-[var(--foreground)]" />
             </button>
+            <Link
+              href="/shop/wishlist"
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition"
+              aria-label="찜 목록"
+            >
+              <Heart size={20} className="text-[var(--foreground)]" />
+            </Link>
             <Link
               href="/shop/cart"
               className="relative w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition"
@@ -298,9 +339,16 @@ function ShopContent() {
                             -{discount}%
                           </span>
                         )}
-                        <div className="absolute top-2.5 right-2.5 w-7 h-7 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow-sm">
-                          <Heart size={14} className="text-zinc-400" />
-                        </div>
+                        <button
+                          onClick={(e) => handleHeartClick(e, p.id)}
+                          className="absolute top-2.5 right-2.5 w-7 h-7 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow-sm active:scale-90 transition"
+                          aria-label="찜"
+                        >
+                          <Heart
+                            size={14}
+                            className={wishlistIds.has(p.id) ? 'text-red-500 fill-red-500' : 'text-zinc-400'}
+                          />
+                        </button>
                         {p.stock <= 0 && (
                           <div className="absolute inset-0 bg-black/55 backdrop-blur-[1px] flex items-center justify-center">
                             <span className="text-white text-sm font-bold">SOLD OUT</span>
@@ -378,9 +426,16 @@ function ShopContent() {
                           -{discount}%
                         </span>
                       )}
-                      <div className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow-sm">
-                        <Heart size={13} className="text-zinc-400" />
-                      </div>
+                      <button
+                        onClick={(e) => handleHeartClick(e, p.id)}
+                        className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow-sm active:scale-90 transition"
+                        aria-label="찜"
+                      >
+                        <Heart
+                          size={13}
+                          className={wishlistIds.has(p.id) ? 'text-red-500 fill-red-500' : 'text-zinc-400'}
+                        />
+                      </button>
                       {p.stock <= 0 && (
                         <div className="absolute inset-0 bg-black/55 backdrop-blur-[1px] flex items-center justify-center">
                           <span className="text-white text-xs font-bold">SOLD OUT</span>
@@ -431,6 +486,8 @@ function ShopContent() {
       )}
 
       <BusinessFooter variant="compact" />
+
+      {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2200} />}
 
       {/* CSS — slideDown 애니 + scrollbar-hide */}
       <style jsx>{`

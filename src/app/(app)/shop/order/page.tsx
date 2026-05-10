@@ -10,24 +10,7 @@ import {
   Truck, CheckCircle, Clock, ExternalLink, RotateCcw,
 } from 'lucide-react';
 
-// 운송장 추적 외부 링크 매핑 — carrier 이름 → URL 템플릿 ({n} 자리에 운송장 번호)
-const TRACKING_URLS: Array<[RegExp, (n: string) => string]> = [
-  [/cj|대한통운|cjlogistics/i, n => `https://trace.cjlogistics.com/web/detail.jsp?slipno=${n}`],
-  [/우체국|epost|koreapost/i, n => `https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=${n}`],
-  [/한진|hanjin/i, n => `https://www.hanjin.com/kor/CMS/DeliveryMgr/WaybillResult.do?mCode=MN038&schLang=KR&wblnumText2=${n}`],
-  [/롯데|lotte|현대|hd_cs/i, n => `https://www.lotteglogis.com/home/reservation/tracking/linkView?InvNo=${n}`],
-  [/로젠|logen/i, n => `https://www.ilogen.com/web/personal/trace/${n}`],
-  [/우편|epost/i, n => `https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=${n}`],
-];
-
-function trackingUrl(carrier: string | null, no: string): string | null {
-  if (!carrier) return null;
-  for (const [re, fn] of TRACKING_URLS) {
-    if (re.test(carrier)) return fn(no);
-  }
-  return null;
-}
-import { fetchOrder, cancelOrder, orderStatusLabel, orderStatusColor } from '@/lib/shop-data';
+import { fetchOrder, cancelOrder, orderStatusLabel, orderStatusColor, trackingUrl } from '@/lib/shop-data';
 import AppToast from '@/components/AppToast';
 import BusinessFooter from '@/components/shop/BusinessFooter';
 import type { Order, OrderItem, ShopPayment } from '@/types';
@@ -47,16 +30,33 @@ function OrderDetailContent() {
   useEffect(() => {
     if (!id) { setLoading(false); return; }
     let cancelled = false;
-    fetchOrder(id)
-      .then(res => {
-        if (cancelled || !res) { if (!cancelled) setOrder(null); return; }
-        setOrder(res.order);
-        setItems(res.items);
-        setPayments(res.payments);
-      })
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+    let pollingActive = false;
+
+    const reload = async () => {
+      const res = await fetchOrder(id);
+      if (cancelled || !res) return;
+      setOrder(res.order);
+      setItems(res.items);
+      setPayments(res.payments);
+      // 활성 상태 (pending/paid/shipped) 일 때만 polling 유지
+      const active = ['pending', 'paid', 'shipped'].includes(res.order.status);
+      if (active && !pollingActive) {
+        pollingActive = true;
+        intervalId = setInterval(reload, 30_000);  // 30초
+      } else if (!active && intervalId) {
+        clearInterval(intervalId); intervalId = null; pollingActive = false;
+      }
+    };
+
+    reload()
       .catch(e => { if (!cancelled) console.warn('[order] load fail', e); })
       .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+
+    return () => {
+      cancelled = true;
+      if (intervalId) clearInterval(intervalId);
+    };
   }, [id]);
 
   const handleCancel = async () => {

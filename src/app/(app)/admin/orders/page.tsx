@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
-import { orderStatusLabel, orderStatusColor } from '@/lib/shop-data';
+import { orderStatusLabel, orderStatusColor, CARRIERS as CARRIER_ENTRIES } from '@/lib/shop-data';
 import AppToast from '@/components/AppToast';
 import type { Order } from '@/types';
 
@@ -22,7 +22,8 @@ const FILTER_LABELS: Record<StatusFilter, string> = {
   shipped: '배송중', delivered: '배송완료', cancelled: '취소', refunded: '환불',
 };
 
-const CARRIERS = ['CJ대한통운', '한진택배', '롯데택배', '우체국택배', '로젠택배', '직접 입력'];
+// shop-data 의 CARRIERS 와 단일 진실 — 어드민 select label 이 고객 페이지의 trackingUrl 매칭 키와 일치
+const CARRIERS = [...CARRIER_ENTRIES.map(c => c.label), '직접 입력'];
 
 export default function AdminOrdersPage() {
   const router = useRouter();

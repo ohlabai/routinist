@@ -117,3 +117,40 @@ export async function unregisterPushToken(token: string): Promise<void> {
     console.warn('[push] unregister fail', e);
   }
 }
+
+export type PushPermissionState = 'granted' | 'denied' | 'prompt' | 'unavailable';
+
+export async function checkPushPermission(): Promise<PushPermissionState> {
+  if (!isNative()) return 'unavailable';
+  try {
+    const { PushNotifications } = await import('@capacitor/push-notifications');
+    const perm = await PushNotifications.checkPermissions();
+    if (perm.receive === 'granted') return 'granted';
+    if (perm.receive === 'denied') return 'denied';
+    return 'prompt';
+  } catch {
+    return 'unavailable';
+  }
+}
+
+/**
+ * 사용자가 한 번 거부한 후 다시 허용하려면 iOS 시스템 설정으로 가야 함 (앱이 직접 못 켬).
+ * 첫 prompt 단계라면 다시 호출 가능. 거부 상태면 안내만.
+ */
+export async function requestPushPermissionAgain(): Promise<{ ok: boolean; needSettings: boolean; message: string }> {
+  const state = await checkPushPermission();
+  if (state === 'unavailable') return { ok: false, needSettings: false, message: '이 기기에선 푸시를 사용할 수 없어요' };
+  if (state === 'granted') return { ok: true, needSettings: false, message: '이미 푸시가 켜져있어요' };
+  if (state === 'denied') {
+    return { ok: false, needSettings: true, message: 'iOS 설정 → 알림 → 루티니스트 에서 알림을 켜주세요' };
+  }
+  // prompt 상태
+  initialized = false;  // 다시 init 가능하도록
+  await initPushNotifications();
+  const after = await checkPushPermission();
+  return {
+    ok: after === 'granted',
+    needSettings: after === 'denied',
+    message: after === 'granted' ? '푸시가 켜졌어요 🔔' : '권한이 부여되지 않았어요',
+  };
+}

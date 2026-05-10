@@ -2,37 +2,52 @@
 
 // 주문 내역 — 모던 모바일 UX/UI (에메랄드 그린).
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, useMemo } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, ShoppingBag, ChevronRight, Sparkles, Receipt } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Sparkles, Receipt, Star } from 'lucide-react';
+import { Suspense } from 'react';
 import { fetchMyOrders, orderStatusLabel, orderStatusColor } from '@/lib/shop-data';
 import { useAuth } from '@/components/AuthProvider';
 import type { Order } from '@/types';
 
-export default function MyOrdersPage() {
+type Filter = 'all' | 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled' | 'refunded';
+const FILTER_LABELS: Record<Filter, string> = {
+  all: '전체', pending: '결제대기', paid: '결제완료',
+  shipped: '배송중', delivered: '배송완료', cancelled: '취소', refunded: '환불',
+};
+const FILTER_ORDER: Filter[] = ['all', 'pending', 'paid', 'shipped', 'delivered', 'cancelled', 'refunded'];
+
+function MyOrdersContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialFilter = (searchParams.get('status') as Filter) ?? 'all';
   const { user, loading: authLoading } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(true);
+  const [filter, setFilter] = useState<Filter>(FILTER_ORDER.includes(initialFilter) ? initialFilter : 'all');
   const PAGE_SIZE = 20;
 
   useEffect(() => {
     if (authLoading) return;
     if (!user) { router.replace('/login'); return; }
-    fetchMyOrders(PAGE_SIZE, 0)
+    setLoading(true);
+    setOrders([]);
+    fetchMyOrders(PAGE_SIZE, 0, filter === 'all' ? undefined : filter)
       .then(list => { setOrders(list); setHasMore(list.length === PAGE_SIZE); })
       .catch(e => console.warn('[orders] load fail', e))
       .finally(() => setLoading(false));
-  }, [authLoading, user, router]);
+  }, [authLoading, user, router, filter]);
 
   const loadMore = async () => {
     if (!hasMore) return;
-    const next = await fetchMyOrders(PAGE_SIZE, orders.length);
+    const next = await fetchMyOrders(PAGE_SIZE, orders.length, filter === 'all' ? undefined : filter);
     setOrders(prev => [...prev, ...next]);
     if (next.length < PAGE_SIZE) setHasMore(false);
   };
+
+  const counts = useMemo(() => orders.length, [orders]);
 
   return (
     <div className="max-w-lg mx-auto pb-12 bg-[var(--background)] min-h-screen">
@@ -42,6 +57,22 @@ export default function MyOrdersPage() {
             <ArrowLeft size={20} />
           </button>
           <h1 className="text-xl font-extrabold tracking-tight">주문 내역</h1>
+        </div>
+        {/* 상태 필터 */}
+        <div className="flex gap-1.5 px-3 pb-2.5 overflow-x-auto scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
+          {FILTER_ORDER.map(f => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-3 py-1.5 rounded-full text-xs font-extrabold whitespace-nowrap active:scale-95 transition ${
+                filter === f
+                  ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30'
+                  : 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--muted)]'
+              }`}
+            >
+              {FILTER_LABELS[f]}
+            </button>
+          ))}
         </div>
       </header>
 
@@ -55,13 +86,17 @@ export default function MyOrdersPage() {
             </div>
           ))}
         </div>
-      ) : orders.length === 0 ? (
+      ) : counts === 0 ? (
         <div className="text-center py-24 px-6">
           <div className="w-24 h-24 rounded-full bg-emerald-50 dark:bg-emerald-950/30 mx-auto mb-5 flex items-center justify-center">
             <Receipt size={42} className="text-emerald-500" />
           </div>
-          <p className="text-lg font-extrabold mb-1.5">아직 주문 내역이 없어요</p>
-          <p className="text-sm text-[var(--muted)] mb-7">첫 주문을 시작해 보세요</p>
+          <p className="text-lg font-extrabold mb-1.5">
+            {filter === 'all' ? '아직 주문 내역이 없어요' : `${FILTER_LABELS[filter]} 주문이 없어요`}
+          </p>
+          <p className="text-sm text-[var(--muted)] mb-7">
+            {filter === 'all' ? '첫 주문을 시작해 보세요' : '다른 상태도 확인해 보세요'}
+          </p>
           <Link
             href="/shop"
             className="inline-flex items-center gap-1.5 px-6 py-3 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-bold shadow-md shadow-emerald-500/30 active:scale-95"
@@ -72,27 +107,33 @@ export default function MyOrdersPage() {
       ) : (
         <div className="px-4 pt-4 space-y-2.5">
           {orders.map(o => (
-            <Link
-              key={o.id}
-              href={`/shop/order?id=${o.id}`}
-              className="card p-4 block active:scale-[0.99] transition group"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[11px] text-[var(--muted)] font-medium">
-                  {new Date(o.created_at).toLocaleString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                </p>
-                <span className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-[var(--card-border)]/40 ${orderStatusColor(o.status)}`}>
-                  {orderStatusLabel(o.status)}
-                </span>
-              </div>
-              <p className="text-[11px] text-[var(--muted)] mb-1.5">주문번호 · {o.order_no ?? o.id.slice(0, 8)}</p>
-              <div className="flex items-baseline justify-between">
-                <span className="text-lg font-extrabold text-[var(--foreground)]">
-                  {o.total_krw.toLocaleString()}원
-                </span>
-                <ChevronRight size={16} className="text-[var(--muted)] group-active:translate-x-0.5 transition" />
-              </div>
-            </Link>
+            <div key={o.id} className="card p-4 active:scale-[0.99] transition group">
+              <Link href={`/shop/order?id=${o.id}`} className="block">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[11px] text-[var(--muted)] font-medium">
+                    {new Date(o.created_at).toLocaleString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                  <span className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-[var(--card-border)]/40 ${orderStatusColor(o.status)}`}>
+                    {orderStatusLabel(o.status)}
+                  </span>
+                </div>
+                <p className="text-[11px] text-[var(--muted)] mb-1.5">주문번호 · {o.order_no ?? o.id.slice(0, 8)}</p>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-lg font-extrabold text-[var(--foreground)]">
+                    {o.total_krw.toLocaleString()}원
+                  </span>
+                  <ChevronRight size={16} className="text-[var(--muted)] group-active:translate-x-0.5 transition" />
+                </div>
+              </Link>
+              {o.status === 'delivered' && (
+                <Link
+                  href={`/shop/order?id=${o.id}`}
+                  className="mt-3 w-full py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 text-xs font-extrabold inline-flex items-center justify-center gap-1.5 active:scale-[0.98]"
+                >
+                  <Star size={13} className="fill-amber-400 text-amber-400" /> 리뷰 작성하기
+                </Link>
+              )}
+            </div>
           ))}
           {hasMore && (
             <button
@@ -105,5 +146,17 @@ export default function MyOrdersPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function MyOrdersPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex justify-center py-20">
+        <div className="animate-spin w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full" />
+      </div>
+    }>
+      <MyOrdersContent />
+    </Suspense>
   );
 }
