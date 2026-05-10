@@ -24,7 +24,7 @@ import type { Profile } from '@/types';
 import AppLogo from '@/components/AppLogo';
 import AppToast from '@/components/AppToast';
 import { logClientWarn } from '@/lib/error-logger';
-import { daysAgoStr, toLocalMonthStr } from '@/lib/kst';
+import { daysAgoStr, toLocalMonthStr, toLocalDateStr } from '@/lib/kst';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { dataCache, CACHE_KEYS } from '@/lib/data-cache';
 import dynamic from 'next/dynamic';
@@ -98,12 +98,12 @@ function UserProfileContent() {
       setProfile(cached.value.profile);
       setActivities(cached.value.activities);
       setFollowing(cached.value.following);
+      // KST 룰: toISOString().slice(0,7) 은 UTC 기준이라 KST 새벽에 전월로 떨어짐. toLocalMonthStr 사용.
+      const ym = toLocalMonthStr();
       const monthlyKm = cached.value.activities
-        .filter(a => a.activity_date.startsWith(new Date().toISOString().slice(0, 7)))
+        .filter(a => a.activity_date.startsWith(ym))
         .reduce((s, a) => s + Number(a.distance_km), 0);
-      const monthlyRuns = cached.value.activities.filter(a =>
-        a.activity_date.startsWith(new Date().toISOString().slice(0, 7))
-      ).length;
+      const monthlyRuns = cached.value.activities.filter(a => a.activity_date.startsWith(ym)).length;
       setStats({ monthly_km: monthlyKm, run_count: monthlyRuns });
       setLoading(false);
     }
@@ -200,7 +200,7 @@ function UserProfileContent() {
     for (let i = 29; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(today.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
+      const key = toLocalDateStr(d);
       out.push({
         label: `${d.getMonth() + 1}/${d.getDate()}`,
         distance: Math.round((map.get(key) || 0) * 10) / 10,

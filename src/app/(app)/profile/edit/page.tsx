@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { uploadAvatar } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
@@ -42,20 +42,38 @@ export default function ProfileEditPage() {
 
   // 사용자 피드백 #2: 동그라미 안에 어떻게 들어갈지 미리 보여줘야 함.
   // 파일 선택 → CropModal → 원형 mask 안에서 zoom/drag 후 확정 → 파일 저장.
+  // Blob URL 은 사용 후 revoke 해야 메모리 누수 방지 (사진 여러 번 바꿀 때 누적).
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
     setCropSrc(URL.createObjectURL(file));
-    // input 초기화 — 같은 파일 재선택 가능
     if (e.target) e.target.value = '';
   };
 
   const handleCropDone = (blob: Blob) => {
     const cropped = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
+    // 이전 preview 가 blob URL 이면 revoke (서버 http URL 은 revoke 불가/불필요)
+    if (avatarPreview.startsWith('blob:')) URL.revokeObjectURL(avatarPreview);
     setAvatarFile(cropped);
     setAvatarPreview(URL.createObjectURL(blob));
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
     setCropSrc(null);
   };
+
+  const handleCropCancel = () => {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
+  };
+
+  // unmount 시 잔존 blob URL 정리
+  useEffect(() => {
+    return () => {
+      if (cropSrc) URL.revokeObjectURL(cropSrc);
+      if (avatarPreview.startsWith('blob:')) URL.revokeObjectURL(avatarPreview);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleDetectRegion = async () => {
     setDetecting(true);
@@ -165,7 +183,7 @@ export default function ProfileEditPage() {
       {cropSrc && (
         <ImageCropModal
           src={cropSrc}
-          onCancel={() => setCropSrc(null)}
+          onCancel={handleCropCancel}
           onCropped={handleCropDone}
         />
       )}

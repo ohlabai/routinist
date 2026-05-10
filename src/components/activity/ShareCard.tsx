@@ -85,7 +85,8 @@ const THEMES: Theme[] = [
 ];
 
 // Canvas 에 thumbs-up (👍) 그리기 — lucide ThumbsUp 24x24 viewBox 기반 SVG path.
-// 색상은 에메랄드 그린 (emerald-500 #10b981). filled 이면 채움, 아니면 외곽선.
+// 색상은 에메랄드 그린 (emerald-500 #10b981). filled 이면 채움 + 손목줄기 stroke.
+// 두 sub-path 를 분리해서 그려야 nonzero rule 로 모양 안 뭉개짐 (손=fill, 줄기=stroke).
 function drawThumbsUp(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number, filled: boolean, strokeColor: string) {
   ctx.save();
   const s = size / 24;
@@ -93,17 +94,25 @@ function drawThumbsUp(ctx: CanvasRenderingContext2D, cx: number, cy: number, siz
   const y = cy - 12 * s;
   ctx.translate(x, y);
   ctx.scale(s, s);
-  // lucide ThumbsUp path
-  const path = new Path2D('M7 10v12 M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z');
+  // lucide ThumbsUp 의 손 윤곽 (closed path)
+  const handPath = new Path2D('M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z');
+  // 손목 줄기 (open line)
+  const stemPath = new Path2D('M7 10v12');
+
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
   if (filled) {
     ctx.fillStyle = '#10b981'; // emerald-500
-    ctx.fill(path);
+    ctx.fill(handPath);
+    // 채움 위에 줄기 구분선
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke(stemPath);
   } else {
     ctx.strokeStyle = strokeColor;
     ctx.lineWidth = 2.5;
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
-    ctx.stroke(path);
+    ctx.stroke(handPath);
+    ctx.stroke(stemPath);
   }
   ctx.restore();
 }
