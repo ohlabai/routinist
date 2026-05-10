@@ -31,6 +31,8 @@ import {
 import Onboarding from '@/components/Onboarding';
 import LazyMount from '@/components/LazyMount';
 import HomeRankingHero from '@/components/home/HomeRankingHero';
+import StreakWarningCard from '@/components/home/StreakWarningCard';
+import WeeklyRecapCard from '@/components/home/WeeklyRecapCard';
 import HomeCalendarCard from '@/components/home/HomeCalendarCard';
 import HealthConnectCard from '@/components/home/HealthConnectCard';
 import { syncHealthData, isNativeApp } from '@/lib/health-sync';
@@ -452,6 +454,9 @@ export default function DashboardPage() {
       )}
       {/* HealthKit 연동 카드 — App Store 가이드 2.5.1 (HealthKit UI 명확성) 위해 홈 최상단 (build 62) */}
       <HealthConnectCard />
+      {/* 동기부여 카드 — 조건부 (피드백 #14 새 아이디어) */}
+      <WeeklyRecapCard activities={activities} />
+      <StreakWarningCard activities={activities} streak={getStreak(activities)} />
       {/* ========== 홈 히어로 (경쟁·소셜 중심) ========== */}
       {/* above-the-fold: 즉시 마운트. PullToRefresh 가 sync 트리거 역할 — HealthRefreshChip 중복 제거. */}
       <HomeRankingHero />
