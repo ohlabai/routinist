@@ -48,11 +48,12 @@ export function txTypeLabel(txType: string): string {
     gift_receive: '선물 받음',
     admin_adjust: '관리자 조정',
     refund: '환불',
+    reward: '보상',
   };
   return labels[txType] || txType;
 }
 
 export function txTypeColor(txType: string): string {
-  if (txType === 'run_earn' || txType === 'gift_receive' || txType === 'refund') return 'text-green-500';
+  if (txType === 'run_earn' || txType === 'gift_receive' || txType === 'refund' || txType === 'reward') return 'text-green-500';
   return 'text-red-500';
 }
