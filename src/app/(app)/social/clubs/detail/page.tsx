@@ -209,19 +209,8 @@ function ClubDetail() {
     }
   };
 
-  if (loading) {
-    return <div className="flex justify-center py-20"><div className="animate-spin w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full" /></div>;
-  }
-
-  if (!club) {
-    return (
-      <div className="max-w-lg mx-auto px-4 py-6 text-center">
-        <p className="text-[var(--muted)]">클럽을 찾을 수 없습니다.</p>
-        <button onClick={() => router.back()} className="text-[var(--accent)] text-sm mt-4">뒤로가기</button>
-      </div>
-    );
-  }
-
+  // early return 은 모든 hook 호출 뒤로 이동 (React Error #310 방지). 아래 useCallback/useEffect 들이
+  // 조건부로 실행되면 hook 순서가 렌더 간 달라져 "Rendered more hooks" 크래시.
   const isAdmin = myRole === 'owner' || myRole === 'admin';
   const isAppAdmin = user?.email === 'hans@openhan.kr';
   const canDelete = myRole === 'owner' || isAppAdmin;
@@ -470,6 +459,19 @@ function ClubDetail() {
       setSaving(false);
     }
   };
+
+  if (loading) {
+    return <div className="flex justify-center py-20"><div className="animate-spin w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full" /></div>;
+  }
+
+  if (!club) {
+    return (
+      <div className="max-w-lg mx-auto px-4 py-6 text-center">
+        <p className="text-[var(--muted)]">클럽을 찾을 수 없습니다.</p>
+        <button onClick={() => router.back()} className="text-[var(--accent)] text-sm mt-4">뒤로가기</button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-lg mx-auto px-4 py-6">

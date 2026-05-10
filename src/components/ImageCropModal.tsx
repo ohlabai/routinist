@@ -72,23 +72,9 @@ export default function ImageCropModal({ src, onCancel, onCropped, outputSize = 
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black flex flex-col">
-      {/* 헤더 */}
-      <div className="flex items-center justify-between px-3 py-3 bg-black/90 text-white">
-        <button onClick={onCancel} className="p-2 active:scale-90" aria-label="취소">
-          <X size={26} strokeWidth={2.5} />
-        </button>
-        <h3 className="text-base font-semibold">프로필 사진 자르기</h3>
-        <button
-          onClick={handleConfirm}
-          disabled={busy || !croppedArea}
-          className="px-4 py-1.5 rounded-full bg-emerald-500 text-white font-bold text-sm disabled:opacity-50 active:scale-95"
-        >
-          {busy ? '...' : <span className="inline-flex items-center gap-1"><Check size={16} />확인</span>}
-        </button>
-      </div>
-      {/* Cropper */}
-      <div className="flex-1 relative bg-black">
+    <div className="fixed inset-0 z-[100] bg-black">
+      {/* Cropper 풀 스크린 — X / 확인 / 슬라이더 모두 이미지 위 floating overlay (모던 UI). */}
+      <div className="absolute inset-0 bg-black">
         <Cropper
           image={src}
           crop={crop}
@@ -101,10 +87,35 @@ export default function ImageCropModal({ src, onCancel, onCropped, outputSize = 
           onCropComplete={onCropComplete}
         />
       </div>
-      {/* Zoom 슬라이더 */}
-      <div className="px-6 py-4 bg-black/90">
-        <div className="flex items-center gap-3">
-          <span className="text-white text-xs">축소</span>
+
+      {/* 상단 floating: X (좌) / 확인 (우). status bar 영역 피해 safe-area-inset-top 사용. */}
+      <div
+        className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 pb-3 bg-gradient-to-b from-black/55 to-transparent z-10"
+        style={{ paddingTop: 'max(env(safe-area-inset-top), 12px)' }}
+      >
+        <button
+          onClick={onCancel}
+          aria-label="취소"
+          className="w-11 h-11 rounded-full bg-black/55 backdrop-blur flex items-center justify-center active:scale-90"
+        >
+          <X size={22} strokeWidth={2.5} className="text-white" />
+        </button>
+        <button
+          onClick={handleConfirm}
+          disabled={busy || !croppedArea}
+          className="px-5 py-2.5 rounded-full bg-emerald-500 text-white font-bold text-sm shadow-lg disabled:opacity-50 active:scale-95 inline-flex items-center gap-1.5"
+        >
+          {busy ? '저장 중…' : <><Check size={18} strokeWidth={2.5} />확인</>}
+        </button>
+      </div>
+
+      {/* 줌 슬라이더 — Cropper 영역 안 하단 1/4 지점 overlay (사용자 피드백: 너무 아래라 위로). */}
+      <div
+        className="absolute bottom-0 left-0 right-0 px-6 pt-4 bg-gradient-to-t from-black/80 via-black/50 to-transparent z-10"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 20px)' }}
+      >
+        <div className="flex items-center gap-3 max-w-md mx-auto">
+          <span className="text-white text-xs select-none">축소</span>
           <input
             type="range"
             min={1}
@@ -114,9 +125,8 @@ export default function ImageCropModal({ src, onCancel, onCropped, outputSize = 
             onChange={(e) => setZoom(Number(e.target.value))}
             className="flex-1 accent-emerald-500"
           />
-          <span className="text-white text-xs">확대</span>
+          <span className="text-white text-xs select-none">확대</span>
         </div>
-        <p className="text-center text-xs text-white/60 mt-2">손가락으로 사진 위치를 옮기고 슬라이더로 확대·축소하세요</p>
       </div>
     </div>
   );

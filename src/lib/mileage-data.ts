@@ -14,6 +14,7 @@ export async function fetchMileageBalance(userId: string): Promise<number> {
 export async function fetchMileageTransactions(
   userId: string,
   limit = 50,
+  offset = 0,
 ): Promise<MileageTransaction[]> {
   const supabase = getSupabase();
   const { data, error } = await supabase
@@ -21,9 +22,28 @@ export async function fetchMileageTransactions(
     .select('*')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
-    .limit(limit);
+    .range(offset, offset + limit - 1);
   if (error) throw error;
   return (data || []) as MileageTransaction[];
+}
+
+// 탭 분류 — 사용자 피드백 #11.
+// '러닝': run_earn + reward(distance_km, first_*, streak_*, monthly_goal_complete) — 본인 활동 기반
+// '보상': gift_receive + signup + friend_invite_* + admin_adjust + refund — 외부에서 들어온 보상
+// '사용': purchase_spend + gift_send — 차감
+// (전체 탭은 모든 트랜잭션)
+export function classifyMileageTx(tx: MileageTransaction): 'running' | 'reward' | 'spend' {
+  if (tx.tx_type === 'run_earn') return 'running';
+  if (tx.tx_type === 'reward') {
+    const ev = tx.event_type ?? '';
+    // 러닝 활동에서 발생한 보상은 '러닝'
+    if (ev === 'distance_km' || ev.startsWith('first_') || ev.startsWith('streak_') || ev === 'monthly_goal_complete') {
+      return 'running';
+    }
+    return 'reward';
+  }
+  if (tx.tx_type === 'gift_receive' || tx.tx_type === 'admin_adjust' || tx.tx_type === 'refund') return 'reward';
+  return 'spend';
 }
 
 export async function giftMileage(

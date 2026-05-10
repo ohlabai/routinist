@@ -9,20 +9,43 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+  screenPath: string;
 }
+
+// 빌드 번호 — iOS Xcode CURRENT_PROJECT_VERSION 과 sync. 회귀 디버그 가속용 (사용자 피드백 추가제안).
+// fastlane/Xcode 가 ios/App/App.xcodeproj 의 CURRENT_PROJECT_VERSION 만 올리므로 여기도 함께 갱신.
+const APP_BUILD = '76';
 
 export default class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = {
+      hasError: false,
+      error: null,
+      screenPath: typeof window !== 'undefined' ? window.location.pathname : '',
+    };
   }
 
   static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+    return {
+      hasError: true,
+      error,
+      screenPath: typeof window !== 'undefined' ? window.location.pathname : '',
+    };
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error('[ErrorBoundary]', error, info.componentStack);
+    const screenPath = typeof window !== 'undefined' ? window.location.pathname : '';
+    console.error('[ErrorBoundary]', { build: APP_BUILD, screen: screenPath, error, stack: info.componentStack });
+    // 서버에 클라 오류 전송 — 다음 회귀 디버그 가속 (사용자 피드백: build/screen 컨텍스트 보강)
+    import('@/lib/error-logger').then(({ logClientError }) => {
+      logClientError('ErrorBoundary', error.message, {
+        build: APP_BUILD,
+        screen: screenPath,
+        stack: error.stack?.slice(0, 2000),
+        componentStack: info.componentStack?.slice(0, 1000),
+      });
+    }).catch(() => {});
   }
 
   render() {
@@ -36,15 +59,18 @@ export default class ErrorBoundary extends Component<Props, State> {
           </p>
           <button
             onClick={() => {
-              this.setState({ hasError: false, error: null });
+              this.setState({ hasError: false, error: null, screenPath: '' });
               window.location.href = '/dashboard';
             }}
             className="px-6 py-3 rounded-xl bg-[var(--accent)] text-white font-semibold text-sm"
           >
             홈으로 돌아가기
           </button>
+          <p className="text-[10px] text-[var(--muted)] mt-4">
+            build {APP_BUILD} · {this.state.screenPath || '/'}
+          </p>
           {this.state.error && (
-            <p className="text-xs text-[var(--muted)] mt-4 max-w-xs break-all">
+            <p className="text-xs text-[var(--muted)] mt-2 max-w-xs break-all">
               {this.state.error.message}
             </p>
           )}

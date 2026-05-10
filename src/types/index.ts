@@ -226,7 +226,7 @@ export interface Message {
 // 마일리지 타입
 // =============================================
 
-export type MileageTxType = 'run_earn' | 'purchase_spend' | 'gift_send' | 'gift_receive' | 'admin_adjust' | 'refund';
+export type MileageTxType = 'run_earn' | 'purchase_spend' | 'gift_send' | 'gift_receive' | 'admin_adjust' | 'refund' | 'reward';
 
 export interface MileageTransaction {
   id: string;
@@ -237,6 +237,8 @@ export interface MileageTransaction {
   reference_id: string | null;
   description: string | null;
   created_at: string;
+  event_type?: string | null; // 'distance_km' | 'first_5km' | ... (reward 분류용)
+  metadata?: Record<string, unknown> | null;
 }
 
 // =============================================

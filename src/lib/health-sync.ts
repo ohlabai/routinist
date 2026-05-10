@@ -421,16 +421,16 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     let success = true;
     if (insertErrors > 0 && syncedCount === 0) {
       success = false;
-      message = `동기화 실패: ${insertErrors}건이 저장되지 못했어요. 잠시 후 다시 시도해주세요.`;
+      message = `${insertErrors}건이 저장되지 못했어요\n잠시 후 다시 시도해주세요`;
     } else if (insertErrors > 0) {
-      message = `${syncedCount}건 저장, ${insertErrors}건 실패. 잠시 후 다시 시도해주세요.`;
+      message = `${syncedCount}건 가져왔어요 (${insertErrors}건은 다음에)`;
     } else if (syncedCount > 0) {
-      message = `${syncedCount}건의 러닝 기록을 가져왔습니다!`;
+      message = `러닝 ${syncedCount}건 새로 도착! 🎉`;
     } else if (toInsert.length === 0) {
-      message = '새로운 기록이 없습니다 (이미 동기화됨).';
+      message = '최신 상태예요. 오늘도 가볍게 한 바퀴? 👟';
     } else {
       // candidates 가 있는데 syncedCount=0 이고 errors=0 인 비정상 경로
-      message = '동기화 결과를 확인할 수 없어요. 다시 시도해주세요.';
+      message = '동기화 결과 확인이 안 됐어요\n잠시 후 다시 시도해주세요';
       success = false;
     }
 
@@ -447,7 +447,7 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
   } catch (error) {
     const message = error instanceof Error ? error.message : '알 수 없는 오류';
     logClientError('health-sync', 'sync 예외', { err: message });
-    return { success: false, message: `동기화 실패: ${message}`, synced: 0 };
+    return { success: false, message: `동기화 중에 문제가 생겼어요\n${message}`, synced: 0 };
   }
 }
 
@@ -468,7 +468,7 @@ async function syncViaDistance(
     });
 
     if (!samples || samples.length === 0) {
-      return { success: true, message: 'Apple Health에 러닝 기록이 없습니다.', synced: 0 };
+      return { success: true, message: 'Apple Health 에 러닝 기록이 아직 없어요 👟', synced: 0 };
     }
 
     const dailyDistance: Record<string, number> = {};
@@ -527,13 +527,13 @@ async function syncViaDistance(
     return {
       success: true,
       message: syncedCount > 0
-        ? `${syncedCount}건의 러닝 기록을 가져왔습니다!`
-        : '새로운 기록이 없습니다 (이미 동기화됨).',
+        ? `러닝 ${syncedCount}건 새로 도착! 🎉`
+        : '최신 상태예요. 오늘도 가볍게 한 바퀴? 👟',
       synced: syncedCount,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : '알 수 없는 오류';
-    return { success: false, message: `거리 데이터 동기화 실패: ${message}`, synced: 0 };
+    return { success: false, message: `거리 합산 중에 문제가 생겼어요\n${message}`, synced: 0 };
   }
 }
 
@@ -713,7 +713,7 @@ export async function syncHealthData(userId: string, options?: SyncOptions): Pro
       logClientWarn('health-sync', 'mutex 25s timeout — 강제 해제 + client 재생성', {});
       // SDK 락 가능성 있는 client 폐기 — 다음 호출 시 fresh client 로 복구.
       void import('./supabase').then(({ resetSupabaseClient }) => resetSupabaseClient()).catch(() => {});
-      resolve({ success: false, message: '동기화가 25초 초과 — 다시 시도해주세요.', synced: 0 });
+      resolve({ success: false, message: '동기화가 너무 오래 걸리네요\n잠시 후 다시 시도해주세요', synced: 0 });
     }, 25000)
   );
 

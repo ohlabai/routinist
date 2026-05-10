@@ -126,6 +126,7 @@ function drawCard(
   monthlyActivities?: Activity[],
   userIdLabel?: string,
   quote?: DailyQuote | null,
+  monthlyGoalKm?: number,
 ) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -167,10 +168,11 @@ function drawCard(
     const minLat = Math.min(...lats), maxLat = Math.max(...lats);
     const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
 
+    // 명언이 좋아요 inline 으로 컴팩트해지면서 지도/거리도 위로 ↑ (사용자 피드백 #4).
     const padding = 120;
     const mapW = W - padding * 2;
     const mapH = 480;
-    const mapY = 460;
+    const mapY = 360;
 
     const scaleX = mapW / (maxLng - minLng || 0.001);
     const scaleY = mapH / (maxLat - minLat || 0.001);
@@ -251,8 +253,8 @@ function drawCard(
     });
   }
 
-  // 거리 (메인) — route 끝(940) 와 충분한 gap. 0.55 → 0.6 (사용자 신고 #7)
-  const distY = hasRoute ? H * 0.6 : H * 0.4;
+  // 거리 (메인) — 사용자 피드백 #4: 위로 더 올림 (지도 mapY 360 → map 끝 840 → distY 약간 위).
+  const distY = hasRoute ? H * 0.53 : H * 0.4;
   ctx.font = 'bold 180px -apple-system, BlinkMacSystemFont, sans-serif';
   ctx.fillStyle = mainColor;
   ctx.fillText(activity.distance_km.toFixed(2), W / 2, distY);
@@ -359,35 +361,81 @@ function drawCard(
     const startY = quoteY - ((lines.length - 1) * lineH) / 2;
     lines.forEach((line, i) => ctx.fillText(line, W / 2, startY + i * lineH));
 
-    // 👍 좋아요 — 명언 마지막 줄과 같은 baseline 의 inline 위치 (사용자 피드백 #13).
-    // 마지막 줄 텍스트를 가운데 정렬한 후 그 끝 옆에 👍 + count 를 함께 그림.
+    // 👍 좋아요 — 마지막 줄 오른쪽 끝 inline (사용자 피드백 #4).
+    // 명언이 가운데 정렬이라, 좋아요는 마지막 줄의 우측 끝 (텍스트 오른쪽 가장자리) 옆에 붙여 그림.
     if (!isFallbackQuote(quote)) {
-      const thumbSize = 36;
-      const gap = 14;
+      const thumbSize = 32;
+      const gap = 12;
       const lastLineIdx = lines.length - 1;
       const lastLineY = startY + lastLineIdx * lineH;
       const lastLineText = lines[lastLineIdx];
 
-      // 마지막 줄은 그대로 가운데 두고, 👍 + count 를 그 아래 inline 가까이 배치.
-      // 진짜 inline 은 가운데 정렬 깨져서 어색 — 마지막 줄 baseline 보다 0.55 lineH 아래.
-      ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, sans-serif';
+      // 마지막 줄 텍스트의 가운데 정렬 baseline 의 우측 끝 픽셀 좌표.
+      ctx.font = 'italic 600 52px -apple-system, BlinkMacSystemFont, sans-serif';
+      const lastLineW = ctx.measureText(lastLineText).width;
+      const lastLineRightX = W / 2 + lastLineW / 2;
+
+      ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
       const countText = `${quote.like_count}`;
       const countW = ctx.measureText(countText).width;
-      const inlineGroupW = thumbSize + gap + countW;
 
-      const thumbY = lastLineY + lineH * 0.55;
-      const thumbX = W / 2 - inlineGroupW / 2 + thumbSize / 2;
-      const countX = thumbX + thumbSize / 2 + gap;
-
-      drawThumbsUp(ctx, thumbX, thumbY, thumbSize, quote.liked_by_me, subColor);
-      ctx.fillStyle = quote.liked_by_me ? '#10b981' : subColor;
-      ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(countText, countX, thumbY);
-      ctx.textBaseline = 'alphabetic';
-      void lastLineText;
+      // 우측 끝 + 약간 띄움. 화면 밖으로 나가지 않게 maxX clamp (W - 60 padding).
+      let thumbX = lastLineRightX + gap + thumbSize / 2;
+      const groupRightX = thumbX + thumbSize / 2 + gap + countW;
+      const maxX = W - 60;
+      if (groupRightX > maxX) {
+        // overflow → 마지막 줄 아래로 떨어뜨림 (이전 동작 fallback)
+        thumbX = W / 2 - (thumbSize + gap + countW) / 2 + thumbSize / 2;
+        const thumbY = lastLineY + lineH * 0.55;
+        drawThumbsUp(ctx, thumbX, thumbY, thumbSize, quote.liked_by_me, subColor);
+        ctx.fillStyle = quote.liked_by_me ? '#10b981' : subColor;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(countText, thumbX + thumbSize / 2 + gap, thumbY);
+        ctx.textBaseline = 'alphabetic';
+      } else {
+        const thumbY = lastLineY - lineH * 0.15; // baseline 보다 약간 위 (텍스트 중앙)
+        drawThumbsUp(ctx, thumbX, thumbY, thumbSize, quote.liked_by_me, subColor);
+        ctx.fillStyle = quote.liked_by_me ? '#10b981' : subColor;
+        ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(countText, thumbX + thumbSize / 2 + gap, thumbY);
+        ctx.textBaseline = 'alphabetic';
+      }
     }
+  }
+
+  // 월 목표 가로 progress bar (사용자 피드백 #4) — 흰색, 세로 막대그래프 바로 위.
+  // 목표 미설정이면 그리지 않음. 흰색은 사진 배경/테마 모두에서 잘 보이라고 (사용자 결정).
+  if (monthlyGoalKm && monthlyGoalKm > 0 && monthSum > 0) {
+    const goalBarTop = 1430;
+    const goalBarH = 14;
+    const goalBarPadX = 100;
+    const goalBarW = W - goalBarPadX * 2;
+    const progress = Math.min(1, monthSum / monthlyGoalKm);
+    const radius = goalBarH / 2;
+
+    // 트랙 (배경)
+    ctx.fillStyle = bgImage ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.20)';
+    ctx.beginPath();
+    ctx.roundRect(goalBarPadX, goalBarTop, goalBarW, goalBarH, radius);
+    ctx.fill();
+
+    // 진행 (흰색)
+    ctx.fillStyle = '#ffffff';
+    const fillW = Math.max(goalBarH, goalBarW * progress);
+    ctx.beginPath();
+    ctx.roundRect(goalBarPadX, goalBarTop, fillW, goalBarH, radius);
+    ctx.fill();
+
+    // 라벨 (왼쪽 / 오른쪽)
+    ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillStyle = bgImage ? 'rgba(255,255,255,0.95)' : mainColor;
+    ctx.textAlign = 'left';
+    ctx.fillText(`${activityMonth + 1}월 목표`, goalBarPadX, goalBarTop - 14);
+    ctx.textAlign = 'right';
+    ctx.fillText(`${monthSum.toFixed(1)} / ${monthlyGoalKm.toFixed(0)}km`, goalBarPadX + goalBarW, goalBarTop - 14);
   }
 
   // 월간 그래프 — 하단 (이전 명언 자리). 작게.
@@ -496,7 +544,15 @@ function formatPc(s: number): string {
 
 export default function ShareCard({ activity, displayName, onClose, hideRegister, onRegistered }: ShareCardProps) {
   const { user } = useAuth();
-  const { activities } = useUserData();
+  const { activities, goals } = useUserData();
+  // 활동 월의 목표(km) — 가로 progress bar 에 사용. 없으면 undefined → bar 미표시.
+  const monthlyGoalKm = (() => {
+    const d = new Date(activity.activity_date);
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    const g = goals?.find(g => g.year === y && g.month === m);
+    return g?.goal_km ?? undefined;
+  })();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [themeIdx, setThemeIdx] = useState(0);
@@ -511,14 +567,17 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
 
   // 공유카드 열 때마다 random 명언 + 🎲 버튼으로 새로 굴릴 수 있음.
   // SNS 도배 회피 + 사용자가 마음에 들 때까지 새로 받음.
+  // 한국 사용자도 짧은 영어 명언은 무리 없이 이해 — 70% ko / 30% en 으로 다양성.
+  const pickQuoteLang = (): 'ko' | 'en' => (Math.random() < 0.3 ? 'en' : 'ko');
+
   useEffect(() => {
     let cancelled = false;
-    fetchRandomQuote('ko').then(q => { if (!cancelled) setQuote(q); });
+    fetchRandomQuote(pickQuoteLang()).then(q => { if (!cancelled) setQuote(q); });
     return () => { cancelled = true; };
   }, [activity.id]);
 
   const rerollQuote = useCallback(async () => {
-    const next = await fetchRandomQuote('ko', quote?.id);
+    const next = await fetchRandomQuote(pickQuoteLang(), quote?.id);
     setQuote(next);
   }, [quote?.id]);
 
@@ -553,8 +612,8 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
 
   const generate = useCallback(() => {
     if (!canvasRef.current) return;
-    drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage, activities, userIdLabel, quote);
-  }, [activity, displayName, themeIdx, bgImage, activities, userIdLabel, quote]);
+    drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage, activities, userIdLabel, quote, monthlyGoalKm);
+  }, [activity, displayName, themeIdx, bgImage, activities, userIdLabel, quote, monthlyGoalKm]);
 
   useEffect(() => { generate(); }, [generate]);
 
@@ -708,21 +767,16 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="bg-[var(--background)] rounded-2xl max-w-sm w-full overflow-hidden max-h-[90vh] flex flex-col">
-        {/* 헤더 — 닫기 버튼 hit area 44+ (사용자 피드백 #1: 잘 안 눌림) */}
-        <div className="flex items-center justify-between pl-4 pr-2 py-2 border-b border-[var(--card-border)] flex-shrink-0">
-          <h3 className="text-base font-bold text-[var(--foreground)]">공유 카드</h3>
+        {/* 캔버스 — 닫기 버튼은 이미지 우상단 floating (status bar 영역 아닌 카드 안). */}
+        <div className="p-4 flex-1 overflow-auto relative">
+          <canvas ref={canvasRef} className="w-full rounded-xl shadow-lg" style={{ aspectRatio: '9/16' }} />
           <button
             onClick={onClose}
             aria-label="닫기"
-            className="p-3 -mr-1 text-[var(--muted)] active:scale-90 active:bg-[var(--card)] rounded-full transition"
+            className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-full bg-black/55 hover:bg-black/75 active:scale-90 backdrop-blur-sm shadow-md"
           >
-            <X size={24} strokeWidth={2.5} />
+            <X size={20} strokeWidth={2.5} className="text-white" />
           </button>
-        </div>
-
-        {/* 캔버스 */}
-        <div className="p-4 flex-1 overflow-auto">
-          <canvas ref={canvasRef} className="w-full rounded-xl shadow-lg" style={{ aspectRatio: '9/16' }} />
         </div>
 
         {/* 명언 컨트롤 — 👍 좋아요 + 🎲 다른 명언. 클릭 시 카드 다시 그려짐. */}

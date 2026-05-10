@@ -144,7 +144,20 @@ export default function WinnerPredictionWidget() {
           {candidates.slice(0, 4).map(c => {
             const isMyPick = round.my_pick === c.user_id;
             const alreadyPicked = round.my_pick !== null && !isMyPick;
+            // disabled=true 면 onClick 자체가 안 걸려 안내 토스트도 못 띄움.
+            // → disabled 는 picking 중에만 걸고, isClosed/alreadyPicked 는 핸들러 안에서 분기.
             const handleClick = () => {
+              if (picking !== null) return;
+              if (isMyPick) {
+                setToast('이미 응원하고 있어요! 일요일 자정에 결과 공개 🏆');
+                setTimeout(() => setToast(null), 2500);
+                return;
+              }
+              if (isClosed) {
+                setToast('이번 주 픽은 마감됐어요. 일요일 자정 결과 공개를 기대해주세요 ✨');
+                setTimeout(() => setToast(null), 3000);
+                return;
+              }
               if (alreadyPicked) {
                 // 다정한 안내 (build 63: 사용자 신고 #1-1.C)
                 setToast('한 번 정한 응원 픽은 일요일까지! 다음 주에 다시 만나요 ✨');
@@ -157,12 +170,12 @@ export default function WinnerPredictionWidget() {
               <button
                 key={c.user_id}
                 onClick={handleClick}
-                disabled={isClosed || picking !== null}
+                disabled={picking !== null}
                 className={`flex items-center gap-2 p-2 rounded-xl border transition active:scale-95 ${
                   isMyPick
                     ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700'
                     : 'bg-white dark:bg-zinc-900 border-[var(--card-border)] hover:border-yellow-300'
-                } ${alreadyPicked ? 'opacity-50' : ''}`}
+                } ${alreadyPicked || isClosed ? 'opacity-50' : ''}`}
               >
                 <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden flex-shrink-0">
                   {c.avatar_url ? (
