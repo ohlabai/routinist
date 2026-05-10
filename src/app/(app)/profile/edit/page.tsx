@@ -179,7 +179,7 @@ export default function ProfileEditPage() {
   };
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-6 pb-32">
+    <div className="max-w-lg mx-auto pb-32 bg-[var(--background)] min-h-screen">
       {cropSrc && (
         <ImageCropModal
           src={cropSrc}
@@ -187,12 +187,15 @@ export default function ProfileEditPage() {
           onCropped={handleCropDone}
         />
       )}
-      <div className="flex items-center gap-3 mb-6">
-        <Link href="/profile" className="text-[var(--muted)]">
-          <ArrowLeft size={24} />
-        </Link>
-        <h1 className="text-2xl font-bold text-[var(--foreground)]">프로필 편집</h1>
-      </div>
+      <header className="sticky top-0 z-30 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
+        <div className="flex items-center gap-2 px-3 py-3">
+          <Link href="/profile" className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition">
+            <ArrowLeft size={20} />
+          </Link>
+          <h1 className="text-xl font-extrabold tracking-tight">프로필 편집</h1>
+        </div>
+      </header>
+      <div className="px-4 pt-4">
 
       <div className="flex justify-center mb-6">
         <button
@@ -369,17 +372,19 @@ export default function ProfileEditPage() {
         </div>
       </div>
 
-      <div className="fixed bottom-16 left-0 right-0 px-4 py-3 bg-[var(--background)]/95 backdrop-blur-xl border-t border-[var(--card-border)] pb-[calc(env(safe-area-inset-bottom)+12px)]">
+      </div>
+
+      <div className="fixed bottom-16 left-0 right-0 px-4 py-3 bg-[var(--background)]/95 backdrop-blur-xl border-t border-[var(--card-border)]/30 pb-[calc(env(safe-area-inset-bottom)+12px)]">
         <div className="max-w-lg mx-auto">
           <button
             onClick={handleSave}
             disabled={saving || !displayName.trim()}
-            className="w-full py-3.5 rounded-xl bg-[var(--accent)] text-white font-semibold text-base disabled:opacity-50 shadow-lg"
+            className="w-full py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base disabled:opacity-50 active:scale-[0.98] shadow-md shadow-emerald-500/30"
           >
-            {saving ? '저장 중...' : '저장'}
+            {saving ? '저장 중…' : '저장'}
           </button>
           {message && (
-            <p className={`text-center text-sm mt-2 ${message.includes('오류') || message.includes('실패') || message.includes('거부') ? 'text-red-500' : 'text-green-500'}`}>
+            <p className={`text-center text-xs mt-2 font-bold ${message.includes('오류') || message.includes('실패') || message.includes('거부') ? 'text-red-500' : 'text-emerald-600'}`}>
               {message}
             </p>
           )}

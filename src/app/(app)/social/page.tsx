@@ -133,20 +133,28 @@ function SocialPageInner() {
   const name = profile?.display_name ?? '러너';
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-6">
+    <div className="max-w-lg mx-auto pb-12 bg-[var(--background)] min-h-screen">
+      {/* Sticky Header */}
+      <header className="sticky top-0 z-30 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
+        <div className="px-4 py-3">
+          <h1 className="text-xl font-extrabold tracking-tight">소셜</h1>
+        </div>
+      </header>
+
+      <div className="px-4 pt-4">
       {/* 세그먼트 컨트롤 — 4탭 (그린 잔디블록 테마) */}
-      <div className="flex bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl p-1 mb-5 shadow-sm">
+      <div className="flex bg-[var(--card)] border border-[var(--card-border)] rounded-2xl p-1 mb-5 shadow-sm">
         {SECTIONS.map((section) => (
           <button
             key={section.id}
             onClick={() => setActiveSection(section.id)}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-extrabold transition-all active:scale-95 ${
               activeSection === section.id
-                ? 'bg-emerald-500 text-white shadow-sm'
+                ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/30'
                 : 'text-[var(--muted)]'
             }`}
           >
-            <section.Icon size={16} />
+            <section.Icon size={14} />
             {section.label}
           </button>
         ))}
@@ -397,6 +405,7 @@ function SocialPageInner() {
 
       {/* 포토 탭 — 신규 */}
       {activeSection === 'photos' && <PhotosTab />}
+      </div>
     </div>
   );
 }

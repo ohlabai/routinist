@@ -149,7 +149,21 @@ export default function ProfilePage() {
   ];
 
   return (
-    <div className="p-4 max-w-lg mx-auto space-y-4 pb-8">
+    <div className="max-w-lg mx-auto pb-12 bg-[var(--background)] min-h-screen">
+      {/* Sticky Header */}
+      <header className="sticky top-0 z-30 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
+        <div className="flex items-center justify-between px-4 py-3">
+          <h1 className="text-xl font-extrabold tracking-tight">내 정보</h1>
+          <Link
+            href="/profile/edit"
+            className="text-xs font-bold text-emerald-600 inline-flex items-center gap-1 active:scale-95 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30"
+          >
+            편집
+          </Link>
+        </div>
+      </header>
+
+      <div className="p-4 space-y-4">
       {/* 프로필 카드 */}
       <div className="card p-6">
         <div className="flex items-center gap-4">
@@ -173,29 +187,25 @@ export default function ProfilePage() {
               <p className="text-xs text-[var(--muted)]">{t('profile.runner')}</p>
             )}
           </div>
-          <Link
-            href="/profile/edit"
-            className="text-sm text-[var(--accent)] font-semibold px-3 py-2 -mr-1 rounded-lg active:bg-[var(--card-border)]/50 transition-colors"
-          >
-            {t('profile.edit')}
-          </Link>
         </div>
 
-        {/* 마일리지 잔액 칩 — 사용자 피드백 #12: 상단에 잔액 노출. 탭 시 /mileage 이동. */}
+        {/* 마일리지 잔액 칩 — 에메랄드 그라데이션 */}
         <Link
           href="/mileage"
-          className="mt-4 flex items-center justify-between px-4 py-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 active:scale-[0.98] transition"
+          className="mt-4 flex items-center justify-between px-4 py-3.5 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/20 border border-emerald-200/50 dark:border-emerald-900/40 active:scale-[0.98] transition group"
         >
           <div className="flex items-center gap-2">
-            <Coins size={18} className="text-amber-500" />
-            <span className="text-sm font-semibold text-amber-800 dark:text-amber-200">마일리지</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+              <Coins size={15} className="text-emerald-600" />
+            </div>
+            <span className="text-sm font-extrabold text-emerald-800 dark:text-emerald-200">마일리지</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-xl font-extrabold text-amber-700 dark:text-amber-300">
+            <span className="text-xl font-extrabold text-emerald-700 dark:text-emerald-300">
               {Number(profile?.mileage_balance ?? 0).toLocaleString()}
             </span>
-            <span className="text-sm font-bold text-amber-700 dark:text-amber-300">P</span>
-            <ChevronRight size={16} className="text-amber-500/70" />
+            <span className="text-sm font-extrabold text-emerald-600">P</span>
+            <ChevronRight size={16} className="text-emerald-500/70 group-active:translate-x-0.5 transition" />
           </div>
         </Link>
 
@@ -423,6 +433,7 @@ export default function ProfilePage() {
       {deleteToast && (
         <AppToast text={deleteToast.text} tone={deleteToast.tone} onClose={() => setDeleteToast(null)} durationMs={4000} />
       )}
+      </div>
     </div>
   );
 }

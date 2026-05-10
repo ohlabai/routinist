@@ -276,11 +276,18 @@ function UserProfileContent() {
   const regionLabel = [profile.region_si, profile.region_gu].filter(Boolean).join(' ');
 
   return (
-    <div className="p-4 max-w-lg mx-auto pb-12 space-y-4">
-      <button onClick={() => router.back()} className="inline-flex items-center gap-2 text-[var(--muted)]">
-        <ArrowLeft size={20} /> 뒤로
-      </button>
+    <div className="max-w-lg mx-auto pb-12 bg-[var(--background)] min-h-screen">
+      {/* Sticky Header */}
+      <header className="sticky top-0 z-30 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
+        <div className="flex items-center gap-2 px-3 py-3">
+          <button onClick={() => router.back()} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition">
+            <ArrowLeft size={20} />
+          </button>
+          <h1 className="text-xl font-extrabold tracking-tight">프로필</h1>
+        </div>
+      </header>
 
+      <div className="p-4 space-y-4">
       {/* 프로필 헤더 */}
       <div className="card p-5">
         <div className="flex items-center gap-4">
@@ -567,6 +574,7 @@ function UserProfileContent() {
           </div>
         );
       })()}
+      </div>
     </div>
   );
 }

@@ -455,7 +455,16 @@ export default function DashboardPage() {
 
   return (
     <PullToRefresh onRefresh={handleRefresh}>
-    <div className="max-w-lg mx-auto pb-8">
+    <div className="max-w-lg mx-auto pb-8 bg-[var(--background)] min-h-screen">
+    {/* Sticky Header */}
+    <header className="sticky top-0 z-20 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
+      <div className="px-4 py-3 flex items-center justify-between">
+        <h1 className="text-xl font-extrabold tracking-tight">홈</h1>
+        <Link href="/history" className="text-xs font-bold text-emerald-600 inline-flex items-center gap-0.5 active:scale-95 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30">
+          히스토리 <ChevronRight size={12} />
+        </Link>
+      </div>
+    </header>
       {syncToast && (
         <AppToast text={syncToast} tone={syncToast.startsWith('동기화 실패') ? 'warn' : 'ok'} position="top" onClose={() => setSyncToast(null)} durationMs={4000} />
       )}
