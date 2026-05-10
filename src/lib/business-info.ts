@@ -47,10 +47,10 @@ const BIZ_NUM = '204-86-22070';
 export const BUSINESS_INFO: BusinessInfo = {
   brandName: '루티니스트',
   companyName: '(주)오픈한',
-  ceoName: 'TODO_CEO_NAME',                        // ⚠️ 사용자 입력 필요
+  ceoName: '최철용',
   businessNumber: BIZ_NUM,
   ecommerceNumber: '제 2025-서울강남-02917 호',
-  address: 'TODO_ADDRESS',                         // ⚠️ 사용자 입력 필요 (서울 강남구 ...)
+  address: 'TODO_ADDRESS',                         // ⚠️ 사업자등록증 기재 주소 입력 필요
   phone: '070-5014-2225',
   email: 'routinist@openhan.kr',
   hostProvider: 'Vercel Inc., Cloudflare Inc., Cafe24 Corp.',

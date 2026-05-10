@@ -49,6 +49,7 @@
 		"AppPlugin",
 		"CAPBrowserPlugin",
 		"FilesystemPlugin",
+		"PushNotificationsPlugin",
 		"SharePlugin",
 		"HealthPlugin",
 		"SocialLoginPlugin"

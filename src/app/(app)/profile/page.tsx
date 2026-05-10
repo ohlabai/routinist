@@ -139,6 +139,7 @@ export default function ProfilePage() {
     ...(isAdmin ? [
       { href: '/admin/mileage', label: t('profile.menuAdminMileage'), Icon: Settings },
       { href: '/admin/orders', label: '주문 관리 (관리자)', Icon: Settings },
+      { href: '/admin/products', label: '상품 관리 (관리자)', Icon: Settings },
     ] : []),
     { href: '/support', label: t('profile.menuSupport'), Icon: HelpCircle },
     { href: '/privacy', label: t('profile.menuPrivacy'), Icon: Shield },

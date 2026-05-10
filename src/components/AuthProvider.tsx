@@ -85,6 +85,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void initializeSocialLogin();
   }, []);
 
+  // 푸시 알림 초기화 — 로그인 후 1회만 (user 가 있어야 토큰 → DB 저장 가능)
+  const pushInitedRef = useRef(false);
+  useEffect(() => {
+    if (!user || pushInitedRef.current) return;
+    pushInitedRef.current = true;
+    import('@/lib/push-notifications').then(({ initPushNotifications }) => {
+      void initPushNotifications();
+    }).catch(() => {});
+  }, [user]);
+
   useEffect(() => {
     const supabase = getSupabase();
     let initialSettled = false;
