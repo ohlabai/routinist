@@ -50,7 +50,7 @@ export const BUSINESS_INFO: BusinessInfo = {
   ceoName: '최철용',
   businessNumber: BIZ_NUM,
   ecommerceNumber: '제 2025-서울강남-02917 호',
-  address: 'TODO_ADDRESS',                         // ⚠️ 사업자등록증 기재 주소 입력 필요
+  address: '경기도 남양주시 진접읍 경복대로바람골길 42-36 오즈센터',
   phone: '070-5014-2225',
   email: 'routinist@openhan.kr',
   hostProvider: 'Vercel Inc., Cloudflare Inc., Cafe24 Corp.',
