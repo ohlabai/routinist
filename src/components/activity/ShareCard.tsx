@@ -396,9 +396,10 @@ function drawCard(
     const barFillOther = onPhoto ? 'rgba(255,255,255,0.55)' : accentColor + 'AA';
     const barFillEmpty = onPhoto ? 'rgba(255,255,255,0.15)' : subColor + '22';
 
-    // 라벨 제거 (build 67) — 사용자 결정: 그래프 형태로 충분히 자명.
     ctx.textAlign = 'center';
 
+    let todayBarCenterX = 0;
+    let todayBarTopY = 0;
     for (let day = 1; day <= daysInMonth; day++) {
       const km = dailyKm.get(day) ?? 0;
       const x = chartPadX + (day - 1) * (barWidth + 4);
@@ -406,7 +407,20 @@ function drawCard(
       const isToday = day === todayDay;
       ctx.fillStyle = isToday ? barFillToday : (km > 0 ? barFillOther : barFillEmpty);
       const barH = Math.max(h, 3);
-      ctx.fillRect(x, chartTop + chartH - barH, barWidth, barH);
+      const barTop = chartTop + chartH - barH;
+      ctx.fillRect(x, barTop, barWidth, barH);
+      if (isToday) {
+        todayBarCenterX = x + barWidth / 2;
+        todayBarTopY = barTop;
+      }
+    }
+
+    // 오늘 막대 위에 'M/D' 라벨 (사용자 피드백 #13: 날짜 정보를 그래프로 통합)
+    if (todayBarCenterX > 0) {
+      const label = `${activityMonth + 1}/${todayDay}`;
+      ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillStyle = onPhoto ? '#ffffff' : accentColor;
+      ctx.fillText(label, todayBarCenterX, todayBarTopY - 10);
     }
   }
 

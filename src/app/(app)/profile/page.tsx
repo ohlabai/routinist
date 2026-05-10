@@ -173,8 +173,26 @@ export default function ProfilePage() {
           </Link>
         </div>
 
+        {/* 마일리지 잔액 칩 — 사용자 피드백 #12: 상단에 잔액 노출. 탭 시 /mileage 이동. */}
+        <Link
+          href="/mileage"
+          className="mt-4 flex items-center justify-between px-4 py-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 active:scale-[0.98] transition"
+        >
+          <div className="flex items-center gap-2">
+            <Coins size={18} className="text-amber-500" />
+            <span className="text-sm font-semibold text-amber-800 dark:text-amber-200">마일리지</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xl font-extrabold text-amber-700 dark:text-amber-300">
+              {Number(profile?.mileage_balance ?? 0).toLocaleString()}
+            </span>
+            <span className="text-sm font-bold text-amber-700 dark:text-amber-300">P</span>
+            <ChevronRight size={16} className="text-amber-500/70" />
+          </div>
+        </Link>
+
         {/* 통산 km 라인 — 베스트 3칩 위에 작은 라벨로 유지 */}
-        <p className="text-xs text-[var(--muted)] mt-4 text-center">
+        <p className="text-xs text-[var(--muted)] mt-3 text-center">
           통산 <span className="font-semibold text-[var(--foreground)]">{totalKm.toFixed(0)}km</span>
           <span className="mx-1.5">·</span>
           <span className="font-semibold text-[var(--foreground)]">{totalRuns}회</span>

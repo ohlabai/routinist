@@ -379,8 +379,11 @@ export default function DashboardPage() {
   // (1) Apple Health sync 트리거 (네이티브 앱에서만, 30s race 가드)
   // (2) DB 캐시 새로고침 — sync 가 새 row 를 넣었다면 즉시 반영, 안 넣었어도 최소 stale 한 거 갱신
   // (3) 결과 toast — "어제 기록 안 들어와요" 신고 진단 가능하게
+  // (4) 마일리지 적립 토스트 (사용자 피드백 #12) — sync 후 잔액 증가분 친근하게 알림
   const handleRefresh = useCallback(async () => {
     let toast = '';
+    // 적립 비교용 — sync 직전 잔액 스냅샷
+    const balanceBefore = Number(profile?.mileage_balance ?? 0);
     if (user && isNativeApp()) {
       // Pull-to-refresh = 사용자의 명시적 동기화 의도. lastSync 즉시 갱신 (낙관적).
       // HealthConnectCard 가 CustomEvent 를 listen 해서 라벨 즉시 reflow.
@@ -418,11 +421,24 @@ export default function DashboardPage() {
       dataCache.invalidate('home:localtop:');
     }
     await Promise.all([loadStats(), refresh()]);
+
+    // 마일리지 적립 비교 — refresh() 후 profile 이 갱신되므로 supabase 직접 fetch
+    if (user) {
+      try {
+        const { fetchMileageBalance } = await import('@/lib/mileage-data');
+        const balanceAfter = await fetchMileageBalance(user.id);
+        const earned = balanceAfter - balanceBefore;
+        if (earned > 0) {
+          toast = `🎉 ${earned}P 적립! (잔액 ${balanceAfter.toLocaleString()}P)`;
+        }
+      } catch {}
+    }
+
     if (toast) {
       setSyncToast(toast);
       setTimeout(() => setSyncToast(null), 4000);
     }
-  }, [user, loadStats, refresh]);
+  }, [user, profile, loadStats, refresh]);
 
   if (showOnboarding) {
     return <Onboarding onComplete={() => { setShowOnboarding(false); localStorage.setItem('onboarding_done', '1'); }} />;
