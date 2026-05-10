@@ -63,9 +63,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   // 다른 계정으로 변경된 걸 감지하기 위해 직전 user.id 보관. 변경되면 캐시 invalidate.
   const lastUserIdRef = useRef<string | null>(null);
+  // race 가드: 빠른 SIGNED_IN(A) → SIGNED_OUT → SIGNED_IN(B) 시퀀스에서 A 의 늦은 응답이
+  // B 의 profile 을 덮어쓰는 회귀 차단. 매 호출마다 gen 증가 후 결과 적용 전 비교.
+  const loadGenRef = useRef(0);
 
   const loadProfile = useCallback(async (userId: string) => {
+    const gen = ++loadGenRef.current;
     const p = await getProfile(userId);
+    if (gen !== loadGenRef.current) return; // 더 새로운 호출이 진행 중 — stale drop
     setProfile(p);
   }, []);
 

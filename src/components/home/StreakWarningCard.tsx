@@ -4,6 +4,7 @@
 // 손실회피 효과로 동기부여. 사용자가 "오늘 안 달리면 X일 연속이 끊겨요" 메시지 보면 행동.
 // 푸시 알림은 별도 backlog (LocalNotifications + iOS 권한). 일단 in-app 카드.
 
+import { useEffect, useState } from 'react';
 import { Flame } from 'lucide-react';
 import { todayStr } from '@/lib/kst';
 import type { Activity } from '@/types';
@@ -14,11 +15,17 @@ interface Props {
 }
 
 export default function StreakWarningCard({ activities, streak }: Props) {
+  // 1분 간격 tick 으로 hour 변화 감지 — 사용자가 17:55 에 mount 후 18:00 넘어가도 표시.
+  const [hour, setHour] = useState(() => new Date().getHours());
+  useEffect(() => {
+    const id = setInterval(() => setHour(new Date().getHours()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   // 조건:
   // 1) 저녁 18시 이후 (오전엔 아직 시간 충분 → 알림 부담)
   // 2) 오늘 활동 0건
   // 3) streak >= 1 (끊길 게 있어야 위협)
-  const hour = new Date().getHours();
   if (hour < 18) return null;
   if (streak < 1) return null;
   const today = todayStr();

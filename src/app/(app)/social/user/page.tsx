@@ -81,7 +81,7 @@ function UserProfileContent() {
   const [stats, setStats] = useState<MonthStats>({ monthly_km: 0, run_count: 0 });
   const [following, setFollowing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [selectedActivity, setSelectedActivity] = useState<ActivityRow | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [toggling, setToggling] = useState(false);
   const [activities, setActivities] = useState<ActivityRow[]>([]);
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
@@ -444,12 +444,11 @@ function UserProfileContent() {
             const day = i + 1;
             const ds = `${calendarData.year}-${String(calendarData.month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             const km = calendarData.distMap.get(ds) || 0;
-            const dayActivity = activities.find(a => a.activity_date === ds);
-            const clickable = !!dayActivity;
+            const clickable = km > 0;
             return (
               <button
                 key={day}
-                onClick={() => dayActivity && setSelectedActivity(dayActivity)}
+                onClick={() => clickable && setSelectedDate(ds)}
                 disabled={!clickable}
                 className={`aspect-square rounded-md flex items-center justify-center ${calColor(km)} ${clickable ? 'active:scale-90 transition-transform' : 'cursor-default'}`}
                 aria-label={clickable ? `${calendarData.month}월 ${day}일 ${km.toFixed(1)}km 보기` : undefined}
@@ -483,67 +482,91 @@ function UserProfileContent() {
       {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2500} />}
 
       {/* 활동 상세 모달 — 친구 캘린더 셀 클릭 시 (사용자 피드백 #6).
-          지도 + 거리·페이스·시간·칼로리. visibility='public' 활동만 fetch 됐으니 RLS 검증 완료. */}
-      {selectedActivity && (
-        <div
-          className="fixed inset-0 z-[80] bg-black/70 flex items-end sm:items-center justify-center sm:p-4"
-          onClick={(e) => { if (e.target === e.currentTarget) setSelectedActivity(null); }}
-        >
-          <div className="bg-[var(--background)] rounded-t-3xl sm:rounded-2xl max-w-md w-full overflow-hidden max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between pl-5 pr-2 py-3 border-b border-[var(--card-border)]">
-              <div>
-                <h3 className="text-base font-bold text-[var(--foreground)]">
-                  {new Date(selectedActivity.activity_date).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}
-                </h3>
-                <p className="text-xs text-[var(--muted)]">{profile?.display_name}님의 러닝</p>
-              </div>
-              <button
-                onClick={() => setSelectedActivity(null)}
-                aria-label="닫기"
-                className="p-3 -mr-1 text-[var(--muted)] active:scale-90 active:bg-[var(--card)] rounded-full transition"
-              >
-                <XIcon size={24} strokeWidth={2.5} />
-              </button>
-            </div>
-            <div className="overflow-y-auto p-4 space-y-4">
-              {/* 큰 거리 */}
-              <div className="text-center py-2">
-                <p className="text-5xl font-extrabold text-emerald-500">{Number(selectedActivity.distance_km).toFixed(2)}</p>
-                <p className="text-sm text-[var(--muted)] mt-1">킬로미터</p>
-              </div>
-              {/* 통계 3열 */}
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="card p-3">
-                  <p className="text-xs text-[var(--muted)]">시간</p>
-                  <p className="text-lg font-bold text-[var(--foreground)] mt-1">
-                    {selectedActivity.duration_seconds ? formatDur(selectedActivity.duration_seconds) : '—'}
+          하루에 여러 번 달린 경우 모든 활동을 vertical stack 으로 표시.
+          visibility='public' 활동만 fetch 됐으니 RLS 검증 완료. */}
+      {selectedDate && (() => {
+        const dayActivities = activities
+          .filter(a => a.activity_date === selectedDate)
+          .sort((a, b) => Number(b.distance_km) - Number(a.distance_km));
+        const totalKm = dayActivities.reduce((s, a) => s + Number(a.distance_km), 0);
+        return (
+          <div
+            className="fixed inset-0 z-[80] bg-black/70 flex items-end sm:items-center justify-center sm:p-4"
+            onClick={(e) => { if (e.target === e.currentTarget) setSelectedDate(null); }}
+          >
+            <div className="bg-[var(--background)] rounded-t-3xl sm:rounded-2xl max-w-md w-full overflow-hidden max-h-[90vh] flex flex-col">
+              <div className="flex items-center justify-between pl-5 pr-2 py-3 border-b border-[var(--card-border)]">
+                <div>
+                  <h3 className="text-base font-bold text-[var(--foreground)]">
+                    {new Date(selectedDate).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}
+                  </h3>
+                  <p className="text-xs text-[var(--muted)]">
+                    {profile?.display_name}님의 러닝{dayActivities.length > 1 ? ` · ${dayActivities.length}회` : ''}
                   </p>
                 </div>
-                <div className="card p-3">
-                  <p className="text-xs text-[var(--muted)]">페이스</p>
-                  <p className="text-lg font-bold text-[var(--foreground)] mt-1">
-                    {selectedActivity.pace_avg_sec_per_km ? formatPace(selectedActivity.pace_avg_sec_per_km) : '—'}
-                  </p>
-                </div>
-                <div className="card p-3">
-                  <p className="text-xs text-[var(--muted)]">칼로리</p>
-                  <p className="text-lg font-bold text-[var(--foreground)] mt-1">
-                    {selectedActivity.calories ? `${selectedActivity.calories}` : '—'}
-                  </p>
-                </div>
+                <button
+                  onClick={() => setSelectedDate(null)}
+                  aria-label="닫기"
+                  className="p-3 -mr-1 text-[var(--muted)] active:scale-90 active:bg-[var(--card)] rounded-full transition"
+                >
+                  <XIcon size={24} strokeWidth={2.5} />
+                </button>
               </div>
-              {/* 지도 — GPS 경로가 있으면 표시 */}
-              {selectedActivity.route_data?.coordinates?.length ? (
-                <RouteMap routeData={selectedActivity.route_data} height="240px" />
-              ) : (
-                <div className="card p-5 text-center text-xs text-[var(--muted)]">
-                  GPS 경로 데이터가 없는 기록이에요
+              <div className="overflow-y-auto p-4 space-y-4">
+                {/* 합계 거리 (다중 활동이면 합계, 단일이면 그 값) */}
+                <div className="text-center py-2">
+                  <p className="text-5xl font-extrabold text-emerald-500">{totalKm.toFixed(2)}</p>
+                  <p className="text-sm text-[var(--muted)] mt-1">
+                    {dayActivities.length > 1 ? '킬로미터 (합계)' : '킬로미터'}
+                  </p>
                 </div>
-              )}
+                {/* 활동별 카드 — 단일이면 1개, 다중이면 stack */}
+                {dayActivities.map((act, idx) => (
+                  <div key={act.id} className="space-y-3">
+                    {dayActivities.length > 1 && (
+                      <div className="flex items-center gap-2 px-1">
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500 text-white text-xs font-bold">
+                          {idx + 1}
+                        </span>
+                        <span className="text-sm font-semibold text-[var(--foreground)]">
+                          {Number(act.distance_km).toFixed(2)}km
+                        </span>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="card p-3">
+                        <p className="text-xs text-[var(--muted)]">시간</p>
+                        <p className="text-lg font-bold text-[var(--foreground)] mt-1">
+                          {act.duration_seconds ? formatDur(act.duration_seconds) : '—'}
+                        </p>
+                      </div>
+                      <div className="card p-3">
+                        <p className="text-xs text-[var(--muted)]">페이스</p>
+                        <p className="text-lg font-bold text-[var(--foreground)] mt-1">
+                          {act.pace_avg_sec_per_km ? formatPace(act.pace_avg_sec_per_km) : '—'}
+                        </p>
+                      </div>
+                      <div className="card p-3">
+                        <p className="text-xs text-[var(--muted)]">칼로리</p>
+                        <p className="text-lg font-bold text-[var(--foreground)] mt-1">
+                          {act.calories ? `${act.calories}` : '—'}
+                        </p>
+                      </div>
+                    </div>
+                    {act.route_data?.coordinates?.length ? (
+                      <RouteMap routeData={act.route_data} height="240px" />
+                    ) : (
+                      <div className="card p-4 text-center text-xs text-[var(--muted)]">
+                        GPS 경로 데이터가 없는 기록이에요
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
