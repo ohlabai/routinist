@@ -133,8 +133,13 @@ export default function ProfilePage() {
   ];
 
   const settings: { href: string; label: string; Icon: typeof HelpCircle }[] = [
+    { href: '/shop/orders', label: '내 주문 내역', Icon: HelpCircle },
+    { href: '/shop/addresses', label: '배송지 관리', Icon: HelpCircle },
     { href: '/profile/audit', label: t('profile.menuAudit'), Icon: Stethoscope },
-    ...(isAdmin ? [{ href: '/admin/mileage', label: t('profile.menuAdminMileage'), Icon: Settings }] : []),
+    ...(isAdmin ? [
+      { href: '/admin/mileage', label: t('profile.menuAdminMileage'), Icon: Settings },
+      { href: '/admin/orders', label: '주문 관리 (관리자)', Icon: Settings },
+    ] : []),
     { href: '/support', label: t('profile.menuSupport'), Icon: HelpCircle },
     { href: '/privacy', label: t('profile.menuPrivacy'), Icon: Shield },
     { href: '/terms', label: t('profile.menuTerms'), Icon: FileText },

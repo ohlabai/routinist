@@ -80,5 +80,34 @@
 			</array>
 		</dict>
 	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<!-- 토스 결제창에서 카카오페이/네이버페이/페이코/삼성페이 등 외부 앱 자동 전환용. -->
+		<!-- canOpenURL 차단 회피 — 미등록 시 결제창에서 외부 앱 호출 실패. -->
+		<string>kakaotalk</string>
+		<string>kakaopay</string>
+		<string>kakaolink</string>
+		<string>naversearchapp</string>
+		<string>naversearchthirdlogin</string>
+		<string>npayportal</string>
+		<string>payco</string>
+		<string>tossapp</string>
+		<string>supertoss</string>
+		<string>ispmobile</string>
+		<string>kftc-bankpay</string>
+		<string>liivbank</string>
+		<string>shinhan-sr-ansimclick</string>
+		<string>kb-acp</string>
+		<string>mpocket.online.ansimclick</string>
+		<string>ansimclickscard</string>
+		<string>ansimclickipcollect</string>
+		<string>vguardstart</string>
+		<string>cloudpay</string>
+		<string>hanawalletmembers</string>
+		<string>hdcardappcardansimclick</string>
+		<string>smshinhanansimclick</string>
+		<string>smartwall</string>
+		<string>itmss</string>
+	</array>
 </dict>
 </plist>
