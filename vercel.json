@@ -3,6 +3,7 @@
     { "source": "/((?!_next|api|privacy|support).*)", "destination": "/index.html" }
   ],
   "crons": [
-    { "path": "/api/push/send", "schedule": "* * * * *" }
+    { "path": "/api/push/send", "schedule": "* * * * *" },
+    { "path": "/api/cafe24/import", "schedule": "0 19 * * *" }
   ]
 }
