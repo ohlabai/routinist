@@ -1,12 +1,15 @@
 'use client';
 
-// 어드민 메인 대시보드 — 매출/주문/사용자/상품 KPI + 14일 매출 추이.
+// 어드민 메인 대시보드 — 모던 모바일 UX/UI (에메랄드 그린).
 // hans@openhan.kr 만 접근.
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ShoppingBag, Users, Package, AlertCircle, ChevronRight, Beaker, Coins } from 'lucide-react';
+import {
+  ArrowLeft, ShoppingBag, Users, Package, AlertCircle, ChevronRight,
+  Beaker, Coins, TrendingUp, Sparkles, Settings,
+} from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
@@ -25,7 +28,6 @@ export default function AdminDashboardPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const isAdmin = user?.email === ADMIN_EMAIL;
-
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -43,16 +45,14 @@ export default function AdminDashboardPage() {
         const { data, error } = await supabase.rpc('admin_dashboard_stats');
         if (error) { console.warn('[admin/dash] fail', error); return; }
         setStats(data as DashboardStats);
-      } finally {
-        setLoading(false);
-      }
+      } finally { setLoading(false); }
     })();
   }, [isAdmin]);
 
-  if (authLoading || !isAdmin || loading) {
+  if (authLoading || !isAdmin) {
     return (
       <div className="flex justify-center py-20">
-        <div className="animate-spin w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full" />
+        <div className="animate-spin w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full" />
       </div>
     );
   }
@@ -63,34 +63,57 @@ export default function AdminDashboardPage() {
   })) ?? [];
 
   return (
-    <div className="max-w-2xl mx-auto pb-12">
-      <div className="flex items-center gap-3 px-4 py-3 sticky top-0 bg-[var(--background)]/95 backdrop-blur z-10">
-        <button onClick={() => router.back()} className="p-1 active:scale-90"><ArrowLeft size={24} /></button>
-        <h1 className="text-xl font-bold flex-1">어드민 대시보드</h1>
-      </div>
+    <div className="max-w-2xl mx-auto pb-12 bg-[var(--background)] min-h-screen">
+      {/* Sticky Header */}
+      <header className="sticky top-0 z-30 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
+        <div className="flex items-center gap-2 px-3 py-3">
+          <button onClick={() => router.back()} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition">
+            <ArrowLeft size={20} />
+          </button>
+          <h1 className="text-xl font-extrabold tracking-tight flex-1">어드민</h1>
+          <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40">
+            ADMIN
+          </span>
+        </div>
+      </header>
 
-      {stats && (
+      {loading ? (
+        <div className="px-4 pt-4 space-y-3">
+          {[0,1,2,3].map(i => (
+            <div key={i} className="card p-5 animate-pulse">
+              <div className="h-3 w-1/3 bg-[var(--card-border)]/50 rounded mb-3" />
+              <div className="h-8 w-2/3 bg-[var(--card-border)]/50 rounded" />
+            </div>
+          ))}
+        </div>
+      ) : stats && (
         <>
-          {/* 매출 카드 */}
-          <div className="px-4">
-            <div className="card p-5 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/30 dark:to-emerald-900/20">
-              <p className="text-xs text-emerald-700 dark:text-emerald-300 mb-1">오늘 매출</p>
-              <p className="text-3xl font-extrabold text-emerald-700 dark:text-emerald-400">
-                {stats.revenue.today.toLocaleString()}원
-              </p>
-              <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-emerald-200/50 dark:border-emerald-800/30">
-                <Stat label="이번 주" value={`${stats.revenue.week.toLocaleString()}원`} />
-                <Stat label="이번 달" value={`${stats.revenue.month.toLocaleString()}원`} />
-                <Stat label="총 매출" value={`${stats.revenue.all_time.toLocaleString()}원`} />
+          {/* Hero — 오늘 매출 */}
+          <section className="px-4 pt-4">
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-600 p-6 shadow-lg shadow-emerald-500/30">
+              <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-white/10 blur-2xl" />
+              <div className="absolute -bottom-16 -left-8 w-32 h-32 rounded-full bg-emerald-300/30 blur-xl" />
+              <div className="relative">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm mb-3">
+                  <Sparkles size={11} className="text-white" />
+                  <span className="text-[10px] font-extrabold text-white tracking-widest">TODAY REVENUE</span>
+                </div>
+                <p className="text-4xl font-extrabold text-white tracking-tight">
+                  {stats.revenue.today.toLocaleString()}<span className="text-xl ml-1">원</span>
+                </p>
+                <div className="grid grid-cols-3 gap-2 mt-5 pt-5 border-t border-white/20">
+                  <SmallStat label="이번 주" value={`${(stats.revenue.week / 10000).toFixed(0)}만`} dark />
+                  <SmallStat label="이번 달" value={`${(stats.revenue.month / 10000).toFixed(0)}만`} dark />
+                  <SmallStat label="총 매출" value={`${(stats.revenue.all_time / 10000).toFixed(0)}만`} dark />
+                </div>
               </div>
             </div>
-          </div>
+          </section>
 
-          {/* 14일 매출 추이 차트 */}
+          {/* 14일 매출 추이 */}
           {chartData.length > 0 && (
-            <div className="px-4 mt-3">
+            <Section title="14일 매출 추이" icon={<TrendingUp size={16} className="text-emerald-500" />}>
               <div className="card p-4">
-                <p className="text-sm font-bold mb-3">최근 14일 매출 추이</p>
                 <ResponsiveContainer width="100%" height={140}>
                   <BarChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
                     <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--muted)' }} axisLine={false} tickLine={false} interval={1} />
@@ -99,101 +122,130 @@ export default function AdminDashboardPage() {
                       contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 12, fontSize: 12 }}
                       formatter={(v) => [`${Number(v).toLocaleString()}원`, '매출']}
                     />
-                    <Bar dataKey="krw" fill="#10B981" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="krw" fill="#10B981" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            </div>
+            </Section>
           )}
 
-          {/* 주문 상태 카드 */}
-          <div className="px-4 mt-3">
+          {/* 주문 현황 */}
+          <Section title="주문 현황" icon={<ShoppingBag size={16} className="text-emerald-500" />} action={
+            <Link href="/admin/orders" className="text-xs font-bold text-emerald-600 inline-flex items-center gap-0.5 active:scale-95">
+              관리 <ChevronRight size={12} />
+            </Link>
+          }>
             <div className="card p-4">
-              <p className="text-sm font-bold mb-3 flex items-center gap-1.5"><ShoppingBag size={16} /> 주문 현황</p>
-              <div className="grid grid-cols-3 gap-3">
-                <Stat label="오늘 주문" value={`${stats.orders.today}건`} />
-                <Stat label="이번 주" value={`${stats.orders.week}건`} />
-                <Stat label="이번 달" value={`${stats.orders.month}건`} />
+              <div className="grid grid-cols-3 gap-2">
+                <Stat label="오늘" value={`${stats.orders.today}`} unit="건" />
+                <Stat label="이번 주" value={`${stats.orders.week}`} unit="건" />
+                <Stat label="이번 달" value={`${stats.orders.month}`} unit="건" />
               </div>
-              <div className="grid grid-cols-3 gap-3 mt-3 pt-3 border-t border-[var(--card-border)]">
-                <Stat label="결제 대기" value={`${stats.orders.pending}건`} accent={stats.orders.pending > 0 ? 'amber' : undefined} />
-                <Stat label="발송 대기" value={`${stats.orders.paid_unfulfilled}건`} accent={stats.orders.paid_unfulfilled > 0 ? 'red' : undefined} />
-                <Stat label="배송 중" value={`${stats.orders.shipped_unfulfilled}건`} accent="blue" />
+              <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-[var(--card-border)]/40">
+                <Stat label="결제 대기" value={`${stats.orders.pending}`} unit="건" tone={stats.orders.pending > 0 ? 'amber' : 'mute'} />
+                <Stat label="발송 대기" value={`${stats.orders.paid_unfulfilled}`} unit="건" tone={stats.orders.paid_unfulfilled > 0 ? 'red' : 'mute'} />
+                <Stat label="배송 중" value={`${stats.orders.shipped_unfulfilled}`} unit="건" tone="blue" />
               </div>
-              <Link href="/admin/orders" className="mt-4 inline-flex items-center gap-1 text-xs text-[var(--accent)] font-semibold">
-                주문 관리 <ChevronRight size={12} />
-              </Link>
             </div>
-          </div>
+          </Section>
 
-          {/* 상품 카드 */}
-          <div className="px-4 mt-3">
+          {/* 상품 현황 */}
+          <Section title="상품 현황" icon={<Package size={16} className="text-emerald-500" />} action={
+            <Link href="/admin/products" className="text-xs font-bold text-emerald-600 inline-flex items-center gap-0.5 active:scale-95">
+              관리 <ChevronRight size={12} />
+            </Link>
+          }>
             <div className="card p-4">
-              <p className="text-sm font-bold mb-3 flex items-center gap-1.5"><Package size={16} /> 상품 현황</p>
               <div className="grid grid-cols-2 gap-3">
-                <Stat label="판매중" value={`${stats.products.published}개`} />
-                <Stat label="임시저장" value={`${stats.products.draft}개`} />
-                <Stat label="품절" value={`${stats.products.out_of_stock}개`} accent={stats.products.out_of_stock > 0 ? 'red' : undefined} />
-                <Stat label="재고 5↓" value={`${stats.products.low_stock}개`} accent={stats.products.low_stock > 0 ? 'amber' : undefined} />
+                <Stat label="판매중" value={`${stats.products.published}`} unit="개" tone="emerald" />
+                <Stat label="임시저장" value={`${stats.products.draft}`} unit="개" tone="mute" />
+                <Stat label="품절" value={`${stats.products.out_of_stock}`} unit="개" tone={stats.products.out_of_stock > 0 ? 'red' : 'mute'} />
+                <Stat label="재고 5↓" value={`${stats.products.low_stock}`} unit="개" tone={stats.products.low_stock > 0 ? 'amber' : 'mute'} />
               </div>
               {(stats.products.out_of_stock + stats.products.low_stock) > 0 && (
-                <p className="mt-3 text-xs text-amber-600 inline-flex items-center gap-1">
-                  <AlertCircle size={12} /> 재고 보충 필요한 상품이 있어요
-                </p>
+                <div className="mt-3 pt-3 border-t border-[var(--card-border)]/40 inline-flex items-center gap-1.5 text-xs text-amber-600 font-bold">
+                  <AlertCircle size={12} /> 재고 보충이 필요한 상품이 있어요
+                </div>
               )}
-              <Link href="/admin/products" className="mt-4 inline-flex items-center gap-1 text-xs text-[var(--accent)] font-semibold">
-                상품 관리 <ChevronRight size={12} />
-              </Link>
             </div>
-          </div>
+          </Section>
 
-          {/* 사용자 카드 */}
-          <div className="px-4 mt-3">
-            <div className="card p-4">
-              <p className="text-sm font-bold mb-3 flex items-center gap-1.5"><Users size={16} /> 사용자</p>
-              <div className="grid grid-cols-3 gap-3">
-                <Stat label="총 가입" value={`${stats.users.total}명`} />
-                <Stat label="오늘 신규" value={`+${stats.users.new_today}`} />
-                <Stat label="이번 주 신규" value={`+${stats.users.new_week}`} />
-              </div>
+          {/* 사용자 */}
+          <Section title="사용자" icon={<Users size={16} className="text-emerald-500" />}>
+            <div className="card p-4 grid grid-cols-3 gap-2">
+              <Stat label="총 가입" value={`${stats.users.total}`} unit="명" />
+              <Stat label="오늘 신규" value={`+${stats.users.new_today}`} tone="emerald" />
+              <Stat label="이번 주 신규" value={`+${stats.users.new_week}`} tone="emerald" />
             </div>
-          </div>
+          </Section>
 
           {/* 어드민 메뉴 */}
-          <div className="px-4 mt-5">
-            <p className="text-sm font-bold mb-2 px-1">관리</p>
+          <Section title="관리 메뉴" icon={<Settings size={16} className="text-emerald-500" />}>
             <div className="grid grid-cols-2 gap-2">
               <AdminLink href="/admin/orders" icon={<ShoppingBag size={20} />} label="주문 관리" />
               <AdminLink href="/admin/products" icon={<Package size={20} />} label="상품 관리" />
               <AdminLink href="/admin/mileage" icon={<Coins size={20} />} label="마일리지 정책" />
               <AdminLink href="/admin/experiments" icon={<Beaker size={20} />} label="A/B 실험" />
             </div>
-          </div>
+          </Section>
         </>
       )}
     </div>
   );
 }
 
-function Stat({ label, value, accent }: { label: string; value: string; accent?: 'amber' | 'red' | 'blue' }) {
-  const colorClass = accent === 'amber' ? 'text-amber-600' :
-                     accent === 'red' ? 'text-red-500' :
-                     accent === 'blue' ? 'text-blue-500' :
-                     'text-[var(--foreground)]';
+function Section({ title, icon, action, children }: { title: string; icon?: React.ReactNode; action?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section className="px-4 mt-5">
+      <div className="flex items-center justify-between mb-2.5">
+        <h2 className="text-sm font-extrabold inline-flex items-center gap-1.5">{icon}{title}</h2>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Stat({ label, value, unit, tone = 'default' }: { label: string; value: string; unit?: string; tone?: 'default' | 'emerald' | 'amber' | 'red' | 'blue' | 'mute' }) {
+  const colorClass = {
+    default: 'text-[var(--foreground)]',
+    emerald: 'text-emerald-600',
+    amber: 'text-amber-600',
+    red: 'text-red-500',
+    blue: 'text-blue-500',
+    mute: 'text-[var(--muted)]',
+  }[tone];
   return (
     <div>
-      <p className="text-xs text-[var(--muted)] mb-0.5">{label}</p>
-      <p className={`text-base font-bold ${colorClass}`}>{value}</p>
+      <p className="text-[10px] text-[var(--muted)] font-medium mb-0.5">{label}</p>
+      <p className={`text-base font-extrabold ${colorClass}`}>
+        {value}
+        {unit && <span className="text-xs font-bold ml-0.5 opacity-70">{unit}</span>}
+      </p>
+    </div>
+  );
+}
+
+function SmallStat({ label, value, dark }: { label: string; value: string; dark?: boolean }) {
+  return (
+    <div>
+      <p className={`text-[10px] font-medium ${dark ? 'text-white/70' : 'text-[var(--muted)]'}`}>{label}</p>
+      <p className={`text-base font-extrabold ${dark ? 'text-white' : 'text-[var(--foreground)]'}`}>{value}</p>
     </div>
   );
 }
 
 function AdminLink({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) {
   return (
-    <Link href={href} className="card p-3 flex items-center gap-2 active:scale-95 transition">
-      <span className="text-[var(--accent)]">{icon}</span>
-      <span className="text-sm font-semibold flex-1">{label}</span>
-      <ChevronRight size={14} className="text-[var(--muted)]" />
+    <Link
+      href={href}
+      className="card p-4 flex items-center gap-2.5 active:scale-[0.97] transition group hover:border-emerald-200 dark:hover:border-emerald-900/40"
+    >
+      <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center text-emerald-600">
+        {icon}
+      </div>
+      <span className="text-sm font-bold flex-1">{label}</span>
+      <ChevronRight size={14} className="text-[var(--muted)] group-active:translate-x-0.5 transition" />
     </Link>
   );
 }

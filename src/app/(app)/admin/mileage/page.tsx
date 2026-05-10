@@ -1,15 +1,16 @@
 'use client';
 
-// 관리자 페이지 — 마일리지 보상 amount 인라인 편집.
-// hans@openhan.kr 만 접근 가능. 다른 user 접근 시 자동 redirect.
+// 어드민 마일리지 정책 — 모던 모바일 UX/UI (에메랄드 그린).
+// hans@openhan.kr 만 접근. 보상 금액·활성 여부 인라인 편집.
 
 import { useEffect, useState, useCallback } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Save, Power } from 'lucide-react';
+import { ArrowLeft, Save, Power, Coins, Flame, Info } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import AppToast from '@/components/AppToast';
+
+const ADMIN_EMAIL = 'hans@openhan.kr';
 
 interface RewardConfig {
   event_type: string;
@@ -23,8 +24,6 @@ interface RewardConfig {
   boost_until: string | null;
   updated_at: string;
 }
-
-const ADMIN_EMAIL = 'hans@openhan.kr';
 
 const RECURRENCE_LABEL: Record<string, string> = {
   once: '1회만',
@@ -43,15 +42,11 @@ export default function AdminMileagePage() {
   const [saving, setSaving] = useState<string | null>(null);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
 
-  // 권한 가드 — hans@openhan.kr 만
   useEffect(() => {
     if (!user) return;
-    if (user.email !== ADMIN_EMAIL) {
-      router.replace('/dashboard');
-    }
+    if (user.email !== ADMIN_EMAIL) router.replace('/dashboard');
   }, [user, router]);
 
-  // iOS 백그라운드 복귀 시 supabase 클라이언트가 stale 토큰으로 쿼리 hang 가능 → 10s race
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
@@ -64,25 +59,17 @@ export default function AdminMileagePage() {
         ),
       ]);
       const { data, error } = result as { data: RewardConfig[] | null; error: { message: string } | null };
-      if (error) {
-        setLoadError(error.message);
-      } else {
-        setConfigs((data ?? []) as RewardConfig[]);
-      }
+      if (error) setLoadError(error.message);
+      else setConfigs((data ?? []) as RewardConfig[]);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
   const setEdit = (event_type: string, field: 'amount' | 'is_active', value: number | boolean) => {
-    setEdits(prev => ({
-      ...prev,
-      [event_type]: { ...prev[event_type], [field]: value },
-    }));
+    setEdits(prev => ({ ...prev, [event_type]: { ...prev[event_type], [field]: value } }));
   };
 
   const save = async (event_type: string) => {
@@ -97,10 +84,7 @@ export default function AdminMileagePage() {
       update.updated_at = new Date().toISOString();
       update.updated_by = user?.id;
 
-      const { error } = await supabase
-        .from('mileage_reward_config')
-        .update(update)
-        .eq('event_type', event_type);
+      const { error } = await supabase.from('mileage_reward_config').update(update).eq('event_type', event_type);
       if (error) throw error;
       setEdits(prev => { const next = { ...prev }; delete next[event_type]; return next; });
       setSavedMsg(`${event_type} 저장 완료`);
@@ -109,23 +93,31 @@ export default function AdminMileagePage() {
     } catch (e) {
       setSavedMsg(`저장 실패: ${e instanceof Error ? e.message : e}`);
       setTimeout(() => setSavedMsg(null), 4000);
-    } finally {
-      setSaving(null);
-    }
+    } finally { setSaving(null); }
   };
 
   if (user && user.email !== ADMIN_EMAIL) return null;
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
-      <div className="flex items-center gap-3 mb-4">
-        <Link href="/profile" className="text-[var(--muted)]"><ArrowLeft size={24} /></Link>
-        <h1 className="text-xl font-bold text-[var(--foreground)]">마일리지 보상 설정 (관리자)</h1>
-      </div>
+    <div className="max-w-2xl mx-auto pb-12 bg-[var(--background)] min-h-screen">
+      <header className="sticky top-0 z-30 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
+        <div className="flex items-center gap-2 px-3 py-3">
+          <button onClick={() => router.back()} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition">
+            <ArrowLeft size={20} />
+          </button>
+          <h1 className="text-xl font-extrabold tracking-tight">마일리지 정책</h1>
+        </div>
+      </header>
 
-      <p className="text-sm text-[var(--muted)] mb-4 leading-relaxed">
-        보상 금액·활성 여부를 변경하면 즉시 반영됩니다. 변경 이력은 mileage_reward_config_audit 에 자동 기록.
-      </p>
+      <div className="px-4 mt-4 mb-3">
+        <div className="card p-4 bg-gradient-to-br from-emerald-50/50 to-transparent dark:from-emerald-950/20 border-emerald-200/40 dark:border-emerald-900/30 inline-flex items-start gap-2.5">
+          <Info size={14} className="text-emerald-500 flex-shrink-0 mt-0.5" />
+          <p className="text-[11px] text-[var(--muted)] leading-relaxed">
+            보상 금액·활성 여부를 변경하면 즉시 반영됩니다.<br />
+            변경 이력은 <code className="text-[10px] px-1 py-0.5 rounded bg-[var(--card-border)]/30">mileage_reward_config_audit</code> 에 자동 기록.
+          </p>
+        </div>
+      </div>
 
       {savedMsg && (
         <AppToast
@@ -137,83 +129,110 @@ export default function AdminMileagePage() {
         />
       )}
 
-      <div className="card divide-y divide-[var(--card-border)]">
-        {loading ? (
-          <div className="flex justify-center py-10">
-            <div className="animate-spin w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full" />
-          </div>
-        ) : loadError ? (
-          <div className="text-center py-10 px-4">
-            <p className="text-sm text-red-500 mb-3">로드 실패: {loadError}</p>
-            <button onClick={() => load()} className="px-4 py-2 rounded-lg bg-emerald-500 text-white text-sm font-bold">
-              다시 시도
-            </button>
-          </div>
-        ) : configs.length === 0 ? (
-          <p className="text-center text-sm text-[var(--muted)] py-10">설정 데이터가 없습니다.</p>
-        ) : configs.map(cfg => {
-          const edit = edits[cfg.event_type] ?? {};
-          const currentAmount = edit.amount ?? cfg.amount;
-          const currentActive = edit.is_active ?? cfg.is_active;
-          const isDirty = edit.amount !== undefined || edit.is_active !== undefined;
-          const inBoost = cfg.boost_until && new Date(cfg.boost_until) > new Date() && cfg.boost_multiplier > 1;
-
-          return (
-            <div key={cfg.event_type} className="p-4">
-              <div className="flex items-start justify-between gap-3 mb-2">
-                <div className="flex-1 min-w-0">
-                  <p className="text-base font-bold text-[var(--foreground)]">{cfg.event_type}</p>
-                  <p className="text-xs text-[var(--muted)] mt-0.5">{cfg.description}</p>
-                  <p className="text-xs text-[var(--muted)] mt-0.5">
-                    {RECURRENCE_LABEL[cfg.recurrence]}
-                    {cfg.daily_cap ? ` · 일일 ${cfg.daily_cap}회 캡` : ''}
-                    {cfg.cooldown_days > 0 ? ` · 쿨다운 ${cfg.cooldown_days}일` : ''}
-                  </p>
-                  {inBoost && (
-                    <p className="text-xs text-orange-600 mt-1 font-bold">
-                      🔥 부스트 중 ({cfg.boost_multiplier}배)
-                    </p>
-                  )}
-                </div>
-                <button
-                  onClick={() => setEdit(cfg.event_type, 'is_active', !currentActive)}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition ${
-                    currentActive
-                      ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
-                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'
-                  }`}
-                >
-                  <Power size={12} />
-                  {currentActive ? '활성' : '비활성'}
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  value={currentAmount}
-                  min={0}
-                  onChange={(e) => setEdit(cfg.event_type, 'amount', parseInt(e.target.value) || 0)}
-                  className="flex-1 px-3 py-2 rounded-lg border border-[var(--card-border)] bg-[var(--background)] text-base font-bold text-[var(--foreground)]"
-                />
-                <span className="text-sm font-bold text-[var(--muted)]">P</span>
-                <button
-                  onClick={() => save(cfg.event_type)}
-                  disabled={!isDirty || saving === cfg.event_type}
-                  className="px-4 py-2 rounded-lg bg-emerald-500 text-white text-sm font-bold flex items-center gap-1 disabled:opacity-40"
-                >
-                  <Save size={14} />
-                  {saving === cfg.event_type ? '...' : '저장'}
-                </button>
-              </div>
+      {loading ? (
+        <div className="px-4 space-y-2">
+          {[0,1,2,3].map(i => (
+            <div key={i} className="card p-4 animate-pulse space-y-2">
+              <div className="h-3 w-1/3 bg-[var(--card-border)]/50 rounded" />
+              <div className="h-2 w-2/3 bg-[var(--card-border)]/50 rounded" />
+              <div className="h-8 w-full bg-[var(--card-border)]/50 rounded" />
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      ) : loadError ? (
+        <div className="text-center py-12 px-4">
+          <p className="text-sm text-red-500 mb-3">로드 실패: {loadError}</p>
+          <button onClick={() => load()} className="px-5 py-2.5 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-sm font-bold active:scale-95">
+            다시 시도
+          </button>
+        </div>
+      ) : configs.length === 0 ? (
+        <p className="text-center text-sm text-[var(--muted)] py-12">설정 데이터가 없습니다</p>
+      ) : (
+        <div className="px-4 space-y-2.5">
+          {configs.map(cfg => {
+            const edit = edits[cfg.event_type] ?? {};
+            const currentAmount = edit.amount ?? cfg.amount;
+            const currentActive = edit.is_active ?? cfg.is_active;
+            const isDirty = edit.amount !== undefined || edit.is_active !== undefined;
+            const inBoost = cfg.boost_until && new Date(cfg.boost_until) > new Date() && cfg.boost_multiplier > 1;
 
-      <p className="mt-4 text-xs text-[var(--muted)] leading-relaxed">
-        💡 글로벌 일일 캡: 한 사용자가 24시간 내 받을 수 있는 모든 보상 합 = 5000P (코드 하드코딩, 변경 시 award_mileage RPC 수정 필요).
-      </p>
+            return (
+              <div key={cfg.event_type} className={`card p-4 transition ${currentActive ? '' : 'opacity-70'}`}>
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-extrabold text-[var(--foreground)] inline-flex items-center gap-1.5">
+                      <Coins size={13} className="text-emerald-500 flex-shrink-0" />
+                      {cfg.event_type}
+                    </p>
+                    <p className="text-[11px] text-[var(--muted)] mt-1 ml-5">{cfg.description}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap mt-1.5 ml-5">
+                      <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30">
+                        {RECURRENCE_LABEL[cfg.recurrence]}
+                      </span>
+                      {cfg.daily_cap && (
+                        <span className="text-[10px] font-bold text-[var(--muted)] px-2 py-0.5 rounded-full bg-[var(--card-border)]/40">
+                          일 {cfg.daily_cap}회 캡
+                        </span>
+                      )}
+                      {cfg.cooldown_days > 0 && (
+                        <span className="text-[10px] font-bold text-[var(--muted)] px-2 py-0.5 rounded-full bg-[var(--card-border)]/40">
+                          쿨다운 {cfg.cooldown_days}일
+                        </span>
+                      )}
+                      {inBoost && (
+                        <span className="text-[10px] font-extrabold text-orange-600 px-2 py-0.5 rounded-full bg-orange-50 dark:bg-orange-950/30 inline-flex items-center gap-0.5">
+                          <Flame size={10} /> 부스트 ×{cfg.boost_multiplier}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setEdit(cfg.event_type, 'is_active', !currentActive)}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-extrabold transition active:scale-95 ${
+                      currentActive
+                        ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/30'
+                        : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                    }`}
+                  >
+                    <Power size={10} />
+                    {currentActive ? '활성' : '비활성'}
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="number" value={currentAmount} min={0}
+                      onChange={(e) => setEdit(cfg.event_type, 'amount', parseInt(e.target.value) || 0)}
+                      className="w-full pl-3.5 pr-8 py-2.5 rounded-xl border-2 border-[var(--card-border)] bg-[var(--background)] text-base font-extrabold text-[var(--foreground)] focus:outline-none focus:border-emerald-500"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-extrabold text-emerald-600">P</span>
+                  </div>
+                  <button
+                    onClick={() => save(cfg.event_type)}
+                    disabled={!isDirty || saving === cfg.event_type}
+                    className="px-4 py-2.5 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-xs font-extrabold flex items-center gap-1 disabled:opacity-40 active:scale-95 shadow-sm shadow-emerald-500/30"
+                  >
+                    <Save size={13} />
+                    {saving === cfg.event_type ? '...' : '저장'}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="px-4 mt-5">
+        <div className="card p-3.5 inline-flex items-start gap-2 text-[11px] text-[var(--muted)] leading-relaxed">
+          <span>💡</span>
+          <span>
+            글로벌 일일 캡: 한 사용자가 24시간 내 받을 수 있는 모든 보상 합 = <b>5000P</b><br />
+            (코드 하드코딩 — 변경 시 award_mileage RPC 수정 필요)
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
