@@ -137,9 +137,11 @@ export default function ProfilePage() {
     { href: '/shop/addresses', label: '배송지 관리', Icon: HelpCircle },
     { href: '/profile/audit', label: t('profile.menuAudit'), Icon: Stethoscope },
     ...(isAdmin ? [
+      { href: '/admin', label: '어드민 대시보드', Icon: Settings },
       { href: '/admin/mileage', label: t('profile.menuAdminMileage'), Icon: Settings },
       { href: '/admin/orders', label: '주문 관리 (관리자)', Icon: Settings },
       { href: '/admin/products', label: '상품 관리 (관리자)', Icon: Settings },
+      { href: '/admin/experiments', label: 'A/B 실험 (관리자)', Icon: Settings },
     ] : []),
     { href: '/support', label: t('profile.menuSupport'), Icon: HelpCircle },
     { href: '/privacy', label: t('profile.menuPrivacy'), Icon: Shield },

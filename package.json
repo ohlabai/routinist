@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "build:ios": "BUILD_TARGET=capacitor next build && npx cap sync ios",
+    "build:ios": "node scripts/build-ios.mjs",
     "open:ios": "npx cap open ios",
     "cafe24:import": "tsx scripts/cafe24_import.ts"
   },
@@ -26,6 +26,7 @@
     "@tosspayments/payment-sdk": "^1.9.2",
     "@vis.gl/react-google-maps": "^1.8.3",
     "date-fns": "^4.1.0",
+    "jose": "^6.2.3",
     "lucide-react": "^1.7.0",
     "next": "16.2.2",
     "qrcode": "^1.5.4",

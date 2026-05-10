@@ -268,6 +268,8 @@ export interface Product {
   is_featured: boolean;
   is_active: boolean;                // legacy
   metadata: Record<string, unknown>;
+  rating_avg?: number;               // 캐시 — product_reviews 평균
+  rating_count?: number;             // 캐시 — product_reviews 카운트
   created_at: string;
   updated_at: string;
 }

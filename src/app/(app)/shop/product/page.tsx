@@ -9,6 +9,7 @@ import { ArrowLeft, ShoppingCart, Plus, Minus, Package, ChevronRight, Check } fr
 import { fetchProduct, fetchProductVariants, addToCart } from '@/lib/shop-data';
 import { useAuth } from '@/components/AuthProvider';
 import AppToast from '@/components/AppToast';
+import ProductReviews from '@/components/shop/ProductReviews';
 import type { Product, ProductVariant } from '@/types';
 
 function ProductDetailContent() {
@@ -247,6 +248,13 @@ function ProductDetailContent() {
             ))}
           </div>
         )}
+
+        {/* 리뷰 */}
+        <ProductReviews
+          productId={product.id}
+          ratingAvg={product.rating_avg ?? 0}
+          ratingCount={product.rating_count ?? 0}
+        />
       </div>
 
       {/* 하단 sticky 액션 바 */}
