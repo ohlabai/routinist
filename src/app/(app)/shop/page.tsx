@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { Search, ShoppingCart, Package } from 'lucide-react';
 import { fetchProducts, fetchProductCategories, fetchCart } from '@/lib/shop-data';
 import { useAuth } from '@/components/AuthProvider';
+import BusinessFooter from '@/components/shop/BusinessFooter';
 import type { Product } from '@/types';
 
 function ShopContent() {
@@ -229,6 +230,8 @@ function ShopContent() {
           </div>
         </>
       )}
+
+      <BusinessFooter variant="compact" />
     </div>
   );
 }

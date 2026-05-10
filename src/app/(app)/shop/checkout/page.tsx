@@ -16,6 +16,7 @@ import type { CartItem, ShippingAddress } from '@/types';
 import { fetchMileageBalance } from '@/lib/mileage-data';
 import { useAuth } from '@/components/AuthProvider';
 import AppToast from '@/components/AppToast';
+import BusinessFooter from '@/components/shop/BusinessFooter';
 
 function CheckoutContent() {
   const router = useRouter();
@@ -403,6 +404,18 @@ function CheckoutContent() {
           </div>
         </div>
       </div>
+
+      {/* 약관 동의 — 전자상거래법 의무 */}
+      <div className="px-4 mt-3">
+        <div className="card p-3 text-xs text-[var(--muted)] leading-relaxed">
+          주문 내용을 확인했으며, 정보 제공 등에 동의합니다 (필수). 결제 진행 시{' '}
+          <a href="/shop/terms" target="_blank" className="text-[var(--accent)] underline">이용약관</a>,{' '}
+          <a href="/shop/refund" target="_blank" className="text-[var(--accent)] underline">취소·환불 정책</a>,{' '}
+          <a href="/privacy" target="_blank" className="text-[var(--accent)] underline">개인정보처리방침</a>에 동의한 것으로 간주됩니다.
+        </div>
+      </div>
+
+      <BusinessFooter variant="full" />
 
       <div className="fixed bottom-0 left-0 right-0 bg-[var(--background)] border-t border-[var(--card-border)] safe-area-bottom">
         <div className="max-w-lg mx-auto p-3">

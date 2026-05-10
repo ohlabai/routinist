@@ -9,6 +9,7 @@ import { ArrowLeft, Trash2, Plus, Minus, Package, ShoppingBag } from 'lucide-rea
 import { fetchCart, updateCartQuantity, removeFromCart } from '@/lib/shop-data';
 import { useAuth } from '@/components/AuthProvider';
 import AppToast from '@/components/AppToast';
+import BusinessFooter from '@/components/shop/BusinessFooter';
 import type { CartItem } from '@/types';
 
 export default function CartPage() {
@@ -207,6 +208,8 @@ export default function CartPage() {
           </div>
         </>
       )}
+
+      {items.length > 0 && <BusinessFooter variant="compact" />}
 
       {/* 하단 sticky 결제 버튼 */}
       {items.length > 0 && (

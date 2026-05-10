@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { ArrowLeft, Package, MapPin, CreditCard, AlertCircle } from 'lucide-react';
 import { fetchOrder, cancelOrder, orderStatusLabel, orderStatusColor } from '@/lib/shop-data';
 import AppToast from '@/components/AppToast';
+import BusinessFooter from '@/components/shop/BusinessFooter';
 import type { Order, OrderItem, ShopPayment } from '@/types';
 
 function OrderDetailContent() {
@@ -218,6 +219,8 @@ function OrderDetailContent() {
           </button>
         </div>
       )}
+
+      <BusinessFooter variant="compact" />
 
       {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={3500} />}
     </div>
