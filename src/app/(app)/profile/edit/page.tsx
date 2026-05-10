@@ -9,6 +9,7 @@ import Link from 'next/link';
 import AppLogo from '@/components/AppLogo';
 import { COUNTRIES, KR_REGIONS, KR_SIDO_LIST } from '@/lib/regions';
 import { detectRegion } from '@/lib/geo';
+import ImageCropModal from '@/components/ImageCropModal';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const BIRTH_YEARS = Array.from({ length: 80 }, (_, i) => CURRENT_YEAR - 14 - i);
@@ -31,6 +32,7 @@ export default function ProfileEditPage() {
 
   const [avatarPreview, setAvatarPreview] = useState(profile?.avatar_url ?? '');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [detecting, setDetecting] = useState(false);
@@ -38,11 +40,21 @@ export default function ProfileEditPage() {
   const isKorea = country === 'KR';
   const guList = isKorea && sido ? KR_REGIONS[sido] ?? [] : [];
 
+  // 사용자 피드백 #2: 동그라미 안에 어떻게 들어갈지 미리 보여줘야 함.
+  // 파일 선택 → CropModal → 원형 mask 안에서 zoom/drag 후 확정 → 파일 저장.
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setAvatarFile(file);
-    setAvatarPreview(URL.createObjectURL(file));
+    setCropSrc(URL.createObjectURL(file));
+    // input 초기화 — 같은 파일 재선택 가능
+    if (e.target) e.target.value = '';
+  };
+
+  const handleCropDone = (blob: Blob) => {
+    const cropped = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
+    setAvatarFile(cropped);
+    setAvatarPreview(URL.createObjectURL(blob));
+    setCropSrc(null);
   };
 
   const handleDetectRegion = async () => {
@@ -150,6 +162,13 @@ export default function ProfileEditPage() {
 
   return (
     <div className="max-w-lg mx-auto px-4 py-6 pb-32">
+      {cropSrc && (
+        <ImageCropModal
+          src={cropSrc}
+          onCancel={() => setCropSrc(null)}
+          onCropped={handleCropDone}
+        />
+      )}
       <div className="flex items-center gap-3 mb-6">
         <Link href="/profile" className="text-[var(--muted)]">
           <ArrowLeft size={24} />

@@ -104,6 +104,20 @@ export default function LoginPage() {
       }
     } catch (e2) {
       const msg = e2 instanceof Error ? e2.message : '오류가 발생했습니다.';
+      // 사용자 피드백 #7: 가입 안 된 이메일로 로그인 시도 → 회원가입 모드로 자동 안내
+      if (mode === 'email-login' && /invalid login credentials/i.test(msg)) {
+        setMode('email-signup');
+        setInfo('가입되지 않은 이메일이거나 비밀번호가 틀렸어요.\n처음이라면 아래에서 회원가입을 진행해주세요.');
+        setLoadingProvider(null);
+        return;
+      }
+      // 이미 가입된 이메일로 회원가입 시도
+      if (mode === 'email-signup' && /already registered|already exists|user already/i.test(msg)) {
+        setMode('email-login');
+        setInfo('이미 가입된 이메일이에요. 비밀번호로 로그인해주세요.');
+        setLoadingProvider(null);
+        return;
+      }
       setError(msg);
     } finally {
       setLoadingProvider(null);
@@ -179,18 +193,18 @@ export default function LoginPage() {
             </div>
 
             <button
-              onClick={() => setMode('email-login')}
-              disabled={loadingProvider !== null}
-              className="w-full py-3 rounded-xl border border-gray-300 bg-white/70 text-gray-700 font-semibold hover:bg-white disabled:opacity-50"
-            >
-              이메일로 로그인
-            </button>
-            <button
               onClick={() => setMode('email-signup')}
               disabled={loadingProvider !== null}
-              className="w-full py-3 rounded-xl text-gray-600 font-medium hover:text-gray-900 disabled:opacity-50"
+              className="w-full py-3 rounded-xl border border-emerald-500 bg-white text-emerald-700 font-semibold hover:bg-emerald-50 disabled:opacity-50"
             >
               이메일로 회원가입
+            </button>
+            <button
+              onClick={() => setMode('email-login')}
+              disabled={loadingProvider !== null}
+              className="w-full py-2.5 text-sm text-gray-500 hover:text-gray-800 disabled:opacity-50"
+            >
+              이미 계정이 있어요 — 이메일로 로그인
             </button>
           </div>
         )}
