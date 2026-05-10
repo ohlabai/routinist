@@ -1,35 +1,54 @@
 import { getSupabase } from './supabase';
 import type { Conversation, Message, Profile } from '@/types';
+import { PUBLIC_PROFILE_FIELDS } from './profile-fields';
 
 // 대화 목록 조회 (상대방 프로필 + 마지막 메시지 포함)
+// Supabase nested select 로 양쪽 프로필을 한 번에 가져오고, 마지막 메시지는 conversation_ids 일괄 쿼리.
+// 이전 구현은 대화 수 N 만큼 (프로필 + 메시지) 쌍 쿼리로 N+1.
 export async function fetchConversations(userId: string): Promise<Conversation[]> {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('conversations')
-    .select('*')
+    .select(`
+      *,
+      user_a_profile:profiles!conversations_user_a_fkey(${PUBLIC_PROFILE_FIELDS}),
+      user_b_profile:profiles!conversations_user_b_fkey(${PUBLIC_PROFILE_FIELDS})
+    `)
     .or(`user_a.eq.${userId},user_b.eq.${userId}`)
     .order('last_message_at', { ascending: false });
   if (error) throw error;
 
-  const convs = (data || []) as Conversation[];
+  type ConvWithProfiles = Conversation & {
+    user_a_profile?: Profile;
+    user_b_profile?: Profile;
+  };
+  const convs = (data || []) as ConvWithProfiles[];
+  if (convs.length === 0) return [];
 
-  // 상대방 프로필과 마지막 메시지를 병렬로 가져오기
-  const enriched = await Promise.all(convs.map(async (c) => {
-    const otherId = c.user_a === userId ? c.user_b : c.user_a;
+  // 마지막 메시지: conversation_id IN (...) 단일 쿼리. created_at DESC 로 정렬 후 conversation 별 첫 행만.
+  const convIds = convs.map(c => c.id);
+  const { data: lastMsgs } = await supabase
+    .from('messages')
+    .select('*')
+    .in('conversation_id', convIds)
+    .order('created_at', { ascending: false });
 
-    const [profileRes, msgRes] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', otherId).maybeSingle(),
-      supabase.from('messages').select('*').eq('conversation_id', c.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-    ]);
+  const lastMsgByConv = new Map<string, Message>();
+  for (const m of (lastMsgs || []) as Message[]) {
+    if (!lastMsgByConv.has(m.conversation_id)) {
+      lastMsgByConv.set(m.conversation_id, m);
+    }
+  }
 
-    return {
-      ...c,
-      other_user: profileRes.data as Profile | undefined,
-      last_message: msgRes.data as Message | undefined,
-    };
+  return convs.map(c => ({
+    id: c.id,
+    user_a: c.user_a,
+    user_b: c.user_b,
+    last_message_at: c.last_message_at,
+    created_at: c.created_at,
+    other_user: (c.user_a === userId ? c.user_b_profile : c.user_a_profile) as Profile | undefined,
+    last_message: lastMsgByConv.get(c.id),
   }));
-
-  return enriched;
 }
 
 // 대화 메시지 조회

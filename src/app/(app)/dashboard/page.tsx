@@ -31,13 +31,19 @@ import {
 import Onboarding from '@/components/Onboarding';
 import LazyMount from '@/components/LazyMount';
 import HomeRankingHero from '@/components/home/HomeRankingHero';
-import HealthRefreshChip from '@/components/home/HealthRefreshChip';
+import HomeCalendarCard from '@/components/home/HomeCalendarCard';
+import HealthConnectCard from '@/components/home/HealthConnectCard';
+import { syncHealthData, isNativeApp } from '@/lib/health-sync';
+// SyncStaleBadge 제거 — HealthConnectCard 와 정보 중복 (사용자 신고 build 63)
+import WinnerPredictionWidget from '@/components/home/WinnerPredictionWidget';
 import TodayLocalTop from '@/components/home/TodayLocalTop';
 import RoutinePhotoCarousel from '@/components/home/RoutinePhotoCarousel';
 import FriendsLeaderboard from '@/components/home/FriendsLeaderboard';
 import OnThisDayCard from '@/components/home/OnThisDayCard';
 import LiveRunningIndicator from '@/components/home/LiveRunningIndicator';
 import RankNeighbors from '@/components/home/RankNeighbors';
+import FreshnessBadge from '@/components/FreshnessBadge';
+import AppToast from '@/components/AppToast';
 import Link from 'next/link';
 import {
   ChevronRight, Flag, MapPin, Zap, Trophy, Flame, Clock, Calendar,
@@ -56,31 +62,16 @@ const PERIOD_OPTIONS: { id: PeriodMode; label: string }[] = [
   { id: 'yearly', label: '연간' },
 ];
 
-function miniCalDistanceColor(km: number, dateStr: string): string {
-  if (km <= 0) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const cellDate = new Date(dateStr + 'T00:00:00');
-    if (cellDate > today) return 'bg-green-50 dark:bg-green-950/20';
-    return 'bg-gray-100 dark:bg-zinc-800/50';
-  }
-  if (km < 3) return 'bg-green-200 dark:bg-green-900/40';
-  if (km < 5) return 'bg-green-300 dark:bg-green-800/50';
-  if (km < 7) return 'bg-green-400 dark:bg-green-700/60';
-  if (km < 10) return 'bg-green-500 dark:bg-green-600/70';
-  return 'bg-green-600 dark:bg-green-500/80';
-}
-
 export default function DashboardPage() {
   const { user, profile } = useAuth();
-  const { activities, goals, loading: userDataLoading, refresh } = useUserData();
+  const { activities, goals, loading: userDataLoading, refresh, lastUpdated } = useUserData();
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showCalendarSheet, setShowCalendarSheet] = useState(false);
 
   // 차트 데이터
   const [monthlyData, setMonthlyData] = useState<PeriodDistance[]>([]);
   const [weeklyData, setWeeklyData] = useState<PeriodDistance[]>([]);
   const [personalBests, setPersonalBests] = useState<PersonalBest | null>(null);
+  const [pbScope, setPbScope] = useState<'all' | 'year'>('year');
   const [dayStats, setDayStats] = useState<DayOfWeekStat[]>([]);
   const [hourStats, setHourStats] = useState<HourOfDayStat[]>([]);
   const [paceTrend, setPaceTrend] = useState<PaceTrend[]>([]);
@@ -96,7 +87,18 @@ export default function DashboardPage() {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
-  const todayStr = now.toISOString().split('T')[0];
+  // 폰 timezone 기준 YYYY-MM-DD — toISOString().split('T')[0] 은 UTC 라 KST 새벽에 어제로 표시되는 버그
+  const todayStr = (() => {
+    try {
+      return new Intl.DateTimeFormat('en-CA', {
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(now);
+    } catch {
+      const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+      return kst.toISOString().slice(0, 10);
+    }
+  })();
 
   useEffect(() => {
     const dismissed = typeof window !== 'undefined' && localStorage.getItem('onboarding_done');
@@ -140,14 +142,24 @@ export default function DashboardPage() {
 
   useEffect(() => { loadStats(); }, [loadStats]);
 
-  // 상세 차트 데이터 로드
+  // 상세 차트 데이터 로드 — 8초 안에 응답 없으면 빈 배열 fallback (무한 로딩 방지)
   const loadDetail = useCallback(async () => {
     if (!user) return;
     setDetailLoading(true);
     try {
-      const result = await fetchDistanceByPeriod(user.id, periodMode, detailYear);
+      const result = await Promise.race([
+        fetchDistanceByPeriod(user.id, periodMode, detailYear),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('detail fetch timeout 8s')), 8000)
+        ),
+      ]);
       setDetailData(result);
-    } catch {} finally { setDetailLoading(false); }
+    } catch (e) {
+      console.warn('[dashboard] loadDetail 실패', e);
+      setDetailData([]);
+    } finally {
+      setDetailLoading(false);
+    }
   }, [user, periodMode, detailYear]);
 
   useEffect(() => { loadDetail(); }, [loadDetail]);
@@ -157,9 +169,17 @@ export default function DashboardPage() {
     () => activities.filter(a => a.activity_date === todayStr),
     [activities, todayStr]
   );
-  const todayKm = todayActivities.reduce((s, a) => s + Number(a.distance_km), 0);
-  const todayDuration = todayActivities.reduce((s, a) => s + (a.duration_seconds || 0), 0);
-  const todayPaceSec = todayKm > 0 && todayDuration > 0 ? todayDuration / todayKm : null;
+  const todaySummary = useMemo(() => {
+    const km = todayActivities.reduce((s, a) => s + Number(a.distance_km), 0);
+    const dur = todayActivities.reduce((s, a) => s + (a.duration_seconds || 0), 0);
+    return {
+      km,
+      duration: dur,
+      paceSec: km > 0 && dur > 0 ? dur / km : null,
+    };
+  }, [todayActivities]);
+  const todayKm = todaySummary.km;
+  const todayPaceSec = todaySummary.paceSec;
 
   // 오늘 안 뛰면 가장 최근 러닝의 페이스 폴백
   const recentPace = useMemo(() => {
@@ -172,7 +192,7 @@ export default function DashboardPage() {
     };
   }, [todayPaceSec, activities]);
 
-  const monthlyDistance = getMonthlyDistance(activities, year, month);
+  const monthlyDistance = useMemo(() => getMonthlyDistance(activities, year, month), [activities, year, month]);
   const monthlyRunDays = useMemo(() => {
     const daySet = new Set(
       activities
@@ -185,14 +205,19 @@ export default function DashboardPage() {
     return daySet.size;
   }, [activities, year, month]);
 
-  // 목표
-  const currentGoal = goals.find(g => g.year === year && g.month === month);
-  const goalKm = currentGoal?.goal_km || 0;
-  const goalProgress = goalKm > 0 ? Math.min((monthlyDistance / goalKm) * 100, 100) : 0;
-  const daysInMonth = new Date(year, month, 0).getDate();
-  const daysRemaining = daysInMonth - now.getDate();
-  const goalRemaining = goalKm > 0 ? Math.max(goalKm - monthlyDistance, 0) : 0;
-  const dailyNeeded = daysRemaining > 0 && goalRemaining > 0 ? goalRemaining / daysRemaining : 0;
+  // 목표 — useMemo 로 묶어 매 렌더 재계산 막기
+  const goalState = useMemo(() => {
+    const currentGoal = goals.find(g => g.year === year && g.month === month);
+    const goalKm = currentGoal?.goal_km || 0;
+    const goalProgress = goalKm > 0 ? Math.min((monthlyDistance / goalKm) * 100, 100) : 0;
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const daysRemaining = daysInMonth - now.getDate();
+    const goalRemaining = goalKm > 0 ? Math.max(goalKm - monthlyDistance, 0) : 0;
+    const dailyNeeded = daysRemaining > 0 && goalRemaining > 0 ? goalRemaining / daysRemaining : 0;
+    return { goalKm, goalProgress, daysInMonth, goalRemaining, dailyNeeded };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [goals, year, month, monthlyDistance]);
+  const { goalKm, goalProgress, goalRemaining, dailyNeeded } = goalState;
 
   // 미니 캘린더
   const calendarActivities = useMemo(() =>
@@ -202,27 +227,81 @@ export default function DashboardPage() {
     }),
     [activities, year, month]
   );
-  const dateDistanceMap = useMemo(() => {
-    const map = new Map<string, number>();
-    calendarActivities.forEach(a => {
-      map.set(a.activity_date, (map.get(a.activity_date) || 0) + Number(a.distance_km));
-    });
-    return map;
-  }, [calendarActivities]);
-  const firstDay = new Date(year, month - 1, 1).getDay();
 
-  // 통산 & 스트릭
+  // 통산 & 스트릭 — getStreak / getMaxStreak 가 activities 전체를 순회하므로 useMemo 필수
   const totalKm = Number(profile?.total_distance_km ?? 0);
   const totalRuns = profile?.total_runs ?? 0;
-  const streak = getStreak(activities);
-  const maxStreak = getMaxStreak(activities);
-  const isRecordBreaking = streak > 0 && streak === maxStreak;
-  const daysToRecord = streak > 0 && streak < maxStreak ? maxStreak - streak : 0;
+  const streakState = useMemo(() => {
+    const streak = getStreak(activities);
+    const maxStreak = getMaxStreak(activities);
+    return {
+      streak,
+      maxStreak,
+      isRecordBreaking: streak > 0 && streak === maxStreak,
+      daysToRecord: streak > 0 && streak < maxStreak ? maxStreak - streak : 0,
+    };
+  }, [activities]);
+  const { streak, maxStreak, isRecordBreaking, daysToRecord } = streakState;
 
   // 월별 (전년 대비 YTD: 같은 월까지만 비교해야 "전년 대비 -676km" 같은 오해가 없음)
   const ytdMonth = new Date().getMonth(); // 0-11
   const yearlyTotal = monthlyData.slice(0, ytdMonth + 1).reduce((s, d) => s + d.distance, 0);
   const yearlyPrevTotal = monthlyData.slice(0, ytdMonth + 1).reduce((s, d) => s + (d.prevDistance || 0), 0);
+
+  // 전년 동기간 비교 (build 63 신규) — 이번 주 / 이번 달 / 분기 / 반기 카드용
+  const yoyComparison = useMemo(() => {
+    const now = new Date();
+    const yearMs = 365 * 24 * 60 * 60 * 1000;
+    const dayMs = 24 * 60 * 60 * 1000;
+
+    // 이번 주 (월요일~오늘) vs 작년 동기간
+    const startOfThisWeek = new Date(now);
+    const dow = (now.getDay() + 6) % 7; // 월=0
+    startOfThisWeek.setHours(0, 0, 0, 0);
+    startOfThisWeek.setDate(now.getDate() - dow);
+    const startOfLastWeek = new Date(startOfThisWeek.getTime() - yearMs);
+    const endOfLastWeekRange = new Date(now.getTime() - yearMs);
+
+    // 이번 달 1일 ~ 오늘 vs 작년 같은 기간
+    const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfLastYearMonth = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+    const endOfLastYearMonthRange = new Date(now.getTime() - yearMs);
+
+    // 이번 분기 (현재 분기 시작) ~ 오늘 vs 작년 같은 기간
+    const q = Math.floor(now.getMonth() / 3);
+    const startOfThisQ = new Date(now.getFullYear(), q * 3, 1);
+    const startOfLastYearQ = new Date(now.getFullYear() - 1, q * 3, 1);
+
+    // 이번 반기 (1~6 또는 7~12) ~ 오늘 vs 작년
+    const h = now.getMonth() < 6 ? 0 : 1;
+    const startOfThisH = new Date(now.getFullYear(), h * 6, 1);
+    const startOfLastYearH = new Date(now.getFullYear() - 1, h * 6, 1);
+
+    let weekThis = 0, weekLast = 0;
+    let monthThis = 0, monthLast = 0;
+    let qThis = 0, qLast = 0;
+    let hThis = 0, hLast = 0;
+
+    activities.forEach(a => {
+      const t = new Date(a.activity_date).getTime();
+      const km = a.distance_km;
+      if (t >= startOfThisWeek.getTime()) weekThis += km;
+      else if (t >= startOfLastWeek.getTime() && t <= endOfLastWeekRange.getTime() + dayMs) weekLast += km;
+      if (t >= startOfThisMonth.getTime()) monthThis += km;
+      else if (t >= startOfLastYearMonth.getTime() && t <= endOfLastYearMonthRange.getTime() + dayMs) monthLast += km;
+      if (t >= startOfThisQ.getTime()) qThis += km;
+      else if (t >= startOfLastYearQ.getTime() && t <= endOfLastYearMonthRange.getTime() + dayMs) qLast += km;
+      if (t >= startOfThisH.getTime()) hThis += km;
+      else if (t >= startOfLastYearH.getTime() && t <= endOfLastYearMonthRange.getTime() + dayMs) hLast += km;
+    });
+
+    return {
+      week: { now: weekThis, last: weekLast, diff: weekThis - weekLast },
+      month: { now: monthThis, last: monthLast, diff: monthThis - monthLast },
+      quarter: { now: qThis, last: qLast, diff: qThis - qLast },
+      half: { now: hThis, last: hLast, diff: hThis - hLast },
+    };
+  }, [activities]);
 
   // 일별 거리 (최근 30일) — 월별 차트 대신 홈 첫 차트로 사용
   const dailyData = useMemo(() => {
@@ -259,10 +338,32 @@ export default function DashboardPage() {
     dayStats[0] || { day: '-', runCount: 0, avgDistance: 0 }
   );
 
-  // 상세 차트 계산
-  const detailTotal = detailData.reduce((s, d) => s + d.distance, 0);
-  const detailPrevTotal = detailData.reduce((s, d) => s + (d.prevDistance || 0), 0);
-  const hasDetailPrev = detailData.some((d) => d.prevDistance !== undefined && d.prevDistance > 0);
+  // 상세 차트 계산.
+  // 비교 룰 (build 67 fix): 분기/반기/월간일 때 "현 시점까지의 동기간" 만 합산해야 의미 있는 비교.
+  // ex) 2026 분기 = Q1+Q2 (현재 분기까지) vs 2025 Q1+Q2.
+  // 사용자 신고 build 64 의 "전년 대비 -467km(-35%)" 는 2026 Q1+Q2 vs 2025 전체 (Q1~Q4) 였던 게 원인.
+  const ytdSliceCount = (() => {
+    const isCurrentYear = detailYear === new Date().getFullYear();
+    if (!isCurrentYear) return detailData.length; // 과거 연도는 1년 전체로 비교
+    const m = new Date().getMonth(); // 0-11
+    if (periodMode === 'monthly') return m + 1;
+    if (periodMode === 'quarterly') return Math.floor(m / 3) + 1;
+    if (periodMode === 'half') return m < 6 ? 1 : 2;
+    if (periodMode === 'weekly') return detailData.length; // weekly 는 이미 최근 12주만
+    if (periodMode === 'yearly') return detailData.length; // yearly 는 항목별 자체 prev
+    return detailData.length;
+  })();
+  const detailSliced = periodMode === 'yearly'
+    ? detailData.slice(detailData.length - 1) // 연간 → 선택 연도 한 해만 (비교는 prevDistance 가 자체로 포함)
+    : detailData.slice(0, ytdSliceCount);
+  const detailTotal = (periodMode === 'yearly')
+    ? (detailData[detailData.length - 1]?.distance ?? 0)
+    : detailSliced.reduce((s, d) => s + d.distance, 0);
+  const detailPrevTotal = (periodMode === 'yearly')
+    ? (detailData[detailData.length - 1]?.prevDistance ?? 0)
+    : detailSliced.reduce((s, d) => s + (d.prevDistance || 0), 0);
+  const hasDetailPrev = detailSliced.some((d) => d.prevDistance !== undefined && d.prevDistance > 0)
+    || (periodMode === 'yearly' && (detailData[detailData.length - 1]?.prevDistance ?? 0) > 0);
 
   // 주간/월간/연간/누적 요약
   const weekActivities = getWeeklyActivities(activities);
@@ -271,9 +372,56 @@ export default function DashboardPage() {
 
   const recentActivities = activities.slice(0, 5);
 
+  const [syncToast, setSyncToast] = useState<string | null>(null);
+
+  // PullToRefresh = 사용자가 "최신 데이터 보고 싶다" 의 명시적 lever.
+  // (1) Apple Health sync 트리거 (네이티브 앱에서만, 30s race 가드)
+  // (2) DB 캐시 새로고침 — sync 가 새 row 를 넣었다면 즉시 반영, 안 넣었어도 최소 stale 한 거 갱신
+  // (3) 결과 toast — "어제 기록 안 들어와요" 신고 진단 가능하게
   const handleRefresh = useCallback(async () => {
+    let toast = '';
+    if (user && isNativeApp()) {
+      // Pull-to-refresh = 사용자의 명시적 동기화 의도. lastSync 즉시 갱신 (낙관적).
+      // HealthConnectCard 가 CustomEvent 를 listen 해서 라벨 즉시 reflow.
+      const optimisticTs = Date.now();
+      window.localStorage.setItem('last_health_sync', new Date(optimisticTs).toISOString());
+      window.localStorage.setItem(`first_sync_done:${user.id}`, String(optimisticTs));
+      window.dispatchEvent(new CustomEvent('routinist:lastSync', { detail: { ts: optimisticTs } }));
+      try {
+        const r = await Promise.race([
+          syncHealthData(user.id),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('pull-refresh sync 30s timeout')), 30000)
+          ),
+        ]);
+        if (r.success) {
+          toast = r.synced > 0
+            ? `Apple Health: ${r.synced}건 추가됨`
+            : r.meta?.totalFromHealth
+              ? `Apple Health: ${r.meta.totalFromHealth}건 확인 (이미 동기화됨)`
+              : 'Apple Health: 새 기록 없음';
+        } else {
+          toast = `동기화 실패: ${r.message}`;
+        }
+      } catch (e) {
+        toast = `동기화 실패: ${e instanceof Error ? e.message : '알 수 없음'}`;
+      }
+    }
+    // 신문 모델 (build 58): hero 캐시도 같이 invalidate. UserDataProvider.refresh 만으론 hero 갱신 안 됨.
+    // dataCache.invalidate('') 가 빈 prefix 발사 = 모든 listener 가 fresh fetch.
+    if (user) {
+      const { dataCache } = await import('@/lib/data-cache');
+      dataCache.invalidate(`hero:rank:${user.id}`);
+      dataCache.invalidate(`hero:neighbors:${user.id}`);
+      // localtop 은 region key 라 별도 invalidate
+      dataCache.invalidate('home:localtop:');
+    }
     await Promise.all([loadStats(), refresh()]);
-  }, [loadStats, refresh]);
+    if (toast) {
+      setSyncToast(toast);
+      setTimeout(() => setSyncToast(null), 4000);
+    }
+  }, [user, loadStats, refresh]);
 
   if (showOnboarding) {
     return <Onboarding onComplete={() => { setShowOnboarding(false); localStorage.setItem('onboarding_done', '1'); }} />;
@@ -282,14 +430,22 @@ export default function DashboardPage() {
   return (
     <PullToRefresh onRefresh={handleRefresh}>
     <div className="max-w-lg mx-auto pb-8">
+      {syncToast && (
+        <AppToast text={syncToast} tone={syncToast.startsWith('동기화 실패') ? 'warn' : 'ok'} position="top" onClose={() => setSyncToast(null)} durationMs={4000} />
+      )}
+      {/* HealthKit 연동 카드 — App Store 가이드 2.5.1 (HealthKit UI 명확성) 위해 홈 최상단 (build 62) */}
+      <HealthConnectCard />
       {/* ========== 홈 히어로 (경쟁·소셜 중심) ========== */}
+      {/* above-the-fold: 즉시 마운트. PullToRefresh 가 sync 트리거 역할 — HealthRefreshChip 중복 제거. */}
       <HomeRankingHero />
-      <HealthRefreshChip onSynced={refresh} />
       <LiveRunningIndicator />
-      <RankNeighbors />
-      <OnThisDayCard />
-      <TodayLocalTop />
-      <FriendsLeaderboard />
+
+      {/* below-the-fold: 뷰포트 진입 시 마운트 — 첫 렌더 부담 분산 */}
+      <LazyMount minHeight={120} rootMargin="300px"><RankNeighbors /></LazyMount>
+      <LazyMount minHeight={200} rootMargin="300px"><WinnerPredictionWidget /></LazyMount>
+      <LazyMount minHeight={140} rootMargin="300px"><OnThisDayCard /></LazyMount>
+      <LazyMount minHeight={160} rootMargin="300px"><TodayLocalTop /></LazyMount>
+      <LazyMount minHeight={180} rootMargin="300px"><FriendsLeaderboard /></LazyMount>
 
       <div className="p-4 space-y-4">
       {/* ========== 헤더 ========== */}
@@ -298,29 +454,18 @@ export default function DashboardPage() {
           <h2 className="text-xl font-bold text-[var(--foreground)]">
             {profile?.display_name ?? '러너'}님의 {month}월
           </h2>
-          <p className="text-xs text-[var(--muted)]">통산 {totalKm.toFixed(0)}km · {totalRuns}회 러닝</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <p className="text-xs text-[var(--muted)]">통산 {totalKm.toFixed(0)}km · {totalRuns}회 러닝</p>
+            <FreshnessBadge ts={lastUpdated} onRefresh={refresh} />
+          </div>
         </div>
         <Link href="/history" className="text-sm text-[var(--accent)] font-semibold flex items-center gap-0.5">
           히스토리 <ChevronRight size={16} />
         </Link>
       </div>
 
-      {/* Apple Health 미연동 배너 */}
-      {activities.length === 0 && (
-        <Link href="/connect" className="block card p-3 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 border-0">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">❤️</span>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-[var(--foreground)]">Apple Health와 연결해보세요</p>
-              <p className="text-xs text-[var(--muted)]">러닝 기록을 자동으로 가져와 분석합니다</p>
-            </div>
-            <ChevronRight size={16} className="text-[var(--accent)]" />
-          </div>
-        </Link>
-      )}
-
-      {/* 지역 미설정 배너 */}
-      {profile && !profile.region_gu && (
+      {/* 지역 미설정 배너 — region_gu (한국) 또는 country_code (해외) 둘 다 없을 때만. */}
+      {profile && !profile.region_gu && !profile.country_code && (
         <Link href="/profile/edit" className="block card p-3 bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-950/30 dark:to-green-950/30 border-0">
           <div className="flex items-center gap-3">
             <span className="text-2xl">📍</span>
@@ -425,100 +570,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ========== ③ 월 캘린더 — 클릭 시 홈 안에서 바텀시트 모달 ========== */}
-      <button type="button" onClick={() => setShowCalendarSheet(true)} className="block w-full text-left active:scale-[0.995] transition">
-        <div className="card p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-base font-semibold text-[var(--foreground)]">{month}월 캘린더</h3>
-            <div className="flex items-center gap-1 text-xs text-[var(--accent)] font-semibold">
-              <span>{monthlyRunDays}일 러닝</span>
-              <ChevronRight size={14} />
-            </div>
-          </div>
-          <div className="grid grid-cols-7 gap-1 text-center text-xs mb-1">
-            {['일','월','화','수','목','금','토'].map((d, i) => (
-              <span key={d} className={`${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-[var(--muted)]'}`}>{d}</span>
-            ))}
-          </div>
-          <div className="grid grid-cols-7 gap-1">
-            {Array.from({ length: firstDay }).map((_, i) => (
-              <div key={`e-${i}`} className="aspect-square" />
-            ))}
-            {Array.from({ length: daysInMonth }).map((_, i) => {
-              const day = i + 1;
-              const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-              const km = dateDistanceMap.get(dateStr) || 0;
-              const bg = miniCalDistanceColor(km, dateStr);
-              return (
-                <div key={day} className={`aspect-square rounded-md flex items-center justify-center ${bg}`}>
-                  <span className={`text-xs font-medium ${km >= 7 ? 'text-white' : 'text-[var(--foreground)]'}`}>{day}</span>
-                </div>
-              );
-            })}
-          </div>
-          <div className="flex items-center gap-2 mt-2 justify-center text-xs text-[var(--muted)]">
-            <span className="flex items-center gap-0.5"><span className="w-2.5 h-2.5 rounded bg-white border border-gray-200" /> 0</span>
-            <span className="flex items-center gap-0.5"><span className="w-2.5 h-2.5 rounded bg-green-200" /> ~3</span>
-            <span className="flex items-center gap-0.5"><span className="w-2.5 h-2.5 rounded bg-green-400" /> ~7</span>
-            <span className="flex items-center gap-0.5"><span className="w-2.5 h-2.5 rounded bg-green-600" /> 10+</span>
-          </div>
-        </div>
-      </button>
-
-      {/* 캘린더 바텀시트 — 홈 안에서 열리는 확대 뷰 */}
-      {showCalendarSheet && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowCalendarSheet(false)}>
-          <div className="w-full max-w-lg bg-[var(--card-bg)] rounded-t-3xl p-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] animate-slide-up max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="w-10 h-1 rounded-full bg-[var(--card-border)] mx-auto mb-4" />
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-[var(--foreground)]">{year}년 {month}월</h3>
-              <span className="text-sm font-semibold text-emerald-600">{monthlyRunDays}일 러닝</span>
-            </div>
-            <div className="grid grid-cols-7 gap-1.5 text-center text-sm mb-2">
-              {['일','월','화','수','목','금','토'].map((d, i) => (
-                <span key={d} className={`font-semibold ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-[var(--muted)]'}`}>{d}</span>
-              ))}
-            </div>
-            <div className="grid grid-cols-7 gap-1.5">
-              {Array.from({ length: firstDay }).map((_, i) => (
-                <div key={`es-${i}`} className="aspect-square" />
-              ))}
-              {Array.from({ length: daysInMonth }).map((_, i) => {
-                const day = i + 1;
-                const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                const km = dateDistanceMap.get(dateStr) || 0;
-                const bg = miniCalDistanceColor(km, dateStr);
-                return (
-                  <div key={day} className={`aspect-square rounded-lg flex flex-col items-center justify-center ${bg}`}>
-                    <span className={`text-sm font-bold ${km >= 7 ? 'text-white' : 'text-[var(--foreground)]'}`}>{day}</span>
-                    {km > 0 && (
-                      <span className={`text-[10px] font-semibold ${km >= 7 ? 'text-white/90' : 'text-[var(--muted)]'}`}>{km.toFixed(1)}</span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex items-center gap-2 mt-4 justify-center text-xs text-[var(--muted)]">
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-white border border-gray-200" /> 0</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-200" /> ~3km</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-400" /> ~7km</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-600" /> 10km+</span>
-            </div>
-            <div className="flex gap-2 mt-5">
-              <button onClick={() => setShowCalendarSheet(false)} className="flex-1 py-3 rounded-xl text-[var(--muted)] font-semibold text-base">
-                닫기
-              </button>
-              <Link
-                href="/calendar"
-                onClick={() => setShowCalendarSheet(false)}
-                className="flex-1 py-3 rounded-xl bg-emerald-500 text-white font-bold text-base text-center shadow-md"
-              >
-                전체 캘린더 열기
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ========== ③ 월 캘린더 — inline 풀 콘텐츠 (build 68). 페이지 이동 없음 ========== */}
+      <HomeCalendarCard />
 
       {/* ========== ④ 일별 거리 추이 (최근 30일) ========== */}
       <LazyMount minHeight={260}>
@@ -559,7 +612,34 @@ export default function DashboardPage() {
       {weeklyData.length > 0 && (
         <LazyMount minHeight={240}>
         <div className="card p-5">
-          <h3 className="text-base font-bold text-[var(--foreground)] mb-3">최근 12주 러닝</h3>
+          <div className="flex items-baseline justify-between mb-3">
+            <h3 className="text-base font-bold text-[var(--foreground)]">최근 12주 러닝</h3>
+            {(() => {
+              // 전년 동기 비교 — activities 에서 직접 계산
+              const nowMs = Date.now();
+              const _12wMs = 12 * 7 * 24 * 60 * 60 * 1000;
+              const yearMs = 365 * 24 * 60 * 60 * 1000;
+              let thisSum = 0, lastSum = 0;
+              activities.forEach(a => {
+                const t = new Date(a.activity_date).getTime();
+                if (t >= nowMs - _12wMs) thisSum += a.distance_km;
+                else if (t >= nowMs - yearMs - _12wMs && t < nowMs - yearMs) lastSum += a.distance_km;
+              });
+              // 전년 데이터 없어도 표시 (사용자 신고 #10): "전년 동기 첫 기록"
+              const diff = thisSum - lastSum;
+              if (lastSum < 0.5 && thisSum < 0.5) return null; // 둘 다 0 이면 무의미
+              if (lastSum < 0.5) {
+                return <span className="text-xs font-semibold text-emerald-600">전년 동기 첫 기록 🎉</span>;
+              }
+              const sign = diff >= 0 ? '+' : '';
+              const color = diff >= 0 ? 'text-emerald-600' : 'text-rose-500';
+              return (
+                <span className={`text-xs font-semibold ${color}`}>
+                  전년 동기 {sign}{diff.toFixed(0)}km
+                </span>
+              );
+            })()}
+          </div>
           <ResponsiveContainer width="100%" height={160}>
             <BarChart data={weeklyData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
               <defs>
@@ -617,47 +697,90 @@ export default function DashboardPage() {
         </LazyMount>
       )}
 
-      {/* ========== ⑦ 개인 베스트 ========== */}
-      {personalBests && (
+      {/* ========== ⑦ 개인 베스트 — 누적/올해 탭 ========== */}
+      {personalBests && (() => {
+        // 올해 PB 는 useUserData 의 activities 에서 클라 사이드 필터링.
+        // (별도 RPC 추가 안 하고 이미 가진 데이터 재활용 — fetchPersonalBests 와 동일 로직).
+        const yearStart = `${year}-01-01`;
+        const yearEnd = `${year}-12-31`;
+        const ya = activities.filter(a => a.activity_date >= yearStart && a.activity_date <= yearEnd);
+        const yearPB: PersonalBest = { longestRun: null, fastestPace: null, longestDuration: null, mostCalories: null };
+        for (const a of ya) {
+          const km = Number(a.distance_km);
+          if (!yearPB.longestRun || km > yearPB.longestRun.distance_km) yearPB.longestRun = { distance_km: km, date: a.activity_date };
+          if (a.pace_avg_sec_per_km && km >= 1 && (!yearPB.fastestPace || a.pace_avg_sec_per_km < yearPB.fastestPace.pace)) {
+            yearPB.fastestPace = { pace: a.pace_avg_sec_per_km, date: a.activity_date, distance_km: km };
+          }
+          if (a.duration_seconds && (!yearPB.longestDuration || a.duration_seconds > yearPB.longestDuration.duration)) {
+            yearPB.longestDuration = { duration: a.duration_seconds, date: a.activity_date };
+          }
+          if (a.calories && (!yearPB.mostCalories || a.calories > yearPB.mostCalories.calories)) {
+            yearPB.mostCalories = { calories: a.calories, date: a.activity_date };
+          }
+        }
+        const pb = pbScope === 'all' ? personalBests : yearPB;
+        const yearHasData = ya.length > 0;
+        return (
         <LazyMount minHeight={280}>
         <div className="card p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Trophy size={16} className="text-yellow-500" />
-            <h3 className="text-base font-semibold text-[var(--foreground)]">개인 베스트</h3>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Trophy size={16} className="text-yellow-500" />
+              <h3 className="text-base font-semibold text-[var(--foreground)]">개인 베스트</h3>
+            </div>
+            <div className="flex items-center gap-1 bg-[var(--card-border)]/30 rounded-lg p-0.5">
+              <button
+                onClick={() => setPbScope('year')}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${pbScope === 'year' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)]'}`}
+              >
+                {year}
+              </button>
+              <button
+                onClick={() => setPbScope('all')}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${pbScope === 'all' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)]'}`}
+              >
+                누적
+              </button>
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            {personalBests.longestRun && (
-              <div className="bg-[var(--card-border)]/30 rounded-xl p-3">
-                <p className="text-xs text-[var(--muted)] mb-1">최장 거리</p>
-                <p className="text-2xl font-extrabold text-[var(--foreground)]">{personalBests.longestRun.distance_km.toFixed(2)}km</p>
-                <p className="text-xs text-[var(--muted)]">{personalBests.longestRun.date}</p>
-              </div>
-            )}
-            {personalBests.fastestPace && (
-              <div className="bg-[var(--card-border)]/30 rounded-xl p-3">
-                <p className="text-xs text-[var(--muted)] mb-1">최빠 페이스</p>
-                <p className="text-2xl font-extrabold text-[var(--foreground)]">{formatPace(personalBests.fastestPace.pace)}/km</p>
-                <p className="text-xs text-[var(--muted)]">{personalBests.fastestPace.date} ({personalBests.fastestPace.distance_km.toFixed(1)}km)</p>
-              </div>
-            )}
-            {personalBests.longestDuration && (
-              <div className="bg-[var(--card-border)]/30 rounded-xl p-3">
-                <p className="text-xs text-[var(--muted)] mb-1">최장 시간</p>
-                <p className="text-2xl font-extrabold text-[var(--foreground)]">{formatDuration(personalBests.longestDuration.duration)}</p>
-                <p className="text-xs text-[var(--muted)]">{personalBests.longestDuration.date}</p>
-              </div>
-            )}
-            {personalBests.mostCalories && personalBests.mostCalories.calories > 0 && (
-              <div className="bg-[var(--card-border)]/30 rounded-xl p-3">
-                <p className="text-xs text-[var(--muted)] mb-1">최다 칼로리</p>
-                <p className="text-2xl font-extrabold text-[var(--foreground)]">{personalBests.mostCalories.calories}kcal</p>
-                <p className="text-xs text-[var(--muted)]">{personalBests.mostCalories.date}</p>
-              </div>
-            )}
-          </div>
+          {pbScope === 'year' && !yearHasData ? (
+            <p className="text-sm text-[var(--muted)] text-center py-6">{year}년 기록이 아직 없어요</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {pb.longestRun && (
+                <div className="bg-[var(--card-border)]/30 rounded-xl p-3">
+                  <p className="text-xs text-[var(--muted)] mb-1">최장 거리</p>
+                  <p className="text-2xl font-extrabold text-[var(--foreground)]">{pb.longestRun.distance_km.toFixed(2)}km</p>
+                  <p className="text-xs text-[var(--muted)]">{pb.longestRun.date}</p>
+                </div>
+              )}
+              {pb.fastestPace && (
+                <div className="bg-[var(--card-border)]/30 rounded-xl p-3">
+                  <p className="text-xs text-[var(--muted)] mb-1">최빠 페이스</p>
+                  <p className="text-2xl font-extrabold text-[var(--foreground)]">{formatPace(pb.fastestPace.pace)}/km</p>
+                  <p className="text-xs text-[var(--muted)]">{pb.fastestPace.date} ({pb.fastestPace.distance_km.toFixed(1)}km)</p>
+                </div>
+              )}
+              {pb.longestDuration && (
+                <div className="bg-[var(--card-border)]/30 rounded-xl p-3">
+                  <p className="text-xs text-[var(--muted)] mb-1">최장 시간</p>
+                  <p className="text-2xl font-extrabold text-[var(--foreground)]">{formatDuration(pb.longestDuration.duration)}</p>
+                  <p className="text-xs text-[var(--muted)]">{pb.longestDuration.date}</p>
+                </div>
+              )}
+              {pb.mostCalories && pb.mostCalories.calories > 0 && (
+                <div className="bg-[var(--card-border)]/30 rounded-xl p-3">
+                  <p className="text-xs text-[var(--muted)] mb-1">최다 칼로리</p>
+                  <p className="text-2xl font-extrabold text-[var(--foreground)]">{pb.mostCalories.calories}kcal</p>
+                  <p className="text-xs text-[var(--muted)]">{pb.mostCalories.date}</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
         </LazyMount>
-      )}
+        );
+      })()}
 
       {/* ========== ⑧ 요일별 패턴 ========== */}
       {dayStats.length > 0 && dayStats.some(d => d.runCount > 0) && (
@@ -773,12 +896,25 @@ export default function DashboardPage() {
 
         <div className="text-center mb-3">
           <p className="text-3xl font-extrabold text-[var(--accent)]">{detailTotal.toFixed(1)} km</p>
-          {hasDetailPrev && detailPrevTotal > 0 && (
-            <p className={`text-sm mt-1 ${detailTotal >= detailPrevTotal ? 'text-green-500' : 'text-red-500'}`}>
-              전년 대비 {detailTotal >= detailPrevTotal ? '+' : ''}{(detailTotal - detailPrevTotal).toFixed(1)}km
-              ({detailPrevTotal > 0 ? ((detailTotal / detailPrevTotal - 1) * 100).toFixed(0) : 0}%)
-            </p>
-          )}
+          {hasDetailPrev && detailPrevTotal > 0 && (() => {
+            const diff = detailTotal - detailPrevTotal;
+            const pct = ((detailTotal / detailPrevTotal - 1) * 100);
+            const isUp = diff >= 0;
+            const sign = isUp ? '+' : '';
+            const color = isUp ? 'text-emerald-600' : 'text-rose-500';
+            const periodLabel =
+              periodMode === 'monthly' ? '전년 동기간' :
+              periodMode === 'quarterly' ? '전년 동기간 (Q' + (Math.floor(new Date().getMonth() / 3) + 1) + '까지)' :
+              periodMode === 'half' ? '전년 동기간 (현 반기까지)' :
+              periodMode === 'weekly' ? '전년 동기 (12주)' :
+              periodMode === 'yearly' ? `전년 동기간 (${new Date().getMonth() + 1}/${new Date().getDate()}까지)` :
+              '전년';
+            return (
+              <p className={`text-sm mt-1 font-semibold ${color}`}>
+                {periodLabel} {sign}{diff.toFixed(1)}km ({sign}{pct.toFixed(0)}%)
+              </p>
+            );
+          })()}
         </div>
 
         <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1">
@@ -878,17 +1014,27 @@ export default function DashboardPage() {
             <p className="text-xs text-[var(--muted)] mb-1">이번 주</p>
             <p className="text-2xl font-extrabold text-[var(--accent)]">{weekKm.toFixed(1)}<span className="text-sm ml-1">km</span></p>
             <p className="text-xs text-[var(--muted)] mt-1">{weekRuns}회 러닝</p>
+            {yoyComparison.week.last > 0.5 && (
+              <p className={`text-xs mt-1 ${yoyComparison.week.diff >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                전년 {yoyComparison.week.diff >= 0 ? '+' : ''}{yoyComparison.week.diff.toFixed(0)}km
+              </p>
+            )}
           </div>
           <div className="bg-[var(--card-border)]/30 rounded-xl p-4">
             <p className="text-xs text-[var(--muted)] mb-1">이번 달</p>
             <p className="text-2xl font-extrabold text-green-600">{monthlyDistance.toFixed(1)}<span className="text-sm ml-1">km</span></p>
             <p className="text-xs text-[var(--muted)] mt-1">{monthlyRunDays}일 · {calendarActivities.length}회</p>
+            {yoyComparison.month.last > 0.5 && (
+              <p className={`text-xs mt-1 ${yoyComparison.month.diff >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                전년 {yoyComparison.month.diff >= 0 ? '+' : ''}{yoyComparison.month.diff.toFixed(0)}km
+              </p>
+            )}
           </div>
           <div className="bg-[var(--card-border)]/30 rounded-xl p-4">
             <p className="text-xs text-[var(--muted)] mb-1">올해</p>
             <p className="text-2xl font-extrabold text-purple-600">{yearlyTotal.toFixed(0)}<span className="text-sm ml-1">km</span></p>
             {yearlyPrevTotal > 0 && (
-              <p className={`text-xs mt-1 ${yearlyTotal >= yearlyPrevTotal ? 'text-green-500' : 'text-red-500'}`}>
+              <p className={`text-xs mt-1 ${yearlyTotal >= yearlyPrevTotal ? 'text-emerald-600' : 'text-rose-500'}`}>
                 전년 {yearlyTotal >= yearlyPrevTotal ? '+' : ''}{(yearlyTotal - yearlyPrevTotal).toFixed(0)}km
               </p>
             )}

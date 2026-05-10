@@ -361,107 +361,59 @@ export async function fetchMyRegionalRanks(userId: string, year: number, month: 
   const endYear = month === 12 ? year + 1 : year;
   const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-01`;
 
+  // 이전 구현: 시·구·동 각각 (profiles + activities) 쿼리 → 6개. 시 superset 한 번만 가져오고 JS 에서 필터링.
+  const { data: siProfiles } = await supabase
+    .from('profiles')
+    .select('id, region_gu, region_dong')
+    .eq('region_si', myProfile.region_si);
+
+  if (!siProfiles?.length) return [];
+
+  const allUserIds = siProfiles.map(p => p.id);
+  const { data: activities } = await supabase
+    .from('activities')
+    .select('user_id, distance_km')
+    .in('user_id', allUserIds)
+    .gte('activity_date', startDate)
+    .lt('activity_date', endDate);
+
+  // user_id → 거리 합계
+  const distMap = new Map<string, number>();
+  (activities || []).forEach(a => distMap.set(a.user_id, (distMap.get(a.user_id) || 0) + Number(a.distance_km)));
+
+  type ProfileRow = { id: string; region_gu: string | null; region_dong: string | null };
+
+  const computeRank = (level: '시' | '구' | '동', region: string, eligibleUsers: ProfileRow[]): MyRegionalRank => {
+    const idsInLevel = new Set(eligibleUsers.map(p => p.id));
+    const entries: [string, number][] = [];
+    for (const id of idsInLevel) entries.push([id, distMap.get(id) || 0]);
+    entries.sort((a, b) => b[1] - a[1]);
+    const myIdx = entries.findIndex(([uid]) => uid === userId);
+    const myDist = distMap.get(userId) || 0;
+    return {
+      level, region,
+      rank: myIdx >= 0 ? myIdx + 1 : entries.length + 1,
+      total: entries.length,
+      myDistance: Math.round(myDist * 10) / 10,
+    };
+  };
+
   const results: MyRegionalRank[] = [];
+  results.push(computeRank('시', myProfile.region_si, siProfiles as ProfileRow[]));
 
-  // 시 단위 랭킹
-  if (myProfile.region_si) {
-    const { data: siProfiles } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('region_si', myProfile.region_si);
-
-    if (siProfiles?.length) {
-      const userIds = siProfiles.map(p => p.id);
-      const { data: activities } = await supabase
-        .from('activities')
-        .select('user_id, distance_km')
-        .in('user_id', userIds)
-        .gte('activity_date', startDate)
-        .lt('activity_date', endDate);
-
-      const distMap = new Map<string, number>();
-      (activities || []).forEach(a => distMap.set(a.user_id, (distMap.get(a.user_id) || 0) + Number(a.distance_km)));
-
-      const sorted = [...distMap.entries()].sort((a, b) => b[1] - a[1]);
-      const myIdx = sorted.findIndex(([uid]) => uid === userId);
-      const myDist = distMap.get(userId) || 0;
-
-      results.push({
-        level: '시',
-        region: myProfile.region_si,
-        rank: myIdx >= 0 ? myIdx + 1 : sorted.length + 1,
-        total: sorted.length,
-        myDistance: Math.round(myDist * 10) / 10,
-      });
-    }
-  }
-
-  // 구 단위 랭킹
   if (myProfile.region_gu) {
-    const { data: guProfiles } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('region_si', myProfile.region_si)
-      .eq('region_gu', myProfile.region_gu);
-
-    if (guProfiles?.length) {
-      const userIds = guProfiles.map(p => p.id);
-      const { data: activities } = await supabase
-        .from('activities')
-        .select('user_id, distance_km')
-        .in('user_id', userIds)
-        .gte('activity_date', startDate)
-        .lt('activity_date', endDate);
-
-      const distMap = new Map<string, number>();
-      (activities || []).forEach(a => distMap.set(a.user_id, (distMap.get(a.user_id) || 0) + Number(a.distance_km)));
-
-      const sorted = [...distMap.entries()].sort((a, b) => b[1] - a[1]);
-      const myIdx = sorted.findIndex(([uid]) => uid === userId);
-      const myDist = distMap.get(userId) || 0;
-
-      results.push({
-        level: '구',
-        region: myProfile.region_gu,
-        rank: myIdx >= 0 ? myIdx + 1 : sorted.length + 1,
-        total: sorted.length,
-        myDistance: Math.round(myDist * 10) / 10,
-      });
+    const guUsers = (siProfiles as ProfileRow[]).filter(p => p.region_gu === myProfile.region_gu);
+    if (guUsers.length > 0) {
+      results.push(computeRank('구', myProfile.region_gu, guUsers));
     }
   }
 
-  // 동 단위 랭킹
-  if (myProfile.region_dong) {
-    const { data: dongProfiles } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('region_si', myProfile.region_si)
-      .eq('region_gu', myProfile.region_gu)
-      .eq('region_dong', myProfile.region_dong);
-
-    if (dongProfiles?.length) {
-      const userIds = dongProfiles.map(p => p.id);
-      const { data: activities } = await supabase
-        .from('activities')
-        .select('user_id, distance_km')
-        .in('user_id', userIds)
-        .gte('activity_date', startDate)
-        .lt('activity_date', endDate);
-
-      const distMap = new Map<string, number>();
-      (activities || []).forEach(a => distMap.set(a.user_id, (distMap.get(a.user_id) || 0) + Number(a.distance_km)));
-
-      const sorted = [...distMap.entries()].sort((a, b) => b[1] - a[1]);
-      const myIdx = sorted.findIndex(([uid]) => uid === userId);
-      const myDist = distMap.get(userId) || 0;
-
-      results.push({
-        level: '동',
-        region: myProfile.region_dong,
-        rank: myIdx >= 0 ? myIdx + 1 : sorted.length + 1,
-        total: sorted.length,
-        myDistance: Math.round(myDist * 10) / 10,
-      });
+  if (myProfile.region_dong && myProfile.region_gu) {
+    const dongUsers = (siProfiles as ProfileRow[]).filter(p =>
+      p.region_gu === myProfile.region_gu && p.region_dong === myProfile.region_dong
+    );
+    if (dongUsers.length > 0) {
+      results.push(computeRank('동', myProfile.region_dong, dongUsers));
     }
   }
 

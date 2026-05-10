@@ -55,7 +55,8 @@ export default function SupportPage() {
           <div>
             <h3 className="text-sm font-semibold text-[var(--foreground)]">회원 탈퇴는 어떻게 하나요?</h3>
             <p className="text-sm text-[var(--muted)] mt-1 leading-relaxed">
-              hans@openhan.kr 로 이메일을 보내주세요. 확인 후 처리해 드리겠습니다.
+              내 정보 화면 하단의 <span className="font-semibold text-[var(--foreground)]">계정 탈퇴</span> 버튼을 눌러주세요.
+              탈퇴 즉시 모든 데이터가 영구 삭제되며 복구할 수 없습니다.
             </p>
           </div>
           <div>

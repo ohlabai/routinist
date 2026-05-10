@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { fetchMessages, sendMessage, markAsRead } from '@/lib/message-data';
 import { getSupabase } from '@/lib/supabase';
+import { PUBLIC_PROFILE_FIELDS } from '@/lib/profile-fields';
 import { ArrowLeft, Send, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import type { Message, Profile } from '@/types';
@@ -42,7 +43,7 @@ function ChatView() {
 
       if (conv) {
         const otherId = conv.user_a === user.id ? conv.user_b : conv.user_a;
-        const { data: profile } = await supabase.from('profiles').select('*').eq('id', otherId).maybeSingle();
+        const { data: profile } = await supabase.from('profiles').select(PUBLIC_PROFILE_FIELDS).eq('id', otherId).maybeSingle();
         setOtherUser(profile as Profile | null);
       }
 
@@ -105,19 +106,19 @@ function ChatView() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-env(safe-area-inset-top)-env(safe-area-inset-bottom))] max-w-lg mx-auto">
-      {/* 헤더 */}
+    <div className="flex flex-col h-full max-w-lg mx-auto">
+      {/* 헤더 — 더 큰 터치 영역 + 폰트. layout 의 nav/header 가 채팅에선 숨김 처리됨. */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--card-border)] flex-shrink-0">
-        <Link href="/messages" className="text-[var(--muted)]"><ArrowLeft size={24} /></Link>
+        <Link href="/messages" className="text-[var(--muted)] -ml-1 p-1" aria-label="뒤로"><ArrowLeft size={24} /></Link>
         <Link href={otherUser ? `/profile/view?id=${otherUser.id}` : '#'} className="flex items-center gap-2 flex-1 min-w-0">
-          <div className="w-8 h-8 rounded-full bg-[var(--card-border)] overflow-hidden flex-shrink-0">
+          <div className="w-9 h-9 rounded-full bg-[var(--card-border)] overflow-hidden flex-shrink-0">
             {otherUser?.avatar_url ? (
               <img src={otherUser.avatar_url} alt="" className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center"><AppLogo size={18} /></div>
+              <div className="w-full h-full flex items-center justify-center"><AppLogo size={20} /></div>
             )}
           </div>
-          <span className="text-sm font-semibold text-[var(--foreground)] truncate">
+          <span className="text-base font-semibold text-[var(--foreground)] truncate">
             {otherUser?.display_name ?? '러너'}
           </span>
         </Link>
@@ -152,9 +153,10 @@ function ChatView() {
         )}
       </div>
 
-      {/* 입력 영역 */}
-      <div className="flex-shrink-0 border-t border-[var(--card-border)] px-4 py-3">
-        <div className="flex gap-2">
+      {/* 입력 영역 — 모바일 트렌드 (인스타/카톡 톤). 큰 폰트, 둥근 캡슐, safe-area-bottom 보정.
+          layout 에서 채팅 페이지 nav 가 숨겨졌으니 입력창이 nav 에 가리지 않음. */}
+      <div className="flex-shrink-0 border-t border-[var(--card-border)] px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)] bg-[var(--background)]">
+        <div className="flex items-center gap-2">
           <input
             type="text"
             value={newMessage}
@@ -162,14 +164,15 @@ function ChatView() {
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
             placeholder="메시지를 입력하세요"
             maxLength={2000}
-            className="flex-1 px-4 py-2.5 rounded-xl bg-[var(--card)] border border-[var(--card-border)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+            className="flex-1 px-5 py-3.5 rounded-full bg-[var(--card)] border border-[var(--card-border)] text-base text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
           />
           <button
             onClick={handleSend}
             disabled={!newMessage.trim() || sending}
-            className="px-3 py-2.5 rounded-xl bg-[var(--accent)] text-white disabled:opacity-30"
+            aria-label="보내기"
+            className="w-12 h-12 flex-shrink-0 rounded-full bg-[var(--accent)] text-white disabled:opacity-30 flex items-center justify-center active:scale-95 transition-transform shadow-sm"
           >
-            <Send size={18} />
+            <Send size={20} />
           </button>
         </div>
       </div>

@@ -5,7 +5,9 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import { isFollowing as checkFollowing, getFollowCounts } from '@/lib/social-data';
+import { PUBLIC_PROFILE_FIELDS } from '@/lib/profile-fields';
 import FollowButton from '@/components/social/FollowButton';
+import CheerButton from '@/components/social/CheerButton';
 import { getOrCreateConversation } from '@/lib/message-data';
 import { ArrowLeft, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
@@ -34,7 +36,7 @@ function UserProfile() {
     try {
       const supabase = getSupabase();
       const [profileRes, activitiesRes, isFollowingRes, countsRes] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+        supabase.from('profiles').select(PUBLIC_PROFILE_FIELDS).eq('id', userId).maybeSingle(),
         supabase.from('activities').select('*').eq('user_id', userId).eq('visibility', 'public').order('activity_date', { ascending: false }).limit(10),
         checkFollowing(userId),
         getFollowCounts(userId),
@@ -80,15 +82,16 @@ function UserProfile() {
         {profile.bio && <p className="text-xs text-[var(--muted)] mt-1">{profile.bio}</p>}
 
         <div className="flex justify-center gap-6 mt-3 text-sm">
-          <div><span className="font-bold text-[var(--foreground)]">{followCounts.followers}</span> <span className="text-[var(--muted)]">팔로워</span></div>
-          <div><span className="font-bold text-[var(--foreground)]">{followCounts.following}</span> <span className="text-[var(--muted)]">팔로잉</span></div>
+          <div><span className="font-bold text-[var(--foreground)]">{followCounts.followers}</span> <span className="text-[var(--muted)]">친구</span></div>
+          <div><span className="font-bold text-[var(--foreground)]">{followCounts.following}</span> <span className="text-[var(--muted)]">내가 추가</span></div>
         </div>
 
-        <div className="flex justify-center gap-3 mt-4">
+        <div className="flex justify-center items-center gap-3 mt-4">
           <FollowButton userId={profile.id} initialFollowing={following} onToggle={(f) => {
             setFollowing(f);
             setFollowCounts((prev) => ({ ...prev, followers: prev.followers + (f ? 1 : -1) }));
           }} />
+          <CheerButton toUserId={profile.id} context="profile" />
           <button
             onClick={async () => {
               if (!userId) return;

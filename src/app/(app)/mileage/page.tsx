@@ -15,13 +15,22 @@ export default function MileagePage() {
 
   useEffect(() => {
     if (!user) return;
+    let cancelled = false;
+    const timer = setTimeout(() => { if (!cancelled) setLoading(false); }, 8000);
     Promise.all([
       fetchMileageBalance(user.id),
       fetchMileageTransactions(user.id),
     ]).then(([b, txs]) => {
+      if (cancelled) return;
       setBalance(b);
       setTransactions(txs);
-    }).finally(() => setLoading(false));
+    }).catch(e => {
+      if (!cancelled) console.warn('[mileage] fetch 실패', e);
+    }).finally(() => {
+      clearTimeout(timer);
+      if (!cancelled) setLoading(false);
+    });
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [user]);
 
   return (

@@ -1,4 +1,5 @@
-import { getSupabase } from './supabase';
+import { getSupabase, resetSupabaseClient } from './supabase';
+import { dataCache } from './data-cache';
 import type { Profile } from '@/types';
 import type { Provider, Session, User } from '@supabase/supabase-js';
 
@@ -88,7 +89,15 @@ export async function initializeSocialLogin(): Promise<void> {
 // 웹에선 기존 signInWithOAuth + redirect 흐름.
 export async function signInWithProvider(provider: Provider) {
   const native = isNativeApp();
-  logAuth(`signInWithProvider(${provider}) native=${native}`);
+  // 디버그용으로 window.Capacitor 상태 함께 기록 — '왜 web 으로 빠졌는지' 추적용
+  let capState = 'no-window';
+  if (typeof window !== 'undefined') {
+    const cap = (window as CapacitorWindow).Capacitor;
+    capState = cap
+      ? `cap.isNative=${cap.isNativePlatform?.()} platform=${cap.getPlatform?.()}`
+      : 'cap-undefined';
+  }
+  logAuth(`signInWithProvider(${provider}) native=${native} ${capState}`);
 
   if (native) {
     return await signInNative(provider);
@@ -100,7 +109,9 @@ async function signInNative(provider: Provider) {
   if (provider !== 'apple' && provider !== 'google') {
     throw new Error(`네이티브 ${provider} 로그인은 지원되지 않아요.`);
   }
+  logAuth(`signInNative(${provider}) start, initialized=${socialLoginInitialized}`);
   await initializeSocialLogin();
+  logAuth(`signInNative(${provider}) init done, initialized=${socialLoginInitialized}`);
 
   const { SocialLogin } = await import('@capgo/capacitor-social-login');
   const supabase = getSupabase();
@@ -108,16 +119,19 @@ async function signInNative(provider: Provider) {
   if (provider === 'apple') {
     const rawNonce = generateRawNonce();
     const hashedNonce = await sha256Hex(rawNonce);
+    logAuth('signInNative(apple) calling SocialLogin.login');
     const res = await SocialLogin.login({
       provider: 'apple',
       options: { scopes: ['email', 'name'], nonce: hashedNonce },
     });
+    logAuth(`signInNative(apple) login resolved provider=${res.provider}`);
     if (res.provider !== 'apple') throw new Error('예상하지 못한 provider 응답');
     const idToken = res.result.idToken;
     if (!idToken) {
       logAuth('Apple idToken 없음');
       throw new Error('Apple 로그인이 취소됐거나 토큰을 받지 못했어요.');
     }
+    logAuth(`Apple idToken length=${idToken.length}, calling Supabase signInWithIdToken`);
     const { data, error } = await supabase.auth.signInWithIdToken({
       provider: 'apple',
       token: idToken,
@@ -125,8 +139,13 @@ async function signInNative(provider: Provider) {
     });
     if (error) {
       logAuth(`Apple signInWithIdToken 실패: ${error.message}`);
-      if (error.message.toLowerCase().includes('already')) {
-        throw new Error('이미 다른 방법(Google·이메일 등)으로 가입된 계정입니다. 처음 가입했던 방법으로 로그인해주세요.');
+      const m = error.message.toLowerCase();
+      // Supabase 가 cross-provider 충돌을 "Database error saving new user" 로 반환 (email 중복)
+      if (m.includes('database error') || m.includes('already')) {
+        throw new Error('이 이메일은 이미 Google 또는 이메일로 가입되어 있어요. 처음 가입했던 방법으로 다시 시도해주세요.');
+      }
+      if (m.includes('network') || m.includes('fetch')) {
+        throw new Error('네트워크 연결을 확인하고 다시 시도해주세요.');
       }
       throw new Error(`Apple 로그인 실패: ${error.message}`);
     }
@@ -135,10 +154,14 @@ async function signInNative(provider: Provider) {
   }
 
   // Google
+  // 주: nonce 는 capgo iOS GoogleProvider 에서 GIDSignIn 에 전달하나 일부 빌드에서 hang 보고된 적 있어
+  // 일단 nonce 없이 가고, 동작 확인 후 별도 PR 로 nonce 보강할 것.
+  logAuth('signInNative(google) calling SocialLogin.login');
   const res = await SocialLogin.login({
     provider: 'google',
     options: { scopes: ['email', 'profile'] },
   });
+  logAuth(`signInNative(google) login resolved provider=${res.provider}`);
   if (res.provider !== 'google') throw new Error('예상하지 못한 provider 응답');
   const result = res.result;
   if (result.responseType !== 'online') {
@@ -149,14 +172,19 @@ async function signInNative(provider: Provider) {
     logAuth('Google idToken 없음');
     throw new Error('Google 로그인이 취소됐거나 토큰을 받지 못했어요.');
   }
+  logAuth(`Google idToken length=${idToken.length}, calling Supabase signInWithIdToken`);
   const { data, error } = await supabase.auth.signInWithIdToken({
     provider: 'google',
     token: idToken,
   });
   if (error) {
     logAuth(`Google signInWithIdToken 실패: ${error.message}`);
-    if (error.message.toLowerCase().includes('already')) {
-      throw new Error('이미 다른 방법(Apple·이메일 등)으로 가입된 계정입니다. 처음 가입했던 방법으로 로그인해주세요.');
+    const m = error.message.toLowerCase();
+    if (m.includes('database error') || m.includes('already')) {
+      throw new Error('이 이메일은 이미 Apple 또는 이메일로 가입되어 있어요. 처음 가입했던 방법으로 다시 시도해주세요.');
+    }
+    if (m.includes('network') || m.includes('fetch')) {
+      throw new Error('네트워크 연결을 확인하고 다시 시도해주세요.');
     }
     throw new Error(`Google 로그인 실패: ${error.message}`);
   }
@@ -202,8 +230,11 @@ export async function handleOAuthCallback(url: string): Promise<Session | null> 
   if (oauthError) {
     const desc = queryParams.get('error_description') || hashParams.get('error_description') || '';
     const lower = `${oauthError} ${desc}`.toLowerCase();
-    if (lower.includes('database error') || lower.includes('already') || lower.includes('email')) {
-      throw new Error('이미 다른 방법(Google·이메일 등)으로 가입된 계정입니다. 처음 가입했던 방법으로 로그인해주세요.');
+    if (lower.includes('database error') || lower.includes('already')) {
+      throw new Error('이 이메일은 이미 다른 방식으로 가입되어 있어요. 처음 가입했던 방법으로 다시 시도해주세요.');
+    }
+    if (lower.includes('email')) {
+      throw new Error('이메일 정보를 받지 못했어요. 권한 요청 화면에서 이메일 공유를 허용해주세요.');
     }
     if (lower.includes('access_denied') || lower.includes('cancel')) {
       throw new Error('로그인이 취소됐어요.');
@@ -225,9 +256,12 @@ export async function handleOAuthCallback(url: string): Promise<Session | null> 
     return data.session;
   }
 
-  // 폴백: detectSessionInUrl 등 다른 경로로 이미 세션이 저장됐을 수 있음
-  for (let i = 0; i < 4; i++) {
-    await new Promise((r) => setTimeout(r, 250));
+  // 폴백: detectSessionInUrl 등 다른 경로로 이미 세션이 저장됐을 수 있음.
+  // exponential backoff: 200ms, 400ms, 800ms, 1.2s, 1.6s → 합 ~4.2초.
+  // 이전 1초 (250×4) 는 토큰 교환이 느릴 때 자주 null 로 떨어졌음.
+  const delays = [200, 400, 800, 1200, 1600];
+  for (const ms of delays) {
+    await new Promise((r) => setTimeout(r, ms));
     const { data: { session } } = await supabase.auth.getSession();
     if (session) return session;
   }
@@ -294,6 +328,13 @@ export async function signOut() {
   } catch (e) {
     logAuth(`signOut swallowed: ${e instanceof Error ? e.message : e}`);
   }
+
+  // 모듈-level singleton 초기화 — broken state 누적 방지.
+  // 다음 getSupabase() 호출 시 fresh client 생성. 새 로그인이 fresh 상태에서 시작 가능.
+  resetSupabaseClient();
+
+  // 신문 모델 (build 57): 로그아웃 시 모든 캐시 삭제. 다른 계정 로그인 시 이전 사용자 데이터 노출 차단.
+  dataCache.clearAll();
 }
 
 // 현재 세션

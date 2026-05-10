@@ -8,50 +8,59 @@ import Link from 'next/link';
 import { Home, Map, Trophy, User, ShoppingBag } from 'lucide-react';
 import { syncHealthData, isNativeApp } from '@/lib/health-sync';
 import AppLogo from '@/components/AppLogo';
-import SwipeNav from '@/components/SwipeNav';
+import { useI18n } from '@/lib/i18n';
 
 // 5탭 구조: 통계는 홈에 흡수, 쇼핑은 수익 모델이라 최상위로 승격 (Cafe24 연동)
 // activeFor: 해당 경로에서도 이 탭이 활성화된 것으로 표시 (내 정보 하위 페이지들)
-const TABS: {
+const TABS_BASE: {
   href: string;
-  label: string;
+  labelKey: 'nav.home' | 'nav.map' | 'nav.ranking' | 'nav.shop' | 'nav.profile';
   Icon: typeof Home;
   activeFor?: string[];
 }[] = [
-  { href: '/dashboard', label: '홈', Icon: Home },
-  { href: '/map', label: '지도', Icon: Map },
-  { href: '/social', label: '랭킹', Icon: Trophy },
-  { href: '/shop', label: '쇼핑', Icon: ShoppingBag },
+  { href: '/dashboard', labelKey: 'nav.home', Icon: Home },
+  { href: '/map', labelKey: 'nav.map', Icon: Map },
+  { href: '/social', labelKey: 'nav.ranking', Icon: Trophy },
+  { href: '/shop', labelKey: 'nav.shop', Icon: ShoppingBag },
   {
     href: '/profile',
-    label: '내 정보',
+    labelKey: 'nav.profile',
     Icon: User,
     activeFor: ['/messages', '/mileage', '/goals', '/connect', '/awards', '/support', '/privacy'],
   },
 ];
 
-const PAGE_TITLES: Record<string, string> = {
-  '/dashboard': '홈',
-  '/map': '러닝 지도',
-  '/social': '랭킹',
-  '/profile': '내 정보',
-  '/goals': '목표 설정',
-  '/history': '히스토리',
-  '/connect': '건강 앱 연동',
-  '/calendar': '캘린더',
-  '/shop': 'Routinist Store',
-  '/messages': '쪽지함',
-  '/mileage': '마일리지',
-  '/support': '고객 지원',
-  '/privacy': '개인정보처리방침',
-};
-
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
+  // iOS Capacitor 환경에서 pathname 이 '/shop' / '/shop/' / '/shop/index.html' 등으로 변할 수 있어
+  // 단순 `=== '/shop'` 비교가 미스매치하는 케이스 방어. startsWith + endsWith 같이.
+  // build 74: trailing slash / query 차이를 정규화. iOS Capacitor 환경에서 pathname 변형
+  // ('/shop/' / '/shop?...' / '/shop/index.html' 등) 모두 동일하게 매칭.
+  const normalizedPath = pathname.replace(/\?.*$/, '').replace(/\/+$/, '') || '/';
+  const isShop = normalizedPath === '/shop' || normalizedPath.startsWith('/shop/');
+  const isChat = normalizedPath === '/messages/chat' || normalizedPath.startsWith('/messages/chat/');
   const lastSyncRef = useRef<number>(0);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
+
+  // PAGE_TITLES 동적 (locale 따라 변경) — 한글 키는 i18n 미적용 페이지의 fallback
+  const PAGE_TITLES: Record<string, string> = {
+    '/dashboard': t('nav.home'),
+    '/map': t('nav.map') === 'Map' ? 'Running Map' : t('nav.map'),
+    '/social': t('nav.ranking'),
+    '/profile': t('nav.profile'),
+    '/goals': '목표 설정',
+    '/history': '히스토리',
+    '/connect': '건강 앱 연동',
+    '/calendar': '캘린더',
+    '/shop': 'Routinist Store',
+    '/messages': '쪽지함',
+    '/mileage': '마일리지',
+    '/support': '고객 지원',
+    '/privacy': '개인정보처리방침',
+  };
 
   useEffect(() => {
     if (!loading && !user) {
@@ -65,41 +74,36 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(t);
   }, [loading]);
 
-  // Apple Health 동기화 전략:
-  // 1) 앱 열 때 (foreground 진입) 자동 pull
-  // 2) 백그라운드에서 포그라운드 복귀 시 자동 pull
-  // 3) 수동 새로고침 버튼 (connect 페이지)
-  // 폴링 인터벌은 배터리 낭비라 제거. 진정한 백그라운드 push는 HKObserverQuery + enableBackgroundDelivery 필요
-  // (현재 @capgo/capacitor-health 미지원 → 커스텀 네이티브 플러그인 TODO)
+  // 신문 모델 (build 57): 자동 sync 제거.
+  // 첫 로그인 직후 1회만 환영 sync (localStorage flag), 이후엔 사용자가 직접 동기화 버튼을 눌러야 sync.
+  // 이전엔 layout mount 마다 (=화면 이동마다) sync 가 발사 → SDK lock + 60s timeout 회귀의 근원.
   useEffect(() => {
     if (!user) return;
+    if (!isNativeApp()) return;
 
-    const doSync = async () => {
-      const now = Date.now();
-      if (now - lastSyncRef.current < 2 * 60 * 1000) return; // 2분 내 중복 실행 방지
-      lastSyncRef.current = now;
+    const flagKey = `first_sync_done:${user.id}`;
+    if (typeof window === 'undefined') return;
+    const alreadyDone = window.localStorage.getItem(flagKey);
+    if (alreadyDone) return;
 
-      if (isNativeApp()) {
-        try {
-          await syncHealthData(user.id);
-        } catch {}
+    // 첫 진입 한 번만. fire-and-forget. 실패해도 사용자가 connect 페이지에서 수동 동기화 가능.
+    (async () => {
+      try {
+        const now = Date.now();
+        lastSyncRef.current = now;
+        const r = await Promise.race([
+          syncHealthData(user.id),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('first-sync timeout 25s')), 25000)
+          ),
+        ]);
+        if (r.success) {
+          window.localStorage.setItem(flagKey, String(Date.now()));
+        }
+      } catch (e) {
+        console.warn('[layout] 첫 sync 예외 (재시도 가능):', e);
       }
-    };
-
-    doSync(); // 앱 로드 시 한 번
-
-    let removeListener: (() => void) | null = null;
-    if (isNativeApp()) {
-      import('@capacitor/app').then(({ App }) => {
-        App.addListener('appStateChange', ({ isActive }) => {
-          if (isActive) doSync();
-        }).then(handle => {
-          removeListener = () => handle.remove();
-        });
-      }).catch(() => {});
-    }
-
-    return () => { removeListener?.(); };
+    })();
   }, [user]);
 
   if (loading) {
@@ -136,28 +140,35 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // 스크롤에 밀려 올라가는 버그가 발생 — 내부 main 에서만 스크롤되도록 제한.
   return (
     <div className="flex flex-col h-[100dvh] overflow-hidden bg-[var(--background)]">
-      <SwipeNav />
-      {/* 헤더 — 동적 타이틀 */}
-      <header className="flex-shrink-0 z-40 border-b border-[var(--card-border)] bg-[var(--header-bg)] backdrop-blur-xl pt-[env(safe-area-inset-top)]">
-        <div className="px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Link href="/dashboard"><AppLogo size={28} /></Link>
-            <h1 className="text-xl font-bold tracking-tight text-[var(--foreground)]">
-              {PAGE_TITLES[pathname] || Object.entries(PAGE_TITLES).find(([k]) => pathname.startsWith(k + '/'))?.[1] || 'Routinist'}
-            </h1>
+      {/* 헤더 — 동적 타이틀. shop 진입 시 숨김 (shop 자체 헤더가 그려짐).
+          startsWith 로 robust — iOS Capacitor 환경에서 trailing slash/query 매칭 안 되는 케이스 방어 */}
+      {!isShop && !isChat && (
+        <header className="flex-shrink-0 z-40 border-b border-[var(--card-border)] bg-[var(--header-bg)] backdrop-blur-xl pt-[env(safe-area-inset-top)]">
+          <div className="px-4 h-14 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Link href="/dashboard"><AppLogo size={28} /></Link>
+              <h1 className="text-xl font-bold tracking-tight text-[var(--foreground)]">
+                {PAGE_TITLES[pathname] || Object.entries(PAGE_TITLES).find(([k]) => pathname.startsWith(k + '/'))?.[1] || 'Routinist'}
+              </h1>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
+      {/* shop / chat 진입 시 status bar 영역만 흰색 padding (자체 헤더가 그려지는 페이지) */}
+      {(isShop || isChat) && (
+        <div className="flex-shrink-0 bg-[var(--background)] pt-[env(safe-area-inset-top)]" />
+      )}
 
       {/* 메인 컨텐츠 — 유일한 스크롤 영역 */}
       <main className="flex-1 overflow-y-auto overscroll-contain">
         <UserDataProvider>{children}</UserDataProvider>
       </main>
 
-      {/* 하단 5탭 네비게이션 — flex-shrink-0 로 고정, sticky 제거 */}
-      <nav className="flex-shrink-0 z-40 border-t border-[var(--card-border)] bg-[var(--header-bg)] backdrop-blur-xl pb-[env(safe-area-inset-bottom)]">
+      {/* 하단 5탭 네비게이션 — flex-shrink-0 로 고정, sticky 제거.
+          채팅 페이지에선 입력창이 가리는 문제로 nav 숨김 (사용자 신고 build 67). */}
+      <nav className={`flex-shrink-0 z-40 border-t border-[var(--card-border)] bg-[var(--header-bg)] backdrop-blur-xl pb-[env(safe-area-inset-bottom)] ${isChat ? 'hidden' : ''}`}>
         <div className="flex justify-around items-center h-16">
-          {TABS.map((tab) => {
+          {TABS_BASE.map((tab) => {
             const isActive =
               pathname === tab.href ||
               pathname.startsWith(tab.href + '/') ||
@@ -173,7 +184,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 }`}
               >
                 <tab.Icon size={isActive ? 24 : 22} strokeWidth={isActive ? 2.5 : 1.75} />
-                <span className={`text-[13px] ${isActive ? 'font-bold' : 'font-medium'}`}>{tab.label}</span>
+                <span className={`text-[13px] ${isActive ? 'font-bold' : 'font-medium'}`}>{t(tab.labelKey)}</span>
               </Link>
             );
           })}

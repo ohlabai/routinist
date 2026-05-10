@@ -11,15 +11,17 @@ import { searchUsers, fetchPublicUsers, getMyClubs, fetchFollowing } from '@/lib
 import { getSupabase } from '@/lib/supabase';
 import UserRow from '@/components/social/UserRow';
 import PhotosTab from '@/components/photos/PhotosTab';
-import { User as UserIcon, Users, Trophy, Search, Plus, MapPin, Camera, Sparkles, TrendingUp } from 'lucide-react';
+import MileageRankingTab from '@/components/social/MileageRankingTab';
+import { User as UserIcon, Users, Trophy, Search, Plus, MapPin, Camera, Sparkles, TrendingUp, Coins } from 'lucide-react';
 import type { Profile, Club } from '@/types';
 import AppLogo from '@/components/AppLogo';
 
 const SECTIONS = [
   { id: 'me', label: '내 랭킹', Icon: Trophy },
-  { id: 'friends', label: '친구 랭킹', Icon: UserIcon },
-  { id: 'clubs', label: '클럽 랭킹', Icon: Users },
-  { id: 'photos', label: '포토 랭킹', Icon: Camera },
+  { id: 'friends', label: '친구', Icon: UserIcon },
+  { id: 'clubs', label: '클럽', Icon: Users },
+  { id: 'photos', label: '포토', Icon: Camera },
+  { id: 'mileage', label: '마일리지', Icon: Coins },
 ] as const;
 
 type SectionId = typeof SECTIONS[number]['id'];
@@ -392,6 +394,9 @@ function SocialPageInner() {
           </Link>
         </div>
       )}
+
+      {/* 마일리지 탭 (build 62) */}
+      {activeSection === 'mileage' && <MileageRankingTab />}
 
       {/* 포토 탭 — 신규 */}
       {activeSection === 'photos' && <PhotosTab />}

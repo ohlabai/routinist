@@ -9,13 +9,33 @@ public class WorkoutRoutePlugin: CAPPlugin, CAPBridgedPlugin {
     public let jsName = "WorkoutRoute"
 
     public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "requestAuthorization", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getRoutes", returnType: CAPPluginReturnPromise),
     ]
 
     private let healthStore = HKHealthStore()
 
+    /// workout + workoutRoute 권한을 요청합니다. capgo Health 플러그인은 route 타입을 다루지 않으므로
+    /// connect flow 에서 이 메서드를 추가로 호출해 다이얼로그가 두 번 뜨는 UX 분산을 막습니다.
+    @objc func requestAuthorization(_ call: CAPPluginCall) {
+        guard HKHealthStore.isHealthDataAvailable() else {
+            call.reject("HealthKit not available")
+            return
+        }
+        let workoutType = HKObjectType.workoutType()
+        let routeType = HKSeriesType.workoutRoute()
+        healthStore.requestAuthorization(toShare: nil, read: [workoutType, routeType]) { success, error in
+            if let error = error {
+                call.reject("HealthKit authorization failed: \(error.localizedDescription)")
+                return
+            }
+            call.resolve(["success": success])
+        }
+    }
+
     /// startDate ~ endDate 사이의 러닝 워크아웃 GPS 경로를 모두 가져옵니다.
     /// JS 호출: WorkoutRoute.getRoutes({ startDate, endDate, limit })
+    /// 권한은 requestAuthorization 으로 미리 받아두는 것을 권장.
     @objc func getRoutes(_ call: CAPPluginCall) {
         guard HKHealthStore.isHealthDataAvailable() else {
             call.reject("HealthKit not available")
@@ -38,15 +58,11 @@ public class WorkoutRoutePlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
 
-        // HealthKit 권한 요청 (workout route 읽기)
+        // 권한이 이미 결정돼 있으면 OS가 다이얼로그를 다시 띄우지 않으므로 안전하게 한 번 더 호출.
         let workoutType = HKObjectType.workoutType()
         let routeType = HKSeriesType.workoutRoute()
-
-        healthStore.requestAuthorization(toShare: nil, read: [workoutType, routeType]) { [weak self] success, error in
-            guard let self = self, success else {
-                call.reject("HealthKit authorization failed: \(error?.localizedDescription ?? "unknown")")
-                return
-            }
+        healthStore.requestAuthorization(toShare: nil, read: [workoutType, routeType]) { [weak self] _, _ in
+            guard let self = self else { return }
             self.queryRunningWorkouts(startDate: startDate, endDate: endDate, limit: limit, call: call)
         }
     }
@@ -76,10 +92,27 @@ public class WorkoutRoutePlugin: CAPPlugin, CAPBridgedPlugin {
                 return
             }
 
-            // 각 워크아웃에서 경로 추출
+            // 각 워크아웃에서 경로 추출.
+            // build 58 안전망: 어떤 fetchRoute callback 이 안 오는 케이스 (HKWorkoutRouteQuery 의 done=true 가 영영
+            // 안 오는 edge) 에 대비, 50s 후 부분 결과라도 강제 resolve. 사용자가 audit 페이지에서 영영 spinner 도는 회귀 차단.
             let group = DispatchGroup()
             var results: [[String: Any]] = []
             let lock = NSLock()
+            var resolved = false
+            let resolveOnce: ([String: Any]) -> Void = { payload in
+                lock.lock()
+                defer { lock.unlock() }
+                guard !resolved else { return }
+                resolved = true
+                call.resolve(payload)
+            }
+
+            DispatchQueue.global().asyncAfter(deadline: .now() + 50) {
+                lock.lock()
+                let snapshot = results
+                lock.unlock()
+                resolveOnce(["routes": snapshot, "partial": true, "reason": "native_timeout_50s"])
+            }
 
             for workout in workouts {
                 group.enter()
@@ -94,7 +127,10 @@ public class WorkoutRoutePlugin: CAPPlugin, CAPBridgedPlugin {
             }
 
             group.notify(queue: .main) {
-                call.resolve(["routes": results])
+                lock.lock()
+                let snapshot = results
+                lock.unlock()
+                resolveOnce(["routes": snapshot])
             }
         }
 

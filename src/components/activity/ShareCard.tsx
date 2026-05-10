@@ -1,10 +1,13 @@
 'use client';
 
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { Share2, Download, X, ChevronLeft, ChevronRight, ImagePlus, Sparkles } from 'lucide-react';
+import { Share2, X, ChevronLeft, ChevronRight, ImagePlus, Check, Heart } from 'lucide-react';
 import { isNativeApp } from '@/lib/health-sync';
 import { useAuth } from '@/components/AuthProvider';
+import { useUserData } from '@/components/UserDataProvider';
+import { fetchDailyQuote, toggleQuoteLike, isFallbackQuote, type DailyQuote } from '@/lib/quotes-data';
 import { getSupabase } from '@/lib/supabase';
+import AppToast from '@/components/AppToast';
 import type { Activity } from '@/types';
 
 interface ShareCardProps {
@@ -81,12 +84,42 @@ const THEMES: Theme[] = [
   },
 ];
 
+// Canvas 에 하트 아이콘 그리기. filled 이면 채워진 빨강 하트, 아니면 외곽선만.
+function drawHeart(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number, filled: boolean, strokeColor: string) {
+  ctx.save();
+  ctx.beginPath();
+  const s = size / 24; // path 는 24x24 viewBox 기준 스케일
+  const x = cx - 12 * s;
+  const y = cy - 11 * s;
+  ctx.moveTo(x + 12 * s, y + 21 * s);
+  ctx.bezierCurveTo(x + 12 * s, y + 21 * s, x + 1 * s, y + 13.5 * s, x + 1 * s, y + 7 * s);
+  ctx.bezierCurveTo(x + 1 * s, y + 3.5 * s, x + 4 * s, y + 1 * s, x + 7 * s, y + 1 * s);
+  ctx.bezierCurveTo(x + 9.5 * s, y + 1 * s, x + 11 * s, y + 2.5 * s, x + 12 * s, y + 4 * s);
+  ctx.bezierCurveTo(x + 13 * s, y + 2.5 * s, x + 14.5 * s, y + 1 * s, x + 17 * s, y + 1 * s);
+  ctx.bezierCurveTo(x + 20 * s, y + 1 * s, x + 23 * s, y + 3.5 * s, x + 23 * s, y + 7 * s);
+  ctx.bezierCurveTo(x + 23 * s, y + 13.5 * s, x + 12 * s, y + 21 * s, x + 12 * s, y + 21 * s);
+  ctx.closePath();
+  if (filled) {
+    // 채워진 하트 — 외곽선 안 그림 (사진 배경 위에서 흰 외곽선이 거슬리는 신고).
+    ctx.fillStyle = '#ef4444';
+    ctx.fill();
+  } else {
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawCard(
   canvas: HTMLCanvasElement,
   activity: Activity,
   displayName: string,
   theme: Theme,
   bgImage?: HTMLImageElement | null,
+  monthlyActivities?: Activity[],
+  userIdLabel?: string,
+  quote?: DailyQuote | null,
 ) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -119,7 +152,7 @@ function drawCard(
     theme.bg(ctx, W, H);
   }
 
-  // 경로
+  // 경로 — 명언 영역(상단 200~440) 다음에 그려짐.
   const hasRoute = activity.route_data?.coordinates?.length;
   if (hasRoute) {
     const coords = activity.route_data!.coordinates;
@@ -130,8 +163,8 @@ function drawCard(
 
     const padding = 120;
     const mapW = W - padding * 2;
-    const mapH = H * 0.35;
-    const mapY = 200;
+    const mapH = 480;
+    const mapY = 460;
 
     const scaleX = mapW / (maxLng - minLng || 0.001);
     const scaleY = mapH / (maxLat - minLat || 0.001);
@@ -188,8 +221,38 @@ function drawCard(
   });
   ctx.fillText(dateStr, W / 2, 120);
 
-  // 거리 (메인)
-  const distY = hasRoute ? H * 0.55 : H * 0.4;
+  // 월간 합계 + 일별 거리 맵 — 그래프(하단) + stats 4번째 컬럼에서 사용.
+  let monthSum = 0;
+  let dailyKm = new Map<number, number>();
+  let activityMonth = 0;
+  let activityYear = 0;
+  let daysInMonth = 30;
+  let todayDay = 1;
+  if (monthlyActivities && monthlyActivities.length > 0) {
+    const activityDate = new Date(activity.activity_date);
+    activityYear = activityDate.getFullYear();
+    activityMonth = activityDate.getMonth();
+    daysInMonth = new Date(activityYear, activityMonth + 1, 0).getDate();
+    todayDay = activityDate.getDate();
+
+    monthSum = monthlyActivities
+      .filter(a => {
+        const d = new Date(a.activity_date);
+        return d.getFullYear() === activityYear && d.getMonth() === activityMonth;
+      })
+      .reduce((s, a) => s + a.distance_km, 0);
+
+    dailyKm = new Map<number, number>();
+    monthlyActivities.forEach(a => {
+      const d = new Date(a.activity_date);
+      if (d.getFullYear() === activityYear && d.getMonth() === activityMonth) {
+        dailyKm.set(d.getDate(), (dailyKm.get(d.getDate()) ?? 0) + a.distance_km);
+      }
+    });
+  }
+
+  // 거리 (메인) — route 끝(940) 와 충분한 gap. 0.55 → 0.6 (사용자 신고 #7)
+  const distY = hasRoute ? H * 0.6 : H * 0.4;
   ctx.font = 'bold 180px -apple-system, BlinkMacSystemFont, sans-serif';
   ctx.fillStyle = mainColor;
   ctx.fillText(activity.distance_km.toFixed(2), W / 2, distY);
@@ -207,36 +270,192 @@ function drawCard(
   ctx.lineTo(W * 0.8, lineY);
   ctx.stroke();
 
-  // 통계 3열
+  // 통계 4열 — 시간 / 페이스 / 칼로리 / 월 누적 (사용자 결정 — 월 누적 km 표시 위치 이동)
   const statsY = lineY + 100;
   const stats = [
     { label: '시간', value: activity.duration_seconds ? formatDur(activity.duration_seconds) : '--' },
     { label: '페이스', value: activity.pace_avg_sec_per_km ? formatPc(activity.pace_avg_sec_per_km) : '--' },
     { label: '칼로리', value: activity.calories ? `${activity.calories}` : '--' },
+    {
+      label: monthSum > 0 ? `${activityMonth + 1}월` : '월 누적',
+      value: monthSum > 0 ? `${monthSum.toFixed(1)}km` : '--',
+    },
   ];
 
   stats.forEach((stat, i) => {
-    const x = W / 2 + (i - 1) * 280;
-    ctx.font = 'bold 56px -apple-system, BlinkMacSystemFont, sans-serif';
+    const x = W / 2 + (i - 1.5) * 220;
+    ctx.font = 'bold 48px -apple-system, BlinkMacSystemFont, sans-serif';
     ctx.fillStyle = mainColor;
     ctx.fillText(stat.value, x, statsY);
-    ctx.font = '28px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.font = '26px -apple-system, BlinkMacSystemFont, sans-serif';
     ctx.fillStyle = subColor;
-    ctx.fillText(stat.label, x, statsY + 44);
+    ctx.fillText(stat.label, x, statsY + 42);
   });
 
-  // 유저 이름
-  ctx.font = 'bold 44px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillStyle = mainColor;
-  ctx.fillText(displayName, W / 2, H * 0.86);
+  // 명언 (그날의 메시지) — 상단 (이전 그래프 자리) 큰 글씨로 hero 처럼.
+  // 같은 활동 날짜를 공유한 모든 사용자에게 같은 명언 (글로벌 공감대).
+  if (quote) {
+    const quoteText = quote.author ? `"${quote.text}" — ${quote.author}` : `"${quote.text}"`;
+    ctx.font = 'italic 600 52px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillStyle = mainColor;
+    ctx.textAlign = 'center';
+    // 상단 영역. 날짜(120) 다음. 3줄까지 수용.
+    const quoteY = 280;
+    const maxQuoteW = W - 120;
 
-  // 브랜딩
-  ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillStyle = accentColor;
-  ctx.fillText('Routinist', W / 2, H * 0.93);
-  ctx.font = '24px -apple-system, BlinkMacSystemFont, sans-serif';
+    // 단어 단위 wrap → 한 줄이 여전히 maxQuoteW 초과하면 글자 단위로 강제 분할.
+    // 한국어는 띄어쓰기가 적어 단어 wrap 만으로는 한 줄이 넘칠 수 있음.
+    const splitByGraphemes = (text: string): string[] => {
+      const out: string[] = [];
+      let cur = '';
+      for (const ch of text) {
+        const test = cur + ch;
+        if (ctx.measureText(test).width > maxQuoteW && cur) {
+          out.push(cur);
+          cur = ch;
+        } else {
+          cur = test;
+        }
+      }
+      if (cur) out.push(cur);
+      return out;
+    };
+
+    const words = quoteText.split(' ');
+    const wordLines: string[] = [];
+    let cur = '';
+    for (const w of words) {
+      const test = cur ? `${cur} ${w}` : w;
+      if (ctx.measureText(test).width > maxQuoteW && cur) {
+        wordLines.push(cur);
+        cur = w;
+      } else {
+        cur = test;
+      }
+    }
+    if (cur) wordLines.push(cur);
+
+    const allLines: string[] = [];
+    for (const line of wordLines) {
+      if (ctx.measureText(line).width > maxQuoteW) allLines.push(...splitByGraphemes(line));
+      else allLines.push(line);
+    }
+    // 최대 3줄. 4줄 이상이면 마지막에 "…" — route(mapY=460) 영역 침범 방지.
+    const MAX_LINES = 3;
+    let lines = allLines;
+    if (allLines.length > MAX_LINES) {
+      const truncated = allLines.slice(0, MAX_LINES);
+      const last = truncated[MAX_LINES - 1];
+      // last 끝부분 자르고 "…" 추가, maxQuoteW 안에 들어가게
+      let trimmed = last;
+      while (ctx.measureText(trimmed + '…').width > maxQuoteW && trimmed.length > 1) {
+        trimmed = trimmed.slice(0, -1);
+      }
+      truncated[MAX_LINES - 1] = trimmed + '…';
+      lines = truncated;
+    }
+
+    const lineH = 64;
+    const startY = quoteY - ((lines.length - 1) * lineH) / 2;
+    lines.forEach((line, i) => ctx.fillText(line, W / 2, startY + i * lineH));
+
+    // 하트 + 좋아요 숫자 — 명언 마지막 줄 아래 가운데 정렬. 모든 사용자에게 같은 카운트.
+    if (!isFallbackQuote(quote)) {
+      const heartSize = 32;
+      const gap = 12;
+      const heartY = startY + (lines.length - 1) * lineH + 70;
+
+      ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
+      const countText = `${quote.like_count}`;
+      const countW = ctx.measureText(countText).width;
+      const groupW = heartSize + gap + countW;
+      const heartCx = W / 2 - groupW / 2 + heartSize / 2;
+      const countX = heartCx + heartSize / 2 + gap;
+
+      drawHeart(ctx, heartCx, heartY, heartSize, quote.liked_by_me, subColor);
+      ctx.fillStyle = quote.liked_by_me ? '#ef4444' : subColor;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(countText, countX, heartY);
+      ctx.textBaseline = 'alphabetic';
+    }
+  }
+
+  // 월간 그래프 — 하단 (이전 명언 자리). 작게.
+  if (dailyKm.size > 0) {
+    const chartTop = 1490;
+    const chartH = 110;
+    const chartPadX = 100;
+    const chartW = W - chartPadX * 2;
+    const maxDay = Math.max(...Array.from(dailyKm.values()), 1);
+    const barWidth = (chartW - 4 * (daysInMonth - 1)) / daysInMonth;
+
+    const onPhoto = !!bgImage;
+    const labelColor = onPhoto ? 'rgba(255,255,255,0.85)' : subColor;
+    const barFillToday = onPhoto ? '#ffffff' : accentColor;
+    const barFillOther = onPhoto ? 'rgba(255,255,255,0.55)' : accentColor + 'AA';
+    const barFillEmpty = onPhoto ? 'rgba(255,255,255,0.15)' : subColor + '22';
+
+    // 라벨 제거 (build 67) — 사용자 결정: 그래프 형태로 충분히 자명.
+    ctx.textAlign = 'center';
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const km = dailyKm.get(day) ?? 0;
+      const x = chartPadX + (day - 1) * (barWidth + 4);
+      const h = (km / maxDay) * chartH;
+      const isToday = day === todayDay;
+      ctx.fillStyle = isToday ? barFillToday : (km > 0 ? barFillOther : barFillEmpty);
+      const barH = Math.max(h, 3);
+      ctx.fillRect(x, chartTop + chartH - barH, barWidth, barH);
+    }
+  }
+
+  // Footer — 한 라인 가운데 정렬. 좌측 @userId (emerald, 본인 강조), 구분 |, 우측 Routinist.
+  // 사용자 결정 (2026-05-09): 자기 이름이 더 중요. 가운데 정렬 + emerald 색으로 강조.
+  // build 68: 슬로건 "Run Your Routine." 을 위 라인의 우측 끝(Routinist 의 't')에 우측 정렬
+  // → 시각적 anchor 명확. 가운데 정렬은 위/아래 폭 차이로 어정쩡해 보였던 신고 #7.
+  const footerY = H * 0.91;
+  const userText = `@${userIdLabel ?? displayName}`;
+  const sep = ' | ';
+  const brand = 'Routinist';
+  const userColor = bgImage ? '#34d399' : '#10b981';
+
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+
+  ctx.font = 'bold 40px -apple-system, BlinkMacSystemFont, sans-serif';
+  const userW = ctx.measureText(userText).width;
+  ctx.font = '36px -apple-system, BlinkMacSystemFont, sans-serif';
+  const sepW = ctx.measureText(sep).width;
+  ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, sans-serif';
+  const brandW = ctx.measureText(brand).width;
+  const totalW = userW + sepW + brandW;
+
+  const lineLeftX = W / 2 - totalW / 2;
+  const lineRightX = W / 2 + totalW / 2;
+  let x = lineLeftX;
+
+  ctx.font = 'bold 40px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillStyle = userColor;
+  ctx.fillText(userText, x, footerY);
+  x += userW;
+
+  ctx.font = '36px -apple-system, BlinkMacSystemFont, sans-serif';
   ctx.fillStyle = subColor;
-  ctx.fillText('Run. Track. Share.', W / 2, H * 0.95);
+  ctx.fillText(sep, x, footerY);
+  x += sepW;
+
+  ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillStyle = mainColor;
+  ctx.fillText(brand, x, footerY);
+
+  // 슬로건 — 우측 정렬. lineRightX 가 Routinist 의 마지막 글자 끝.
+  ctx.textAlign = 'right';
+  ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillStyle = subColor;
+  ctx.fillText('Run Your Routine.', lineRightX, footerY + 56);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
 }
 
 function formatDur(s: number): string {
@@ -254,17 +473,59 @@ function formatPc(s: number): string {
 
 export default function ShareCard({ activity, displayName, onClose, hideRegister, onRegistered }: ShareCardProps) {
   const { user } = useAuth();
+  const { activities } = useUserData();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [themeIdx, setThemeIdx] = useState(0);
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
   const [registering, setRegistering] = useState(false);
   const [registerToast, setRegisterToast] = useState<string | null>(null);
+  const [quote, setQuote] = useState<DailyQuote | null>(null);
+  const [likeBusy, setLikeBusy] = useState(false);
+  // 루틴포토 등록 — 디폴트 ON (체크 해제하면 캘린더만 저장).
+  // 캘린더 저장은 항상 자동 (UI 표시 X — 사용자 의도).
+  const [registerToGallery, setRegisterToGallery] = useState(true);
+
+  // 활동 날짜 기준 daily_quote 한 번 fetch. RPC 실패 시 fetchDailyQuote 안에서 fallback.
+  useEffect(() => {
+    let cancelled = false;
+    fetchDailyQuote(activity.activity_date).then(q => { if (!cancelled) setQuote(q); });
+    return () => { cancelled = true; };
+  }, [activity.activity_date]);
+
+  const handleToggleLike = useCallback(async () => {
+    if (!quote || likeBusy || isFallbackQuote(quote)) return;
+    setLikeBusy(true);
+    // optimistic
+    const prev = quote;
+    setQuote({
+      ...quote,
+      liked_by_me: !quote.liked_by_me,
+      like_count: quote.like_count + (quote.liked_by_me ? -1 : 1),
+    });
+    try {
+      const res = await toggleQuoteLike(quote.id);
+      setQuote(q => (q ? { ...q, liked_by_me: res.liked, like_count: res.like_count } : q));
+    } catch (err) {
+      console.warn('좋아요 실패:', err);
+      setQuote(prev); // 롤백
+    } finally {
+      setLikeBusy(false);
+    }
+  }, [quote, likeBusy]);
+
+  // 사용자 ID label — 이름(한글) 노출 방지. 영문/숫자 prefix 추출, fallback email prefix.
+  const userIdLabel = (() => {
+    const m = displayName?.match(/^[a-zA-Z0-9_.]+/);
+    if (m && m[0].length >= 2) return m[0];
+    const emailPrefix = user?.email?.split('@')[0];
+    return emailPrefix ?? displayName ?? 'runner';
+  })();
 
   const generate = useCallback(() => {
     if (!canvasRef.current) return;
-    drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage);
-  }, [activity, displayName, themeIdx, bgImage]);
+    drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage, activities, userIdLabel, quote);
+  }, [activity, displayName, themeIdx, bgImage, activities, userIdLabel, quote]);
 
   useEffect(() => { generate(); }, [generate]);
 
@@ -314,41 +575,84 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
     }
   };
 
-  // 캔버스 → blob → storage 업로드 → activity_photos + calendar_photos 등록
-  const handleRegister = async () => {
+  // 캔버스 → blob → storage 업로드 → calendar_photos 자동 + activity_photos 옵션
+  // build 56: 모든 supabase 호출에 withTimeout 보호.
+  // 사용자 결정: 캘린더는 항상 자동, 루틴포토는 사용자 선택 (체크박스).
+  const handleRegister = async (includeGallery: boolean) => {
     if (!canvasRef.current || !user) return;
     setRegistering(true);
+
+    // PromiseLike — Supabase 의 thenable builder 도 받게.
+    const withTimeout = <T,>(p: PromiseLike<T>, ms: number, label: string): Promise<T> =>
+      Promise.race<T>([
+        Promise.resolve(p),
+        new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error(`${label} ${ms / 1000}s timeout`)), ms)
+        ),
+      ]);
+
     try {
       const blob = await new Promise<Blob | null>(res => canvasRef.current!.toBlob(b => res(b), 'image/png'));
-      if (!blob) throw new Error('blob null');
+      if (!blob) throw new Error('이미지 변환 실패');
       const supabase = getSupabase();
       const path = `${user.id}/routine/${activity.activity_date}-${Date.now()}.png`;
-      const { error: upErr } = await supabase.storage.from('activity-photos').upload(path, blob, { contentType: 'image/png', upsert: false });
+
+      // storage upload — 30s. 사진은 수백 KB 라 LTE 환경 대응.
+      const { error: upErr } = await withTimeout(
+        supabase.storage.from('activity-photos').upload(path, blob, { contentType: 'image/png', upsert: false }),
+        30000,
+        'photo storage upload',
+      );
       if (upErr) throw upErr;
       const { data: urlData } = supabase.storage.from('activity-photos').getPublicUrl(path);
       const photoUrl = urlData.publicUrl;
 
-      await Promise.all([
-        supabase.from('calendar_photos').upsert({
-          user_id: user.id,
-          date: activity.activity_date,
-          photo_url: photoUrl,
-        }, { onConflict: 'user_id,date' }),
-        supabase.from('activity_photos').insert({
-          activity_id: activity.id,
-          user_id: user.id,
-          photo_url: photoUrl,
-          share_in_gallery: true,
-          sort_order: 0,
-        }),
-      ]);
+      // 캘린더(항상) + 루틴포토(옵션). 동시 실행, 각 8s.
+      const tasks: Promise<unknown>[] = [
+        withTimeout(
+          supabase.from('calendar_photos').upsert({
+            user_id: user.id,
+            date: activity.activity_date,
+            photo_url: photoUrl,
+          }, { onConflict: 'user_id,date' }),
+          8000,
+          'calendar_photos upsert',
+        ),
+      ];
+      if (includeGallery) {
+        tasks.push(
+          withTimeout(
+            supabase.from('activity_photos').insert({
+              activity_id: activity.id,
+              user_id: user.id,
+              photo_url: photoUrl,
+              share_in_gallery: true,
+              sort_order: 0,
+            }),
+            8000,
+            'activity_photos insert',
+          ),
+        );
+      }
+      const results = await Promise.allSettled(tasks);
+      const calOk = results[0].status === 'fulfilled' && !(results[0].value as { error?: unknown })?.error;
+      const photoOk = !includeGallery
+        ? true
+        : results[1].status === 'fulfilled' && !(results[1].value as { error?: unknown })?.error;
 
-      setRegisterToast('등록 완료! 루틴포토와 캘린더에 반영됐어요');
+      if (calOk && photoOk) {
+        setRegisterToast(includeGallery ? '✨ 공유됨!' : '✨ 캘린더에 저장됐어요');
+      } else if (calOk || photoOk) {
+        setRegisterToast(`부분 등록 — ${calOk ? '캘린더는 OK' : '갤러리만 OK'}. 다시 시도하세요.`);
+      } else {
+        throw new Error('등록 실패');
+      }
       setTimeout(() => { setRegisterToast(null); onRegistered?.(); onClose(); }, 1500);
     } catch (err) {
-      console.warn('루틴포토 등록 실패:', err);
-      setRegisterToast('등록 실패. 잠시 후 다시 시도');
-      setTimeout(() => setRegisterToast(null), 2500);
+      const msg = err instanceof Error ? err.message : '알 수 없는 오류';
+      console.warn('등록 실패:', err);
+      setRegisterToast(`등록 실패: ${msg}`);
+      setTimeout(() => setRegisterToast(null), 3000);
     } finally {
       setRegistering(false);
     }
@@ -386,6 +690,28 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
           <canvas ref={canvasRef} className="w-full rounded-xl shadow-lg" style={{ aspectRatio: '9/16' }} />
         </div>
 
+        {/* 명언 좋아요 — 카드에 그려질 하트 상태와 동일. 클릭하면 카드 다시 그려짐. */}
+        {quote && !isFallbackQuote(quote) && (
+          <div className="px-4 pb-2 flex items-center justify-center gap-2 flex-shrink-0">
+            <button
+              onClick={handleToggleLike}
+              disabled={likeBusy}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--card)] border border-[var(--card-border)] text-sm disabled:opacity-50"
+              aria-label={quote.liked_by_me ? '좋아요 취소' : '명언 좋아요'}
+            >
+              <Heart
+                size={16}
+                className={quote.liked_by_me ? 'text-red-500' : 'text-[var(--muted)]'}
+                fill={quote.liked_by_me ? '#ef4444' : 'transparent'}
+              />
+              <span className={quote.liked_by_me ? 'text-red-500 font-semibold' : 'text-[var(--muted)]'}>
+                {quote.like_count}
+              </span>
+            </button>
+            <span className="text-xs text-[var(--muted)]">오늘의 명언</span>
+          </div>
+        )}
+
         {/* 테마 선택 */}
         <div className="px-4 pb-2 flex-shrink-0">
           <div className="flex items-center gap-2">
@@ -413,59 +739,91 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
           </div>
         </div>
 
-        {/* 사진 배경 */}
-        <div className="px-4 pb-2 flex-shrink-0">
-          <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
-          <div className="flex gap-2">
+        {/* 액션 영역 (UI 세련화):
+            1) 배경 사진 추가/변경 — 사진 있으면 우측 inline X 로 제거
+            2) 루틴포토 등록 체크박스 (디폴트 ON) — 캘린더는 항상 자동
+            3) 공유 — 단일 CTA. "사진으로 저장만" 제거 */}
+        <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+        <div className="flex flex-col gap-3 px-4 pb-4 pt-2 flex-shrink-0">
+          {/* 배경 사진 — 메인 emerald CTA + 사진 있을 때 inline X */}
+          <div className="relative">
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-[var(--card)] border border-[var(--card-border)] text-sm font-semibold text-[var(--foreground)]"
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-bold text-base shadow-md active:scale-[0.99] transition"
             >
-              <ImagePlus size={14} /> {bgImage ? '사진 변경' : '배경 사진 추가'}
+              <ImagePlus size={18} /> {bgImage ? '사진 변경' : '배경 사진 추가'}
             </button>
             {bgImage && (
-              <button onClick={clearPhoto} className="px-3 py-2 rounded-lg bg-[var(--card)] border border-[var(--card-border)] text-xs text-[var(--muted)]">
-                제거
+              <button
+                onClick={(e) => { e.stopPropagation(); clearPhoto(); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 active:bg-white/40 flex items-center justify-center transition"
+                aria-label="배경 사진 제거"
+              >
+                <X size={16} className="text-white" strokeWidth={2.5} />
               </button>
             )}
           </div>
-        </div>
 
-        {/* 공유 버튼 */}
-        <div className="flex flex-col gap-2 px-4 pb-4 pt-2 flex-shrink-0">
+          {/* 루틴포토 체크박스 — 디폴트 ON (사용자 결정). 캘린더는 항상 자동 (UI 표시 X) */}
           {!hideRegister && (
-            <button
-              onClick={handleRegister}
-              disabled={registering}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-bold text-base shadow-md disabled:opacity-50"
-            >
-              {registering ? (
-                <>
-                  <span className="animate-spin w-4 h-4 border-2 border-white/70 border-t-transparent rounded-full" />
-                  <span>등록 중...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles size={18} /> 루틴포토 + 캘린더에 등록
-                </>
-              )}
-            </button>
+            <label className="flex items-center gap-2.5 px-1 cursor-pointer select-none">
+              <span className="relative flex items-center justify-center">
+                <input
+                  type="checkbox"
+                  checked={registerToGallery}
+                  onChange={(e) => setRegisterToGallery(e.target.checked)}
+                  className="peer sr-only"
+                />
+                <span className="w-5 h-5 rounded-md border-2 border-[var(--card-border)] peer-checked:bg-emerald-500 peer-checked:border-emerald-500 transition-all" />
+                {registerToGallery && (
+                  <Check size={14} className="absolute text-white pointer-events-none" strokeWidth={3} />
+                )}
+              </span>
+              <span className="text-sm text-[var(--foreground)]">루틴포토에 등록</span>
+            </label>
           )}
-          <div className="flex gap-2">
-            <button onClick={handleDownload} className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)] text-[var(--foreground)] font-semibold text-sm">
-              <Download size={18} /> 저장
-            </button>
-            <button onClick={handleShare} className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[var(--accent)] text-white font-semibold text-sm">
-              <Share2 size={18} /> 공유
-            </button>
-          </div>
+
+          {/* 공유 — 단일 CTA. 캘린더 자동 + 루틴포토(체크박스 ON 일 때) + 공유 시트 */}
+          <button
+            onClick={async () => {
+              if (!hideRegister) handleRegister(registerToGallery);
+              await handleShare();
+              setTimeout(() => onClose(), 1200);
+            }}
+            disabled={registering}
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[var(--accent)] text-white font-semibold text-base disabled:opacity-50 active:scale-[0.99] transition"
+          >
+            {registering ? (
+              <>
+                <span className="animate-spin w-4 h-4 border-2 border-white/70 border-t-transparent rounded-full" />
+                <span>공유 중...</span>
+              </>
+            ) : (
+              <><Share2 size={18} /> 공유</>
+            )}
+          </button>
         </div>
       </div>
 
-      {registerToast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-zinc-900 text-white text-sm px-4 py-2.5 rounded-full shadow-lg z-[80]">
-          {registerToast}
+      {/* 성공 시 큰 ✓ overlay (build 63) — 자동 닫기 전 시각 피드백 */}
+      {registerToast && registerToast.startsWith('✨') && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center pointer-events-none animate-[fadeIn_0.3s_ease-out]">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-20 h-20 rounded-full bg-emerald-500 flex items-center justify-center shadow-2xl animate-[pulse_0.6s_ease-out]">
+              <Check size={40} className="text-white" strokeWidth={3} />
+            </div>
+            <p className="text-white text-base font-bold drop-shadow-lg">공유됨!</p>
+          </div>
         </div>
+      )}
+
+      {registerToast && (
+        <AppToast
+          text={registerToast}
+          tone={registerToast.startsWith('등록 실패') ? 'warn' : 'ok'}
+          onClose={() => setRegisterToast(null)}
+          durationMs={registerToast.startsWith('등록 실패') ? 3000 : 1500}
+        />
       )}
     </div>
   );

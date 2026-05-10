@@ -1,48 +1,85 @@
 'use client';
 
+// 친구 버튼 — 클릭 즉시 토글 (build 69 → 70).
+// 사용자 결정 (build 70): "팔로우/팔로잉" 용어가 헷갈림 → "친구 추가" / "친구" 로 통일.
+// 미친구: 투명 배경 + emerald 보더 + emerald 텍스트 + UserPlus 아이콘
+// 친구:   emerald 채움 + 흰 텍스트 + Check 아이콘
+// 누르면 optimistic 즉시 색/라벨 바뀜. 실패 시 롤백 + 토스트로 원인 노출.
+
 import { useState } from 'react';
+import { UserPlus, Check } from 'lucide-react';
 import { followUser, unfollowUser } from '@/lib/social-data';
+import { logClientWarn } from '@/lib/error-logger';
+import AppToast from '@/components/AppToast';
 
 interface FollowButtonProps {
   userId: string;
   initialFollowing: boolean;
   onToggle?: (following: boolean) => void;
+  /** 'sm' (검색·리스트), 'md' (미니프로필) */
+  size?: 'sm' | 'md';
 }
 
-export default function FollowButton({ userId, initialFollowing, onToggle }: FollowButtonProps) {
+export default function FollowButton({ userId, initialFollowing, onToggle, size = 'sm' }: FollowButtonProps) {
   const [following, setFollowing] = useState(initialFollowing);
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
 
   const handleToggle = async () => {
+    if (loading) return;
+    const next = !following;
     setLoading(true);
+    setFollowing(next); // optimistic — 즉시 색/라벨 변경
     try {
-      if (following) {
-        await unfollowUser(userId);
-        setFollowing(false);
-        onToggle?.(false);
-      } else {
+      if (next) {
         await followUser(userId);
-        setFollowing(true);
-        onToggle?.(true);
+        setToast({ text: '친구로 추가했어요', tone: 'ok' });
+      } else {
+        await unfollowUser(userId);
+        setToast({ text: '친구에서 해제했어요', tone: 'ok' });
       }
-    } catch {
-      // 실패 시 원래 상태 유지
+      onToggle?.(next);
+    } catch (err) {
+      setFollowing(!next); // 롤백
+      const msg = err instanceof Error ? err.message : String(err);
+      logClientWarn('FollowButton', 'toggle 실패', { userId, action: next ? 'add' : 'remove', reason: msg });
+      const friendly =
+        msg.includes('duplicate key') || msg.includes('unique') ? '이미 친구로 추가했어요' :
+        msg.includes('foreign key') ? '존재하지 않는 사용자예요' :
+        msg.includes('row-level security') || msg.includes('permission') ? '권한이 없어요. 다시 로그인해보세요' :
+        msg.includes('로그인') ? msg :
+        `친구 ${next ? '추가' : '해제'} 실패 — ${msg.slice(0, 80)}`;
+      setToast({ text: friendly, tone: 'warn' });
     } finally {
       setLoading(false);
     }
   };
 
+  const padding = size === 'md' ? 'px-5 py-2.5 text-sm' : 'px-3.5 py-1.5 text-xs';
+  const iconSize = size === 'md' ? 16 : 14;
+
   return (
-    <button
-      onClick={handleToggle}
-      disabled={loading}
-      className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-50 ${
-        following
-          ? 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--muted)]'
-          : 'bg-[var(--accent)] text-white'
-      }`}
-    >
-      {loading ? '...' : following ? '팔로잉' : '팔로우'}
-    </button>
+    <>
+      <button
+        onClick={handleToggle}
+        disabled={loading}
+        aria-label={following ? '친구 해제' : '친구 추가'}
+        className={`${padding} inline-flex items-center gap-1.5 rounded-full font-bold transition-all disabled:opacity-50 active:scale-95 ${
+          following
+            ? 'bg-emerald-500 text-white shadow-sm hover:bg-emerald-600'
+            : 'bg-white dark:bg-zinc-900 border border-emerald-500 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
+        }`}
+      >
+        {loading ? (
+          <span className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+        ) : following ? (
+          <Check size={iconSize} strokeWidth={3} />
+        ) : (
+          <UserPlus size={iconSize} strokeWidth={2.5} />
+        )}
+        <span>{following ? '친구' : '친구 추가'}</span>
+      </button>
+      {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2000} />}
+    </>
   );
 }

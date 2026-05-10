@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
-import { connectHealthKit, syncHealthData, isNativeApp, getPlatform } from '@/lib/health-sync';
+import { connectHealthKit, syncHealthData, isNativeApp, getPlatform, type SyncProgress } from '@/lib/health-sync';
 import { ArrowLeft, Heart, Smartphone, Check, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 
@@ -16,29 +16,50 @@ export default function ConnectPage() {
   const [connected, setConnected] = useState(false);
   const [message, setMessage] = useState('');
   const [lastSync, setLastSync] = useState<string | null>(null);
+  const [progress, setProgress] = useState<SyncProgress | null>(null);
 
   useEffect(() => {
-    setIsNative(isNativeApp());
-    setPlatform(getPlatform());
+    const native = isNativeApp();
+    const plat = getPlatform();
+    setIsNative(native);
+    setPlatform(plat);
     // 마지막 동기화 시간 확인
     const saved = localStorage.getItem('last_health_sync');
     if (saved) setLastSync(saved);
+
+    // iOS 네이티브에서 권한 상태 조회 — 이미 권한 있으면 "연결됨" 으로 자동 표시.
+    // 이전엔 mount 마다 connected=false 로 초기화돼서 사용자가 매번 "연결하기" 누르고 있었음.
+    if (native && plat === 'ios') {
+      (async () => {
+        try {
+          const { Health } = await import('@capgo/capacitor-health');
+          const status = await Health.checkAuthorization({
+            read: ['workouts', 'distance', 'heartRate', 'calories', 'exerciseTime'],
+            write: [],
+          });
+          if ((status.readAuthorized?.length ?? 0) > 0) {
+            setConnected(true);
+          }
+        } catch {
+          // 권한 조회 실패 시에도 그냥 disconnect 상태로 둠 (사용자가 "연결하기" 누르면 다시 시도)
+        }
+      })();
+    }
   }, []);
 
   const handleConnect = async () => {
     setSyncing(true);
     setMessage('');
+    setProgress(null);
     try {
       const result = await connectHealthKit();
       if (result.success) {
         setConnected(true);
         setMessage('연결 성공! 데이터를 동기화합니다...');
 
-        // 백그라운드 동기화
         if (user) {
-          const syncResult = await syncHealthData(user.id);
+          const syncResult = await syncHealthData(user.id, { onProgress: setProgress });
           setMessage(syncResult.message);
-          // 성공적으로 호출됐으면 synced=0 이어도 timestamp 갱신 (사용자 피드백: "동기화했는데 마지막 동기화 날짜가 안 바뀌어요")
           if (syncResult.success) {
             if (syncResult.synced > 0) refresh();
             const now = new Date().toISOString();
@@ -53,6 +74,7 @@ export default function ConnectPage() {
       setMessage(e instanceof Error ? e.message : '연결 실패');
     } finally {
       setSyncing(false);
+      setTimeout(() => setProgress(null), 1500);
     }
   };
 
@@ -60,8 +82,15 @@ export default function ConnectPage() {
     if (!user) return;
     setSyncing(true);
     setMessage('');
+    setProgress({ stage: 'auth', percent: 0, label: '동기화 시작...' });
     try {
-      const result = await syncHealthData(user.id);
+      // 30s race — UI 가 너무 오래 멈추지 않게. health-sync 내부에 60s mutex 안전망 있음.
+      const result = await Promise.race([
+        syncHealthData(user.id, { onProgress: setProgress }),
+        new Promise<{ success: false; message: string; synced: 0 }>((resolve) =>
+          setTimeout(() => resolve({ success: false, message: '동기화가 30초 초과 — 네트워크 또는 권한 확인 후 다시 시도해주세요', synced: 0 }), 30000)
+        ),
+      ]);
       setMessage(result.message);
       if (result.success) {
         if (result.synced > 0) refresh();
@@ -70,9 +99,13 @@ export default function ConnectPage() {
         setLastSync(now);
       }
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : '동기화 실패');
+      const msg = e instanceof Error ? e.message
+        : (e && typeof e === 'object' && 'message' in e) ? String((e as { message: unknown }).message)
+        : '동기화 실패';
+      setMessage(msg);
     } finally {
       setSyncing(false);
+      setTimeout(() => setProgress(null), 1500);
     }
   };
 
@@ -130,10 +163,24 @@ export default function ConnectPage() {
                     </button>
                   </div>
                 )}
-                {lastSync && (
+                {progress && (syncing || progress.percent < 100) && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-baseline justify-between gap-2 text-xs text-[var(--muted)]">
+                      <span className="font-medium text-[var(--foreground)]">{progress.label}</span>
+                      <span className="tabular-nums">{progress.percent}%</span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-emerald-100 dark:bg-emerald-950/40 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-emerald-500 transition-[width] duration-300 ease-out"
+                        style={{ width: `${Math.max(progress.percent, 4)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+                {lastSync && !progress && (
                   <p className="text-sm text-[var(--muted)]">마지막 동기화 {formatLastSync(lastSync)}</p>
                 )}
-                {message && (
+                {message && !progress && (
                   <p className={`text-sm font-medium ${message.includes('실패') ? 'text-red-500' : 'text-emerald-600'}`}>
                     {message}
                   </p>

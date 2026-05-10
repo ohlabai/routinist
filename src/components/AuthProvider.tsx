@@ -1,8 +1,9 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { getSupabase } from '@/lib/supabase';
 import { getProfile, initializeSocialLogin, handleOAuthCallback } from '@/lib/auth';
+import { dataCache } from '@/lib/data-cache';
 import type { Profile } from '@/types';
 import type { User, Session } from '@supabase/supabase-js';
 
@@ -60,6 +61,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  // 다른 계정으로 변경된 걸 감지하기 위해 직전 user.id 보관. 변경되면 캐시 invalidate.
+  const lastUserIdRef = useRef<string | null>(null);
 
   const loadProfile = useCallback(async (userId: string) => {
     const p = await getProfile(userId);
@@ -79,20 +82,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const supabase = getSupabase();
+    let initialSettled = false;
 
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
+    const settleInitial = (s: Session | null, source: string) => {
+      if (initialSettled) return;
+      initialSettled = true;
+      authLog(`initial settled via ${source}`, { hasSession: !!s });
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
-        loadProfile(s.user.id).finally(() => setLoading(false));
-      } else {
-        setLoading(false);
+        // 다른 계정 → 캐시 비움. 이전 사용자 데이터 노출 차단.
+        if (lastUserIdRef.current && lastUserIdRef.current !== s.user.id) {
+          dataCache.clearAll();
+        }
+        lastUserIdRef.current = s.user.id;
+        void loadProfile(s.user.id);
       }
-    });
+      setLoading(false);
+    };
+
+    // Supabase 는 초기화 시 INITIAL_SESSION 이벤트를 발사하지만 LTE 등 네트워크가 느릴 때
+    // 토큰 갱신 라운드트립 때문에 수 초 지연될 수 있음. 1.5초 후에도 INITIAL_SESSION 이 안 오면
+    // getSession() 으로 명시적 폴백 — "로그인이 지연되고 있어요" 8초 화면이 더 일찍 풀림.
+    const fallbackTimer = setTimeout(() => {
+      if (initialSettled) return;
+      authLog('INITIAL_SESSION 지연 — getSession() 폴백');
+      supabase.auth.getSession().then(({ data: { session: s } }) => {
+        settleInitial(s, 'getSession-fallback');
+      }).catch((e) => {
+        authLog(`getSession 폴백 실패: ${e instanceof Error ? e.message : e}`);
+        settleInitial(null, 'getSession-fallback-error');
+      });
+    }, 1500);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, s) => {
         authLog('onAuthStateChange', { event, hasSession: !!s });
+
+        // 진단 로그 (build 62): 로그인 풀림 패턴 분석용. SIGNED_OUT 이벤트가 사용자 명시 또는 토큰 만료인지 추적.
+        if (event === 'SIGNED_OUT' || (event === 'TOKEN_REFRESHED' && !s)) {
+          import('@/lib/error-logger').then(({ logClientWarn }) => {
+            logClientWarn('AuthProvider', `세션 풀림: ${event}`, {
+              event,
+              hadSession: initialSettled,
+              priorUserId: lastUserIdRef.current,
+            });
+          }).catch(() => {});
+        } else if (event === 'TOKEN_REFRESHED') {
+          import('@/lib/error-logger').then(({ logClientInfo }) => {
+            logClientInfo('AuthProvider', 'token refreshed ok', { hasSession: !!s });
+          }).catch(() => {});
+        }
+
+        if (!initialSettled) {
+          settleInitial(s, `event:${event}`);
+          return;
+        }
+        // 후속 이벤트 (TOKEN_REFRESHED, SIGNED_IN, SIGNED_OUT 등)
         setSession(s);
         setUser(s?.user ?? null);
         if (s?.user) {
@@ -103,7 +149,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(fallbackTimer);
+      subscription.unsubscribe();
+    };
   }, [loadProfile]);
 
   // 웹 환경에서 비밀번호 재설정 메일·기존 세션 등으로 딥링크가 들어올 가능성에 대비.

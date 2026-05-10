@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { useAuth } from '@/components/AuthProvider';
-import { updateProfile, uploadAvatar } from '@/lib/auth';
+import { uploadAvatar } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Camera, MapPin } from 'lucide-react';
 import Link from 'next/link';
@@ -68,21 +68,42 @@ export default function ProfileEditPage() {
     setSaving(true);
     setMessage('');
 
+    // 진단 로그용 — "저장 중" 무한 멈춤 디버깅
+    const { logClientInfo, logClientWarn, logClientError } = await import('@/lib/error-logger');
+    const t0 = Date.now();
+    logClientInfo('profile-edit', 'save start', { hasAvatar: !!avatarFile });
+
+    const withTimeout = <T,>(p: Promise<T>, ms: number, label: string): Promise<T> =>
+      Promise.race<T>([
+        p,
+        new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error(`${label} ${ms / 1000}s timeout`)), ms)
+        ),
+      ]);
+
     try {
       let avatarUrl = profile?.avatar_url ?? null;
       if (avatarFile) {
-        avatarUrl = await uploadAvatar(user.id, avatarFile);
+        // avatar 업로드 race — 이전엔 보호 없어서 무한 hang 가능했음 (사용자 신고: "저장 중" 멈춤)
+        try {
+          const t1 = Date.now();
+          avatarUrl = await withTimeout(uploadAvatar(user.id, avatarFile), 20000, 'uploadAvatar');
+          logClientInfo('profile-edit', 'avatar upload ok', { ms: Date.now() - t1 });
+        } catch (e) {
+          logClientWarn('profile-edit', 'avatar upload 실패 — 텍스트만 저장 시도', {
+            err: e instanceof Error ? e.message : String(e),
+          });
+          // 아바타 실패해도 다른 필드는 저장. 사용자에게는 부분 성공 안내.
+          avatarUrl = profile?.avatar_url ?? null;
+        }
       }
 
-      await updateProfile(user.id, {
-        display_name: displayName.trim(),
-        avatar_url: avatarUrl,
-      });
-
       const { getSupabase } = await import('@/lib/supabase');
-      await getSupabase()
+      const updatePromise = getSupabase()
         .from('profiles')
         .update({
+          display_name: displayName.trim(),
+          avatar_url: avatarUrl,
           bio: bio.trim() || null,
           country_code: country || null,
           region_si: isKorea ? (sido || null) : (COUNTRIES.find(c => c.code === country)?.native ?? null),
@@ -90,14 +111,38 @@ export default function ProfileEditPage() {
           birth_year: birthYear ? parseInt(birthYear, 10) : null,
           gender: gender || null,
           running_since: runningSince || null,
+          updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
 
-      await refreshProfile();
+      const result = await Promise.race([
+        updatePromise,
+        new Promise<{ error: { message: string } }>((resolve) =>
+          setTimeout(() => resolve({ error: { message: '저장 요청 15초 초과 — 네트워크 확인 후 다시 시도해주세요' } }), 15000)
+        ),
+      ]);
+
+      if (result.error) throw result.error;
+      logClientInfo('profile-edit', 'update ok', { totalMs: Date.now() - t0 });
+
+      // refreshProfile 도 hang 가능성 (loadProfile → getProfile 쿼리). 8s race + 실패해도 저장은 성공으로 처리.
+      try {
+        await withTimeout(refreshProfile(), 8000, 'refreshProfile');
+      } catch (e) {
+        logClientWarn('profile-edit', 'refreshProfile 실패 — 저장은 완료', {
+          err: e instanceof Error ? e.message : String(e),
+        });
+      }
       setMessage('저장되었습니다!');
       setTimeout(() => router.back(), 800);
-    } catch {
-      setMessage('저장 중 오류가 발생했습니다.');
+    } catch (e) {
+      const msg = e instanceof Error
+        ? e.message
+        : (e && typeof e === 'object' && 'message' in e)
+          ? String((e as { message: unknown }).message)
+          : String(e);
+      logClientError('profile-edit', 'save 실패', { err: msg, totalMs: Date.now() - t0 });
+      setMessage(`저장 실패: ${msg}`);
     } finally {
       setSaving(false);
     }

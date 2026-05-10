@@ -86,10 +86,10 @@ export default function PhotoUploader({ children, className, onUploaded }: Props
       )}
 
       {toast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-zinc-900 text-white text-sm px-4 py-2.5 rounded-full shadow-lg z-[80] flex items-center gap-3">
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-white border border-emerald-200 text-emerald-800 text-sm font-semibold px-4 py-2.5 rounded-2xl shadow-lg shadow-emerald-100/40 z-[80] flex items-center gap-3">
           <span>{toast.text}</span>
           {toast.href && (
-            <Link href={toast.href} className="text-emerald-300 font-semibold underline underline-offset-2">
+            <Link href={toast.href} className="text-emerald-600 font-bold underline underline-offset-2">
               이동
             </Link>
           )}

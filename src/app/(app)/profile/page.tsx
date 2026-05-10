@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
 import { signOut } from '@/lib/auth';
@@ -8,35 +9,115 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ChevronRight, HelpCircle, Shield, Heart, Award, LogOut, MapPin,
-  MessageCircle, Coins, Gift, Sun, Moon, Monitor,
+  MessageCircle, Coins, Gift, Sun, Moon, Monitor, Stethoscope, Settings,
+  AlertTriangle, X, FileText,
 } from 'lucide-react';
 import AppLogo from '@/components/AppLogo';
 import { useTheme } from '@/components/ThemeProvider';
 import { useI18n, SUPPORTED_LOCALES } from '@/lib/i18n';
+import { getSupabase } from '@/lib/supabase';
+import AppToast from '@/components/AppToast';
+import { logClientWarn } from '@/lib/error-logger';
+
+function formatPace(sec: number) {
+  const m = Math.floor(sec / 60);
+  const s = Math.round(sec % 60);
+  return `${m}'${String(s).padStart(2, '0')}"`;
+}
+
+function formatDur(sec: number) {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}` : `${m}분`;
+}
 
 export default function ProfilePage() {
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const { activities } = useUserData();
   const router = useRouter();
+  const isAdmin = user?.email === 'hans@openhan.kr';
 
   const totalKm = Number(profile?.total_distance_km ?? 0);
   const totalRuns = profile?.total_runs ?? 0;
   const streak = getStreak(activities);
 
-  // 배지 계산 — 누적 거리/횟수 기반 성취
+  // 개인 베스트 (누적) — activities 에서 클라 사이드 계산. 사용자 결정 (build 67):
+  // 총km/총러닝/연속일 → 최장거리/최빠페이스/최장시간 (베스트 3종) 으로 교체.
+  // 통산 km 는 헤더 옆 작은 라벨로 유지.
+  const personalBest = useMemo(() => {
+    let longestKm = 0;
+    let fastestPace: number | null = null;
+    let longestDur = 0;
+    for (const a of activities) {
+      const km = Number(a.distance_km);
+      if (km > longestKm) longestKm = km;
+      if (a.pace_avg_sec_per_km && km >= 1) {
+        if (fastestPace === null || a.pace_avg_sec_per_km < fastestPace) fastestPace = a.pace_avg_sec_per_km;
+      }
+      if (a.duration_seconds && a.duration_seconds > longestDur) longestDur = a.duration_seconds;
+    }
+    return { longestKm, fastestPace, longestDur };
+  }, [activities]);
+
+  const { mode, setMode } = useTheme();
+  const { locale, setLocale, t } = useI18n();
+
+  // 배지 계산 — 누적 거리/횟수 기반 성취 (label 은 unit 만 locale 무관하게 표시)
   const badges: { icon: string; label: string; gradient: string }[] = [];
   if (totalKm >= 10) badges.push({ icon: '🏅', label: '10km', gradient: 'from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30' });
   if (totalKm >= 50) badges.push({ icon: '🎖️', label: '50km', gradient: 'from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30' });
   if (totalKm >= 100) badges.push({ icon: '🏆', label: '100km', gradient: 'from-yellow-100 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30' });
   if (totalKm >= 500) badges.push({ icon: '💎', label: '500km', gradient: 'from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30' });
   if (totalKm >= 1000) badges.push({ icon: '👑', label: '1000km', gradient: 'from-yellow-200 to-orange-200 dark:from-yellow-800/30 dark:to-orange-800/30' });
-  if (totalRuns >= 10) badges.push({ icon: '🔥', label: '10회', gradient: 'from-red-100 to-orange-100 dark:from-red-900/30 dark:to-orange-900/30' });
-  if (totalRuns >= 50) badges.push({ icon: '⚡', label: '50회', gradient: 'from-yellow-100 to-lime-100 dark:from-yellow-900/30 dark:to-lime-900/30' });
-  if (streak >= 7) badges.push({ icon: '💪', label: '7일 연속', gradient: 'from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30' });
-  if (streak >= 30) badges.push({ icon: '🌟', label: '30일 연속', gradient: 'from-indigo-100 to-violet-100 dark:from-indigo-900/30 dark:to-violet-900/30' });
+  if (totalRuns >= 10) badges.push({ icon: '🔥', label: `10×`, gradient: 'from-red-100 to-orange-100 dark:from-red-900/30 dark:to-orange-900/30' });
+  if (totalRuns >= 50) badges.push({ icon: '⚡', label: `50×`, gradient: 'from-yellow-100 to-lime-100 dark:from-yellow-900/30 dark:to-lime-900/30' });
+  if (streak >= 7) badges.push({ icon: '💪', label: '7d 🔥', gradient: 'from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30' });
+  if (streak >= 30) badges.push({ icon: '🌟', label: '30d 🔥', gradient: 'from-indigo-100 to-violet-100 dark:from-indigo-900/30 dark:to-violet-900/30' });
 
-  const { mode, setMode } = useTheme();
-  const { locale, setLocale, t } = useI18n();
+  // 계정 삭제 (Apple 5.1.1 v 의무) — 2단계 확인 + delete_my_account RPC
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteToast, setDeleteToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
+
+  const handleDeleteAccount = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    try {
+      const supabase = getSupabase();
+      const { error } = await supabase.rpc('delete_my_account');
+      if (error) throw error;
+      // 삭제 성공 — signOut 결과를 명시적으로 await. 실패해도 진행 (서버 row 는 이미 사라짐).
+      try { await supabase.auth.signOut(); } catch (e) {
+        logClientWarn('ProfilePage', '삭제 후 signOut 실패 (무시)', { reason: e instanceof Error ? e.message : String(e) });
+      }
+      // localStorage.clear() 는 너무 광범위 — routinist 가 쓴 키만 선별 삭제.
+      // 다른 origin 의 캐시(시크릿 노트 등)를 의도치 않게 지우는 위험 회피.
+      try {
+        if (typeof window !== 'undefined') {
+          const keys: string[] = [];
+          for (let i = 0; i < window.localStorage.length; i++) {
+            const k = window.localStorage.key(i);
+            if (!k) continue;
+            if (
+              k.startsWith('routinist_') ||
+              k.startsWith('first_sync_done:') ||
+              k === 'last_health_sync' ||
+              k === 'onboarding_done' ||
+              k === 'sb-' || k.startsWith('sb-') // supabase auth keys
+            ) keys.push(k);
+          }
+          keys.forEach(k => window.localStorage.removeItem(k));
+        }
+      } catch {}
+      router.replace('/login?deleted=1');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      logClientWarn('ProfilePage', 'delete_my_account 실패', { reason: msg });
+      setDeleteToast({ text: `탈퇴 실패 — ${msg.slice(0, 100)}`, tone: 'warn' });
+      setDeleting(false);
+    }
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -45,15 +126,18 @@ export default function ProfilePage() {
 
   // 액션 그리드 2×2 — 자주 쓰는 기능만
   const actions: { href: string; label: string; Icon: typeof Heart; color: string }[] = [
-    { href: '/connect', label: '건강 앱 연동', Icon: Heart, color: 'text-red-500' },
-    { href: '/messages', label: '쪽지함', Icon: MessageCircle, color: 'text-blue-500' },
-    { href: '/mileage', label: '마일리지 내역', Icon: Coins, color: 'text-amber-500' },
-    { href: '/mileage/gift', label: '마일리지 선물', Icon: Gift, color: 'text-pink-500' },
+    { href: '/connect', label: t('profile.actionConnect'), Icon: Heart, color: 'text-red-500' },
+    { href: '/messages', label: t('profile.actionMessages'), Icon: MessageCircle, color: 'text-blue-500' },
+    { href: '/mileage', label: t('profile.actionMileage'), Icon: Coins, color: 'text-amber-500' },
+    { href: '/mileage/gift', label: t('profile.actionMileageGift'), Icon: Gift, color: 'text-pink-500' },
   ];
 
   const settings: { href: string; label: string; Icon: typeof HelpCircle }[] = [
-    { href: '/support', label: '고객 지원', Icon: HelpCircle },
-    { href: '/privacy', label: '개인정보처리방침', Icon: Shield },
+    { href: '/profile/audit', label: t('profile.menuAudit'), Icon: Stethoscope },
+    ...(isAdmin ? [{ href: '/admin/mileage', label: t('profile.menuAdminMileage'), Icon: Settings }] : []),
+    { href: '/support', label: t('profile.menuSupport'), Icon: HelpCircle },
+    { href: '/privacy', label: t('profile.menuPrivacy'), Icon: Shield },
+    { href: '/terms', label: t('profile.menuTerms'), Icon: FileText },
   ];
 
   return (
@@ -78,30 +162,45 @@ export default function ProfilePage() {
             ) : profile?.bio ? (
               <p className="text-xs text-[var(--muted)] truncate">{profile.bio}</p>
             ) : (
-              <p className="text-xs text-[var(--muted)]">러너</p>
+              <p className="text-xs text-[var(--muted)]">{t('profile.runner')}</p>
             )}
           </div>
           <Link
             href="/profile/edit"
             className="text-sm text-[var(--accent)] font-semibold px-3 py-2 -mr-1 rounded-lg active:bg-[var(--card-border)]/50 transition-colors"
           >
-            편집
+            {t('profile.edit')}
           </Link>
         </div>
 
-        {/* 통산 3칩 */}
-        <div className="grid grid-cols-3 gap-4 text-center mt-5 pt-5 border-t border-[var(--card-border)]">
+        {/* 통산 km 라인 — 베스트 3칩 위에 작은 라벨로 유지 */}
+        <p className="text-xs text-[var(--muted)] mt-4 text-center">
+          통산 <span className="font-semibold text-[var(--foreground)]">{totalKm.toFixed(0)}km</span>
+          <span className="mx-1.5">·</span>
+          <span className="font-semibold text-[var(--foreground)]">{totalRuns}회</span>
+          <span className="mx-1.5">·</span>
+          연속 <span className="font-semibold text-[var(--foreground)]">{streak}일</span>
+        </p>
+
+        {/* 개인 베스트 3칩 — 최장거리 / 최빠페이스 / 최장시간 (build 67) */}
+        <div className="grid grid-cols-3 gap-2 text-center mt-3 pt-4 border-t border-[var(--card-border)]">
           <div>
-            <p className="text-2xl font-bold text-[var(--accent)]">{totalKm.toFixed(1)}</p>
-            <p className="text-xs text-[var(--muted)]">총 km</p>
+            <p className="text-lg font-extrabold text-[var(--accent)]">
+              {personalBest.longestKm > 0 ? `${personalBest.longestKm.toFixed(1)}km` : '—'}
+            </p>
+            <p className="text-xs text-[var(--muted)] mt-0.5">최장 거리</p>
           </div>
           <div>
-            <p className="text-2xl font-bold text-[var(--foreground)]">{totalRuns}</p>
-            <p className="text-xs text-[var(--muted)]">총 러닝</p>
+            <p className="text-lg font-extrabold text-[var(--foreground)]">
+              {personalBest.fastestPace ? formatPace(personalBest.fastestPace) : '—'}
+            </p>
+            <p className="text-xs text-[var(--muted)] mt-0.5">최빠 페이스</p>
           </div>
           <div>
-            <p className="text-2xl font-bold text-[var(--foreground)]">{streak}</p>
-            <p className="text-xs text-[var(--muted)]">연속일 🔥</p>
+            <p className="text-lg font-extrabold text-[var(--foreground)]">
+              {personalBest.longestDur > 0 ? formatDur(personalBest.longestDur) : '—'}
+            </p>
+            <p className="text-xs text-[var(--muted)] mt-0.5">최장 시간</p>
           </div>
         </div>
       </div>
@@ -111,8 +210,8 @@ export default function ProfilePage() {
         <div className="card p-5">
           <div className="flex items-center gap-2 mb-3">
             <Award size={16} className="text-yellow-500" />
-            <h3 className="text-base font-semibold text-[var(--foreground)]">배지</h3>
-            <span className="text-xs text-[var(--muted)]">{badges.length}개</span>
+            <h3 className="text-base font-semibold text-[var(--foreground)]">{t('profile.badges')}</h3>
+            <span className="text-xs text-[var(--muted)]">{badges.length}</span>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
             {badges.map(b => (
@@ -176,12 +275,12 @@ export default function ProfilePage() {
 
         {/* 화면 모드 */}
         <div className="px-4 py-4">
-          <p className="text-xs text-[var(--muted)] font-semibold mb-2.5">화면 모드</p>
+          <p className="text-xs text-[var(--muted)] font-semibold mb-2.5">{t('profile.themeTitle')}</p>
           <div className="flex gap-2">
             {([
-              { id: 'light' as const, label: '라이트', Icon: Sun },
-              { id: 'dark' as const, label: '다크', Icon: Moon },
-              { id: 'system' as const, label: '시스템', Icon: Monitor },
+              { id: 'light' as const, label: t('profile.themeLight'), Icon: Sun },
+              { id: 'dark' as const, label: t('profile.themeDark'), Icon: Moon },
+              { id: 'system' as const, label: t('profile.themeSystem'), Icon: Monitor },
             ]).map(opt => (
               <button
                 key={opt.id}
@@ -205,11 +304,99 @@ export default function ProfilePage() {
           className="w-full flex items-center justify-center gap-2 px-4 py-3.5 text-sm text-red-500 font-semibold"
         >
           <LogOut size={16} />
-          로그아웃
+          {t('profile.signOut')}
         </button>
       </div>
 
+      {/* 계정 탈퇴 — Apple 5.1.1(v) 의무. 한국 사용자 친화 표현. 다이얼로그에서 "영구 삭제" 강조. */}
+      <button
+        onClick={() => { setShowDeleteDialog(true); setDeleteConfirmText(''); }}
+        className="w-full text-center text-xs text-[var(--muted)] underline underline-offset-2 py-3 active:text-red-500 transition-colors"
+      >
+        {t('profile.deleteAccount')}
+      </button>
+
       <p className="text-center text-xs text-[var(--muted)]">Routinist v1.0.0</p>
+
+      {/* 계정 삭제 확인 다이얼로그 — 2단계: 경고 + "삭제" 텍스트 입력 */}
+      {showDeleteDialog && (
+        <div
+          className="fixed inset-0 z-[80] bg-black/60 flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => { if (!deleting) { setShowDeleteDialog(false); setDeleteConfirmText(''); } }}
+        >
+          <div
+            className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-950/40 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle size={24} className="text-red-500" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-[var(--foreground)]">정말 탈퇴할까요?</h3>
+                <p className="text-sm text-[var(--muted)] mt-1 leading-relaxed">
+                  탈퇴하면 러닝 기록·사진·친구·마일리지 등 <span className="font-semibold text-red-500">모든 데이터가 영구 삭제</span>되며 복구할 수 없어요.
+                </p>
+              </div>
+              <button
+                onClick={() => { if (!deleting) { setShowDeleteDialog(false); setDeleteConfirmText(''); } }}
+                aria-label="닫기"
+                className="text-[var(--muted)] -mr-1 -mt-1 p-1"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="bg-red-50 dark:bg-red-950/30 rounded-xl p-3 mb-4 text-sm text-red-700 dark:text-red-300 space-y-1">
+              <p>• 통산 {totalKm.toFixed(0)}km · {totalRuns}회 러닝 기록</p>
+              <p>• 업로드한 사진과 캘린더</p>
+              <p>• 친구·쪽지·응원 내역</p>
+              <p>• 적립한 마일리지</p>
+            </div>
+
+            <p className="text-xs text-[var(--muted)] mb-2">계속하려면 아래에 <span className="font-bold text-red-500">탈퇴</span> 라고 입력해주세요</p>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="탈퇴"
+              disabled={deleting}
+              className="w-full px-4 py-3 mb-4 rounded-xl bg-[var(--card-border)]/30 border border-[var(--card-border)] text-base text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+            />
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setShowDeleteDialog(false); setDeleteConfirmText(''); }}
+                disabled={deleting}
+                className="flex-1 py-3 rounded-xl bg-[var(--card-border)]/30 text-[var(--foreground)] font-semibold disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleting || deleteConfirmText.trim() !== '탈퇴'}
+                className="flex-1 py-3 rounded-xl bg-red-500 text-white font-bold disabled:opacity-30 active:scale-95 transition-transform flex items-center justify-center gap-2"
+              >
+                {deleting ? (
+                  <>
+                    <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    탈퇴 처리 중...
+                  </>
+                ) : (
+                  '탈퇴하기'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteToast && (
+        <AppToast text={deleteToast.text} tone={deleteToast.tone} onClose={() => setDeleteToast(null)} durationMs={4000} />
+      )}
     </div>
   );
 }

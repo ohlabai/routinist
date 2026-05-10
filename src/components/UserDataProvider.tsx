@@ -2,14 +2,18 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useAuth } from './AuthProvider';
-import { getSupabase } from '@/lib/supabase';
 import { fetchActivities, fetchMonthlyGoals } from '@/lib/routinist-data';
+import { logClientInfo, logClientWarn, logClientError } from '@/lib/error-logger';
+import { dataCache, CACHE_KEYS } from '@/lib/data-cache';
 import type { Activity, UserMonthlyGoal } from '@/types';
 
 interface UserDataState {
   activities: Activity[];
   goals: UserMonthlyGoal[];
   loading: boolean;
+  /** 마지막 fetch (네트워크) 시각. 캐시 fall-through 면 캐시 저장 시각. */
+  lastUpdated: number | null;
+  /** 사용자가 명시적으로 새로고침을 요청할 때만 호출 (PullToRefresh / 새로고침 버튼). */
   refresh: () => Promise<void>;
 }
 
@@ -17,6 +21,7 @@ const UserDataContext = createContext<UserDataState>({
   activities: [],
   goals: [],
   loading: true,
+  lastUpdated: null,
   refresh: async () => {},
 });
 
@@ -29,65 +34,112 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [goals, setGoals] = useState<UserMonthlyGoal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
 
-  const loadData = useCallback(async () => {
+  // 신문 모델 (build 57): 캐시 우선, 없거나 새로고침 명시 요청 시에만 네트워크.
+  // realtime postgres_changes 는 제거 — 매 변경마다 reload 가 SDK lock 을 만들고 사용자가 안 보고 있는데도 query 가 도는 비효율.
+  // 대신 사용자가 PullToRefresh 또는 새로고침 버튼으로 명시적으로 갱신.
+  const loadData = useCallback(async (opts?: { force?: boolean }) => {
     if (!user) {
       setActivities([]);
       setGoals([]);
       setLoading(false);
+      setLastUpdated(null);
       return;
     }
 
-    try {
-      const [acts, gls] = await Promise.all([
-        fetchActivities(user.id),
-        fetchMonthlyGoals(user.id),
+    const actKey = CACHE_KEYS.userActivities(user.id);
+    const goalKey = CACHE_KEYS.userGoals(user.id);
+
+    // 1. 캐시 우선 — 즉시 화면 표시. 사용자는 stale 데이터라도 빈 화면보다 나음.
+    if (!opts?.force) {
+      const actCached = dataCache.get<Activity[]>(actKey);
+      const goalCached = dataCache.get<UserMonthlyGoal[]>(goalKey);
+      if (actCached && goalCached) {
+        setActivities(actCached.value);
+        setGoals(goalCached.value);
+        setLastUpdated(Math.min(actCached.ts, goalCached.ts));
+        setLoading(false);
+        // 캐시 히트면 fetch 안 함. 사용자가 새로고침 누를 때만 fresh.
+        return;
+      }
+    }
+
+    const t0 = Date.now();
+    logClientInfo('UserDataProvider', 'loadData fetch start', { userId: user.id, force: !!opts?.force });
+
+    const withTimeout = <T,>(p: Promise<T>, ms: number, label: string): Promise<T> =>
+      Promise.race<T>([
+        p,
+        new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error(`${label} ${ms / 1000}s timeout`)), ms)
+        ),
       ]);
-      setActivities(acts);
-      setGoals(gls);
+
+    const timed = async <T,>(p: Promise<T>): Promise<{ ok: true; value: T; ms: number } | { ok: false; reason: string; ms: number }> => {
+      const start = Date.now();
+      try {
+        const value = await p;
+        return { ok: true, value, ms: Date.now() - start };
+      } catch (e) {
+        return { ok: false, reason: e instanceof Error ? e.message : String(e), ms: Date.now() - start };
+      }
+    };
+
+    try {
+      const [actRes, goalRes] = await Promise.all([
+        timed(withTimeout(fetchActivities(user.id), 12000, 'fetchActivities')),
+        timed(withTimeout(fetchMonthlyGoals(user.id), 8000, 'fetchMonthlyGoals')),
+      ]);
+
+      if (actRes.ok) {
+        setActivities(actRes.value);
+        dataCache.set(actKey, actRes.value);
+        logClientInfo('UserDataProvider', 'fetchActivities ok', { count: actRes.value.length, ms: actRes.ms });
+      } else {
+        logClientError('UserDataProvider', 'fetchActivities fail', { reason: actRes.reason, ms: actRes.ms });
+      }
+
+      if (goalRes.ok) {
+        setGoals(goalRes.value);
+        dataCache.set(goalKey, goalRes.value);
+        logClientInfo('UserDataProvider', 'fetchMonthlyGoals ok', { count: goalRes.value.length, ms: goalRes.ms });
+      } else {
+        logClientError('UserDataProvider', 'fetchMonthlyGoals fail', { reason: goalRes.reason, ms: goalRes.ms });
+      }
+
+      // 신문 모델 (build 59): 사용자가 명시 새로고침 (force=true) 했으면
+      // fetch 실패해도 "지금 갱신 시도함" 의 의미로 lastUpdated 갱신.
+      // 사용자가 "1시간 전" 그대로 보이는 회귀 차단.
+      if (actRes.ok || goalRes.ok || opts?.force) setLastUpdated(Date.now());
+      logClientInfo('UserDataProvider', 'loadData fetch done', {
+        totalMs: Date.now() - t0, actOk: actRes.ok, goalOk: goalRes.ok,
+      });
     } catch (e) {
-      console.error('데이터 로드 실패:', e);
+      logClientWarn('UserDataProvider', 'loadData unexpected throw', {
+        err: e instanceof Error ? e.message : String(e), totalMs: Date.now() - t0,
+      });
+      if (opts?.force) setLastUpdated(Date.now());
     } finally {
       setLoading(false);
     }
   }, [user]);
 
   const refresh = useCallback(async () => {
+    if (!user) return;
     setLoading(true);
-    await loadData();
-  }, [loadData]);
+    // 사용자가 명시 새로고침 — 해당 사용자 캐시 무효화 후 fresh fetch.
+    dataCache.invalidate(CACHE_KEYS.userActivities(user.id));
+    dataCache.invalidate(CACHE_KEYS.userGoals(user.id));
+    await loadData({ force: true });
+  }, [loadData, user]);
 
-  // 초기 로드
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  // Realtime 구독 — activities, monthly_goals 변경 감지
-  useEffect(() => {
-    if (!user) return;
-
-    const supabase = getSupabase();
-    const channel = supabase
-      .channel('user-data-changes')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'activities',
-        filter: `user_id=eq.${user.id}`,
-      }, () => { loadData(); })
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'monthly_goals',
-        filter: `user_id=eq.${user.id}`,
-      }, () => { loadData(); })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [user, loadData]);
-
   return (
-    <UserDataContext.Provider value={{ activities, goals, loading, refresh }}>
+    <UserDataContext.Provider value={{ activities, goals, loading, lastUpdated, refresh }}>
       {children}
     </UserDataContext.Provider>
   );

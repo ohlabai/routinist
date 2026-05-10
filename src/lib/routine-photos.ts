@@ -19,69 +19,134 @@ export interface RoutinePhoto {
 }
 
 // 메인 하단 캐러셀 — 최근 7일 × 친구×1.5 × 동네×1.3 가중치 트렌딩
+// 5s timeout — 사용자 신고 #6/#8: 트렌딩 RPC 가 늦어 빈 카드가 오래 보이는 문제. 빈 배열 fallback.
 export async function fetchTrendingPhotos(limit = 20): Promise<RoutinePhoto[]> {
   const supabase = getSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
-  const { data, error } = await supabase.rpc('routine_photos_trending', {
+  const rpcCall = supabase.rpc('routine_photos_trending', {
     viewer_id: user.id,
     limit_n: limit,
   });
-  if (error) { console.warn('[routine_photos] trending 실패', error); return []; }
-  return (data ?? []) as RoutinePhoto[];
+  const result = await Promise.race<{ data: unknown; error: unknown } | { error: { message: string } }>([
+    Promise.resolve(rpcCall) as Promise<{ data: unknown; error: unknown }>,
+    new Promise<{ error: { message: string } }>((resolve) =>
+      setTimeout(() => resolve({ error: { message: 'trending 5s timeout' } }), 5000)
+    ),
+  ]);
+  if ('data' in result && !result.error) return (result.data ?? []) as RoutinePhoto[];
+  console.warn('[routine_photos] trending 실패', result.error);
+  return [];
+}
+
+interface PageOptions {
+  limit?: number;
+  offset?: number;
 }
 
 // 최신 순 (포토 탭 '최신')
-export async function fetchRecentPhotos(limit = 50): Promise<RoutinePhoto[]> {
+export async function fetchRecentPhotos(opts: PageOptions = {}): Promise<RoutinePhoto[]> {
   const supabase = getSupabase();
+  const limit = opts.limit ?? 50;
+  const offset = opts.offset ?? 0;
   const { data, error } = await supabase
     .from('public_gallery_feed')
     .select('*')
     .order('created_at', { ascending: false })
-    .limit(limit);
+    .range(offset, offset + limit - 1);
   if (error) { console.warn('[routine_photos] recent 실패', error); return []; }
   return (data ?? []).map(mapRow);
 }
 
 // 친구만 (포토 탭 '친구')
-export async function fetchFriendPhotos(friendIds: string[], limit = 50): Promise<RoutinePhoto[]> {
+export async function fetchFriendPhotos(friendIds: string[], opts: PageOptions = {}): Promise<RoutinePhoto[]> {
   if (friendIds.length === 0) return [];
   const supabase = getSupabase();
+  const limit = opts.limit ?? 50;
+  const offset = opts.offset ?? 0;
   const { data, error } = await supabase
     .from('public_gallery_feed')
     .select('*')
     .in('user_id', friendIds)
     .order('created_at', { ascending: false })
-    .limit(limit);
+    .range(offset, offset + limit - 1);
   if (error) { console.warn('[routine_photos] friends 실패', error); return []; }
   return (data ?? []).map(mapRow);
 }
 
 // 내 구(區) (포토 탭 '동네')
-export async function fetchRegionPhotos(regionGu: string, limit = 50): Promise<RoutinePhoto[]> {
+export async function fetchRegionPhotos(regionGu: string, opts: PageOptions = {}): Promise<RoutinePhoto[]> {
   if (!regionGu) return [];
   const supabase = getSupabase();
+  const limit = opts.limit ?? 50;
+  const offset = opts.offset ?? 0;
   const { data, error } = await supabase
     .from('public_gallery_feed')
     .select('*')
     .eq('region_gu', regionGu)
     .order('created_at', { ascending: false })
-    .limit(limit);
+    .range(offset, offset + limit - 1);
   if (error) { console.warn('[routine_photos] region 실패', error); return []; }
   return (data ?? []).map(mapRow);
 }
 
 // 내가 좋아요한 (포토 탭 '좋아요함')
-export async function fetchMyLikedPhotos(limit = 50): Promise<RoutinePhoto[]> {
+export async function fetchMyLikedPhotos(opts: PageOptions = {}): Promise<RoutinePhoto[]> {
   const supabase = getSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
+  const limit = opts.limit ?? 50;
+  const offset = opts.offset ?? 0;
+  // RPC 가 offset 인자 미지원이면 limit 만 늘려 받고 JS 슬라이스 폴백.
   const { data, error } = await supabase.rpc('my_liked_photos', {
     viewer_id: user.id,
-    limit_n: limit,
+    limit_n: limit + offset,
   });
   if (error) { console.warn('[routine_photos] liked 실패', error); return []; }
-  return (data ?? []) as RoutinePhoto[];
+  const rows = (data ?? []) as RoutinePhoto[];
+  return offset > 0 ? rows.slice(offset) : rows;
+}
+
+// 본인이 등록한 루틴포토 삭제 (build 71). RLS 가 user_id = auth.uid() 일 때만 delete 허용.
+// activity_photos 와 storage 객체 둘 다 삭제. storage 실패는 무시 (orphan 청소는 별도 cron).
+export async function deleteMyPhoto(photoId: string, photoUrl: string): Promise<void> {
+  const supabase = getSupabase();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('로그인이 필요합니다');
+
+  const { error } = await supabase
+    .from('activity_photos')
+    .delete()
+    .eq('id', photoId)
+    .eq('user_id', user.id);
+  if (error) throw error;
+
+  // storage 정리 — public URL 에서 path 추출. 실패해도 삭제 자체는 성공.
+  try {
+    const u = new URL(photoUrl);
+    const idx = u.pathname.indexOf('/activity-photos/');
+    if (idx >= 0) {
+      const path = u.pathname.slice(idx + '/activity-photos/'.length).split('?')[0];
+      await supabase.storage.from('activity-photos').remove([decodeURIComponent(path)]);
+    }
+  } catch (e) {
+    console.warn('[routine_photos] storage 정리 실패 (무시):', e);
+  }
+}
+
+// 사진 신고 (Apple 1.2 UGC 의무). 같은 사람이 같은 사진 여러번 신고는 unique 제약 없이 허용.
+export async function reportPhoto(photoId: string, reason: 'inappropriate' | 'spam' | 'harassment' | 'other', detail?: string): Promise<void> {
+  const supabase = getSupabase();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('로그인이 필요합니다');
+  const { error } = await supabase.from('content_reports').insert({
+    reporter_id: user.id,
+    target_type: 'photo',
+    target_id: photoId,
+    reason,
+    detail: detail ?? null,
+  });
+  if (error) throw error;
 }
 
 // 좋아요 토글 — optimistic update

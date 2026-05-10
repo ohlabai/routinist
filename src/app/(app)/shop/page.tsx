@@ -4,10 +4,12 @@ import { useEffect, useRef, useState } from 'react';
 import { ExternalLink, RefreshCw, AlertCircle } from 'lucide-react';
 
 // Cafe24 모바일 스토어. 앱 내 iframe 임베드 - 빈 응답이면 index.html 명시 폴백.
+const SHOP_BASE = 'https://routinist.kr';
 const SHOP_URLS = [
-  'https://routinist.kr/',
-  'https://routinist.kr/index.html',
+  `${SHOP_BASE}/`,
+  `${SHOP_BASE}/index.html`,
 ];
+
 const LOAD_TIMEOUT_MS = 15000;
 
 function isNativeApp() {
@@ -15,6 +17,8 @@ function isNativeApp() {
 }
 
 export default function ShopPage() {
+  // build 67: Cafe24 GNB 가 첫 화면부터 정상 노출되는 게 확인됐으므로 자체 헤더 제거.
+  // 햄버거/검색/카트 모두 Cafe24 의 모바일 헤더 사용 — 중복 제거.
   const [urlIdx, setUrlIdx] = useState(0);
   const [reloadKey, setReloadKey] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -62,13 +66,15 @@ export default function ShopPage() {
   };
 
   return (
-    <div className="absolute inset-0 bg-white">
+    <div className="relative h-full min-h-full bg-white flex flex-col">
+      {/* iframe — Cafe24 모바일 스토어 임베드. 자체 헤더 제거 (build 67) — Cafe24 GNB 사용.
+          상단 safe-area 는 (app)/layout.tsx 가 isShop 일 때 흰 padding 으로 처리. */}
       {!blocked && (
         <iframe
           ref={iframeRef}
           key={`${urlIdx}-${reloadKey}`}
           src={currentUrl}
-          className="block w-full h-full border-0 bg-white"
+          className="flex-1 block w-full border-0 bg-white"
           onLoad={() => {
             loadedRef.current = true;
             if (timeoutRef.current) clearTimeout(timeoutRef.current);

@@ -15,7 +15,19 @@ export default function MessagesPage() {
 
   useEffect(() => {
     if (!user) return;
-    fetchConversations(user.id).then(setConversations).finally(() => setLoading(false));
+    let cancelled = false;
+    // 8초 timeout — 무한 로딩 방지
+    const timer = setTimeout(() => {
+      if (!cancelled) setLoading(false);
+    }, 8000);
+    fetchConversations(user.id)
+      .then(c => { if (!cancelled) setConversations(c); })
+      .catch(e => { if (!cancelled) console.warn('[messages] fetch 실패', e); })
+      .finally(() => {
+        clearTimeout(timer);
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [user]);
 
   const formatTime = (dateStr: string) => {

@@ -56,10 +56,16 @@ export default function LoginPage() {
   }, [loadingProvider]);
 
   // /login?debug=1 접근 시 진단 로그 패널 표시
+  // /login?reason=session_expired 접근 시 안내 배너 (refreshSession 실패로 강제 로그아웃된 경우)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     if (params.has('debug')) setShowDebug(true);
+    if (params.get('reason') === 'session_expired') {
+      setInfo('로그인이 만료되어 자동으로 로그아웃했어요. 다시 로그인해주세요.');
+    } else if (params.get('reason') === 'force_fresh') {
+      setInfo('세션을 초기화했어요. 다시 로그인해주세요.');
+    }
   }, []);
 
   const refreshDebug = () => {
@@ -277,6 +283,10 @@ export default function LoginPage() {
 
       <p className="mt-8 text-sm text-gray-500 text-center max-w-xs relative z-10">
         시작하면{' '}
+        <Link href="/terms" className="underline font-semibold text-emerald-700">
+          이용약관
+        </Link>
+        과{' '}
         <Link href="/privacy" className="underline font-semibold text-emerald-700">
           개인정보처리방침
         </Link>

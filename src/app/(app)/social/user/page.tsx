@@ -1,58 +1,132 @@
 'use client';
 
-// 유저 프로필 페이지. Next.js 16 static export 와 호환되도록 query param 방식
-// (예: /social/user?id=uuid). 기존 /social/clubs/detail 패턴과 동일.
+// 유저 프로필 페이지 — build 67 확장.
+// 포토 카드/리스트에서 ID 탭하면 들어오는 미니 프로필. 다음을 보여줌:
+//  - 기본 정보 (이름, 지역, bio)
+//  - 친구 추가/해제 (자기 자신 제외)
+//  - 이달 거리/회수 + 통산 + 연속일
+//  - 개인 베스트 (최장거리/최빠페이스/최장시간)
+//  - 이달 미니 캘린더 (히트맵)
+//  - 최근 30일 일별 거리 그래프
+//  - 배지 (Routinist 표준 마일스톤)
+//  - 액션: 쪽지 보내기 / 마일리지 선물
 
-import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useEffect, useState, Suspense, useMemo } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, UserPlus, UserCheck, MapPin } from 'lucide-react';
+import { ArrowLeft, UserPlus, Check, MapPin, MessageCircle, Gift, Trophy, Award, Edit3 } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthProvider';
 import { followUser, unfollowUser, isFollowing } from '@/lib/social-data';
+import { PUBLIC_PROFILE_FIELDS } from '@/lib/profile-fields';
 import type { Profile } from '@/types';
 import AppLogo from '@/components/AppLogo';
+import AppToast from '@/components/AppToast';
+import { logClientWarn } from '@/lib/error-logger';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { dataCache, CACHE_KEYS } from '@/lib/data-cache';
 
 interface MonthStats {
   monthly_km: number;
   run_count: number;
 }
 
+interface ActivityRow {
+  activity_date: string;
+  distance_km: number;
+  duration_seconds: number | null;
+  pace_avg_sec_per_km: number | null;
+}
+
+// 5단계 컬러 — 홈 캘린더와 동일 룰
+function calColor(km: number): string {
+  if (km <= 0) return 'bg-gray-100 dark:bg-zinc-800/50';
+  if (km < 3) return 'bg-green-200 dark:bg-green-900/40';
+  if (km < 7) return 'bg-green-400 dark:bg-green-700/60';
+  if (km < 10) return 'bg-green-500 dark:bg-green-600/70';
+  if (km < 15) return 'bg-green-600 dark:bg-green-500/80';
+  return 'bg-green-800 dark:bg-green-400/90';
+}
+
+function formatPace(sec: number) {
+  const m = Math.floor(sec / 60);
+  const s = Math.round(sec % 60);
+  return `${m}'${String(s).padStart(2, '0')}"`;
+}
+
+function formatDur(sec: number) {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
+}
+
 function UserProfileContent() {
   const searchParams = useSearchParams();
   const userId = searchParams.get('id') ?? '';
   const { user } = useAuth();
+  const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [stats, setStats] = useState<MonthStats>({ monthly_km: 0, run_count: 0 });
   const [following, setFollowing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
+  const [activities, setActivities] = useState<ActivityRow[]>([]);
+  const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
 
   useEffect(() => {
     if (!userId) {
       setLoading(false);
       return;
     }
+    // 캐시 — 같은 사람을 여러 사진에서 들어가도 즉시 표시.
+    const cacheKey = `user:profile:${userId}`;
+    const cached = dataCache.get<{ profile: Profile | null; activities: ActivityRow[]; following: boolean }>(cacheKey);
+    if (cached) {
+      setProfile(cached.value.profile);
+      setActivities(cached.value.activities);
+      setFollowing(cached.value.following);
+      const monthlyKm = cached.value.activities
+        .filter(a => a.activity_date.startsWith(new Date().toISOString().slice(0, 7)))
+        .reduce((s, a) => s + Number(a.distance_km), 0);
+      const monthlyRuns = cached.value.activities.filter(a =>
+        a.activity_date.startsWith(new Date().toISOString().slice(0, 7))
+      ).length;
+      setStats({ monthly_km: monthlyKm, run_count: monthlyRuns });
+      setLoading(false);
+    }
     (async () => {
       try {
         const supabase = getSupabase();
         const [{ data: p }, followStatus] = await Promise.all([
-          supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+          supabase.from('profiles').select(PUBLIC_PROFILE_FIELDS).eq('id', userId).maybeSingle(),
           user && user.id !== userId ? isFollowing(userId) : Promise.resolve(false),
         ]);
         setProfile((p as Profile | null) ?? null);
         setFollowing(followStatus);
 
-        const now = new Date();
-        const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+        // 최근 60일 데이터 (이달 캘린더 + 최근 30일 그래프 + PB 모두 커버).
+        const sixtyDaysAgo = new Date(Date.now() - 60 * 86400000).toISOString().split('T')[0];
         const { data: acts } = await supabase
           .from('activities')
-          .select('distance_km')
+          .select('activity_date, distance_km, duration_seconds, pace_avg_sec_per_km')
           .eq('user_id', userId)
-          .gte('activity_date', start)
-          .eq('visibility', 'public');
-        const km = (acts ?? []).reduce((s, a) => s + Number(a.distance_km), 0);
-        setStats({ monthly_km: km, run_count: (acts ?? []).length });
+          .gte('activity_date', sixtyDaysAgo)
+          .eq('visibility', 'public')
+          .order('activity_date', { ascending: false });
+        const list = (acts ?? []) as ActivityRow[];
+        setActivities(list);
+
+        const ymPrefix = new Date().toISOString().slice(0, 7);
+        const monthly = list.filter(a => a.activity_date.startsWith(ymPrefix));
+        const km = monthly.reduce((s, a) => s + Number(a.distance_km), 0);
+        setStats({ monthly_km: km, run_count: monthly.length });
+
+        dataCache.set(cacheKey, {
+          profile: (p as Profile | null) ?? null,
+          activities: list,
+          following: followStatus,
+        });
       } catch (e) {
         console.warn('[UserProfile] 조회 실패', e);
       } finally {
@@ -63,28 +137,105 @@ function UserProfileContent() {
 
   const handleToggleFollow = async () => {
     if (!user || toggling) return;
+    const next = !following;
     setToggling(true);
+    setFollowing(next); // optimistic
     try {
-      if (following) {
-        await unfollowUser(userId);
-        setFollowing(false);
-      } else {
+      if (next) {
         await followUser(userId);
-        setFollowing(true);
+        setToast({ text: '친구로 추가했어요', tone: 'ok' });
+      } else {
+        await unfollowUser(userId);
+        setToast({ text: '친구에서 해제했어요', tone: 'ok' });
       }
     } catch (e) {
-      console.warn('[Follow] 실패', e);
+      setFollowing(!next); // 롤백
+      const msg = e instanceof Error ? e.message : String(e);
+      logClientWarn('UserProfile', 'follow toggle 실패', { userId, action: next ? 'follow' : 'unfollow', reason: msg });
+      const friendly =
+        msg.includes('duplicate key') || msg.includes('unique') ? '이미 친구로 추가했어요' :
+        msg.includes('foreign key') ? '존재하지 않는 사용자예요' :
+        msg.includes('row-level security') || msg.includes('permission') ? '권한이 없어요. 다시 로그인해보세요' :
+        `친구 ${next ? '추가' : '해제'} 실패 — ${msg.slice(0, 80)}`;
+      setToast({ text: friendly, tone: 'warn' });
     } finally {
       setToggling(false);
     }
   };
 
+  // 이달 미니 캘린더 데이터
+  const calendarData = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const firstDay = new Date(year, month - 1, 1).getDay();
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const distMap = new Map<string, number>();
+    activities.forEach(a => {
+      distMap.set(a.activity_date, (distMap.get(a.activity_date) || 0) + Number(a.distance_km));
+    });
+    return { year, month, firstDay, daysInMonth, distMap };
+  }, [activities]);
+
+  // 최근 30일 그래프
+  const dailyData = useMemo(() => {
+    const map = new Map<string, number>();
+    activities.forEach(a => {
+      map.set(a.activity_date, (map.get(a.activity_date) || 0) + Number(a.distance_km));
+    });
+    const out: { label: string; distance: number }[] = [];
+    const today = new Date();
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      out.push({
+        label: `${d.getMonth() + 1}/${d.getDate()}`,
+        distance: Math.round((map.get(key) || 0) * 10) / 10,
+      });
+    }
+    return out;
+  }, [activities]);
+
+  // 개인 베스트 (최근 60일 한정 — 미니 프로필 용도, 정확도보다 응답 속도)
+  const personalBest = useMemo(() => {
+    if (!activities.length) return null;
+    let longest = activities[0];
+    let fastest: ActivityRow | null = null;
+    let longestDur: ActivityRow | null = null;
+    for (const a of activities) {
+      if (Number(a.distance_km) > Number(longest.distance_km)) longest = a;
+      if (a.pace_avg_sec_per_km && Number(a.distance_km) >= 1) {
+        if (!fastest || a.pace_avg_sec_per_km < fastest.pace_avg_sec_per_km!) fastest = a;
+      }
+      if (a.duration_seconds && (!longestDur || a.duration_seconds > longestDur.duration_seconds!)) {
+        longestDur = a;
+      }
+    }
+    return { longest, fastest, longestDur };
+  }, [activities]);
+
+  // 배지 — 통산 거리/횟수 기반
+  const badges = useMemo(() => {
+    const list: { icon: string; label: string }[] = [];
+    const totalKm = Number(profile?.total_distance_km ?? 0);
+    const totalRuns = profile?.total_runs ?? 0;
+    if (totalKm >= 10) list.push({ icon: '🏅', label: '10km' });
+    if (totalKm >= 50) list.push({ icon: '🎖️', label: '50km' });
+    if (totalKm >= 100) list.push({ icon: '🏆', label: '100km' });
+    if (totalKm >= 500) list.push({ icon: '💎', label: '500km' });
+    if (totalKm >= 1000) list.push({ icon: '👑', label: '1000km' });
+    if (totalRuns >= 10) list.push({ icon: '🔥', label: '10×' });
+    if (totalRuns >= 50) list.push({ icon: '⚡', label: '50×' });
+    return list;
+  }, [profile]);
+
   if (!userId) {
     return (
       <div className="p-4 max-w-lg mx-auto">
-        <Link href="/social" className="inline-flex items-center gap-2 text-[var(--muted)] mb-4">
+        <button onClick={() => router.back()} className="inline-flex items-center gap-2 text-[var(--muted)] mb-4">
           <ArrowLeft size={20} /> 뒤로
-        </Link>
+        </button>
         <p className="text-center text-[var(--muted)] mt-8">잘못된 접근입니다</p>
       </div>
     );
@@ -101,9 +252,9 @@ function UserProfileContent() {
   if (!profile) {
     return (
       <div className="p-4 max-w-lg mx-auto">
-        <Link href="/social" className="inline-flex items-center gap-2 text-[var(--muted)] mb-4">
+        <button onClick={() => router.back()} className="inline-flex items-center gap-2 text-[var(--muted)] mb-4">
           <ArrowLeft size={20} /> 뒤로
-        </Link>
+        </button>
         <p className="text-center text-[var(--muted)] mt-8">유저를 찾을 수 없어요</p>
       </div>
     );
@@ -113,60 +264,194 @@ function UserProfileContent() {
   const regionLabel = [profile.region_si, profile.region_gu].filter(Boolean).join(' ');
 
   return (
-    <div className="p-4 max-w-lg mx-auto pb-12">
-      <Link href="/social" className="inline-flex items-center gap-2 text-[var(--muted)] mb-4">
+    <div className="p-4 max-w-lg mx-auto pb-12 space-y-4">
+      <button onClick={() => router.back()} className="inline-flex items-center gap-2 text-[var(--muted)]">
         <ArrowLeft size={20} /> 뒤로
-      </Link>
+      </button>
 
-      <div className="flex items-center gap-4 mb-4">
-        <div className="w-20 h-20 rounded-full bg-[var(--card-border)] overflow-hidden flex-shrink-0">
-          {profile.avatar_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center"><AppLogo size={40} /></div>
-          )}
+      {/* 프로필 헤더 */}
+      <div className="card p-5">
+        <div className="flex items-center gap-4">
+          <div className="w-20 h-20 rounded-full bg-[var(--card-border)] overflow-hidden flex-shrink-0">
+            {profile.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center"><AppLogo size={40} /></div>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl font-bold text-[var(--foreground)] truncate">{profile.display_name}</h1>
+            {regionLabel && (
+              <p className="text-xs text-[var(--muted)] flex items-center gap-1 mt-1">
+                <MapPin size={12} /> {regionLabel}
+              </p>
+            )}
+            {profile.bio && <p className="text-sm text-[var(--muted)] mt-1 line-clamp-2">{profile.bio}</p>}
+          </div>
         </div>
-        <div className="flex-1">
-          <h1 className="text-xl font-bold text-[var(--foreground)]">{profile.display_name}</h1>
-          {regionLabel && (
-            <p className="text-xs text-[var(--muted)] flex items-center gap-1 mt-1">
-              <MapPin size={12} /> {regionLabel}
-            </p>
-          )}
-          {profile.bio && <p className="text-sm text-[var(--muted)] mt-1">{profile.bio}</p>}
+
+        <div className="grid grid-cols-3 gap-3 text-center mt-5 pt-5 border-t border-[var(--card-border)]">
+          <div>
+            <p className="text-2xl font-bold text-[var(--accent)]">{stats.monthly_km.toFixed(1)}</p>
+            <p className="text-xs text-[var(--muted)]">이달 km</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-[var(--foreground)]">{stats.run_count}</p>
+            <p className="text-xs text-[var(--muted)]">이달 러닝</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-purple-600">{(profile.total_distance_km ?? 0).toFixed(0)}</p>
+            <p className="text-xs text-[var(--muted)]">통산 km</p>
+          </div>
         </div>
       </div>
 
-      {!isMe && user && (
-        <button
-          onClick={handleToggleFollow}
-          disabled={toggling}
-          className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors mb-4 disabled:opacity-50 ${
-            following
-              ? 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--foreground)]'
-              : 'bg-[var(--accent)] text-white'
-          }`}
+      {/* 액션 — 친구 / 쪽지 / 마일리지 선물.
+          본인 프로필이면 자리만 채워 "내 정보 편집" 버튼 단일로 노출 (사용자가 액션이 안 보인다고 혼동하지 않게).
+          로그인 안 된 게스트면 영역 자체 숨김. */}
+      {user && (isMe ? (
+        <Link
+          href="/profile/edit"
+          className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 text-sm font-semibold border border-emerald-200/60 dark:border-emerald-900/40 active:scale-95 transition"
         >
-          {following ? <UserCheck size={18} /> : <UserPlus size={18} />}
-          {following ? '친구 맺음 (해제)' : '친구 추가'}
-        </button>
+          <Edit3 size={16} />
+          <span>내 정보 편집</span>
+        </Link>
+      ) : (
+        <div className="grid grid-cols-3 gap-2">
+          <button
+            onClick={handleToggleFollow}
+            disabled={toggling}
+            aria-label={following ? '친구 해제' : '친구 추가'}
+            className={`flex flex-col items-center justify-center gap-1 py-3 rounded-2xl text-sm font-semibold transition-all disabled:opacity-50 active:scale-95 ${
+              following
+                ? 'bg-emerald-500 text-white shadow-sm'
+                : 'bg-white dark:bg-zinc-900 border border-emerald-500 text-emerald-600 dark:text-emerald-400'
+            }`}
+          >
+            {following ? <Check size={20} strokeWidth={3} /> : <UserPlus size={20} strokeWidth={2.5} />}
+            <span className="text-xs">{following ? '친구' : '친구 추가'}</span>
+          </button>
+          <Link
+            href={`/messages?to=${userId}`}
+            className="flex flex-col items-center justify-center gap-1 py-3 rounded-2xl bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 text-sm font-semibold active:scale-95 transition"
+          >
+            <MessageCircle size={20} />
+            <span className="text-xs">쪽지</span>
+          </Link>
+          <Link
+            href={`/mileage/gift`}
+            className="flex flex-col items-center justify-center gap-1 py-3 rounded-2xl bg-pink-50 dark:bg-pink-950/30 text-pink-700 dark:text-pink-300 text-sm font-semibold active:scale-95 transition"
+          >
+            <Gift size={20} />
+            <span className="text-xs">마일리지</span>
+          </Link>
+        </div>
+      ))}
+
+      {/* 배지 */}
+      {badges.length > 0 && (
+        <div className="card p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Award size={16} className="text-yellow-500" />
+            <h3 className="text-base font-semibold text-[var(--foreground)]">배지</h3>
+            <span className="text-xs text-[var(--muted)]">{badges.length}</span>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+            {badges.map(b => (
+              <div key={b.label} className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/30 rounded-full px-3 py-1.5 flex-shrink-0">
+                <span>{b.icon}</span>
+                <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">{b.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
-      <div className="grid grid-cols-3 gap-3">
-        <div className="card p-4 text-center">
-          <p className="text-xs text-[var(--muted)]">이달 거리</p>
-          <p className="text-lg font-bold text-[var(--foreground)]">{stats.monthly_km.toFixed(1)}km</p>
+      {/* 개인 베스트 (최근 60일 기준) */}
+      {personalBest && personalBest.longest && (
+        <div className="card p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Trophy size={16} className="text-yellow-500" />
+            <h3 className="text-base font-semibold text-[var(--foreground)]">최근 베스트</h3>
+            <span className="text-xs text-[var(--muted)]">최근 60일</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-[var(--card-border)]/30 rounded-xl p-3 text-center">
+              <p className="text-xs text-[var(--muted)]">최장 거리</p>
+              <p className="text-lg font-extrabold text-[var(--foreground)] mt-0.5">{Number(personalBest.longest.distance_km).toFixed(1)}km</p>
+            </div>
+            <div className="bg-[var(--card-border)]/30 rounded-xl p-3 text-center">
+              <p className="text-xs text-[var(--muted)]">최빠 페이스</p>
+              <p className="text-lg font-extrabold text-[var(--foreground)] mt-0.5">
+                {personalBest.fastest?.pace_avg_sec_per_km ? formatPace(personalBest.fastest.pace_avg_sec_per_km) : '—'}
+              </p>
+            </div>
+            <div className="bg-[var(--card-border)]/30 rounded-xl p-3 text-center">
+              <p className="text-xs text-[var(--muted)]">최장 시간</p>
+              <p className="text-lg font-extrabold text-[var(--foreground)] mt-0.5">
+                {personalBest.longestDur?.duration_seconds ? formatDur(personalBest.longestDur.duration_seconds) : '—'}
+              </p>
+            </div>
+          </div>
         </div>
-        <div className="card p-4 text-center">
-          <p className="text-xs text-[var(--muted)]">이달 러닝</p>
-          <p className="text-lg font-bold text-[var(--foreground)]">{stats.run_count}회</p>
+      )}
+
+      {/* 이달 미니 캘린더 */}
+      <div className="card p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-base font-semibold text-[var(--foreground)]">{calendarData.month}월 캘린더</h3>
+          <span className="text-xs text-[var(--muted)]">
+            {Array.from({ length: calendarData.daysInMonth }).reduce<number>((acc, _, i) => {
+              const day = i + 1;
+              const ds = `${calendarData.year}-${String(calendarData.month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+              return acc + ((calendarData.distMap.get(ds) ?? 0) > 0 ? 1 : 0);
+            }, 0)}일 러닝
+          </span>
         </div>
-        <div className="card p-4 text-center">
-          <p className="text-xs text-[var(--muted)]">통산</p>
-          <p className="text-lg font-bold text-[var(--foreground)]">{(profile.total_distance_km ?? 0).toFixed(0)}km</p>
+        <div className="grid grid-cols-7 gap-1 text-center text-xs mb-1">
+          {['일','월','화','수','목','금','토'].map((d, i) => (
+            <span key={d} className={`${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-[var(--muted)]'}`}>{d}</span>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {Array.from({ length: calendarData.firstDay }).map((_, i) => (
+            <div key={`e-${i}`} className="aspect-square" />
+          ))}
+          {Array.from({ length: calendarData.daysInMonth }).map((_, i) => {
+            const day = i + 1;
+            const ds = `${calendarData.year}-${String(calendarData.month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const km = calendarData.distMap.get(ds) || 0;
+            return (
+              <div key={day} className={`aspect-square rounded-md flex items-center justify-center ${calColor(km)}`}>
+                <span className={`text-xs font-medium ${km >= 7 ? 'text-white' : 'text-[var(--foreground)]'}`}>{day}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
+
+      {/* 최근 30일 일별 거리 그래프 */}
+      {dailyData.some(d => d.distance > 0) && (
+        <div className="card p-4">
+          <h3 className="text-base font-semibold text-[var(--foreground)] mb-2">최근 30일 일별 거리</h3>
+          <ResponsiveContainer width="100%" height={150}>
+            <BarChart data={dailyData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--card-border)" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--muted)' }} axisLine={false} tickLine={false} interval={4} />
+              <YAxis tick={{ fontSize: 10, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+              <Tooltip
+                contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 12, fontSize: 12 }}
+                formatter={(value) => [`${value}km`]}
+              />
+              <Bar dataKey="distance" fill="#10B981" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2500} />}
     </div>
   );
 }

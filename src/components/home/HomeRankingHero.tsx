@@ -10,6 +10,8 @@ import { useRouter } from 'next/navigation';
 import { Trophy, Sparkles, ChevronRight, UserPlus, TrendingUp } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
+import { logClientInfo, logClientWarn } from '@/lib/error-logger';
+import { dataCache, CACHE_KEYS, onCacheInvalidated } from '@/lib/data-cache';
 
 type TimeAxis = 'today' | 'month' | 'year';
 
@@ -43,21 +45,35 @@ export default function HomeRankingHero() {
 
   useEffect(() => {
     if (!user) return;
-    // 데모그래픽이 하나도 없으면 RPC 호출 의미 없음 — 바로 CTA 카드 표시
     if (!hasDemographics) { setLoading(false); return; }
     let cancelled = false;
-    setLoading(true);
-    setError(false);
 
-    // 10초 안에 응답 없으면 에러 처리 — 무한 빈 카드 방지.
-    // 초기 타임아웃 5초는 Supabase 콜드 스타트 / 셀룰러 지연 시 에러로 오인.
+    const cacheKey = CACHE_KEYS.heroRank(user.id, axis);
+    const cached = dataCache.get<HeroRank | null>(cacheKey);
+    const hasCached = !!cached;
+
+    // 신문 모델 + stale-while-revalidate:
+    // - 캐시 있으면 즉시 표시. retryKey === 0 면 거기서 끝 (네트워크 X).
+    // - retryKey > 0 (사용자 새로고침 / cache-invalidated 이벤트) 면 캐시 표시 유지하면서 백그라운드 fresh fetch.
+    //   → "잠시 hero 사라짐" 회귀 방지.
+    // - build 59: fetch 실패해도 캐시 있으면 setError 안 함 — 사용자에게 일시 에러 보이지 않게.
+    if (cached) {
+      setRank(cached.value);
+      setLoading(false);
+      if (retryKey === 0) return;
+    } else {
+      setLoading(true);
+    }
+    setError(false);
+    const t0 = Date.now();
+
     const timeoutId = setTimeout(() => {
       if (!cancelled) {
-        console.warn('[HomeRankingHero] RPC 타임아웃 (10s)');
+        logClientWarn('HomeRankingHero', 'RPC 15s timeout', { axis });
         setError(true);
         setLoading(false);
       }
-    }, 10000);
+    }, 15000);
 
     (async () => {
       try {
@@ -70,10 +86,15 @@ export default function HomeRankingHero() {
         clearTimeout(timeoutId);
         if (rpcError) throw rpcError;
         const row = Array.isArray(data) ? data[0] : data;
-        setRank(row ? (row as HeroRank) : null);
+        const value = row ? (row as HeroRank) : null;
+        setRank(value);
+        dataCache.set(cacheKey, value);
+        logClientInfo('HomeRankingHero', 'RPC ok', { ms: Date.now() - t0, hasRow: !!row, axis });
       } catch (e) {
-        console.warn('[HomeRankingHero] 조회 실패', e);
-        if (!cancelled) setError(true);
+        const reason = e instanceof Error ? e.message : String(e);
+        logClientWarn('HomeRankingHero', 'RPC fail', { reason, ms: Date.now() - t0, axis, hasCached });
+        // 캐시 있으면 silent fallback — 사용자에게 일시 에러 안 보임. 백그라운드 갱신 실패는 무시.
+        if (!cancelled && !hasCached) setError(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -81,31 +102,44 @@ export default function HomeRankingHero() {
     return () => { cancelled = true; clearTimeout(timeoutId); };
   }, [user, axis, retryKey, hasDemographics]);
 
+  // PullToRefresh / 다른 곳에서 cache invalidate 이벤트 발사하면 재시도 트리거.
+  // foreground 복귀 시 자동 재시도는 제거 — 매번 retry 가 hero 깜빡거림 유발 (build 58 회고).
+  useEffect(() => {
+    const off = onCacheInvalidated((prefix) => {
+      // 우리 hero key 영향 받는 prefix 만 반응 (빈 prefix = clearAll, 'hero:' = hero 모두, 'hero:rank:' = 정확)
+      if (prefix === '' || 'hero:rank:'.startsWith(prefix) || prefix.startsWith('hero:rank:')) {
+        setRetryKey(k => k + 1);
+      }
+    });
+    return off;
+  }, []);
+
   if (loading) {
     return (
       <div className="mx-4 mt-3 rounded-3xl bg-gradient-to-br from-emerald-100/70 via-white to-emerald-50/40 dark:from-emerald-950/30 dark:via-zinc-900 dark:to-emerald-950/10 border border-emerald-200/50 dark:border-emerald-900/30 p-5 h-[120px] animate-pulse" />
     );
   }
 
-  // 에러(RPC 타임아웃·실패) — 프로필은 있지만 불러오기 실패한 경우. 재시도 버튼 제공.
+  // 에러(RPC 타임아웃·실패) — 프로필은 있지만 불러오기 실패한 경우.
+  // 빨간 alert 스타일 대신 부드러운 회색 placeholder + 작은 재시도 — UI 가 안 튐.
   if (error && hasDemographics) {
     return (
-      <div className="mx-4 mt-3 rounded-3xl bg-gradient-to-br from-emerald-100/80 via-white to-emerald-50 dark:from-emerald-950/30 dark:via-zinc-900 dark:to-emerald-950/10 border border-emerald-200/60 dark:border-emerald-900/30 p-5 shadow-sm">
+      <div className="mx-4 mt-3 rounded-3xl bg-slate-50 dark:bg-zinc-900/50 border border-slate-200/60 dark:border-zinc-800 p-5">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-white dark:bg-zinc-900 shadow-md flex items-center justify-center flex-shrink-0">
-            <Trophy size={24} className="text-emerald-600" />
+          <div className="w-12 h-12 rounded-2xl bg-white dark:bg-zinc-900 flex items-center justify-center flex-shrink-0 opacity-60">
+            <Trophy size={20} className="text-slate-400" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-lg font-bold text-[var(--foreground)] leading-tight">
-              랭킹 불러오기 실패
+            <p className="text-base font-semibold text-slate-700 dark:text-slate-300 leading-tight">
+              랭킹 준비 중...
             </p>
-            <p className="text-sm text-[var(--muted)] mt-1 leading-5">
-              네트워크가 불안정하거나 서버가 바쁠 수 있어요
+            <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
+              네트워크가 안정되면 자동으로 표시돼요
             </p>
           </div>
           <button
             onClick={() => setRetryKey(k => k + 1)}
-            className="px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-bold shadow-sm active:scale-95 transition"
+            className="text-xs font-bold text-slate-600 dark:text-slate-400 px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 active:scale-95 transition"
           >
             다시
           </button>
@@ -114,7 +148,8 @@ export default function HomeRankingHero() {
     );
   }
 
-  if (!hasDemographics || !rank) {
+  // 1순위: 조건 미입력 → 입력 안내 CTA
+  if (!hasDemographics) {
     return (
       <Link
         href="/profile/edit"
@@ -135,6 +170,41 @@ export default function HomeRankingHero() {
           <ChevronRight size={20} className="text-emerald-600 flex-shrink-0" />
         </div>
       </Link>
+    );
+  }
+
+  // 2순위: 조건은 입력됐지만 코호트 데이터 부족 → 입력된 조건 표시 + 안내
+  if (!rank) {
+    const conditionLabel = [
+      profile?.region_si,
+      profile?.region_gu,
+      profile?.birth_year ? `${profile.birth_year}년생` : null,
+      profile?.gender === 'male' ? '남성' : profile?.gender === 'female' ? '여성' : null,
+    ].filter(Boolean).join(' · ');
+
+    return (
+      <div className="mx-4 mt-3 rounded-3xl bg-gradient-to-br from-emerald-100/80 via-white to-emerald-50 dark:from-emerald-950/30 dark:via-zinc-900 dark:to-emerald-950/10 border border-emerald-200/60 dark:border-emerald-900/30 p-5 shadow-sm">
+        <div className="flex items-start gap-3 mb-3">
+          <div className="w-12 h-12 rounded-2xl bg-white dark:bg-zinc-900 shadow flex items-center justify-center flex-shrink-0">
+            <Trophy size={22} className="text-emerald-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-base font-bold text-[var(--foreground)]">내 랭킹 조건</p>
+            <p className="text-sm text-emerald-700 dark:text-emerald-400 font-semibold mt-0.5 truncate">
+              {conditionLabel || '조건 입력 완료'}
+            </p>
+          </div>
+          <Link
+            href="/profile/edit"
+            className="text-xs font-bold text-emerald-700 dark:text-emerald-300 px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-emerald-200 dark:border-emerald-800 active:scale-95 transition flex-shrink-0"
+          >
+            수정
+          </Link>
+        </div>
+        <p className="text-sm text-[var(--muted)] leading-snug">
+          같은 조건의 다른 러너가 모이면 순위가 표시됩니다. 친구를 초대해보세요!
+        </p>
+      </div>
     );
   }
 
@@ -221,8 +291,9 @@ export default function HomeRankingHero() {
 
         {isTopRank ? (
           <div className="mt-4 rounded-2xl bg-white/80 backdrop-blur px-4 py-3.5">
-            <p className="text-lg font-bold text-emerald-700 flex items-center gap-1.5">
-              👑 {axis === 'today' ? '오늘의' : axis === 'month' ? '이달의' : '올해의'} 1위! 계속 달려 자리를 지켜보세요.
+            {/* 한 줄 보장: 폰트 살짝 줄이고 (lg → base) 메시지 간결화. 이전엔 좁은 카드에서 줄바꿈돼 "자리를 지켜보세 요." 처럼 끊김. */}
+            <p className="text-base font-bold text-emerald-700 flex items-center gap-1.5 whitespace-nowrap">
+              👑 {axis === 'today' ? '오늘의' : axis === 'month' ? '이달의' : '올해의'} 1위! 자리를 지켜요
             </p>
           </div>
         ) : hasProgressHint ? (

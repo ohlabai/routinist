@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { ChevronRight, Zap } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
+import { dataCache, CACHE_KEYS, onCacheInvalidated } from '@/lib/data-cache';
 
 interface Neighbor {
   user_id: string;
@@ -23,21 +24,52 @@ export default function RankNeighbors() {
   const { user, profile } = useAuth();
   const [rows, setRows] = useState<Neighbor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [retryKey, setRetryKey] = useState(0);
+
+  // cache-invalidated 이벤트 listen — PullToRefresh 가 발사하면 fresh fetch.
+  useEffect(() => {
+    const off = onCacheInvalidated((prefix) => {
+      if (prefix === '' || 'hero:neighbors:'.startsWith(prefix) || prefix.startsWith('hero:neighbors:')) {
+        setRetryKey(k => k + 1);
+      }
+    });
+    return off;
+  }, []);
 
   useEffect(() => {
     if (!user) return;
-    // 지역 정보 없으면 동네 비교 자체가 불가 — RPC 호출 의미 없음
     if (!profile?.region_gu) { setLoading(false); return; }
     let cancelled = false;
+
+    const cacheKey = CACHE_KEYS.rankNeighbors(user.id);
+    // stale-while-revalidate: 캐시 있으면 즉시 set + retryKey === 0 면 거기서 끝.
+    const cached = dataCache.get<Neighbor[]>(cacheKey);
+    if (cached) {
+      setRows(cached.value);
+      setLoading(false);
+      if (retryKey === 0) return;
+    } else {
+      setLoading(true);
+    }
+
     (async () => {
       try {
         const supabase = getSupabase();
-        const { data } = await supabase.rpc('weekly_rank_neighbors', {
-          target_user_id: user.id,
-          neighbor_count: 3,
-        });
+        const result = await Promise.race([
+          supabase.rpc('weekly_rank_neighbors', {
+            target_user_id: user.id,
+            neighbor_count: 3,
+          }),
+          new Promise<{ data: null }>((resolve) =>
+            setTimeout(() => resolve({ data: null }), 10000)
+          ),
+        ]);
         if (!cancelled) {
-          setRows((data ?? []) as Neighbor[]);
+          const value = (result.data ?? []) as Neighbor[];
+          if (value.length > 0) {
+            setRows(value);
+            dataCache.set(cacheKey, value);
+          }
           setLoading(false);
         }
       } catch {
@@ -45,7 +77,7 @@ export default function RankNeighbors() {
       }
     })();
     return () => { cancelled = true; };
-  }, [user, profile?.region_gu]);
+  }, [user, profile?.region_gu, retryKey]);
 
   // 로딩/빈 상태에선 자리 차지 없이 사라짐 — 신규 사용자 첫 인상 개선
   if (loading || rows.length <= 1) return null;

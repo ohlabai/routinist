@@ -510,8 +510,10 @@ export async function fetchDistanceByPeriod(
   const results: PeriodDistance[] = [];
 
   if (mode === 'weekly') {
-    // 올해의 각 주 (최근 12주)
+    // 올해의 각 주 (최근 12주) + 작년 동일 주 (-364일 = 정확히 52주 전).
+    // 사용자 신고 #4: 주간 차트에 전년 비교 막대가 안 보이는 버그 — prevDistance 필드 누락이 원인.
     const now = new Date();
+    const ONE_DAY = 86400000;
     for (let w = 11; w >= 0; w--) {
       const weekEnd = new Date(now);
       weekEnd.setDate(now.getDate() - w * 7);
@@ -519,11 +521,16 @@ export async function fetchDistanceByPeriod(
       weekStart.setDate(weekEnd.getDate() - 6);
 
       const start = weekStart.toISOString().split('T')[0];
-      const end = new Date(weekEnd.getTime() + 86400000).toISOString().split('T')[0];
+      const end = new Date(weekEnd.getTime() + ONE_DAY).toISOString().split('T')[0];
+
+      // 작년 동일 주 — 364일 전 (52주). 정확히 같은 요일/주차.
+      const prevStart = new Date(weekStart.getTime() - 364 * ONE_DAY).toISOString().split('T')[0];
+      const prevEnd = new Date(weekEnd.getTime() + ONE_DAY - 364 * ONE_DAY).toISOString().split('T')[0];
 
       results.push({
         label: `${weekStart.getMonth() + 1}/${weekStart.getDate()}`,
-        distance: Math.round(sumByRange(activities, start, end) * 10) / 10,
+        distance: Math.round(sumByRange(thisYear, start, end) * 10) / 10,
+        prevDistance: Math.round(sumByRange(lastYear, prevStart, prevEnd) * 10) / 10,
       });
     }
   } else if (mode === 'monthly') {
@@ -566,12 +573,47 @@ export async function fetchDistanceByPeriod(
       });
     }
   } else {
-    // yearly — 최근 5년
+    // yearly — 최근 5년. 각 해마다 전년 대비 (이전 해) prevDistance 부여 — 분석 줄에서 사용.
+    // 단, year-1 보다 더 이전 해의 데이터는 fetch 범위에 없어 N/A 처리.
+    // build 68 fix: 현재 연도(running year)는 작년 "동기간" (1/1 ~ 오늘 같은 월·일까지) 으로
+    // 비교해야 음수가 안 나옴. 기존엔 작년 1년 전체 합과 비교 → 항상 음수.
+    // build 74: KST 기준으로 today 계산 (activity_date 가 KST 기준이라 디바이스 timezone 차이로
+    // 새벽에 ±1일 어긋나는 문제 방지).
+    const ymdKst = (() => {
+      try {
+        return new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Seoul',
+          year: 'numeric', month: '2-digit', day: '2-digit',
+        }).format(new Date());
+      } catch {
+        const k = new Date(Date.now() + 9 * 60 * 60 * 1000);
+        return k.toISOString().slice(0, 10);
+      }
+    })();
+    const [yKst, mKst, dKst] = ymdKst.split('-');
+    const isThisYear = year === Number(yKst);
+    const ytdEnd = isThisYear ? `${year - 1}-${mKst}-${dKst}` : null;
+
     for (let y = year - 4; y <= year; y++) {
       const yActivities = activities.filter(a => a.activity_date.startsWith(String(y)));
+      const dist = yActivities.reduce((s, a) => s + Number(a.distance_km), 0);
+      let prevDist: number | undefined;
+      if (y === year) {
+        const prevYActs = activities.filter(a => a.activity_date.startsWith(String(y - 1)));
+        if (isThisYear && ytdEnd) {
+          // 작년 1/1 ~ 오늘 같은 월·일 까지만 합산. ex) 오늘 5/9 → 2025-01-01..2025-05-09 합.
+          const ytdSum = prevYActs
+            .filter(a => a.activity_date <= ytdEnd)
+            .reduce((s, a) => s + Number(a.distance_km), 0);
+          prevDist = Math.round(ytdSum * 10) / 10;
+        } else {
+          prevDist = Math.round(prevYActs.reduce((s, a) => s + Number(a.distance_km), 0) * 10) / 10;
+        }
+      }
       results.push({
         label: `${y}`,
-        distance: Math.round(yActivities.reduce((s, a) => s + Number(a.distance_km), 0) * 10) / 10,
+        distance: Math.round(dist * 10) / 10,
+        prevDistance: prevDist,
       });
     }
   }

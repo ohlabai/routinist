@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
+import { dataCache, CACHE_KEYS, onCacheInvalidated } from '@/lib/data-cache';
 
 interface LocalRunner {
   user_id: string;
@@ -20,11 +21,32 @@ export default function TodayLocalTop() {
   const { profile } = useAuth();
   const [runners, setRunners] = useState<LocalRunner[]>([]);
   const [loading, setLoading] = useState(true);
+  const [retryKey, setRetryKey] = useState(0);
+
+  // cache invalidate listen — PullToRefresh 가 fresh fetch 트리거
+  useEffect(() => {
+    const off = onCacheInvalidated((prefix) => {
+      if (prefix === '' || 'home:localtop:'.startsWith(prefix) || prefix.startsWith('home:localtop:')) {
+        setRetryKey(k => k + 1);
+      }
+    });
+    return off;
+  }, []);
 
   useEffect(() => {
     if (!profile?.region_gu) {
       setLoading(false);
       return;
+    }
+    const cacheKey = `home:localtop:${profile.region_gu}`;
+    // stale-while-revalidate: 캐시 있으면 즉시 set, retryKey === 0 면 거기서 끝.
+    const cached = dataCache.get<LocalRunner[]>(cacheKey);
+    if (cached) {
+      setRunners(cached.value);
+      setLoading(false);
+      if (retryKey === 0) return;
+    } else {
+      setLoading(true);
     }
     (async () => {
       try {
@@ -34,14 +56,17 @@ export default function TodayLocalTop() {
           top_n: 10,
         });
         if (error) throw error;
-        setRunners((data ?? []) as LocalRunner[]);
+        const value = (data ?? []) as LocalRunner[];
+        setRunners(value);
+        dataCache.set(cacheKey, value);
       } catch (e) {
         console.warn('[TodayLocalTop] 조회 실패', e);
       } finally {
         setLoading(false);
       }
     })();
-  }, [profile?.region_gu]);
+    void CACHE_KEYS;
+  }, [profile?.region_gu, retryKey]);
 
   if (!profile?.region_gu) return null;
   if (loading) return null;

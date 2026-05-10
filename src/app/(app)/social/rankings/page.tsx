@@ -7,34 +7,13 @@ import { ArrowLeft, Trophy, MapPin, Globe, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import type { RegionalRanking } from '@/types';
 import AppLogo from '@/components/AppLogo';
+import { COUNTRIES as ALL_COUNTRIES, KR_REGIONS } from '@/lib/regions';
 
-// 국가 목록 (대한민국 최상위, 나머지 해당 국가 언어)
-const COUNTRIES = [
-  { code: 'KR', name: '대한민국' },
-  { code: 'US', name: 'United States' },
-  { code: 'JP', name: '日本' },
-  { code: 'CN', name: '中国' },
-  { code: 'GB', name: 'United Kingdom' },
-  { code: 'DE', name: 'Deutschland' },
-  { code: 'FR', name: 'France' },
-  { code: 'AU', name: 'Australia' },
-  { code: 'CA', name: 'Canada' },
-  { code: 'SG', name: 'Singapore' },
-];
+// 랭킹 페이지에서 보여줄 국가 목록 — 전체 국가 목록 사용 (다국가 사용자 대응)
+const COUNTRIES = ALL_COUNTRIES.map(c => ({ code: c.code, name: c.native }));
 
-// 한국 시도
-const KR_PROVINCES: Record<string, string[]> = {
-  '서울특별시': ['강남구', '서초구', '마포구', '송파구', '강서구', '영등포구', '용산구', '성동구', '관악구', '동작구', '광진구', '종로구', '중구', '동대문구', '성북구', '강북구', '도봉구', '노원구', '은평구', '서대문구', '양천구', '구로구', '금천구', '중랑구'],
-  '경기도': ['성남시', '수원시', '용인시', '고양시', '안양시', '부천시', '평택시', '화성시', '시흥시', '파주시', '김포시', '광명시', '하남시'],
-  '부산광역시': ['해운대구', '수영구', '남구', '동래구', '부산진구', '사하구', '금정구', '연제구'],
-  '인천광역시': ['연수구', '남동구', '부평구', '계양구', '미추홀구', '서구'],
-  '대구광역시': ['수성구', '달서구', '중구', '동구', '북구'],
-  '대전광역시': ['유성구', '서구', '중구', '동구'],
-  '광주광역시': ['서구', '북구', '남구', '동구', '광산구'],
-  '울산광역시': ['남구', '중구', '동구', '북구', '울주군'],
-  '세종특별자치시': ['세종시'],
-  '제주특별자치도': ['제주시', '서귀포시'],
-};
+// 한국 시도 → 구/군 — 통합 데이터 (regions.ts 의 KR_REGIONS) 사용
+const KR_PROVINCES = KR_REGIONS;
 
 type RankLevel = 'country' | 'province' | 'district';
 
@@ -103,76 +82,79 @@ export default function RankingsPage() {
 
       <p className="text-xs text-[var(--muted)] text-center">{year}년 {month}월</p>
 
-      {/* 1단: 국가 선택 */}
+      {/* iOS 에서 <select> = native 휠 피커. 칩 그리드보다 화면 압축 + 익숙한 UX. */}
+      {/* 1단: 국가 */}
       <div>
         <div className="flex items-center gap-1 mb-2">
           <Globe size={14} className="text-[var(--accent)]" />
           <span className="text-sm font-semibold text-[var(--foreground)]">국가</span>
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <select
+          value={selectedCountry}
+          onChange={(e) => handleCountryChange(e.target.value)}
+          className="w-full px-4 py-3 rounded-xl bg-[var(--card)] border border-[var(--card-border)] text-[var(--foreground)] text-base font-semibold focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+        >
           {COUNTRIES.map((c) => (
-            <button
-              key={c.code}
-              onClick={() => handleCountryChange(c.code)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
-                selectedCountry === c.code
-                  ? 'bg-[var(--accent)] text-white'
-                  : 'bg-[var(--card)] text-[var(--muted)] border border-[var(--card-border)]'
-              }`}
-            >
-              {c.name}
-            </button>
+            <option key={c.code} value={c.code}>{c.name}</option>
           ))}
-        </div>
+        </select>
       </div>
 
-      {/* 2단: 시/도 선택 (한국만) */}
+      {/* 2단: 시/도 (한국만) */}
       {selectedCountry === 'KR' && provinces.length > 0 && (
         <div>
           <div className="flex items-center gap-1 mb-2">
             <MapPin size={14} className="text-green-500" />
             <span className="text-sm font-semibold text-[var(--foreground)]">시/도</span>
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <select
+            value={rankLevel === 'country' ? '__all__' : selectedProvince}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === '__all__') {
+                setSelectedProvince('');
+                setSelectedDistrict('');
+                setRankLevel('country');
+              } else {
+                handleProvinceChange(v);
+              }
+            }}
+            className="w-full px-4 py-3 rounded-xl bg-[var(--card)] border border-[var(--card-border)] text-[var(--foreground)] text-base font-semibold focus:outline-none focus:ring-2 focus:ring-green-500"
+          >
+            <option value="__all__">🇰🇷 전체 (국가 단위)</option>
             {provinces.map((p) => (
-              <button
-                key={p}
-                onClick={() => handleProvinceChange(p)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
-                  selectedProvince === p
-                    ? 'bg-green-500 text-white'
-                    : 'bg-[var(--card)] text-[var(--muted)] border border-[var(--card-border)]'
-                }`}
-              >
-                {p.replace('특별시', '').replace('광역시', '').replace('특별자치시', '').replace('특별자치도', '')}
-              </button>
+              <option key={p} value={p}>{p}</option>
             ))}
-          </div>
+          </select>
         </div>
       )}
 
-      {/* 3단: 구/군 선택 */}
-      {selectedCountry === 'KR' && districts.length > 0 && (
+      {/* 3단: 구/군 */}
+      {selectedCountry === 'KR' && rankLevel !== 'country' && districts.length > 0 && (
         <div>
           <div className="flex items-center gap-1 mb-2">
             <MapPin size={14} className="text-orange-500" />
             <span className="text-sm font-semibold text-[var(--foreground)]">구/군</span>
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <select
+            value={rankLevel === 'province' ? '__all__' : selectedDistrict}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === '__all__') {
+                setSelectedDistrict('');
+                setRankLevel('province');
+              } else {
+                setSelectedDistrict(v);
+                setRankLevel('district');
+              }
+            }}
+            className="w-full px-4 py-3 rounded-xl bg-[var(--card)] border border-[var(--card-border)] text-[var(--foreground)] text-base font-semibold focus:outline-none focus:ring-2 focus:ring-orange-500"
+          >
+            <option value="__all__">{selectedProvince.replace('특별시','').replace('광역시','').replace('특별자치시','').replace('특별자치도','')} 전체 (시/도 단위)</option>
             {districts.map((d) => (
-              <button
-                key={d}
-                onClick={() => { setSelectedDistrict(d); setRankLevel('district'); }}
-                className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
-                  selectedDistrict === d
-                    ? 'bg-orange-500 text-white'
-                    : 'bg-[var(--card)] text-[var(--muted)] border border-[var(--card-border)]'
-                }`}
-              >
-                {d}
-              </button>
+              <option key={d} value={d}>{d}</option>
             ))}
-          </div>
+          </select>
         </div>
       )}
 
@@ -191,9 +173,15 @@ export default function RankingsPage() {
         <div className="text-center py-12 space-y-2">
           <p className="text-4xl">🏆</p>
           <p className="text-sm font-medium text-[var(--foreground)]">
-            {selectedDistrict || selectedProvince}에 아직 기록이 없습니다
+            {rankLevel === 'country'
+              ? '국가 단위 통합 랭킹은 곧 출시됩니다'
+              : rankLevel === 'province'
+              ? `${selectedProvince} 통합 랭킹은 곧 출시됩니다`
+              : `${selectedDistrict || selectedProvince}에 아직 기록이 없습니다`}
           </p>
-          <p className="text-xs text-[var(--muted)]">첫 번째 러너가 되어보세요!</p>
+          <p className="text-xs text-[var(--muted)]">
+            {rankLevel === 'district' ? '첫 번째 러너가 되어보세요!' : '구/군별 랭킹부터 확인하세요'}
+          </p>
         </div>
       ) : (
         <div className="card overflow-hidden">

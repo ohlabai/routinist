@@ -66,9 +66,18 @@ export default function RoutinePhotoCarousel() {
           <Flame size={20} className="text-emerald-600" />
           이번 주 인기 루틴포토
         </h3>
-        <Link href="/social?tab=photos" className="text-sm font-semibold text-emerald-600 flex items-center gap-0.5">
-          더보기 <ChevronRight size={14} />
-        </Link>
+        <div className="flex items-center gap-2">
+          <PhotoUploader
+            className="flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300 px-2.5 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 active:scale-95 transition"
+            onUploaded={() => setReloadKey(k => k + 1)}
+          >
+            <Camera size={13} />
+            <span>올리기</span>
+          </PhotoUploader>
+          <Link href="/social?tab=photos" className="text-sm font-semibold text-emerald-600 flex items-center gap-0.5">
+            더보기 <ChevronRight size={14} />
+          </Link>
+        </div>
       </div>
 
       <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 px-4" style={{ scrollSnapType: 'x mandatory' }}>

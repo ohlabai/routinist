@@ -44,15 +44,15 @@ export default function PhotosTab() {
         result = await fetchTrendingPhotos(50);
       } else if (sub === 'friends') {
         const following = await fetchFollowing(user.id);
-        result = await fetchFriendPhotos(following.map(f => f.id), 50);
+        result = await fetchFriendPhotos(following.map(f => f.id), { limit: 50 });
       } else if (sub === 'region') {
         if (profile?.region_gu) {
-          result = await fetchRegionPhotos(profile.region_gu, 50);
+          result = await fetchRegionPhotos(profile.region_gu, { limit: 50 });
         }
       } else if (sub === 'recent') {
-        result = await fetchRecentPhotos(50);
+        result = await fetchRecentPhotos({ limit: 50 });
       } else if (sub === 'liked') {
-        result = await fetchMyLikedPhotos(50);
+        result = await fetchMyLikedPhotos({ limit: 50 });
       }
     } catch (e) {
       console.warn('[PhotosTab] load 실패', e);
@@ -104,7 +104,7 @@ export default function PhotosTab() {
         loading={loading}
         emptyText={
           sub === 'friends'
-            ? '친구가 올린 사진이 없어요. 친구 탭에서 러너를 팔로우해보세요!'
+            ? '친구가 올린 사진이 없어요. 친구 탭에서 러너를 친구로 추가해보세요!'
             : sub === 'region' && !profile?.region_gu
             ? '지역을 설정하면 내 동네 사진이 여기 보여요'
             : sub === 'region'

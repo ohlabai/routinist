@@ -13,6 +13,7 @@ interface GetRoutesResult {
 }
 
 interface WorkoutRoutePlugin {
+  requestAuthorization(): Promise<{ success: boolean }>;
   getRoutes(options: {
     startDate: string;
     endDate: string;
