@@ -102,7 +102,7 @@ function ProductDetailContent() {
 
   const handleShare = async () => {
     if (!product) return;
-    const url = `https://bitrunners.kr/shop/product?id=${product.id}`;
+    const url = `https://routinist.kr/shop/product?id=${product.id}`;
     try {
       if (navigator.share) {
         await navigator.share({ title: product.name, text: `${product.name} - ${product.price_krw.toLocaleString()}원`, url });

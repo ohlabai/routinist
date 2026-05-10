@@ -1,7 +1,7 @@
 // 토스페이먼츠 webhook — 비동기 이벤트 수신 (환불/취소/실패 등).
 //
 // 토스 가맹점 대시보드 → 개발자센터 → 웹훅 → URL 등록:
-//   https://bitrunners.kr/api/payments/toss/webhook
+//   https://routinist.kr/api/payments/toss/webhook
 // 이벤트: PAYMENT_STATUS_CHANGED, CANCEL_REQUESTED 등.
 //
 // 보안: 토스는 secret_key 기반 signature 검증 메커니즘이 있음 (X-TossPayments-Signature 헤더).

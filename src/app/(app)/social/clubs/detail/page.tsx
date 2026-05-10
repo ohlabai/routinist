@@ -175,8 +175,8 @@ function ClubDetail() {
   };
 
   // 클럽 초대 URL — 네이티브 앱은 origin='capacitor://localhost' 라 외부에서 안 열림 (QR 스캔 시 "사용 가능한 데이터가 없음").
-  // 항상 public Vercel 도메인 사용. 받는 사람이 카메라로 스캔 → 브라우저 → 앱 설치된 경우 Universal Link (TODO).
-  const getInviteUrl = () => `https://bitrunners.kr/social/clubs/detail?id=${clubId}`;
+  // 항상 public domain 사용. 받는 사람이 카메라로 스캔 → 브라우저 → 앱 설치된 경우 Universal Link (TODO).
+  const getInviteUrl = () => `https://routinist.kr/social/clubs/detail?id=${clubId}`;
 
   const handleCopyInvite = () => {
     navigator.clipboard.writeText(getInviteUrl()).then(() => {
