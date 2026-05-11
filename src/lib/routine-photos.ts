@@ -149,7 +149,8 @@ export async function reportPhoto(photoId: string, reason: 'inappropriate' | 'sp
   if (error) throw error;
 }
 
-// 좋아요 토글 — optimistic update
+// 좋아요 토글 — optimistic update.
+// 23505 (이미 like 됨) 은 idempotent 로 처리 (view 의 liked_by_me 가 stale 일 때 false positive 회피).
 export async function togglePhotoLike(photoId: string, currentlyLiked: boolean): Promise<boolean> {
   const supabase = getSupabase();
   const { data: { user } } = await supabase.auth.getUser();
@@ -167,7 +168,8 @@ export async function togglePhotoLike(photoId: string, currentlyLiked: boolean):
     const { error } = await supabase
       .from('photo_likes')
       .insert({ photo_id: photoId, user_id: user.id });
-    if (error) throw error;
+    // unique violation = 이미 like 한 상태. UI 와 DB 가 어긋난 경우라 idempotent OK.
+    if (error && (error as { code?: string }).code !== '23505') throw error;
     return true;
   }
 }
@@ -198,6 +200,16 @@ function mapRow(row: Record<string, unknown>): RoutinePhoto {
     distance_km: Number(row.distance_km ?? 0),
     activity_date: row.activity_date as string,
     like_count: Number(row.like_count ?? 0),
+    liked_by_me: row.liked_by_me === true,
     created_at: row.created_at as string,
   };
+}
+
+// 페이지에서 받은 사진 목록에 liked_by_me 를 일괄 적용 (view 에 컬럼 없을 때 fallback).
+export async function applyLikedFlags<T extends { photo_id: string; liked_by_me?: boolean }>(
+  photos: T[],
+): Promise<T[]> {
+  if (photos.length === 0) return photos;
+  const likedIds = await fetchMyLikedIds();
+  return photos.map(p => ({ ...p, liked_by_me: likedIds.has(p.photo_id) }));
 }

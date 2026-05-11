@@ -268,26 +268,50 @@ export async function handleOAuthCallback(url: string): Promise<Session | null> 
   return null;
 }
 
-// 이메일/비밀번호 회원가입
+// 이메일/비밀번호 회원가입 — Supabase 가 confirm 메일 보냄 (Dashboard 의 Confirm email ON 필수).
+// emailRedirectTo: 메일의 confirm 링크 클릭 후 돌아올 곳 (네이티브는 딥링크).
 export async function signUpWithEmail(email: string, password: string, displayName?: string) {
   const supabase = getSupabase();
+  const emailRedirectTo = isNativeApp()
+    ? APP_URL_SCHEME
+    : `${typeof window !== 'undefined' ? window.location.origin : 'https://routinist.kr'}${WEB_CALLBACK_PATH}`;
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: displayName ? { display_name: displayName } : undefined,
+      emailRedirectTo,
     },
   });
   if (error) throw error;
   return data;
 }
 
-// 이메일/비밀번호 로그인
+// 이메일/비밀번호 로그인. 이메일 미확인 사용자는 차단 (사용자 피드백 — 인증 과정 강제).
 export async function signInWithEmail(email: string, password: string) {
   const supabase = getSupabase();
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
+  if (data.user && !data.user.email_confirmed_at) {
+    // 이메일 확인 안 된 계정 — 즉시 로그아웃 + 명확한 안내.
+    await supabase.auth.signOut().catch(() => {});
+    throw new Error('이메일 인증이 완료되지 않았어요. 가입 시 보낸 메일에서 링크를 눌러주세요.');
+  }
   return data;
+}
+
+// 인증 메일 재전송
+export async function resendEmailConfirmation(email: string) {
+  const supabase = getSupabase();
+  const emailRedirectTo = isNativeApp()
+    ? APP_URL_SCHEME
+    : `${typeof window !== 'undefined' ? window.location.origin : 'https://routinist.kr'}${WEB_CALLBACK_PATH}`;
+  const { error } = await supabase.auth.resend({
+    type: 'signup',
+    email,
+    options: { emailRedirectTo },
+  });
+  if (error) throw error;
 }
 
 // 비밀번호 재설정 메일

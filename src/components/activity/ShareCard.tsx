@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { Share2, X, ChevronLeft, ChevronRight, ImagePlus, Check, ThumbsUp, Dices } from 'lucide-react';
+import { Share2, X, ImagePlus, Check, ThumbsUp, Dices } from 'lucide-react';
 import { isNativeApp } from '@/lib/health-sync';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
@@ -31,7 +31,7 @@ type Theme = {
 
 const THEMES: Theme[] = [
   {
-    name: '미드나잇',
+    name: '새벽',
     bg: (ctx, W, H) => {
       const g = ctx.createLinearGradient(0, 0, 0, H);
       g.addColorStop(0, '#0f0c29'); g.addColorStop(0.5, '#302b63'); g.addColorStop(1, '#24243e');
@@ -40,7 +40,7 @@ const THEMES: Theme[] = [
     accent: '#818cf8', textMain: '#ffffff', textSub: '#94a3b8', routeColor: '#818cf8',
   },
   {
-    name: '선셋',
+    name: '노을',
     bg: (ctx, W, H) => {
       const g = ctx.createLinearGradient(0, 0, W, H);
       g.addColorStop(0, '#f97316'); g.addColorStop(0.4, '#ec4899'); g.addColorStop(1, '#8b5cf6');
@@ -49,7 +49,7 @@ const THEMES: Theme[] = [
     accent: '#fbbf24', textMain: '#ffffff', textSub: '#fde68a', routeColor: '#ffffff',
   },
   {
-    name: '포레스트',
+    name: '숲',
     bg: (ctx, W, H) => {
       const g = ctx.createLinearGradient(0, 0, 0, H);
       g.addColorStop(0, '#064e3b'); g.addColorStop(0.5, '#065f46'); g.addColorStop(1, '#0f766e');
@@ -58,7 +58,7 @@ const THEMES: Theme[] = [
     accent: '#34d399', textMain: '#ffffff', textSub: '#a7f3d0', routeColor: '#34d399',
   },
   {
-    name: '클린 화이트',
+    name: '하양',
     bg: (ctx, W, H) => {
       ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, 0, W, H);
       // 미세한 도트 패턴
@@ -72,7 +72,7 @@ const THEMES: Theme[] = [
     accent: '#3b82f6', textMain: '#1e293b', textSub: '#64748b', routeColor: '#3b82f6',
   },
   {
-    name: '네온',
+    name: '밤',
     bg: (ctx, W, H) => {
       ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, W, H);
       // 그리드 라인
@@ -168,11 +168,11 @@ function drawCard(
     const minLat = Math.min(...lats), maxLat = Math.max(...lats);
     const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
 
-    // 명언이 좋아요 inline 으로 컴팩트해지면서 지도/거리도 위로 ↑ (사용자 피드백 #4).
+    // 명언/지도/거리 위치 위로 ↑ (사용자 피드백 — 5/11 layout 재조정).
     const padding = 120;
     const mapW = W - padding * 2;
     const mapH = 480;
-    const mapY = 360;
+    const mapY = 280;
 
     const scaleX = mapW / (maxLng - minLng || 0.001);
     const scaleY = mapH / (maxLat - minLat || 0.001);
@@ -253,8 +253,8 @@ function drawCard(
     });
   }
 
-  // 거리 (메인) — 사용자 피드백 #4: 위로 더 올림 (지도 mapY 360 → map 끝 840 → distY 약간 위).
-  const distY = hasRoute ? H * 0.53 : H * 0.4;
+  // 거리 (메인) — 사용자 피드백: 더 위로. mapY 280 → map 끝 760 → distY 위로.
+  const distY = hasRoute ? H * 0.48 : H * 0.36;
   ctx.font = 'bold 180px -apple-system, BlinkMacSystemFont, sans-serif';
   ctx.fillStyle = mainColor;
   ctx.fillText(activity.distance_km.toFixed(2), W / 2, distY);
@@ -301,8 +301,8 @@ function drawCard(
     ctx.font = 'italic 600 52px -apple-system, BlinkMacSystemFont, sans-serif';
     ctx.fillStyle = mainColor;
     ctx.textAlign = 'center';
-    // 상단 영역. 날짜(120) 다음. 3줄까지 수용.
-    const quoteY = 280;
+    // 상단 영역. 더 위로 (사용자 피드백). 3줄까지 수용.
+    const quoteY = 200;
     const maxQuoteW = W - 120;
 
     // 단어 단위 wrap → 한 줄이 여전히 maxQuoteW 초과하면 글자 단위로 강제 분할.
@@ -360,56 +360,42 @@ function drawCard(
     const lineH = 64;
     const startY = quoteY - ((lines.length - 1) * lineH) / 2;
     lines.forEach((line, i) => ctx.fillText(line, W / 2, startY + i * lineH));
+    // 👍 inline 좋아요 제거 (사용자 피드백 D): 칩 영역의 좋아요와 중복됐던 표시 단일화.
+  }
 
-    // 👍 좋아요 — 마지막 줄 오른쪽 끝 inline (사용자 피드백 #4).
-    // 명언이 가운데 정렬이라, 좋아요는 마지막 줄의 우측 끝 (텍스트 오른쪽 가장자리) 옆에 붙여 그림.
-    if (!isFallbackQuote(quote)) {
-      const thumbSize = 32;
-      const gap = 12;
-      const lastLineIdx = lines.length - 1;
-      const lastLineY = startY + lastLineIdx * lineH;
-      const lastLineText = lines[lastLineIdx];
+  // ★ 사용자 피드백: 세로(일별)↔가로(progress) 위치 swap.
+  // 세로 일별 막대 (위) → 가로 progress bar (아래) 순서.
+  // 5/11 라벨은 progress bar 의 오늘 위치 위에 표시.
 
-      // 마지막 줄 텍스트의 가운데 정렬 baseline 의 우측 끝 픽셀 좌표.
-      ctx.font = 'italic 600 52px -apple-system, BlinkMacSystemFont, sans-serif';
-      const lastLineW = ctx.measureText(lastLineText).width;
-      const lastLineRightX = W / 2 + lastLineW / 2;
+  // (1) 월간 일별 세로 막대 그래프 — 위
+  if (dailyKm.size > 0) {
+    const chartTop = 1410;
+    const chartH = 110;
+    const chartPadX = 100;
+    const chartW = W - chartPadX * 2;
+    const maxDay = Math.max(...Array.from(dailyKm.values()), 1);
+    const barWidth = (chartW - 4 * (daysInMonth - 1)) / daysInMonth;
 
-      ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
-      const countText = `${quote.like_count}`;
-      const countW = ctx.measureText(countText).width;
+    const onPhoto = !!bgImage;
+    const barFillToday = onPhoto ? '#ffffff' : accentColor;
+    const barFillOther = onPhoto ? 'rgba(255,255,255,0.55)' : accentColor + 'AA';
+    const barFillEmpty = onPhoto ? 'rgba(255,255,255,0.15)' : subColor + '22';
 
-      // 우측 끝 + 약간 띄움. 화면 밖으로 나가지 않게 maxX clamp (W - 60 padding).
-      let thumbX = lastLineRightX + gap + thumbSize / 2;
-      const groupRightX = thumbX + thumbSize / 2 + gap + countW;
-      const maxX = W - 60;
-      if (groupRightX > maxX) {
-        // overflow → 마지막 줄 아래로 떨어뜨림 (이전 동작 fallback)
-        thumbX = W / 2 - (thumbSize + gap + countW) / 2 + thumbSize / 2;
-        const thumbY = lastLineY + lineH * 0.55;
-        drawThumbsUp(ctx, thumbX, thumbY, thumbSize, quote.liked_by_me, subColor);
-        ctx.fillStyle = quote.liked_by_me ? '#10b981' : subColor;
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(countText, thumbX + thumbSize / 2 + gap, thumbY);
-        ctx.textBaseline = 'alphabetic';
-      } else {
-        const thumbY = lastLineY - lineH * 0.15; // baseline 보다 약간 위 (텍스트 중앙)
-        drawThumbsUp(ctx, thumbX, thumbY, thumbSize, quote.liked_by_me, subColor);
-        ctx.fillStyle = quote.liked_by_me ? '#10b981' : subColor;
-        ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(countText, thumbX + thumbSize / 2 + gap, thumbY);
-        ctx.textBaseline = 'alphabetic';
-      }
+    for (let day = 1; day <= daysInMonth; day++) {
+      const km = dailyKm.get(day) ?? 0;
+      const x = chartPadX + (day - 1) * (barWidth + 4);
+      const h = (km / maxDay) * chartH;
+      const isToday = day === todayDay;
+      ctx.fillStyle = isToday ? barFillToday : (km > 0 ? barFillOther : barFillEmpty);
+      const barH = Math.max(h, 3);
+      const barTop = chartTop + chartH - barH;
+      ctx.fillRect(x, barTop, barWidth, barH);
     }
   }
 
-  // 월 목표 가로 progress bar (사용자 피드백 #4) — 흰색, 세로 막대그래프 바로 위.
-  // 목표 미설정이면 그리지 않음. 흰색은 사진 배경/테마 모두에서 잘 보이라고 (사용자 결정).
+  // (2) 월 목표 가로 progress bar — 아래. 흰색.
   if (monthlyGoalKm && monthlyGoalKm > 0 && monthSum > 0) {
-    const goalBarTop = 1430;
+    const goalBarTop = 1580;
     const goalBarH = 14;
     const goalBarPadX = 100;
     const goalBarW = W - goalBarPadX * 2;
@@ -429,56 +415,22 @@ function drawCard(
     ctx.roundRect(goalBarPadX, goalBarTop, fillW, goalBarH, radius);
     ctx.fill();
 
-    // 라벨 (왼쪽 / 오른쪽)
+    // 좌측 라벨 — 월 목표
     ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, sans-serif';
     ctx.fillStyle = bgImage ? 'rgba(255,255,255,0.95)' : mainColor;
     ctx.textAlign = 'left';
     ctx.fillText(`${activityMonth + 1}월 목표`, goalBarPadX, goalBarTop - 14);
     ctx.textAlign = 'right';
     ctx.fillText(`${monthSum.toFixed(1)} / ${monthlyGoalKm.toFixed(0)}km`, goalBarPadX + goalBarW, goalBarTop - 14);
-  }
 
-  // 월간 그래프 — 하단 (이전 명언 자리). 작게.
-  if (dailyKm.size > 0) {
-    const chartTop = 1490;
-    const chartH = 110;
-    const chartPadX = 100;
-    const chartW = W - chartPadX * 2;
-    const maxDay = Math.max(...Array.from(dailyKm.values()), 1);
-    const barWidth = (chartW - 4 * (daysInMonth - 1)) / daysInMonth;
-
-    const onPhoto = !!bgImage;
-    const labelColor = onPhoto ? 'rgba(255,255,255,0.85)' : subColor;
-    const barFillToday = onPhoto ? '#ffffff' : accentColor;
-    const barFillOther = onPhoto ? 'rgba(255,255,255,0.55)' : accentColor + 'AA';
-    const barFillEmpty = onPhoto ? 'rgba(255,255,255,0.15)' : subColor + '22';
-
+    // 오늘 (M/D) 라벨 — progress bar 의 오늘 위치 위에 표시 (사용자 피드백).
+    // bar 의 진행 끝 위치 = 오늘까지 누적된 거리 비율. 단, todayDay/daysInMonth 비율로도 대체 가능.
+    // 의미적 정확성을 위해 progress 끝점 사용.
+    const todayMarkerX = goalBarPadX + fillW;
+    ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillStyle = bgImage ? '#ffffff' : accentColor;
     ctx.textAlign = 'center';
-
-    let todayBarCenterX = 0;
-    let todayBarTopY = 0;
-    for (let day = 1; day <= daysInMonth; day++) {
-      const km = dailyKm.get(day) ?? 0;
-      const x = chartPadX + (day - 1) * (barWidth + 4);
-      const h = (km / maxDay) * chartH;
-      const isToday = day === todayDay;
-      ctx.fillStyle = isToday ? barFillToday : (km > 0 ? barFillOther : barFillEmpty);
-      const barH = Math.max(h, 3);
-      const barTop = chartTop + chartH - barH;
-      ctx.fillRect(x, barTop, barWidth, barH);
-      if (isToday) {
-        todayBarCenterX = x + barWidth / 2;
-        todayBarTopY = barTop;
-      }
-    }
-
-    // 오늘 막대 위에 'M/D' 라벨 (사용자 피드백 #13: 날짜 정보를 그래프로 통합)
-    if (todayBarCenterX > 0) {
-      const label = `${activityMonth + 1}/${todayDay}`;
-      ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillStyle = onPhoto ? '#ffffff' : accentColor;
-      ctx.fillText(label, todayBarCenterX, todayBarTopY - 10);
-    }
+    ctx.fillText(`${activityMonth + 1}/${todayDay}`, todayMarkerX, goalBarTop + goalBarH + 32);
   }
 
   // Footer — 한 라인 가운데 정렬. 좌측 @userId (emerald, 본인 강조), 구분 |, 우측 Routinist.
@@ -808,30 +760,22 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
           </div>
         )}
 
-        {/* 테마 선택 */}
+        {/* 테마 선택 — 5개 한 줄 grid (사용자 피드백 #9). 화살표 제거. */}
         <div className="px-4 pb-2 flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <button onClick={() => setThemeIdx((themeIdx - 1 + THEMES.length) % THEMES.length)} className="p-1 text-[var(--muted)]">
-              <ChevronLeft size={18} />
-            </button>
-            <div className="flex-1 flex justify-center gap-2">
-              {THEMES.map((t, i) => (
-                <button
-                  key={t.name}
-                  onClick={() => setThemeIdx(i)}
-                  className={`px-3 py-1 rounded-full text-sm font-semibold transition-all ${
-                    i === themeIdx && !bgImage
-                      ? 'bg-[var(--accent)] text-white'
-                      : 'bg-[var(--card)] text-[var(--muted)]'
-                  }`}
-                >
-                  {t.name}
-                </button>
-              ))}
-            </div>
-            <button onClick={() => setThemeIdx((themeIdx + 1) % THEMES.length)} className="p-1 text-[var(--muted)]">
-              <ChevronRight size={18} />
-            </button>
+          <div className="grid grid-cols-5 gap-1.5">
+            {THEMES.map((t, i) => (
+              <button
+                key={t.name}
+                onClick={() => setThemeIdx(i)}
+                className={`py-1.5 rounded-full text-xs font-bold transition-all active:scale-95 ${
+                  i === themeIdx && !bgImage
+                    ? 'bg-[var(--accent)] text-white shadow-sm'
+                    : 'bg-[var(--card)] text-[var(--muted)] border border-[var(--card-border)]'
+                }`}
+              >
+                {t.name}
+              </button>
+            ))}
           </div>
         </div>
 

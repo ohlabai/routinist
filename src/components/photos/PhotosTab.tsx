@@ -13,6 +13,7 @@ import {
   fetchFriendPhotos,
   fetchRegionPhotos,
   fetchMyLikedPhotos,
+  applyLikedFlags,
   type RoutinePhoto,
 } from '@/lib/routine-photos';
 import { fetchFollowing } from '@/lib/social-data';
@@ -53,6 +54,13 @@ export default function PhotosTab() {
         result = await fetchRecentPhotos({ limit: 50 });
       } else if (sub === 'liked') {
         result = await fetchMyLikedPhotos({ limit: 50 });
+      }
+      // view 에 liked_by_me 가 비어있을 수 있어 클라사이드 일괄 적용.
+      // 좋아요 탭은 모두 liked 라 skip.
+      if (sub !== 'liked') {
+        result = await applyLikedFlags(result);
+      } else {
+        result = result.map(p => ({ ...p, liked_by_me: true }));
       }
     } catch (e) {
       console.warn('[PhotosTab] load 실패', e);

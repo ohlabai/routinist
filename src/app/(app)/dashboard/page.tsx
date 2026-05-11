@@ -30,6 +30,7 @@ import {
 } from 'recharts';
 import Onboarding from '@/components/Onboarding';
 import LazyMount from '@/components/LazyMount';
+import AppLogo from '@/components/AppLogo';
 import HomeRankingHero from '@/components/home/HomeRankingHero';
 import StreakWarningCard from '@/components/home/StreakWarningCard';
 import WeeklyRecapCard from '@/components/home/WeeklyRecapCard';
@@ -456,10 +457,13 @@ export default function DashboardPage() {
   return (
     <PullToRefresh onRefresh={handleRefresh}>
     <div className="max-w-lg mx-auto pb-8 bg-[var(--background)] min-h-screen">
-    {/* Sticky Header */}
+    {/* Sticky Header — 다른 탭과 동일한 [로고 + 타이틀] 좌측 정렬 패턴 */}
     <header className="sticky top-0 z-20 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
       <div className="px-4 py-3 flex items-center justify-between">
-        <h1 className="text-xl font-extrabold tracking-tight">홈</h1>
+        <div className="flex items-center gap-2">
+          <AppLogo size={28} />
+          <h1 className="text-xl font-extrabold tracking-tight">홈</h1>
+        </div>
         <Link href="/history" className="text-xs font-bold text-emerald-600 inline-flex items-center gap-0.5 active:scale-95 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30">
           히스토리 <ChevronRight size={12} />
         </Link>
@@ -468,15 +472,20 @@ export default function DashboardPage() {
       {syncToast && (
         <AppToast text={syncToast} tone={syncToast.startsWith('동기화 실패') ? 'warn' : 'ok'} position="top" onClose={() => setSyncToast(null)} durationMs={4000} />
       )}
-      {/* HealthKit 연동 카드 — App Store 가이드 2.5.1 (HealthKit UI 명확성) 위해 홈 최상단 (build 62) */}
-      <HealthConnectCard />
-      {/* 동기부여 카드 — 조건부 (피드백 #14 새 아이디어) */}
-      <WeeklyRecapCard activities={activities} />
-      <StreakWarningCard activities={activities} streak={getStreak(activities)} />
-      {/* ========== 홈 히어로 (경쟁·소셜 중심) ========== */}
-      {/* above-the-fold: 즉시 마운트. PullToRefresh 가 sync 트리거 역할 — HealthRefreshChip 중복 제거. */}
-      <HomeRankingHero />
-      <LiveRunningIndicator />
+      {/* 홈 hero 영역 — 카드 간 여백 + 일관 spacing 으로 어수선함 해소 (사용자 피드백 #2).
+          이전: 각 컴포넌트 자체 margin 만 의존 → stacking 답답함.
+          현재: space-y-2 wrapper + 좌우 padding 통일. */}
+      <div className="space-y-2 pt-1">
+        {/* HealthKit 연동 카드 — App Store 가이드 2.5.1 (HealthKit UI 명확성) 위해 홈 최상단 (build 62) */}
+        <HealthConnectCard />
+        {/* 동기부여 카드 — 조건부 (피드백 #14 새 아이디어) */}
+        <WeeklyRecapCard activities={activities} />
+        <StreakWarningCard activities={activities} streak={getStreak(activities)} />
+        {/* ========== 홈 히어로 (경쟁·소셜 중심) ========== */}
+        {/* above-the-fold: 즉시 마운트. PullToRefresh 가 sync 트리거 역할. */}
+        <HomeRankingHero />
+        <LiveRunningIndicator />
+      </div>
 
       {/* below-the-fold: 뷰포트 진입 시 마운트 — 첫 렌더 부담 분산 */}
       <LazyMount minHeight={120} rootMargin="300px"><RankNeighbors /></LazyMount>
@@ -486,7 +495,8 @@ export default function DashboardPage() {
       <LazyMount minHeight={180} rootMargin="300px"><FriendsLeaderboard /></LazyMount>
 
       <div className="p-4 space-y-4">
-      {/* ========== 헤더 ========== */}
+      {/* ========== 헤더 ==========
+          히스토리 링크는 상단 sticky header 의 칩에만 표시 (중복 제거 — 사용자 피드백). */}
       <div className="flex items-center justify-between pt-2">
         <div>
           <h2 className="text-xl font-bold text-[var(--foreground)]">
@@ -497,9 +507,6 @@ export default function DashboardPage() {
             <FreshnessBadge ts={lastUpdated} onRefresh={refresh} />
           </div>
         </div>
-        <Link href="/history" className="text-sm text-[var(--accent)] font-semibold flex items-center gap-0.5">
-          히스토리 <ChevronRight size={16} />
-        </Link>
       </div>
 
       {/* 지역 미설정 배너 — region_gu (한국) 또는 country_code (해외) 둘 다 없을 때만. */}

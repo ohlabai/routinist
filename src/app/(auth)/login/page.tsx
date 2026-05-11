@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { signInWithProvider, signInWithEmail, signUpWithEmail, sendPasswordResetEmail } from '@/lib/auth';
+import { signInWithProvider, signInWithEmail, signUpWithEmail, sendPasswordResetEmail, resendEmailConfirmation } from '@/lib/auth';
 import { useAuth } from '@/components/AuthProvider';
 import type { Provider } from '@supabase/supabase-js';
 import AppLogo from '@/components/AppLogo';
@@ -134,6 +134,20 @@ export default function LoginPage() {
       setInfo('비밀번호 재설정 메일을 보냈습니다.');
     } catch (e) {
       setError(e instanceof Error ? e.message : '재설정 메일 전송 실패');
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!email.trim()) {
+      setError('인증 메일 재전송을 위해 이메일을 먼저 입력해주세요.');
+      return;
+    }
+    try {
+      await resendEmailConfirmation(email.trim());
+      setInfo('인증 메일을 다시 보냈어요. 메일함을 확인해주세요.');
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '재전송 실패');
     }
   };
 
@@ -282,7 +296,18 @@ export default function LoginPage() {
         <p className="mt-4 text-sm text-emerald-600 text-center max-w-xs whitespace-pre-line">{info}</p>
       )}
       {error && (
-        <p className="mt-4 text-sm text-red-500 text-center max-w-xs whitespace-pre-line">{error}</p>
+        <div className="mt-4 w-full max-w-xs relative z-10">
+          <p className="text-sm text-red-500 text-center whitespace-pre-line">{error}</p>
+          {error.includes('이메일 인증') && email.trim() && (
+            <button
+              type="button"
+              onClick={handleResendConfirmation}
+              className="mt-2 w-full text-xs underline text-emerald-700 font-semibold"
+            >
+              인증 메일 다시 보내기
+            </button>
+          )}
+        </div>
       )}
 
       {showDebug && (

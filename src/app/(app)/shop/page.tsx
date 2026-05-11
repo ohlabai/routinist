@@ -8,32 +8,36 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Search, ShoppingCart, Package, Sparkles, TrendingUp, X,
-  Heart, Star, Tag, ChevronRight,
+  Heart, Star, Tag, ChevronRight, Menu, ShoppingBag, MapPin, Receipt,
+  HelpCircle, FileText, LogOut, Info,
 } from 'lucide-react';
 import { fetchProducts, fetchProductCategories, fetchCart, fetchWishlistIds, toggleWishlist } from '@/lib/shop-data';
 import AppToast from '@/components/AppToast';
+import AppLogo from '@/components/AppLogo';
 import { useAuth } from '@/components/AuthProvider';
+import { signOut } from '@/lib/auth';
 import BusinessFooter from '@/components/shop/BusinessFooter';
 import type { Product } from '@/types';
 
-// 카테고리별 이모지 매핑 — 새 카테고리 추가 시 여기에 추가하면 자동 반영.
-const CATEGORY_EMOJI: Record<string, string> = {
-  장갑: '🧤',
-  다이어리: '📔',
-  조끼: '🦺',
-  의류: '👕',
-  굿즈: '🎁',
-  악세사리: '⌚',
-  신발: '👟',
-  가방: '🎒',
-  모자: '🧢',
-  양말: '🧦',
-  음료: '🥤',
-  보충제: '💊',
+// 표시 카테고리 (고정 4개) + cafe24 raw 카테고리 → 표시 카테고리 매핑
+// 사용자 결정: 의류 / 모자 / 악세사리 / 굿즈 4개. 조끼→의류, 장갑→악세사리, 다이어리→굿즈.
+const DISPLAY_CATEGORIES = ['의류', '모자', '악세사리', '굿즈'] as const;
+type DisplayCategory = typeof DISPLAY_CATEGORIES[number];
+
+const CATEGORY_MAP: Record<string, DisplayCategory> = {
+  의류: '의류', 조끼: '의류', 상의: '의류', 하의: '의류', 자켓: '의류',
+  모자: '모자', 캡: '모자', 비니: '모자',
+  악세사리: '악세사리', 액세사리: '악세사리', 장갑: '악세사리', 양말: '악세사리',
+  굿즈: '굿즈', 다이어리: '굿즈', 키링: '굿즈', 텀블러: '굿즈',
 };
 
-function emojiFor(category: string): string {
-  return CATEGORY_EMOJI[category] || '🏃';
+const CATEGORY_EMOJI: Record<DisplayCategory, string> = {
+  의류: '👕', 모자: '🧢', 악세사리: '⌚', 굿즈: '🎁',
+};
+
+function mapToDisplay(raw: string | null): DisplayCategory | null {
+  if (!raw) return null;
+  return CATEGORY_MAP[raw] ?? null;
 }
 
 function ShopContent() {
@@ -51,6 +55,7 @@ function ShopContent() {
   const [searchInput, setSearchInput] = useState(search);
   const [searchOpen, setSearchOpen] = useState(false);
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const showToast = (text: string, tone: 'ok' | 'warn' = 'ok') => {
     setToast({ text, tone });
@@ -84,20 +89,34 @@ function ShopContent() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    // 카테고리 필터 — display 카테고리 (예: '의류') 선택 시 매핑된 모든 raw 를 fetch 후 클라사이드 필터.
+    // fetchProducts 가 단일 category 만 지원하므로 일단 전체를 받아 클라에서 필터.
     Promise.all([
       fetchProducts({
-        category: category || undefined,
         search: search || undefined,
         sort: 'featured',
-        limit: 50,
+        limit: 100,
       }),
-      fetchProductCategories(),
       user ? fetchCart().then(c => c.length).catch(() => 0) : Promise.resolve(0),
       user ? fetchWishlistIds().catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
-    ]).then(([prods, cats, cnt, wish]) => {
+    ]).then(([allProds, cnt, wish]) => {
       if (cancelled) return;
-      setProducts(prods);
-      setCategories(cats);
+      // display 카테고리로 매핑되는 상품만 노출 — 매핑 안 되는 raw 는 제외 (모목 방지)
+      const validDisplay = (p: Product) => {
+        const disp = mapToDisplay(p.category);
+        return disp !== null;
+      };
+      const filtered = allProds
+        .filter(validDisplay)
+        .filter(p => !category || mapToDisplay(p.category) === category);
+      setProducts(filtered);
+      // 실제 상품이 있는 display 카테고리만 노출
+      const presentDisplays = new Set<DisplayCategory>();
+      for (const p of allProds.filter(validDisplay)) {
+        const d = mapToDisplay(p.category);
+        if (d) presentDisplays.add(d);
+      }
+      setCategories(DISPLAY_CATEGORIES.filter(c => presentDisplays.has(c)));
       setCartCount(cnt);
       setWishlistIds(wish);
     }).catch(e => {
@@ -129,12 +148,20 @@ function ShopContent() {
 
   return (
     <div className="max-w-lg mx-auto pb-24 bg-[var(--background)] min-h-screen">
-      {/* ===== Sticky Header ===== */}
+      {/* ===== Sticky Header — 다른 탭 (홈/지도/랭킹) 과 동일 패턴 ===== */}
       <header className="sticky top-0 z-30 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
         <div className="flex items-center justify-between px-4 py-3">
-          <h1 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">
-            쇼핑
-          </h1>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setMenuOpen(true)}
+              className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition -ml-1"
+              aria-label="메뉴"
+            >
+              <Menu size={20} className="text-[var(--foreground)]" />
+            </button>
+            <AppLogo size={28} />
+            <h1 className="text-xl font-extrabold tracking-tight text-[var(--foreground)]">쇼핑</h1>
+          </div>
           <div className="flex items-center gap-1">
             <button
               onClick={() => setSearchOpen(true)}
@@ -143,13 +170,6 @@ function ShopContent() {
             >
               <Search size={20} className="text-[var(--foreground)]" />
             </button>
-            <Link
-              href="/shop/wishlist"
-              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition"
-              aria-label="찜 목록"
-            >
-              <Heart size={20} className="text-[var(--foreground)]" />
-            </Link>
             <Link
               href="/shop/cart"
               className="relative w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition"
@@ -223,8 +243,8 @@ function ShopContent() {
         </section>
       )}
 
-      {/* ===== Categories — 큰 아이콘 그리드 ===== */}
-      {categories.length > 0 && !search && (
+      {/* ===== Categories — 의류/모자/악세사리/굿즈 4개 고정 ===== */}
+      {!search && (
         <section className="px-4 mb-6">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-base font-extrabold text-[var(--foreground)]">카테고리</h3>
@@ -237,7 +257,7 @@ function ShopContent() {
               </button>
             )}
           </div>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-5 gap-2">
             <button
               onClick={() => handleCategory('')}
               className={`flex flex-col items-center gap-1.5 py-3 rounded-2xl transition active:scale-95 ${
@@ -249,7 +269,7 @@ function ShopContent() {
               <span className="text-2xl">🛍️</span>
               <span className="text-xs font-bold">전체</span>
             </button>
-            {categories.slice(0, 7).map(cat => (
+            {DISPLAY_CATEGORIES.map(cat => (
               <button
                 key={cat}
                 onClick={() => handleCategory(cat)}
@@ -259,7 +279,7 @@ function ShopContent() {
                     : 'bg-[var(--card)] hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
                 }`}
               >
-                <span className="text-2xl">{emojiFor(cat)}</span>
+                <span className="text-2xl">{CATEGORY_EMOJI[cat]}</span>
                 <span className="text-xs font-bold truncate w-full px-1 text-center">{cat}</span>
               </button>
             ))}
@@ -487,6 +507,71 @@ function ShopContent() {
 
       <BusinessFooter variant="compact" />
 
+      {/* 햄버거 메뉴 (좌측 슬라이드 drawer) */}
+      {menuOpen && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/55 animate-[fadeIn_0.18s_ease-out]"
+          onClick={() => setMenuOpen(false)}
+        >
+          <div
+            className="absolute left-0 top-0 bottom-0 w-72 max-w-[80vw] bg-[var(--background)] shadow-2xl overflow-y-auto animate-[slideInLeft_0.22s_ease-out] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-4 border-b border-[var(--card-border)]/30 flex items-center gap-2">
+              <AppLogo size={28} />
+              <span className="text-base font-extrabold tracking-tight">Routinist 쇼핑</span>
+              <button
+                onClick={() => setMenuOpen(false)}
+                className="ml-auto w-8 h-8 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90"
+                aria-label="닫기"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex-1 py-2">
+              {[
+                { href: '/shop/wishlist', icon: Heart, label: '찜한 상품' },
+                { href: '/shop/orders', icon: ShoppingBag, label: '주문 내역' },
+                { href: '/shop/addresses', icon: MapPin, label: '배송지 관리' },
+                { href: '/mileage', icon: Receipt, label: '마일리지' },
+                { href: '/support', icon: HelpCircle, label: '고객센터' },
+                { href: '/shop/info', icon: Info, label: '사업자 정보' },
+                { href: '/shop/terms', icon: FileText, label: '이용약관' },
+                { href: '/shop/refund', icon: FileText, label: '청약·환불' },
+              ].map(item => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-[var(--foreground)] hover:bg-emerald-50 dark:hover:bg-emerald-950/20 active:scale-[0.99] transition"
+                >
+                  <item.icon size={18} className="text-emerald-500" />
+                  <span className="flex-1">{item.label}</span>
+                  <ChevronRight size={14} className="text-[var(--muted)]" />
+                </Link>
+              ))}
+            </div>
+
+            {user && (
+              <div className="border-t border-[var(--card-border)]/30 p-3">
+                <button
+                  onClick={async () => {
+                    setMenuOpen(false);
+                    await signOut();
+                    router.replace('/login');
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl active:scale-[0.99]"
+                >
+                  <LogOut size={18} />
+                  로그아웃
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2200} />}
 
       {/* CSS — slideDown 애니 + scrollbar-hide */}
@@ -494,6 +579,14 @@ function ShopContent() {
         @keyframes slideDown {
           from { transform: translateY(-10px); opacity: 0; }
           to   { transform: translateY(0);     opacity: 1; }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+        @keyframes slideInLeft {
+          from { transform: translateX(-100%); }
+          to   { transform: translateX(0); }
         }
         :global(.scrollbar-hide::-webkit-scrollbar) { display: none; }
       `}</style>

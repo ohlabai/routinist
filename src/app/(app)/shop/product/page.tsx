@@ -17,6 +17,7 @@ import {
 import { useAuth } from '@/components/AuthProvider';
 import AppToast from '@/components/AppToast';
 import ProductReviews from '@/components/shop/ProductReviews';
+import DOMPurify from 'isomorphic-dompurify';
 import type { Product, ProductVariant } from '@/types';
 
 function ProductDetailContent() {
@@ -158,8 +159,8 @@ function ProductDetailContent() {
 
   return (
     <div className="max-w-lg mx-auto pb-32 bg-[var(--background)] min-h-screen">
-      {/* Floating Header — 이미지 위에 떠있음 */}
-      <header className="fixed top-0 left-1/2 -translate-x-1/2 max-w-lg w-full z-30">
+      {/* Floating Header — 이미지 위에 떠있음. status bar/notch 회피 위해 safe-area top padding. */}
+      <header className="fixed top-0 left-1/2 -translate-x-1/2 max-w-lg w-full z-30" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="flex items-center justify-between px-3 py-3">
           <button
             onClick={() => router.back()}
@@ -293,26 +294,49 @@ function ProductDetailContent() {
             <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center flex-shrink-0">
               <ShieldCheck size={16} className="text-emerald-600" />
             </div>
-            <div>
-              <p className="text-[10px] text-[var(--muted)] font-medium">7일 이내</p>
-              <p className="text-xs font-bold text-[var(--foreground)]">청약 철회</p>
+            <div className="min-w-0">
+              <p className="text-[10px] text-[var(--muted)] font-medium whitespace-nowrap">7일 이내</p>
+              <p className="text-xs font-bold text-[var(--foreground)] whitespace-nowrap">청약 철회</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 설명 */}
-      {product.description && (
-        <div className="px-4 py-5 mt-2 border-t border-[var(--card-border)]/40">
-          <h2 className="text-sm font-extrabold text-[var(--foreground)] mb-3 inline-flex items-center gap-1.5">
-            <ChevronRight size={14} className="text-emerald-500" />
-            상품 설명
-          </h2>
-          <p className="text-sm text-[var(--foreground)] whitespace-pre-wrap leading-relaxed">
-            {product.description}
-          </p>
-        </div>
-      )}
+      {/* 설명 — cafe24 HTML 을 sanitize 후 렌더. 코드/스타일 그대로 노출되던 버그 fix. */}
+      {product.description && (() => {
+        const raw = product.description;
+        // HTML 태그 포함 여부 판정 — 없으면 plain text 처리
+        const hasHtml = /<[a-z][\s\S]*?>/i.test(raw);
+        const cleanHtml = hasHtml
+          ? DOMPurify.sanitize(raw, {
+              ALLOWED_TAGS: ['p', 'br', 'span', 'div', 'strong', 'em', 'b', 'i', 'u',
+                'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                'img', 'a', 'table', 'tbody', 'thead', 'tr', 'td', 'th',
+                'figure', 'figcaption', 'blockquote', 'hr'],
+              ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'style', 'colspan', 'rowspan'],
+              FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'input'],
+              FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
+            })
+          : '';
+        return (
+          <div className="px-4 py-5 mt-2 border-t border-[var(--card-border)]/40">
+            <h2 className="text-sm font-extrabold text-[var(--foreground)] mb-3 inline-flex items-center gap-1.5">
+              <ChevronRight size={14} className="text-emerald-500" />
+              상품 설명
+            </h2>
+            {hasHtml ? (
+              <div
+                className="product-description text-sm text-[var(--foreground)] leading-relaxed [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-xl [&_img]:my-2 [&_table]:w-full [&_table]:my-2 [&_p]:my-1.5"
+                dangerouslySetInnerHTML={{ __html: cleanHtml }}
+              />
+            ) : (
+              <p className="text-sm text-[var(--foreground)] whitespace-pre-wrap leading-relaxed">
+                {raw}
+              </p>
+            )}
+          </div>
+        );
+      })()}
 
       {/* 추가 이미지 */}
       {galleryImages.length > 1 && (
