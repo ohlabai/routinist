@@ -131,13 +131,8 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
             loading="lazy"
           />
 
-          {/* 하단 오버레이 — 거리 + 에세이 첫 줄 (사용자 피드백 #10). */}
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-3 pointer-events-none">
-            {photo.essay_body && (
-              <p className="text-[12px] italic text-white/95 line-clamp-2 leading-snug mb-1 font-medium drop-shadow">
-                &ldquo;{photo.essay_body.replace(/\s+/g, ' ').trim()}&rdquo;
-              </p>
-            )}
+          {/* 하단 오버레이 — 거리만 (사용자 피드백: 에세이는 사진 외부 카드 하단에 표시) */}
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent p-3 pointer-events-none">
             <div className="flex items-center gap-2 text-[11px] text-white/90">
               <span className="font-semibold">{Number(photo.distance_km).toFixed(1)}km</span>
               {photo.region_gu && (
@@ -149,6 +144,16 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
             </div>
           </div>
         </button>
+
+        {/* 에세이 본문 — 카드 외부 하단 (사진 아래) 별도 영역. 사용자 피드백 #3. */}
+        {photo.essay_body && (
+          <div className="px-3.5 py-3 bg-[var(--card)] border-t border-[var(--card-border)]/40">
+            <p className="text-[13px] italic text-[var(--foreground)] leading-relaxed line-clamp-3 break-keep">
+              &ldquo;{photo.essay_body.replace(/\s+/g, ' ').trim()}&rdquo;
+            </p>
+            <p className="text-[10px] text-[var(--muted)] mt-1.5">— @{photo.display_name}</p>
+          </div>
+        )}
 
         {/* 사용자 ID — 별도 클릭 영역. 사진 위 left-2 bottom-2 (오버레이 위에 z-index). */}
         <Link
@@ -236,9 +241,11 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
             className="max-w-full max-h-full object-contain rounded-lg"
             onClick={(e) => e.stopPropagation()}
           />
+          {/* X 닫기 버튼 — status bar / 부모 헤더와 안 겹치게 safe-area 적용 (사용자 피드백 #5). */}
           <button
             onClick={() => setShowLightbox(false)}
-            className="absolute top-3 right-3 w-12 h-12 rounded-full bg-white/20 active:bg-white/30 backdrop-blur flex items-center justify-center active:scale-95 transition"
+            className="absolute right-3 w-12 h-12 rounded-full bg-white/20 active:bg-white/30 backdrop-blur flex items-center justify-center active:scale-95 transition"
+            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
             aria-label="닫기"
           >
             <X size={26} strokeWidth={2.5} className="text-white" />

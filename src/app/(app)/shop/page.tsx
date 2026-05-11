@@ -101,8 +101,10 @@ function ShopContent() {
       user ? fetchWishlistIds().catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
     ]).then(([allProds, cnt, wish]) => {
       if (cancelled) return;
-      // display 카테고리로 매핑되는 상품만 노출 — 매핑 안 되는 raw 는 제외 (모목 방지)
+      // display 카테고리로 매핑되는 상품만 노출 — 매핑 안 되는 raw 는 제외 (목업 방지).
+      // 또한 썸네일 없는 미등록 상품도 제외 (사용자 피드백 #4 — 빈 박스 이미지 숨김).
       const validDisplay = (p: Product) => {
+        if (!p.thumbnail_url) return false;
         const disp = mapToDisplay(p.category);
         return disp !== null;
       };

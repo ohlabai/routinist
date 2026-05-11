@@ -297,10 +297,9 @@ function drawCard(
     ctx.fillText(stat.label, x, statsY + 42);
   });
 
-  // 명언 (그날의 메시지) — 상단 (이전 그래프 자리) 큰 글씨로 hero 처럼.
-  // 같은 활동 날짜를 공유한 모든 사용자에게 같은 명언 (글로벌 공감대).
+  // 명언 (그날의 메시지) — 상단 큰 글씨 hero. author 는 별도 라인(작게)으로 분리.
   if (quote) {
-    const quoteText = quote.author ? `"${quote.text}" — ${quote.author}` : `"${quote.text}"`;
+    const quoteText = `"${quote.text}"`;  // author 는 별도 라인
     ctx.font = 'italic 600 52px -apple-system, BlinkMacSystemFont, sans-serif';
     ctx.fillStyle = mainColor;
     ctx.textAlign = 'center';
@@ -363,16 +362,60 @@ function drawCard(
     const lineH = 64;
     const startY = quoteY - ((lines.length - 1) * lineH) / 2;
     lines.forEach((line, i) => ctx.fillText(line, W / 2, startY + i * lineH));
-    // 👍 inline 좋아요 제거 (사용자 피드백 D): 칩 영역의 좋아요와 중복됐던 표시 단일화.
+
+    // author + 좋아요 — 인용문 아래 작게 별도 라인 (사용자 피드백).
+    // 'hans님은 강남구...' 처럼 길게 늘어지는 대신 짧은 dash 와 작은 폰트.
+    const authorLineY = startY + (lines.length - 1) * lineH + 56;
+    const author = quote.author ?? null;
+    const showLike = !isFallbackQuote(quote);
+
+    ctx.font = '500 30px -apple-system, BlinkMacSystemFont, sans-serif';
+    const dashStr = '— ';
+    const authorStr = author ? `${dashStr}${author}` : '';
+    const authorW = author ? ctx.measureText(authorStr).width : 0;
+
+    let likeW = 0;
+    let likeCountText = '';
+    if (showLike) {
+      likeCountText = `${quote.like_count}`;
+      ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, sans-serif';
+      likeW = ctx.measureText(likeCountText).width;
+    }
+    const thumbSize = 26;
+    const gapAfterAuthor = author ? 24 : 0;
+    const gapAfterThumb = 8;
+    const totalW = authorW + (showLike ? (gapAfterAuthor + thumbSize + gapAfterThumb + likeW) : 0);
+    let cursorX = W / 2 - totalW / 2;
+
+    if (author) {
+      ctx.font = '500 30px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillStyle = subColor;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(authorStr, cursorX, authorLineY);
+      cursorX += authorW + gapAfterAuthor;
+    }
+    if (showLike) {
+      // 👍 emerald 좋아요 아이콘 + 카운트
+      drawThumbsUp(ctx, cursorX + thumbSize / 2, authorLineY, thumbSize, quote.liked_by_me, subColor);
+      cursorX += thumbSize + gapAfterThumb;
+      ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillStyle = quote.liked_by_me ? '#10b981' : subColor;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(likeCountText, cursorX, authorLineY);
+    }
+    ctx.textBaseline = 'alphabetic';
+    ctx.textAlign = 'center';
   }
 
-  // ★ 사용자 피드백: 세로(일별)↔가로(progress) 위치 swap.
-  // 세로 일별 막대 (위) → 가로 progress bar (아래) 순서.
-  // 5/11 라벨은 progress bar 의 오늘 위치 위에 표시.
+  // ★ 사용자 피드백: 세로↔가로 거리 띄움 + 라벨 정리 + 폰트 키움 + 위로.
+  // (1) 월간 일별 세로 막대 — 위. (2) 가로 progress bar — 아래 (더 띄움).
+  // "5월 목표" 라벨 제거. 5/11 + 88.2/200km 모두 progress bar **아래**에 같은 폰트(32px).
 
-  // (1) 월간 일별 세로 막대 그래프 — 위
+  // (1) 월간 일별 세로 막대 그래프 — 위로
   if (dailyKm.size > 0) {
-    const chartTop = 1410;
+    const chartTop = 1380;  // 1410 → 1380 위로
     const chartH = 110;
     const chartPadX = 100;
     const chartW = W - chartPadX * 2;
@@ -396,9 +439,9 @@ function drawCard(
     }
   }
 
-  // (2) 월 목표 가로 progress bar — 아래. 흰색.
+  // (2) 가로 progress bar — 아래. 위 막대와 충분히 띄움 (1380+110=1490 → 1620). 라벨 정리.
   if (monthlyGoalKm && monthlyGoalKm > 0 && monthSum > 0) {
-    const goalBarTop = 1580;
+    const goalBarTop = 1620;
     const goalBarH = 14;
     const goalBarPadX = 100;
     const goalBarW = W - goalBarPadX * 2;
@@ -418,22 +461,20 @@ function drawCard(
     ctx.roundRect(goalBarPadX, goalBarTop, fillW, goalBarH, radius);
     ctx.fill();
 
-    // 좌측 라벨 — 월 목표
-    ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillStyle = bgImage ? 'rgba(255,255,255,0.95)' : mainColor;
-    ctx.textAlign = 'left';
-    ctx.fillText(`${activityMonth + 1}월 목표`, goalBarPadX, goalBarTop - 14);
-    ctx.textAlign = 'right';
-    ctx.fillText(`${monthSum.toFixed(1)} / ${monthlyGoalKm.toFixed(0)}km`, goalBarPadX + goalBarW, goalBarTop - 14);
-
-    // 오늘 (M/D) 라벨 — progress bar 의 오늘 위치 위에 표시 (사용자 피드백).
-    // bar 의 진행 끝 위치 = 오늘까지 누적된 거리 비율. 단, todayDay/daysInMonth 비율로도 대체 가능.
-    // 의미적 정확성을 위해 progress 끝점 사용.
+    // 두 라벨 모두 progress bar **아래** + 같은 폰트 크기 32px (사용자 피드백 — 키움 + 통일).
+    // 5/11 — 오늘 진행 끝점에 정렬.   88.2/200km — 우측 끝에 정렬.
+    const labelY = goalBarTop + goalBarH + 38;
     const todayMarkerX = goalBarPadX + fillW;
-    ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont, sans-serif';
+
+    ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
     ctx.fillStyle = bgImage ? '#ffffff' : accentColor;
     ctx.textAlign = 'center';
-    ctx.fillText(`${activityMonth + 1}/${todayDay}`, todayMarkerX, goalBarTop + goalBarH + 32);
+    ctx.fillText(`${activityMonth + 1}/${todayDay}`, todayMarkerX, labelY);
+
+    ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillStyle = bgImage ? 'rgba(255,255,255,0.95)' : mainColor;
+    ctx.textAlign = 'right';
+    ctx.fillText(`${monthSum.toFixed(1)} / ${monthlyGoalKm.toFixed(0)}km`, goalBarPadX + goalBarW, labelY);
   }
 
   // 포토에세이 첫 1~2줄 — progress bar 아래, footer 위 영역에 인용체로 노출 (사용자 피드백 #10).
@@ -755,7 +796,8 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
           <button
             onClick={onClose}
             aria-label="닫기"
-            className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-full bg-black/55 hover:bg-black/75 active:scale-90 backdrop-blur-sm shadow-md"
+            className="absolute right-6 w-10 h-10 flex items-center justify-center rounded-full bg-black/55 hover:bg-black/75 active:scale-90 backdrop-blur-sm shadow-md"
+            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 24px)' }}
           >
             <X size={20} strokeWidth={2.5} className="text-white" />
           </button>
