@@ -1,11 +1,13 @@
 'use client';
 
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { Share2, X, ImagePlus, Check, ThumbsUp, Dices } from 'lucide-react';
+import { Share2, X, ImagePlus, Check, ThumbsUp, Dices, PenLine, Sparkles } from 'lucide-react';
 import { isNativeApp } from '@/lib/health-sync';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
 import { fetchRandomQuote, toggleQuoteLike, isFallbackQuote, type DailyQuote } from '@/lib/quotes-data';
+import { createUserQuote } from '@/lib/user-quotes';
+import { updatePhotoEssay } from '@/lib/routine-photos';
 import { getSupabase } from '@/lib/supabase';
 import AppToast from '@/components/AppToast';
 import type { Activity } from '@/types';
@@ -127,6 +129,7 @@ function drawCard(
   userIdLabel?: string,
   quote?: DailyQuote | null,
   monthlyGoalKm?: number,
+  essayBody?: string,
 ) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -433,6 +436,24 @@ function drawCard(
     ctx.fillText(`${activityMonth + 1}/${todayDay}`, todayMarkerX, goalBarTop + goalBarH + 32);
   }
 
+  // 포토에세이 첫 1~2줄 — progress bar 아래, footer 위 영역에 인용체로 노출 (사용자 피드백 #10).
+  // 너무 길면 한 줄로 압축 + "…".
+  if (essayBody && essayBody.trim()) {
+    const essayY = 1680;
+    ctx.font = '500 italic 30px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillStyle = bgImage ? 'rgba(255,255,255,0.85)' : subColor;
+    ctx.textAlign = 'center';
+    const maxW = W - 160;
+    const text = essayBody.trim().replace(/\s+/g, ' ');
+    // 첫 단어 wrap → 한 줄. 너무 길면 …
+    let line = text;
+    while (ctx.measureText(line + '…').width > maxW && line.length > 1) {
+      line = line.slice(0, -1);
+    }
+    if (line.length < text.length) line = line.trim() + '…';
+    ctx.fillText(line, W / 2, essayY);
+  }
+
   // Footer — 한 라인 가운데 정렬. 좌측 @userId (emerald, 본인 강조), 구분 |, 우측 Routinist.
   // 사용자 결정 (2026-05-09): 자기 이름이 더 중요. 가운데 정렬 + emerald 색으로 강조.
   // build 68: 슬로건 "Run Your Routine." 을 위 라인의 우측 끝(Routinist 의 't')에 우측 정렬
@@ -516,6 +537,13 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
   // 루틴포토 등록 — 디폴트 ON (체크 해제하면 캘린더만 저장).
   // 캘린더 저장은 항상 자동 (UI 표시 X — 사용자 의도).
   const [registerToGallery, setRegisterToGallery] = useState(true);
+  // 사용자 피드백 #8 — 나의 명언 작성. 모달 형태로 띄움.
+  const [showMyQuoteModal, setShowMyQuoteModal] = useState(false);
+  const [myQuoteText, setMyQuoteText] = useState('');
+  const [submittingMyQuote, setSubmittingMyQuote] = useState(false);
+  // 사용자 피드백 #10 — 포토에세이. 등록 시 함께 저장 → 갤러리에 첫 줄 노출.
+  const [essayBody, setEssayBody] = useState('');
+  const [showEssayInput, setShowEssayInput] = useState(false);
 
   // 공유카드 열 때마다 random 명언 + 🎲 버튼으로 새로 굴릴 수 있음.
   // SNS 도배 회피 + 사용자가 마음에 들 때까지 새로 받음.
@@ -564,8 +592,8 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
 
   const generate = useCallback(() => {
     if (!canvasRef.current) return;
-    drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage, activities, userIdLabel, quote, monthlyGoalKm);
-  }, [activity, displayName, themeIdx, bgImage, activities, userIdLabel, quote, monthlyGoalKm]);
+    drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage, activities, userIdLabel, quote, monthlyGoalKm, essayBody);
+  }, [activity, displayName, themeIdx, bgImage, activities, userIdLabel, quote, monthlyGoalKm, essayBody]);
 
   useEffect(() => { generate(); }, [generate]);
 
@@ -660,6 +688,7 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
         ),
       ];
       if (includeGallery) {
+        const trimmedEssay = essayBody.trim();
         tasks.push(
           withTimeout(
             supabase.from('activity_photos').insert({
@@ -668,6 +697,7 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
               photo_url: photoUrl,
               share_in_gallery: true,
               sort_order: 0,
+              essay_body: trimmedEssay || null,
             }),
             8000,
             'activity_photos insert',
@@ -731,24 +761,26 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
           </button>
         </div>
 
-        {/* 명언 컨트롤 — 👍 좋아요 + 🎲 다른 명언. 클릭 시 카드 다시 그려짐. */}
-        {quote && !isFallbackQuote(quote) && (
-          <div className="px-4 pb-2 flex items-center justify-center gap-2 flex-shrink-0">
-            <button
-              onClick={handleToggleLike}
-              disabled={likeBusy}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--card)] border border-[var(--card-border)] text-sm disabled:opacity-50"
-              aria-label={quote.liked_by_me ? '좋아요 취소' : '명언 좋아요'}
-            >
-              <ThumbsUp
-                size={16}
-                className={quote.liked_by_me ? 'text-emerald-500' : 'text-[var(--muted)]'}
-                fill={quote.liked_by_me ? '#10b981' : 'transparent'}
-              />
-              <span className={quote.liked_by_me ? 'text-emerald-500 font-semibold' : 'text-[var(--muted)]'}>
-                {quote.like_count}
-              </span>
-            </button>
+        {/* 명언 컨트롤 — 👍 + 🎲 다른 명언 + ✍️ 나의 명언 (사용자 피드백 #8). */}
+        {quote && (
+          <div className="px-4 pb-2 flex items-center justify-center gap-1.5 flex-shrink-0 flex-wrap">
+            {!isFallbackQuote(quote) && (
+              <button
+                onClick={handleToggleLike}
+                disabled={likeBusy}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--card)] border border-[var(--card-border)] text-sm disabled:opacity-50"
+                aria-label={quote.liked_by_me ? '좋아요 취소' : '명언 좋아요'}
+              >
+                <ThumbsUp
+                  size={16}
+                  className={quote.liked_by_me ? 'text-emerald-500' : 'text-[var(--muted)]'}
+                  fill={quote.liked_by_me ? '#10b981' : 'transparent'}
+                />
+                <span className={quote.liked_by_me ? 'text-emerald-500 font-semibold' : 'text-[var(--muted)]'}>
+                  {quote.like_count}
+                </span>
+              </button>
+            )}
             <button
               onClick={rerollQuote}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--card)] border border-[var(--card-border)] text-sm text-[var(--muted)] active:scale-95"
@@ -756,6 +788,14 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
             >
               <Dices size={16} />
               <span>다른 명언</span>
+            </button>
+            <button
+              onClick={() => { setMyQuoteText(''); setShowMyQuoteModal(true); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border border-emerald-200/60 dark:border-emerald-900/40 text-sm text-emerald-700 dark:text-emerald-300 font-semibold active:scale-95"
+              aria-label="나의 명언 작성"
+            >
+              <PenLine size={16} />
+              <span>나의 명언</span>
             </button>
           </div>
         )}
@@ -804,6 +844,46 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
             )}
           </div>
 
+          {/* 포토에세이 (사용자 피드백 #10) — 사용자가 짧은 글을 쓰면 갤러리에 첫 줄 노출.
+              읽을거리 컨텐츠 생성 + 체류시간 증가. */}
+          {!hideRegister && registerToGallery && (
+            <div className="px-1">
+              {!showEssayInput ? (
+                <button
+                  onClick={() => setShowEssayInput(true)}
+                  className="w-full text-left text-xs text-emerald-600 dark:text-emerald-400 font-semibold inline-flex items-center gap-1 active:scale-[0.99]"
+                >
+                  <PenLine size={12} /> 오늘의 에세이 쓰기 (선택)
+                </button>
+              ) : (
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1">
+                      <Sparkles size={11} /> 오늘의 에세이
+                    </span>
+                    <button
+                      onClick={() => { setShowEssayInput(false); setEssayBody(''); }}
+                      className="text-[11px] text-[var(--muted)]"
+                    >
+                      취소
+                    </button>
+                  </div>
+                  <textarea
+                    value={essayBody}
+                    onChange={(e) => setEssayBody(e.target.value.slice(0, 2000))}
+                    placeholder="오늘의 러닝을 한 줄로 기록해보세요. 갤러리에서 다른 러너들이 읽을 수 있어요."
+                    rows={3}
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--card-border)] bg-[var(--background)] text-sm focus:outline-none focus:border-emerald-500 resize-none"
+                  />
+                  <div className="flex justify-between mt-1">
+                    <span className="text-[10px] text-[var(--muted)]">{essayBody.length}/2000</span>
+                    <span className="text-[10px] text-[var(--muted)]">{essayBody.trim() ? '✓ 카드에 첫 줄 노출' : '비워두면 노출 안 됨'}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* 루틴포토 체크박스 — 디폴트 ON (사용자 결정). 캘린더는 항상 자동 (UI 표시 X) */}
           {!hideRegister && (
             <label className="flex items-center gap-2.5 px-1 cursor-pointer select-none">
@@ -844,6 +924,92 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
           </button>
         </div>
       </div>
+
+      {/* 나의 명언 작성 모달 (사용자 피드백 #8) */}
+      {showMyQuoteModal && (
+        <div
+          className="fixed inset-0 z-[80] bg-black/65 flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]"
+          onClick={() => !submittingMyQuote && setShowMyQuoteModal(false)}
+        >
+          <div
+            className="w-full max-w-sm bg-[var(--background)] rounded-3xl p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <h3 className="text-base font-extrabold inline-flex items-center gap-1.5">
+                  <PenLine size={16} className="text-emerald-500" /> 나의 명언
+                </h3>
+                <p className="text-xs text-[var(--muted)] mt-0.5">
+                  공유 카드 끝에 — {displayName} 닉네임으로 표시돼요
+                </p>
+              </div>
+              <button onClick={() => setShowMyQuoteModal(false)} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90">
+                <X size={16} />
+              </button>
+            </div>
+            <textarea
+              value={myQuoteText}
+              onChange={(e) => setMyQuoteText(e.target.value.slice(0, 300))}
+              placeholder='예) "오늘도 한 발 더, 어제의 나를 이겼다."'
+              rows={4}
+              autoFocus
+              className="w-full px-3.5 py-3 rounded-2xl border-2 border-[var(--card-border)] bg-[var(--background)] text-sm focus:outline-none focus:border-emerald-500 resize-none"
+            />
+            <div className="flex justify-between mt-1.5">
+              <span className="text-[10px] text-[var(--muted)]">{myQuoteText.length}/300</span>
+              <span className="text-[10px] text-emerald-600 font-semibold">명언 사전에 등록 + 좋아요 받기</span>
+            </div>
+            <button
+              onClick={async () => {
+                const trimmed = myQuoteText.trim();
+                if (trimmed.length < 3) {
+                  setRegisterToast('명언이 너무 짧아요 (3자 이상)');
+                  setTimeout(() => setRegisterToast(null), 2200);
+                  return;
+                }
+                setSubmittingMyQuote(true);
+                try {
+                  const id = await createUserQuote(trimmed);
+                  // 즉시 카드에 반영
+                  setQuote({
+                    id,
+                    lang: 'ko_self',
+                    category: 'user',
+                    text: trimmed,
+                    author: displayName,
+                    like_count: 0,
+                    liked_by_me: false,
+                  });
+                  setRegisterToast('✨ 내 명언이 등록됐어요');
+                  setShowMyQuoteModal(false);
+                  setMyQuoteText('');
+                  setTimeout(() => setRegisterToast(null), 2000);
+                } catch (err) {
+                  const msg = err instanceof Error ? err.message : '등록 실패';
+                  setRegisterToast(msg);
+                  setTimeout(() => setRegisterToast(null), 3000);
+                } finally {
+                  setSubmittingMyQuote(false);
+                }
+              }}
+              disabled={submittingMyQuote || myQuoteText.trim().length < 3}
+              className="w-full mt-3 py-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-sm disabled:opacity-50 active:scale-[0.98] inline-flex items-center justify-center gap-1.5"
+            >
+              {submittingMyQuote ? (
+                <>
+                  <span className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                  등록 중…
+                </>
+              ) : (
+                <>
+                  <Check size={16} /> 명언 등록
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 성공 시 큰 ✓ overlay (build 63) — 자동 닫기 전 시각 피드백 */}
       {registerToast && registerToast.startsWith('✨') && (

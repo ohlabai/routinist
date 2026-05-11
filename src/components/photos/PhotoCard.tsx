@@ -131,8 +131,13 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
             loading="lazy"
           />
 
-          {/* 하단 오버레이 — 거리 정보만 (이름은 별도 Link 영역으로 분리) */}
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent p-3 pointer-events-none">
+          {/* 하단 오버레이 — 거리 + 에세이 첫 줄 (사용자 피드백 #10). */}
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-3 pointer-events-none">
+            {photo.essay_body && (
+              <p className="text-[12px] italic text-white/95 line-clamp-2 leading-snug mb-1 font-medium drop-shadow">
+                &ldquo;{photo.essay_body.replace(/\s+/g, ' ').trim()}&rdquo;
+              </p>
+            )}
             <div className="flex items-center gap-2 text-[11px] text-white/90">
               <span className="font-semibold">{Number(photo.distance_km).toFixed(1)}km</span>
               {photo.region_gu && (
@@ -238,27 +243,35 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
           >
             <X size={26} strokeWidth={2.5} className="text-white" />
           </button>
-          <div className="absolute left-4 right-4 bottom-[calc(env(safe-area-inset-bottom)+24px)] flex items-center justify-between gap-3" onClick={(e) => e.stopPropagation()}>
-            <Link
-              href={`/social/user?id=${photo.user_id}`}
-              onClick={() => setShowLightbox(false)}
-              className="flex-1 px-4 py-3 rounded-2xl bg-white/15 backdrop-blur text-white text-sm font-semibold active:scale-95 transition"
-            >
-              @{photo.display_name} 프로필 보기
-            </Link>
-            <div className="px-4 py-3 rounded-2xl bg-white/15 backdrop-blur text-white text-sm font-semibold">
-              {Number(photo.distance_km).toFixed(1)}km
-              {photo.region_gu && <span className="ml-2 opacity-80">· {photo.region_gu}</span>}
-            </div>
-            {isOwner && (
-              <button
-                onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(true); }}
-                aria-label="삭제"
-                className="w-12 h-12 rounded-2xl bg-red-500/80 backdrop-blur text-white flex items-center justify-center active:scale-95 transition flex-shrink-0"
-              >
-                <Trash2 size={18} />
-              </button>
+          <div className="absolute left-4 right-4 bottom-[calc(env(safe-area-inset-bottom)+24px)] space-y-3" onClick={(e) => e.stopPropagation()}>
+            {photo.essay_body && (
+              <div className="px-4 py-3 rounded-2xl bg-black/55 backdrop-blur-md text-white text-sm leading-relaxed max-h-40 overflow-y-auto">
+                <p className="italic whitespace-pre-wrap">&ldquo;{photo.essay_body}&rdquo;</p>
+                <p className="mt-2 text-[11px] text-white/70">— @{photo.display_name}</p>
+              </div>
             )}
+            <div className="flex items-center justify-between gap-3">
+              <Link
+                href={`/social/user?id=${photo.user_id}`}
+                onClick={() => setShowLightbox(false)}
+                className="flex-1 px-4 py-3 rounded-2xl bg-white/15 backdrop-blur text-white text-sm font-semibold active:scale-95 transition"
+              >
+                @{photo.display_name} 프로필 보기
+              </Link>
+              <div className="px-4 py-3 rounded-2xl bg-white/15 backdrop-blur text-white text-sm font-semibold">
+                {Number(photo.distance_km).toFixed(1)}km
+                {photo.region_gu && <span className="ml-2 opacity-80">· {photo.region_gu}</span>}
+              </div>
+              {isOwner && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(true); }}
+                  aria-label="삭제"
+                  className="w-12 h-12 rounded-2xl bg-red-500/80 backdrop-blur text-white flex items-center justify-center active:scale-95 transition flex-shrink-0"
+                >
+                  <Trash2 size={18} />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

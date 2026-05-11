@@ -7,6 +7,7 @@ export interface RoutinePhoto {
   photo_id: string;
   photo_url: string;
   caption: string | null;
+  essay_body: string | null;       // 포토에세이 본문 (사용자 피드백 #10)
   user_id: string;
   display_name: string;
   avatar_url: string | null;
@@ -193,6 +194,7 @@ function mapRow(row: Record<string, unknown>): RoutinePhoto {
     photo_id: (row.photo_id as string) ?? (row.id as string),
     photo_url: row.photo_url as string,
     caption: (row.caption as string) ?? null,
+    essay_body: (row.essay_body as string) ?? null,
     user_id: row.user_id as string,
     display_name: row.display_name as string,
     avatar_url: (row.avatar_url as string) ?? null,
@@ -203,6 +205,17 @@ function mapRow(row: Record<string, unknown>): RoutinePhoto {
     liked_by_me: row.liked_by_me === true,
     created_at: row.created_at as string,
   };
+}
+
+// 포토에세이 작성/수정 (사용자 피드백 #10)
+export async function updatePhotoEssay(photoId: string, essay: string): Promise<boolean> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.rpc('update_photo_essay', {
+    p_photo_id: photoId,
+    p_essay: essay,
+  });
+  if (error) throw error;
+  return !!data;
 }
 
 // 페이지에서 받은 사진 목록에 liked_by_me 를 일괄 적용 (view 에 컬럼 없을 때 fallback).
