@@ -14,7 +14,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 
-const ADMIN_EMAIL = 'hans@openhan.kr';
+import { isAdminEmail } from '@/lib/admin-emails';
 
 interface DashboardStats {
   revenue: { today: number; week: number; month: number; all_time: number };
@@ -35,7 +35,7 @@ interface KpiExtended {
 export default function AdminDashboardPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const isAdmin = user?.email === ADMIN_EMAIL;
+  const isAdmin = isAdminEmail(user?.email);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [kpi, setKpi] = useState<KpiExtended | null>(null);
   const [loading, setLoading] = useState(true);

@@ -14,7 +14,7 @@ import { getSupabase } from '@/lib/supabase';
 import AppToast from '@/components/AppToast';
 import type { Product, ProductStatus, ProductVariant } from '@/types';
 
-const ADMIN_EMAIL = 'hans@openhan.kr';
+import { isAdminEmail } from '@/lib/admin-emails';
 const STORAGE_BUCKET = 'product-images';
 
 interface FormState {
@@ -35,7 +35,7 @@ function ProductEditContent() {
   const id = searchParams.get('id') ?? 'new';
   const isNew = id === 'new';
   const { user, loading: authLoading } = useAuth();
-  const isAdmin = user?.email === ADMIN_EMAIL;
+  const isAdmin = isAdminEmail(user?.email);
 
   const [form, setForm] = useState<FormState>(EMPTY);
   const [variants, setVariants] = useState<ProductVariant[]>([]);

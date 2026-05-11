@@ -11,7 +11,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import AppToast from '@/components/AppToast';
 
-const ADMIN_EMAIL = 'hans@openhan.kr';
+import { isAdminEmail } from '@/lib/admin-emails';
 
 interface Experiment {
   id: string; name: string; description: string | null;
@@ -27,7 +27,7 @@ interface Result {
 export default function ExperimentsPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const isAdmin = user?.email === ADMIN_EMAIL;
+  const isAdmin = isAdminEmail(user?.email);
   const [experiments, setExperiments] = useState<Experiment[]>([]);
   const [results, setResults] = useState<Record<string, Result[]>>({});
   const [loading, setLoading] = useState(true);

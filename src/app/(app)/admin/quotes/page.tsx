@@ -9,7 +9,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { fetchPendingQuoteReports, resolveQuoteReport, type PendingQuoteReport } from '@/lib/user-quotes';
 import AppToast from '@/components/AppToast';
 
-const ADMIN_EMAIL = 'hans@openhan.kr';
+import { isAdminEmail } from '@/lib/admin-emails';
 
 const REASON_LABEL: Record<string, string> = {
   inappropriate: '부적절',
@@ -22,7 +22,7 @@ const REASON_LABEL: Record<string, string> = {
 export default function AdminQuotesPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const isAdmin = user?.email === ADMIN_EMAIL;
+  const isAdmin = isAdminEmail(user?.email);
   const [reports, setReports] = useState<PendingQuoteReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);

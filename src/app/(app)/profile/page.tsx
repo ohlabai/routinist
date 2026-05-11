@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useEffect } from 'react';
 import { checkPushPermission, requestPushPermissionAgain, type PushPermissionState } from '@/lib/push-notifications';
+import { isAdminEmail } from '@/lib/admin-emails';
 import AppLogo from '@/components/AppLogo';
 import { useTheme } from '@/components/ThemeProvider';
 import { useI18n, SUPPORTED_LOCALES } from '@/lib/i18n';
@@ -37,7 +38,7 @@ export default function ProfilePage() {
   const { user, profile } = useAuth();
   const { activities } = useUserData();
   const router = useRouter();
-  const isAdmin = user?.email === 'hans@openhan.kr';
+  const isAdmin = isAdminEmail(user?.email);
   const [pushState, setPushState] = useState<PushPermissionState>('unavailable');
   const [pushBusy, setPushBusy] = useState(false);
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);

@@ -14,7 +14,7 @@ import { orderStatusLabel, orderStatusColor, CARRIERS as CARRIER_ENTRIES } from 
 import AppToast from '@/components/AppToast';
 import type { Order } from '@/types';
 
-const ADMIN_EMAIL = 'hans@openhan.kr';
+import { isAdminEmail } from '@/lib/admin-emails';
 type StatusFilter = 'all' | 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled' | 'refunded';
 
 const FILTER_LABELS: Record<StatusFilter, string> = {
@@ -28,7 +28,7 @@ const CARRIERS = [...CARRIER_ENTRIES.map(c => c.label), '직접 입력'];
 export default function AdminOrdersPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const isAdmin = user?.email === ADMIN_EMAIL;
+  const isAdmin = isAdminEmail(user?.email);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<StatusFilter>('all');

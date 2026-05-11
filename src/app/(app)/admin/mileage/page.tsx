@@ -10,7 +10,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import AppToast from '@/components/AppToast';
 
-const ADMIN_EMAIL = 'hans@openhan.kr';
+import { isAdminEmail } from '@/lib/admin-emails';
 
 interface RewardConfig {
   event_type: string;
@@ -44,7 +44,7 @@ export default function AdminMileagePage() {
 
   useEffect(() => {
     if (!user) return;
-    if (user.email !== ADMIN_EMAIL) router.replace('/dashboard');
+    if (!isAdminEmail(user.email)) router.replace('/dashboard');
   }, [user, router]);
 
   const load = useCallback(async () => {

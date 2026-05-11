@@ -11,7 +11,7 @@ import { getSupabase } from '@/lib/supabase';
 import AppToast from '@/components/AppToast';
 import type { Product, ProductStatus } from '@/types';
 
-const ADMIN_EMAIL = 'hans@openhan.kr';
+import { isAdminEmail } from '@/lib/admin-emails';
 type StatusFilter = 'all' | 'published' | 'draft' | 'archived';
 
 const FILTER_LABELS: Record<StatusFilter, string> = {
@@ -21,7 +21,7 @@ const FILTER_LABELS: Record<StatusFilter, string> = {
 export default function AdminProductsPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const isAdmin = user?.email === ADMIN_EMAIL;
+  const isAdmin = isAdminEmail(user?.email);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<StatusFilter>('all');
