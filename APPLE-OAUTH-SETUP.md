@@ -37,10 +37,15 @@ Supabase Dashboard > Authentication > URL Configuration에는 아래 값을 허�
   - `routinist://auth/callback`
   - `http://localhost:3000/auth/callback`
 
-주의: `routinist.kr`은 현재 Cafe24 쇼핑몰 도메인입니다. Next 앱의 `/login` 또는
-`/auth/callback` 라우트가 없으므로 Supabase Redirect URLs에
-`https://routinist.kr/auth/callback`을 넣으면 OAuth 완료 후 쇼핑몰로 이동합니다.
-운영 웹 로그인을 추가하려면 Next 앱을 별도 웹 도메인에 배포한 뒤 그 callback URL만 추가하세요.
+도메인 정책 (2026-05-11 변경):
+- `routinist.kr` → Cafe24 외부 쇼핑몰 (DNS)
+- `app.routinist.kr` → Next 앱 (Vercel)
+- 토스 가맹키 도입 후 cafe24 외부 쇼핑몰 폐기 + routinist.kr 도 앱으로 cutover 예정
+
+Supabase Redirect URLs 에 추가/유지:
+- `routinist://auth/callback` (네이티브 앱)
+- `https://app.routinist.kr/auth/callback` (앱 도메인 웹 로그인)
+- (제거) `https://routinist.kr/auth/callback` — cafe24 쇼핑몰이라 앱 callback 라우트 없음
 
 ## 오류별 원인
 
@@ -77,6 +82,7 @@ Apple 동의 화면 후 앱으로 돌아오지 않음
 - 앱 빌드가 최신 `capacitor.config.ts`/iOS 설정을 반영하지 않았습니다.
 - Supabase Redirect URLs에 Cafe24 쇼핑몰 도메인인 `https://routinist.kr/auth/callback`이
   남아 있거나 앱 코드가 딥링크 대신 해당 URL을 넘기고 있습니다.
+  (앱 웹 callback 은 `https://app.routinist.kr/auth/callback` 로 분리되었습니다)
 
 ## 로컬 확인
 

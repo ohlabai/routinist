@@ -352,7 +352,7 @@ export async function signUpWithEmail(email: string, password: string, displayNa
   const supabase = getSupabase();
   const emailRedirectTo = isNativeApp()
     ? APP_URL_SCHEME
-    : `${typeof window !== 'undefined' ? window.location.origin : 'https://routinist.kr'}${WEB_CALLBACK_PATH}`;
+    : `${typeof window !== 'undefined' ? window.location.origin : 'https://app.routinist.kr'}${WEB_CALLBACK_PATH}`;
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -383,7 +383,7 @@ export async function resendEmailConfirmation(email: string) {
   const supabase = getSupabase();
   const emailRedirectTo = isNativeApp()
     ? APP_URL_SCHEME
-    : `${typeof window !== 'undefined' ? window.location.origin : 'https://routinist.kr'}${WEB_CALLBACK_PATH}`;
+    : `${typeof window !== 'undefined' ? window.location.origin : 'https://app.routinist.kr'}${WEB_CALLBACK_PATH}`;
   const { error } = await supabase.auth.resend({
     type: 'signup',
     email,

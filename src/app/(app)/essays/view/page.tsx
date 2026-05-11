@@ -49,7 +49,7 @@ function EssayViewContent() {
 
   const handleShare = async () => {
     if (!photo) return;
-    const url = `https://routinist.kr/essays/view?id=${photo.photo_id}`;
+    const url = `https://app.routinist.kr/essays/view?id=${photo.photo_id}`;
     try {
       if (navigator.share) {
         await navigator.share({ title: `@${photo.display_name} 의 러닝 에세이`, text: photo.essay_body?.slice(0, 120) ?? '', url });

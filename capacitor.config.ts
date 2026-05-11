@@ -12,11 +12,14 @@ const config: CapacitorConfig = {
     // 결제사 도메인은 PG 사가 사용하는 공식 호스트만. 새 결제 도메인 추가 시 여기에 명시할 것.
     allowNavigation: [
       // Cafe24 쇼핑몰 (Routinist 스토어)
+      // routinist.kr = cafe24 외부 쇼핑몰. app.routinist.kr = 우리 네이티브 앱.
+      // 두 도메인 모두 네비게이션 허용 (앱에서 외부 cafe24 mall 도 열 수 있도록).
       'routinist.cafe24.com',
       'shop.cafe24.com',
       'pay.cafe24.com',
       'routinist.kr',
       'www.routinist.kr',
+      'app.routinist.kr',
       // 이니시스
       'inicis.com',
       'mobile.inicis.com',

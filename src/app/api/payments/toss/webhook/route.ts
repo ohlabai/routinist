@@ -1,7 +1,7 @@
 // 토스페이먼츠 webhook — 비동기 이벤트 수신 (환불/취소/실패 등).
 //
 // 토스 가맹점 대시보드 → 개발자센터 → 웹훅 → URL 등록:
-//   https://routinist.kr/api/payments/toss/webhook?token=$PUSH_CRON_SECRET
+//   https://app.routinist.kr/api/payments/toss/webhook?token=$PUSH_CRON_SECRET
 // (토스 webhook 은 표준 HMAC 시그니처 미제공이라 query token + body verify_signature 헤더 검증 병행)
 //
 // 흐름:
