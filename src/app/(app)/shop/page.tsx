@@ -394,7 +394,11 @@ function ShopContent() {
                             className={wishlistIds.has(p.id) ? 'text-red-500 fill-red-500' : 'text-zinc-400'}
                           />
                         </button>
-                        {/* SOLD OUT 표시 비활성화 — 정식 런칭 전 모든 상품 둘러보기 가능 (사용자 피드백) */}
+                        {!!process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY && p.stock <= 0 && (
+                          <div className="absolute inset-0 bg-black/55 backdrop-blur-[1px] flex items-center justify-center">
+                            <span className="text-white text-sm font-bold">SOLD OUT</span>
+                          </div>
+                        )}
                       </div>
                       <div className="px-1 mt-2.5">
                         {p.brand && (
@@ -477,7 +481,11 @@ function ShopContent() {
                           className={wishlistIds.has(p.id) ? 'text-red-500 fill-red-500' : 'text-zinc-400'}
                         />
                       </button>
-                      {/* SOLD OUT 표시 비활성화 (사용자 피드백) */}
+                      {!!process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY && p.stock <= 0 && (
+                        <div className="absolute inset-0 bg-black/55 backdrop-blur-[1px] flex items-center justify-center">
+                          <span className="text-white text-xs font-bold">SOLD OUT</span>
+                        </div>
+                      )}
                     </div>
                     <div className="px-0.5 mt-2.5">
                       {p.brand && (

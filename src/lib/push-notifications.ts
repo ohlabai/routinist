@@ -31,7 +31,7 @@ function getPlatform(): 'ios' | 'android' | 'web' {
   return 'web';
 }
 
-const APP_BUILD = '98';   // ErrorBoundary 와 sync — 매 빌드 갱신
+const APP_BUILD = '99';   // ErrorBoundary 와 sync — 매 빌드 갱신
 
 let initialized = false;
 

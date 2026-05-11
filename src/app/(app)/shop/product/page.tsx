@@ -160,9 +160,11 @@ function ProductDetailContent() {
 
   const discount = product.compare_price_krw && product.compare_price_krw > product.price_krw
     ? Math.round((1 - product.price_krw / product.compare_price_krw) * 100) : 0;
-  // 정식 런칭 전엔 SOLD OUT 표시 안 함 — 모든 상품 둘러보기 가능 (사용자 피드백).
-  // 토스 가맹키 도착 후엔 availableStock <= 0 로 되돌릴 것.
-  const isSoldOut = false;
+  // 토스 가맹키 (NEXT_PUBLIC_TOSS_CLIENT_KEY) 환경변수 유무로 SOLD OUT 자동 분기.
+  // 가맹키 없음 (정식 런칭 전): 모든 상품 둘러보기 가능 + "바로 구매" 클릭 시 토스트 안내.
+  // 가맹키 있음 (정식 런칭 후): 재고 0 이면 정상 품절 처리.
+  const PAYMENT_LIVE = !!process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
+  const isSoldOut = PAYMENT_LIVE ? (availableStock <= 0) : false;
 
   return (
     <div className="max-w-lg mx-auto pb-32 bg-[var(--background)] min-h-screen">
