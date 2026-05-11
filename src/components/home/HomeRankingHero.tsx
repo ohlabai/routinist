@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Trophy, Sparkles, ChevronRight, UserPlus, TrendingUp } from 'lucide-react';
+import { Trophy, ChevronRight, UserPlus, TrendingUp } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import { logClientInfo, logClientWarn } from '@/lib/error-logger';
@@ -217,95 +217,82 @@ export default function HomeRankingHero() {
 
   const goDetail = () => router.push(`/social?scope=${rank.scope_type}&axis=${axis}`);
 
+  // 모던 미니멀 디자인 (사용자 피드백): white card + 큰 white space + 한 곳 시선 집중.
+  // 핵심 시선 = 큰 숫자 "1위". 보조 메타 = 작은 회색. 액션 = subtle 하단 라인.
+  const periodLabel = axis === 'today' ? '오늘' : axis === 'month' ? '이달' : '올해';
+
   return (
-    <div className="mx-4 mt-3 rounded-3xl overflow-hidden bg-gradient-to-br from-emerald-100/80 via-white to-emerald-50/40 dark:from-emerald-950/40 dark:via-zinc-900 dark:to-emerald-950/10 border border-emerald-200/60 dark:border-emerald-900/30 shadow-sm">
-      {/* 시간축 탭 — 독립 컨트롤, 네비게이션 안 일어남 */}
-      <div role="tablist" className="flex gap-1 px-4 pt-4">
+    <div className="mx-4 mt-3 rounded-3xl bg-[var(--card)] border border-[var(--card-border)]/60 shadow-sm overflow-hidden">
+      {/* 시간축 segmented control — 컴팩트 */}
+      <div role="tablist" className="flex p-1 mx-4 mt-4 rounded-full bg-[var(--card-border)]/25">
         {AXIS_OPTIONS.map((opt) => (
           <button
             key={opt.id}
             type="button"
             onClick={() => setAxis(opt.id)}
-            className={`flex items-center gap-1 px-3.5 py-2 rounded-full text-sm font-semibold transition-all ${
+            className={`flex-1 py-1.5 rounded-full text-xs font-bold transition-all active:scale-95 ${
               axis === opt.id
-                ? 'bg-emerald-500 text-white shadow-sm'
-                : 'text-[var(--muted)] hover:text-emerald-600'
+                ? 'bg-white dark:bg-zinc-800 text-emerald-700 dark:text-emerald-300 shadow-sm'
+                : 'text-[var(--muted)]'
             }`}
           >
-            <span>{opt.emoji}</span>
-            <span>{opt.label}</span>
+            {opt.label}
           </button>
         ))}
       </div>
 
-      {/* 순위 표시 영역 — 탭하면 상세 이동 */}
+      {/* 순위 표시 영역 — hero 한 줄 + 큰 숫자 + 보조 stat */}
       <button
         type="button"
         onClick={goDetail}
-        className="w-full p-4 pt-3 text-left active:scale-[0.99] transition"
+        className="w-full px-5 pt-5 pb-4 text-left active:scale-[0.99] transition"
       >
-        <div className="flex items-start gap-4">
-          <div
-            className={`w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-md ${
-              isTop3
-                ? 'bg-gradient-to-br from-emerald-400 to-emerald-600'
-                : isTop10
-                ? 'bg-gradient-to-br from-emerald-300 to-emerald-500'
-                : 'bg-gradient-to-br from-emerald-200 to-emerald-400'
-            }`}
-          >
-            {isTop3 ? (
-              <Sparkles size={28} className="text-white drop-shadow" />
-            ) : (
-              <Trophy size={28} className="text-white drop-shadow" />
-            )}
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <p className="text-base text-[var(--muted)] leading-tight">
-              <span className="font-bold text-emerald-700">{name}</span>님은{' '}
-              <span className="font-semibold">{rank.scope_label}</span>에서
-            </p>
-            <div className="flex items-baseline gap-1 mt-1">
-              <span
-                className={`text-[64px] leading-none font-extrabold ${
-                  isTop3
-                    ? 'text-emerald-600'
-                    : isTop10
-                    ? 'text-emerald-500'
-                    : 'text-[var(--foreground)]'
-                }`}
-              >
-                {rank.rank_position}
-              </span>
-              <span className="text-3xl font-bold text-[var(--foreground)]">위</span>
-              <span className="text-base text-[var(--muted)] ml-1">
-                / {rank.total_in_scope}명
-              </span>
-            </div>
-            <p className="text-base text-[var(--muted)] mt-1 font-semibold">
-              {axis === 'today' ? '오늘' : axis === 'month' ? '이달' : '올해'} {Number(rank.my_km).toFixed(1)}km
-            </p>
-          </div>
+        {/* 메타 라벨 — 작게 (어디서, 누구) */}
+        <div className="flex items-center gap-1.5 text-[11px] text-[var(--muted)] font-medium tracking-wide uppercase mb-2">
+          <span>{rank.scope_label}</span>
+          <span className="text-[var(--card-border)]">·</span>
+          <span>{periodLabel}</span>
         </div>
 
-        {isTopRank ? (
-          <div className="mt-4 rounded-2xl bg-white/80 backdrop-blur px-4 py-3.5">
-            {/* 한 줄 보장: 폰트 살짝 줄이고 (lg → base) 메시지 간결화. 이전엔 좁은 카드에서 줄바꿈돼 "자리를 지켜보세 요." 처럼 끊김. */}
-            <p className="text-base font-bold text-emerald-700 flex items-center gap-1.5 whitespace-nowrap">
-              👑 {axis === 'today' ? '오늘의' : axis === 'month' ? '이달의' : '올해의'} 1위! 자리를 지켜요
-            </p>
-          </div>
-        ) : hasProgressHint ? (
-          <div className="mt-4 rounded-2xl bg-white/80 backdrop-blur px-4 py-3.5 flex items-center gap-2">
-            <TrendingUp size={20} className="text-emerald-600 flex-shrink-0" />
-            <p className="text-lg font-semibold text-[var(--foreground)] leading-snug">
-              <span className="text-emerald-700 font-extrabold">{kmToNext.toFixed(1)}km</span> 더 달리면{' '}
-              <span className="text-emerald-700 font-extrabold">{rank.target_rank}위</span>로 올라가요!
-            </p>
-          </div>
-        ) : null}
+        {/* 메인 — 큰 숫자 + 위 (한 곳 시선 집중) */}
+        <div className="flex items-baseline gap-1.5">
+          <span className={`text-7xl leading-none font-extrabold tracking-tight ${
+            isTopRank ? 'text-emerald-600' :
+            isTop3 ? 'text-emerald-500' :
+            isTop10 ? 'text-[var(--foreground)]' :
+            'text-[var(--foreground)]'
+          }`}>
+            {rank.rank_position}
+          </span>
+          <span className="text-2xl font-extrabold text-[var(--foreground)]">위</span>
+          <span className="ml-auto inline-flex items-center gap-1 text-xs text-[var(--muted)] font-semibold">
+            <span>{rank.total_in_scope}명 중</span>
+          </span>
+        </div>
+
+        {/* 보조 stat — 한 줄 */}
+        <p className="mt-3 text-sm text-[var(--foreground)]">
+          <span className="font-bold text-emerald-700 dark:text-emerald-400">{name}</span>
+          <span className="text-[var(--muted)]"> · </span>
+          <span className="font-semibold">{Number(rank.my_km).toFixed(1)}km</span>
+        </p>
       </button>
+
+      {/* 하단 알림 — 1위 메시지 또는 진행 hint. 미니멀 한 줄. */}
+      {isTopRank ? (
+        <div className="px-5 pb-4 pt-1 flex items-center gap-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+          <span>👑</span>
+          <span className="whitespace-nowrap">자리를 지키고 있어요</span>
+        </div>
+      ) : hasProgressHint ? (
+        <div className="px-5 pb-4 pt-1 flex items-center gap-1.5 text-sm text-[var(--muted)]">
+          <TrendingUp size={14} className="text-emerald-500 flex-shrink-0" />
+          <p>
+            <span className="font-bold text-emerald-700 dark:text-emerald-400">{kmToNext.toFixed(1)}km</span> 더 달리면{' '}
+            <span className="font-bold text-[var(--foreground)]">{rank.target_rank}위</span>
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }

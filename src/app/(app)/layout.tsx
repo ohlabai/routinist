@@ -42,6 +42,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const normalizedPath = pathname.replace(/\?.*$/, '').replace(/\/+$/, '') || '/';
   const isShop = normalizedPath === '/shop' || normalizedPath.startsWith('/shop/');
   const isChat = normalizedPath === '/messages/chat' || normalizedPath.startsWith('/messages/chat/');
+  // 메인 탭 5개 중 자체 sticky header 를 가진 페이지들 — layout 공통 헤더 중복 회피 (사용자 신고).
+  // map 은 자체 헤더가 없어 layout 헤더 유지. dashboard/social/profile 은 본인 페이지의 sticky header 만 사용.
+  const isHome = normalizedPath === '/dashboard';
+  const isSocial = normalizedPath === '/social';
+  const isProfile = normalizedPath === '/profile';
+  const hideLayoutHeader = isShop || isChat || isHome || isSocial || isProfile;
   const lastSyncRef = useRef<number>(0);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
 
@@ -140,9 +146,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // 스크롤에 밀려 올라가는 버그가 발생 — 내부 main 에서만 스크롤되도록 제한.
   return (
     <div className="flex flex-col h-[100dvh] overflow-hidden bg-[var(--background)]">
-      {/* 헤더 — 동적 타이틀. shop 진입 시 숨김 (shop 자체 헤더가 그려짐).
-          startsWith 로 robust — iOS Capacitor 환경에서 trailing slash/query 매칭 안 되는 케이스 방어 */}
-      {!isShop && !isChat && (
+      {/* 헤더 — 자체 sticky header 가 없는 페이지에만 공통 헤더 렌더 (중복 방지) */}
+      {!hideLayoutHeader && (
         <header className="flex-shrink-0 z-40 border-b border-[var(--card-border)] bg-[var(--header-bg)] backdrop-blur-xl pt-[env(safe-area-inset-top)]">
           <div className="px-4 h-14 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -154,8 +159,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
       )}
-      {/* shop / chat 진입 시 status bar 영역만 흰색 padding (자체 헤더가 그려지는 페이지) */}
-      {(isShop || isChat) && (
+      {/* 자체 헤더 페이지에선 status bar 영역만 padding (헤더 자리 비워둠) */}
+      {hideLayoutHeader && (
         <div className="flex-shrink-0 bg-[var(--background)] pt-[env(safe-area-inset-top)]" />
       )}
 
