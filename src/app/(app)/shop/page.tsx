@@ -134,7 +134,17 @@ function ShopContent() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const params = new URLSearchParams();
-    if (searchInput.trim()) params.set('q', searchInput.trim());
+    const q = searchInput.trim();
+    if (q) {
+      params.set('q', q);
+      // 최근 검색어 저장 (localStorage)
+      try {
+        const KEY = 'shop_recent_searches';
+        const prev: string[] = JSON.parse(localStorage.getItem(KEY) || '[]');
+        const next = [q, ...prev.filter(x => x !== q)].slice(0, 8);
+        localStorage.setItem(KEY, JSON.stringify(next));
+      } catch {}
+    }
     if (category) params.set('category', category);
     router.push(`/shop?${params.toString()}`);
     setSearchOpen(false);
@@ -185,29 +195,42 @@ function ShopContent() {
           </div>
         </div>
 
-        {/* Search Modal Sheet */}
+        {/* Search Modal Sheet — 검색어 입력 + 최근/추천 (사용자 피드백) */}
         {searchOpen && (
-          <div className="absolute top-0 inset-x-0 bg-[var(--background)] z-40 px-4 py-3 border-b border-[var(--card-border)]/30 animate-[slideDown_0.2s_ease-out]">
-            <form onSubmit={handleSearch} className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-500" />
-                <input
-                  type="search"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  placeholder="찾으시는 상품을 입력하세요"
-                  autoFocus
-                  className="w-full pl-11 pr-4 py-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-200 dark:border-emerald-900/40 text-sm font-medium text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => { setSearchOpen(false); setSearchInput(search); }}
-                className="text-sm font-semibold text-[var(--muted)] active:scale-95"
-              >
-                취소
-              </button>
-            </form>
+          <div className="absolute top-0 inset-x-0 bg-[var(--background)] z-40 border-b border-[var(--card-border)]/30 animate-[slideDown_0.2s_ease-out]">
+            <div className="px-4 py-3">
+              <form onSubmit={handleSearch} className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-500" />
+                  <input
+                    type="search"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    placeholder="찾으시는 상품을 입력하세요"
+                    autoFocus
+                    className="w-full pl-11 pr-4 py-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-200 dark:border-emerald-900/40 text-sm font-medium text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setSearchOpen(false); setSearchInput(search); }}
+                  className="text-sm font-semibold text-[var(--muted)] active:scale-95"
+                >
+                  취소
+                </button>
+              </form>
+              {/* 최근 검색어 + 추천 (카테고리) */}
+              <SearchSuggestions
+                value={searchInput}
+                onPick={(q) => {
+                  setSearchInput(q);
+                  const params = new URLSearchParams();
+                  params.set('q', q);
+                  router.push(`/shop?${params.toString()}`);
+                  setSearchOpen(false);
+                }}
+              />
+            </div>
           </div>
         )}
       </header>
@@ -590,6 +613,64 @@ function ShopContent() {
         }
         :global(.scrollbar-hide::-webkit-scrollbar) { display: none; }
       `}</style>
+    </div>
+  );
+}
+
+function SearchSuggestions({ value, onPick }: { value: string; onPick: (q: string) => void }) {
+  const SUGGESTED = ['러닝화', '러닝 조끼', '비니', '장갑', '다이어리'];
+  const [recent, setRecent] = useState<string[]>([]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('shop_recent_searches');
+      if (raw) setRecent(JSON.parse(raw));
+    } catch {}
+  }, []);
+
+  const clearRecent = () => {
+    try { localStorage.removeItem('shop_recent_searches'); } catch {}
+    setRecent([]);
+  };
+
+  // 검색어 입력 중이면 추천 숨김
+  if (value.trim()) return null;
+
+  return (
+    <div className="pt-3 pb-2 space-y-3">
+      {recent.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[11px] font-bold text-[var(--muted)]">최근 검색</span>
+            <button onClick={clearRecent} className="text-[10px] text-[var(--muted)] active:scale-95">전체 삭제</button>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {recent.map(q => (
+              <button
+                key={q}
+                onClick={() => onPick(q)}
+                className="px-3 py-1 rounded-full bg-[var(--card)] border border-[var(--card-border)] text-xs font-bold active:scale-95"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <div>
+        <span className="text-[11px] font-bold text-[var(--muted)]">추천 검색어</span>
+        <div className="flex flex-wrap gap-1.5 mt-1.5">
+          {SUGGESTED.map(q => (
+            <button
+              key={q}
+              onClick={() => onPick(q)}
+              className="px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold active:scale-95"
+            >
+              #{q}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

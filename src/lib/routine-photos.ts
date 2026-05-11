@@ -218,6 +218,33 @@ export async function updatePhotoEssay(photoId: string, essay: string): Promise<
   return !!data;
 }
 
+// 에세이가 있는 포토만 list (긴 글 전용 피드)
+export async function fetchEssayFeed(opts: PageOptions = {}): Promise<RoutinePhoto[]> {
+  const supabase = getSupabase();
+  const limit = opts.limit ?? 30;
+  const offset = opts.offset ?? 0;
+  const { data, error } = await supabase
+    .from('public_gallery_feed')
+    .select('*')
+    .not('essay_body', 'is', null)
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+  if (error) { console.warn('[essay feed] fail', error); return []; }
+  return (data ?? []).map(mapRow);
+}
+
+// 단일 photo (essay 단독 페이지용)
+export async function fetchPhotoById(photoId: string): Promise<RoutinePhoto | null> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('public_gallery_feed')
+    .select('*')
+    .eq('photo_id', photoId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return mapRow(data as Record<string, unknown>);
+}
+
 // 페이지에서 받은 사진 목록에 liked_by_me 를 일괄 적용 (view 에 컬럼 없을 때 fallback).
 export async function applyLikedFlags<T extends { photo_id: string; liked_by_me?: boolean }>(
   photos: T[],

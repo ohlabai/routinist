@@ -5,17 +5,36 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Sparkles, ThumbsUp, Trophy, User, PenLine } from 'lucide-react';
-import { fetchTopQuotes, type RankedQuote } from '@/lib/user-quotes';
+import { ArrowLeft, Sparkles, ThumbsUp, Trophy, User, PenLine, Flag, MoreVertical } from 'lucide-react';
+import { fetchTopQuotes, reportQuote, type RankedQuote, type QuoteReportReason } from '@/lib/user-quotes';
 import { toggleQuoteLike } from '@/lib/quotes-data';
+import { useAuth } from '@/components/AuthProvider';
 import AppToast from '@/components/AppToast';
 
 export default function QuoteRankingPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [quotes, setQuotes] = useState<RankedQuote[]>([]);
   const [loading, setLoading] = useState(true);
   const [likeBusy, setLikeBusy] = useState<string | null>(null);
+  const [reportTarget, setReportTarget] = useState<RankedQuote | null>(null);
+  const [reporting, setReporting] = useState(false);
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
+
+  const handleReport = async (reason: QuoteReportReason) => {
+    if (!reportTarget) return;
+    setReporting(true);
+    try {
+      await reportQuote(reportTarget.id, reason);
+      setToast({ text: '신고가 접수됐어요. 검토 후 24시간 안에 조치합니다', tone: 'ok' });
+    } catch (e) {
+      setToast({ text: e instanceof Error ? e.message : '신고 실패', tone: 'warn' });
+    } finally {
+      setReporting(false);
+      setReportTarget(null);
+      setTimeout(() => setToast(null), 3000);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -145,26 +164,85 @@ export default function QuoteRankingPage() {
                     </span>
                   )}
                 </div>
-                <button
-                  onClick={() => handleLike(q)}
-                  disabled={likeBusy === q.id}
-                  className="mt-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--card)] border border-[var(--card-border)] text-xs disabled:opacity-50 active:scale-95"
-                  aria-label="좋아요"
-                >
-                  <ThumbsUp
-                    size={12}
-                    className={q.liked_by_me ? 'text-emerald-500' : 'text-[var(--muted)]'}
-                    fill={q.liked_by_me ? '#10b981' : 'transparent'}
-                  />
-                  <span className={q.liked_by_me ? 'text-emerald-600 font-bold' : 'text-[var(--muted)]'}>
-                    {q.like_count}
-                  </span>
-                </button>
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    onClick={() => handleLike(q)}
+                    disabled={likeBusy === q.id}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--card)] border border-[var(--card-border)] text-xs disabled:opacity-50 active:scale-95"
+                    aria-label="좋아요"
+                  >
+                    <ThumbsUp
+                      size={12}
+                      className={q.liked_by_me ? 'text-emerald-500' : 'text-[var(--muted)]'}
+                      fill={q.liked_by_me ? '#10b981' : 'transparent'}
+                    />
+                    <span className={q.liked_by_me ? 'text-emerald-600 font-bold' : 'text-[var(--muted)]'}>
+                      {q.like_count}
+                    </span>
+                  </button>
+                  {q.is_user_quote && user && (
+                    <button
+                      onClick={() => setReportTarget(q)}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] text-[var(--muted)] active:scale-95"
+                      aria-label="신고"
+                    >
+                      <Flag size={10} /> 신고
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))
         )}
       </section>
+
+      {/* 명언 신고 다이얼로그 */}
+      {reportTarget && (
+        <div
+          className="fixed inset-0 z-[80] bg-black/65 flex items-center justify-center p-4"
+          onClick={() => !reporting && setReportTarget(null)}
+        >
+          <div
+            className="w-full max-w-xs bg-[var(--background)] rounded-3xl p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col items-center gap-2 mb-4">
+              <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center">
+                <Flag size={24} className="text-amber-600" />
+              </div>
+              <h3 className="text-base font-bold">명언 신고</h3>
+              <p className="text-xs text-[var(--muted)] text-center">
+                신고 사유를 선택해주세요. 3회 누적되면 자동 숨김 처리됩니다.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              {([
+                { id: 'inappropriate' as const, label: '부적절한 콘텐츠' },
+                { id: 'spam' as const, label: '스팸/광고' },
+                { id: 'harassment' as const, label: '괴롭힘/혐오' },
+                { id: 'copyright' as const, label: '저작권 위반' },
+                { id: 'other' as const, label: '기타' },
+              ]).map(opt => (
+                <button
+                  key={opt.id}
+                  onClick={() => handleReport(opt.id)}
+                  disabled={reporting}
+                  className="w-full px-3 py-3 rounded-xl bg-[var(--card-border)]/30 text-sm font-semibold disabled:opacity-50 active:bg-[var(--card-border)]/60"
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setReportTarget(null)}
+              disabled={reporting}
+              className="w-full mt-3 py-2.5 text-sm text-[var(--muted)] disabled:opacity-50"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      )}
 
       {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2200} />}
     </div>

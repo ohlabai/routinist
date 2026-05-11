@@ -10,8 +10,10 @@ import Link from 'next/link';
 import {
   ChevronRight, HelpCircle, Shield, Heart, Award, LogOut, MapPin,
   MessageCircle, Coins, Gift, Sun, Moon, Monitor, Stethoscope, Settings,
-  AlertTriangle, X, FileText,
+  AlertTriangle, X, FileText, Bell, BellOff, PenLine,
 } from 'lucide-react';
+import { useEffect } from 'react';
+import { checkPushPermission, requestPushPermissionAgain, type PushPermissionState } from '@/lib/push-notifications';
 import AppLogo from '@/components/AppLogo';
 import { useTheme } from '@/components/ThemeProvider';
 import { useI18n, SUPPORTED_LOCALES } from '@/lib/i18n';
@@ -36,6 +38,26 @@ export default function ProfilePage() {
   const { activities } = useUserData();
   const router = useRouter();
   const isAdmin = user?.email === 'hans@openhan.kr';
+  const [pushState, setPushState] = useState<PushPermissionState>('unavailable');
+  const [pushBusy, setPushBusy] = useState(false);
+  const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
+
+  useEffect(() => {
+    checkPushPermission().then(setPushState).catch(() => {});
+  }, []);
+
+  const handlePushToggle = async () => {
+    setPushBusy(true);
+    try {
+      const res = await requestPushPermissionAgain();
+      setToast({ text: res.message, tone: res.ok ? 'ok' : 'warn' });
+      setTimeout(() => setToast(null), 3500);
+      const next = await checkPushPermission();
+      setPushState(next);
+    } finally {
+      setPushBusy(false);
+    }
+  };
 
   const totalKm = Number(profile?.total_distance_km ?? 0);
   const totalRuns = profile?.total_runs ?? 0;
@@ -133,6 +155,9 @@ export default function ProfilePage() {
   ];
 
   const settings: { href: string; label: string; Icon: typeof HelpCircle }[] = [
+    { href: '/quotes/mine', label: '나의 명언', Icon: HelpCircle },
+    { href: '/quotes/ranking', label: '명언 사전 (랭킹)', Icon: HelpCircle },
+    { href: '/essays', label: '러너의 에세이', Icon: HelpCircle },
     { href: '/shop/orders', label: '내 주문 내역', Icon: HelpCircle },
     { href: '/shop/addresses', label: '배송지 관리', Icon: HelpCircle },
     { href: '/profile/audit', label: t('profile.menuAudit'), Icon: Stethoscope },
@@ -141,6 +166,7 @@ export default function ProfilePage() {
       { href: '/admin/mileage', label: t('profile.menuAdminMileage'), Icon: Settings },
       { href: '/admin/orders', label: '주문 관리 (관리자)', Icon: Settings },
       { href: '/admin/products', label: '상품 관리 (관리자)', Icon: Settings },
+      { href: '/admin/quotes', label: '명언 모더레이션 (관리자)', Icon: Settings },
       { href: '/admin/experiments', label: 'A/B 실험 (관리자)', Icon: Settings },
     ] : []),
     { href: '/support', label: t('profile.menuSupport'), Icon: HelpCircle },
@@ -276,6 +302,36 @@ export default function ProfilePage() {
           </Link>
         ))}
       </div>
+
+      {/* 알림 권한 — 네이티브 + 권한 부여 안 된 경우만 노출 */}
+      {pushState !== 'granted' && pushState !== 'unavailable' && (
+        <button
+          onClick={handlePushToggle}
+          disabled={pushBusy}
+          className="w-full card p-4 flex items-center gap-3 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 border-emerald-200/60 dark:border-emerald-900/40 active:scale-[0.99] disabled:opacity-50"
+        >
+          <div className="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center flex-shrink-0">
+            <BellOff size={18} className="text-emerald-600" />
+          </div>
+          <div className="flex-1 text-left">
+            <p className="text-sm font-extrabold text-[var(--foreground)]">알림 켜기</p>
+            <p className="text-[11px] text-[var(--muted)] mt-0.5">
+              {pushState === 'denied'
+                ? '설정에서 다시 활성화하면 새 메시지·주문 알림을 받을 수 있어요'
+                : '주문·메시지·매칭 알림 받기'}
+            </p>
+          </div>
+          <ChevronRight size={16} className="text-emerald-600" />
+        </button>
+      )}
+      {pushState === 'granted' && (
+        <div className="card p-3 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center">
+            <Bell size={16} className="text-emerald-600" />
+          </div>
+          <p className="text-xs text-[var(--muted)] flex-1">알림 ON · 주문·메시지·매칭 즉시 받기</p>
+        </div>
+      )}
 
       {/* 설정 카드 */}
       <div className="card divide-y divide-[var(--card-border)]">
@@ -432,6 +488,9 @@ export default function ProfilePage() {
 
       {deleteToast && (
         <AppToast text={deleteToast.text} tone={deleteToast.tone} onClose={() => setDeleteToast(null)} durationMs={4000} />
+      )}
+      {toast && (
+        <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={3500} />
       )}
       </div>
     </div>

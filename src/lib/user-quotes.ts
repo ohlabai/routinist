@@ -55,3 +55,41 @@ export async function fetchTopQuotes(limit: number = 30, offset: number = 0): Pr
   if (error) throw error;
   return (data ?? []) as RankedQuote[];
 }
+
+// 명언 신고 — content_reports 통합
+export type QuoteReportReason = 'inappropriate' | 'spam' | 'harassment' | 'copyright' | 'other';
+export async function reportQuote(quoteId: string, reason: QuoteReportReason, detail?: string): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase.rpc('report_quote', {
+    p_quote_id: quoteId,
+    p_reason: reason,
+    p_detail: detail ?? null,
+  });
+  if (error) throw error;
+}
+
+// 어드민 — 미해결 명언 신고 목록
+export interface PendingQuoteReport {
+  quote_id: string;
+  quote_text: string;
+  quote_author: string | null;
+  quote_status: 'approved' | 'pending' | 'hidden';
+  report_count: number;
+  reasons: string[];
+  last_reported_at: string;
+}
+export async function fetchPendingQuoteReports(limit: number = 50): Promise<PendingQuoteReport[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.rpc('admin_pending_quote_reports', { p_limit: limit });
+  if (error) throw error;
+  return (data ?? []) as PendingQuoteReport[];
+}
+
+export async function resolveQuoteReport(quoteId: string, action: 'hide' | 'dismiss' | 'restore'): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase.rpc('admin_resolve_quote_report', {
+    p_quote_id: quoteId,
+    p_action: action,
+  });
+  if (error) throw error;
+}

@@ -27,16 +27,28 @@ export async function POST(req: NextRequest) {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const [reviews, lowStock] = await Promise.all([
-    supabase.rpc('enqueue_review_reminders'),
-    supabase.rpc('enqueue_low_stock_wishlist'),
-  ]);
+  // 일요일 KST 에만 weekly_best_quote 발송 (주 1회)
+  const isSunday = new Date().getUTCDay() === 0;
+
+  type RpcResult = { data: unknown; error: { message?: string } | null };
+  const wrap = (q: PromiseLike<RpcResult>): Promise<RpcResult> => Promise.resolve(q);
+
+  const tasks: Promise<RpcResult>[] = [
+    wrap(supabase.rpc('enqueue_review_reminders') as unknown as PromiseLike<RpcResult>),
+    wrap(supabase.rpc('enqueue_low_stock_wishlist') as unknown as PromiseLike<RpcResult>),
+  ];
+  if (isSunday) {
+    tasks.push(wrap(supabase.rpc('enqueue_weekly_best_quote') as unknown as PromiseLike<RpcResult>));
+  }
+
+  const results = await Promise.all(tasks);
 
   return NextResponse.json({
     ok: true,
-    review_reminders: reviews.data ?? 0,
-    low_stock_pushes: lowStock.data ?? 0,
-    errors: [reviews.error?.message, lowStock.error?.message].filter(Boolean),
+    review_reminders: results[0].data ?? 0,
+    low_stock_pushes: results[1].data ?? 0,
+    weekly_best_quotes: isSunday ? (results[2]?.data ?? 0) : null,
+    errors: results.map(r => r.error?.message).filter(Boolean),
   });
 }
 

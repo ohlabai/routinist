@@ -320,6 +320,16 @@ export default function LoginPage() {
         </div>
       )}
 
+      {/* 쇼핑 둘러보기 — 로그인 없이 상품 카탈로그 접근 (SEO/마케팅) */}
+      <div className="mt-6 w-full max-w-sm relative z-10">
+        <Link
+          href="/shop"
+          className="block w-full text-center py-3 rounded-xl bg-white/70 border border-emerald-200 text-emerald-700 text-sm font-bold hover:bg-emerald-50 active:scale-[0.99] transition"
+        >
+          🛍️ 로그인 없이 쇼핑 둘러보기 →
+        </Link>
+      </div>
+
       <p className="mt-8 text-sm text-gray-500 text-center max-w-xs relative z-10">
         시작하면{' '}
         <Link href="/terms" className="underline font-semibold text-emerald-700">
