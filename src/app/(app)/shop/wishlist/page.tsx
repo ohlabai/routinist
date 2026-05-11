@@ -100,7 +100,7 @@ export default function WishlistPage() {
           {items.map(p => {
             const discount = p.compare_price_krw && p.compare_price_krw > p.price_krw
               ? Math.round((1 - p.price_krw / p.compare_price_krw) * 100) : 0;
-            const isSoldOut = p.stock <= 0;
+            const isSoldOut = false;  // 정식 런칭 전 SOLD OUT 표시 비활성화 (사용자 피드백)
             return (
               <div key={p.id} className="active:scale-[0.97] transition group">
                 <Link href={`/shop/product?id=${p.id}`} className="block">

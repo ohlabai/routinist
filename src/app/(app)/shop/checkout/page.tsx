@@ -163,7 +163,7 @@ function CheckoutContent() {
 
       const tossClientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
       if (!tossClientKey) {
-        showToast('결제 시스템 준비 중이에요. 곧 오픈 예정입니다 ✨', 'warn', 4000);
+        showToast('조금만 기다려주세요\n다음주 정식 런칭 후 살 수 있어요 ✨', 'warn', 4000);
         setSubmitting(false);
         return;
       }
@@ -239,9 +239,9 @@ function CheckoutContent() {
           <div className="card p-3.5 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border-amber-200/60 dark:border-amber-900/40 inline-flex items-start gap-2.5 w-full">
             <span className="text-base">✨</span>
             <div className="flex-1">
-              <p className="text-xs font-extrabold text-amber-700 dark:text-amber-300 mb-0.5">결제 시스템 오픈 임박</p>
+              <p className="text-xs font-extrabold text-amber-700 dark:text-amber-300 mb-0.5">정식 런칭 임박</p>
               <p className="text-[11px] text-[var(--muted)] leading-relaxed">
-                토스페이먼츠 가맹 심사 진행 중이에요. 카탈로그 둘러보기 + 장바구니는 모두 정상 사용 가능, 결제만 잠시 후 오픈 예정입니다.
+                다음주 정식 런칭 후 결제가 열려요. 그때까지 둘러보기 + 장바구니에 미리 담아두기는 모두 가능합니다 ✨
               </p>
             </div>
           </div>

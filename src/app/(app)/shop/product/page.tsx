@@ -102,7 +102,12 @@ function ProductDetailContent() {
     if (!product) return;
     if (!user) { router.push('/login'); return; }
     if (variants.length > 0 && !selectedVariantId) { setBottomSheetOpen(true); return; }
-    if (availableStock < quantity) { showToast('재고가 부족해요', 'warn'); return; }
+    // 토스 가맹키 도착 전까지 결제 비활성화 — 친근 안내 (사용자 피드백).
+    // 가맹키 도착 시 이 분기 제거하면 즉시 결제 활성화.
+    if (!process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY) {
+      showToast('조금만 기다려주세요\n다음주 정식 런칭 후 살 수 있어요 ✨', 'warn', 3500);
+      return;
+    }
     sessionStorage.setItem('buyNowItem', JSON.stringify({
       product_id: product.id, variant_id: selectedVariantId, quantity,
     }));
@@ -155,7 +160,9 @@ function ProductDetailContent() {
 
   const discount = product.compare_price_krw && product.compare_price_krw > product.price_krw
     ? Math.round((1 - product.price_krw / product.compare_price_krw) * 100) : 0;
-  const isSoldOut = availableStock <= 0;
+  // 정식 런칭 전엔 SOLD OUT 표시 안 함 — 모든 상품 둘러보기 가능 (사용자 피드백).
+  // 토스 가맹키 도착 후엔 availableStock <= 0 로 되돌릴 것.
+  const isSoldOut = false;
 
   return (
     <div className="max-w-lg mx-auto pb-32 bg-[var(--background)] min-h-screen">
