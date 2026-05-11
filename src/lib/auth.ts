@@ -63,6 +63,23 @@ function generateRawNonce(): string {
   return crypto.randomUUID().replace(/-/g, '');
 }
 
+// SocialLogin.login hang / unsupported 대응 — timeout race.
+// 사용자 명시적 취소 ('cancel' 메시지 포함 reject) 는 그대로 통과.
+function withSocialLoginTimeout<T>(p: PromiseLike<T>, ms: number, provider: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new Error(`${provider} 로그인 응답이 ${ms / 1000}초 안에 도착하지 않았어요`));
+    }, ms);
+    Promise.resolve(p).then(
+      (v) => { if (settled) return; settled = true; clearTimeout(timer); resolve(v); },
+      (e) => { if (settled) return; settled = true; clearTimeout(timer); reject(e); },
+    );
+  });
+}
+
 // 네이티브 SocialLogin 초기화 — AuthProvider mount 시 1회 호출.
 let socialLoginInitialized = false;
 export async function initializeSocialLogin(): Promise<void> {
@@ -110,7 +127,11 @@ async function signInNative(provider: Provider) {
     throw new Error(`네이티브 ${provider} 로그인은 지원되지 않아요.`);
   }
   logAuth(`signInNative(${provider}) start, initialized=${socialLoginInitialized}`);
-  await initializeSocialLogin();
+  try {
+    await initializeSocialLogin();
+  } catch (e) {
+    logAuth(`signInNative(${provider}) init 실패: ${e instanceof Error ? e.message : e}`);
+  }
   logAuth(`signInNative(${provider}) init done, initialized=${socialLoginInitialized}`);
 
   const { SocialLogin } = await import('@capgo/capacitor-social-login');
@@ -120,16 +141,37 @@ async function signInNative(provider: Provider) {
     const rawNonce = generateRawNonce();
     const hashedNonce = await sha256Hex(rawNonce);
     logAuth('signInNative(apple) calling SocialLogin.login');
-    const res = await SocialLogin.login({
-      provider: 'apple',
-      options: { scopes: ['email', 'name'], nonce: hashedNonce },
-    });
+    // Apple 심사 거절 (Submission ab0f5a3b, iPad Air M3 / iPadOS 26.4.2):
+    // capgo plugin 의 iPadOS 호환성 이슈로 SocialLogin.login 이 hang 가능.
+    // 30s timeout + 실패 시 즉시 web OAuth 폴백 → 사용자가 Safari 시트로 로그인 진행.
+    let res: Awaited<ReturnType<typeof SocialLogin.login>>;
+    try {
+      res = await withSocialLoginTimeout(
+        SocialLogin.login({
+          provider: 'apple',
+          options: { scopes: ['email', 'name'], nonce: hashedNonce },
+        }),
+        30000,
+        'apple',
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      logAuth(`signInNative(apple) plugin fail: ${msg} — fallback to web OAuth`);
+      // 사용자 취소 (사용자가 명시적 취소) 는 폴백 안 함 — 그냥 throw
+      if (/cancel|canceled|cancelled/i.test(msg)) {
+        throw new Error('로그인이 취소됐어요.');
+      }
+      // hang / timeout / "not supported" 등 → 웹 OAuth 폴백
+      logAuth('signInNative(apple) falling back to signInWebOAuth');
+      return await signInWebOAuth('apple');
+    }
     logAuth(`signInNative(apple) login resolved provider=${res.provider}`);
     if (res.provider !== 'apple') throw new Error('예상하지 못한 provider 응답');
-    const idToken = res.result.idToken;
+    const appleResult = res.result as { idToken?: string };
+    const idToken = appleResult.idToken;
     if (!idToken) {
-      logAuth('Apple idToken 없음');
-      throw new Error('Apple 로그인이 취소됐거나 토큰을 받지 못했어요.');
+      logAuth('Apple idToken 없음 → web OAuth 폴백');
+      return await signInWebOAuth('apple');
     }
     logAuth(`Apple idToken length=${idToken.length}, calling Supabase signInWithIdToken`);
     const { data, error } = await supabase.auth.signInWithIdToken({
@@ -153,21 +195,33 @@ async function signInNative(provider: Provider) {
     return data;
   }
 
-  // Google
-  // 주: nonce 는 capgo iOS GoogleProvider 에서 GIDSignIn 에 전달하나 일부 빌드에서 hang 보고된 적 있어
-  // 일단 nonce 없이 가고, 동작 확인 후 별도 PR 로 nonce 보강할 것.
+  // Google — 같은 폴백 패턴.
   logAuth('signInNative(google) calling SocialLogin.login');
-  const res = await SocialLogin.login({
-    provider: 'google',
-    options: { scopes: ['email', 'profile'] },
-  });
+  let res: Awaited<ReturnType<typeof SocialLogin.login>>;
+  try {
+    res = await withSocialLoginTimeout(
+      SocialLogin.login({
+        provider: 'google',
+        options: { scopes: ['email', 'profile'] },
+      }),
+      30000,
+      'google',
+    );
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    logAuth(`signInNative(google) plugin fail: ${msg} — fallback to web OAuth`);
+    if (/cancel|canceled|cancelled/i.test(msg)) {
+      throw new Error('로그인이 취소됐어요.');
+    }
+    return await signInWebOAuth('google');
+  }
   logAuth(`signInNative(google) login resolved provider=${res.provider}`);
   if (res.provider !== 'google') throw new Error('예상하지 못한 provider 응답');
-  const result = res.result;
-  if (result.responseType !== 'online') {
+  const googleResult = res.result as { responseType?: string; idToken?: string };
+  if (googleResult.responseType !== 'online') {
     throw new Error('Google 로그인 응답 형식이 올바르지 않아요.');
   }
-  const idToken = result.idToken;
+  const idToken = googleResult.idToken;
   if (!idToken) {
     logAuth('Google idToken 없음');
     throw new Error('Google 로그인이 취소됐거나 토큰을 받지 못했어요.');
@@ -192,23 +246,47 @@ async function signInNative(provider: Provider) {
   return data;
 }
 
-// 웹용 — 기존 signInWithOAuth 흐름. 브라우저 dev/배포 환경에서만 사용.
+// signInWithOAuth — 웹 + 네이티브 폴백 둘 다 지원.
+// native 환경: skipBrowserRedirect:true 로 URL 만 받아 Capacitor Browser 로 Safari 시트 띄움.
+// → routinist:// 딥링크로 앱 복귀 시 AuthProvider 의 appUrlOpen 리스너가 토큰 처리.
 async function signInWebOAuth(provider: Provider) {
   const supabase = getSupabase();
-  const redirectTo = `${window.location.origin}${WEB_CALLBACK_PATH}`;
+  const native = isNativeApp();
+  const redirectTo = native
+    ? APP_URL_SCHEME
+    : `${window.location.origin}${WEB_CALLBACK_PATH}`;
+
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
     options: {
       redirectTo,
+      skipBrowserRedirect: native, // 네이티브에선 자동 redirect 안 하고 URL 만 받기
       queryParams: provider === 'google' ? { prompt: 'select_account' } : undefined,
     },
   });
   if (error) {
-    logAuth(`signInWithOAuth(web) error: ${error.message}`);
+    logAuth(`signInWithOAuth(${provider}) error: ${error.message}`);
     throw error;
   }
   if (!data?.url) {
     throw new Error('OAuth URL 을 받지 못했어요.');
+  }
+
+  if (native) {
+    // Capacitor Browser 로 Safari 시트 열기.
+    // 사용자가 시트 안에서 OAuth 완료 → Apple/Google 이 routinist:// 로 redirect → 앱 복귀.
+    logAuth(`signInWithOAuth(${provider}) native — opening Capacitor Browser`);
+    try {
+      const { Browser } = await import('@capacitor/browser');
+      await Browser.open({
+        url: data.url,
+        windowName: '_self',
+        presentationStyle: 'popover',  // iPad popover 호환
+      });
+    } catch (e) {
+      logAuth(`Browser.open 실패, fallback to window.open: ${e instanceof Error ? e.message : e}`);
+      window.location.href = data.url;
+    }
   }
   return data;
 }
