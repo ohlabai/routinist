@@ -96,7 +96,7 @@ export default function AdminMileagePage() {
     } finally { setSaving(null); }
   };
 
-  if (user && user.email !== ADMIN_EMAIL) return null;
+  if (user && !isAdminEmail(user.email)) return null;
 
   return (
     <div className="max-w-2xl mx-auto pb-12 bg-[var(--background)] min-h-screen">

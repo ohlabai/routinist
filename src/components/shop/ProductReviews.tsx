@@ -171,7 +171,14 @@ export default function ProductReviews({ productId, ratingAvg = 0, ratingCount =
                       <img src={r.user.avatar_url} alt="" className="w-full h-full object-cover" />
                     )}
                   </div>
-                  <span className="text-xs font-semibold">{r.user?.display_name ?? '러너'}</span>
+                  <span className="text-xs font-semibold">
+                    {r.source === 'cafe24' ? (r.external_author ?? '러너') : (r.user?.display_name ?? '러너')}
+                  </span>
+                  {r.source === 'cafe24' && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300">
+                      이전 구매자
+                    </span>
+                  )}
                 </div>
                 <span className="text-[10px] text-[var(--muted)]">
                   {new Date(r.created_at).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}

@@ -5,12 +5,15 @@ import { getSupabase } from './supabase';
 export interface ProductReview {
   id: string;
   product_id: string;
-  user_id: string;
+  user_id: string | null;        // cafe24 외부 리뷰는 NULL
   order_id: string | null;
   rating: number;
   body: string | null;
   helpful_count: number;
   is_hidden: boolean;
+  source?: 'manual' | 'cafe24';
+  external_author?: string | null;
+  external_id?: string | null;
   created_at: string;
   updated_at: string;
   user?: {
@@ -28,7 +31,8 @@ export async function fetchReviews(
   const { data, error } = await supabase
     .from('product_reviews')
     .select(`
-      id, product_id, user_id, order_id, rating, body, helpful_count, is_hidden, created_at, updated_at,
+      id, product_id, user_id, order_id, rating, body, helpful_count, is_hidden,
+      source, external_author, external_id, created_at, updated_at,
       user:profiles(display_name, avatar_url)
     `)
     .eq('product_id', productId)
