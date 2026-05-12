@@ -49,18 +49,28 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     if (!isAdmin) return;
     const supabase = getSupabase();
+    let cancelled = false;
+    // 15s timeout 안전망 — RPC 가 hang 되어도 사용자가 "loading…" 에 갇히지 않게.
+    const timeoutId = setTimeout(() => { if (!cancelled) setLoading(false); }, 15000);
     (async () => {
       try {
         const [base, ext] = await Promise.all([
           supabase.rpc('admin_dashboard_stats'),
           supabase.rpc('admin_kpi_extended'),
         ]);
+        if (cancelled) return;
         if (base.error) console.warn('[admin/dash] base fail', base.error);
         else setStats(base.data as DashboardStats);
         if (ext.error) console.warn('[admin/dash] kpi fail', ext.error);
         else setKpi(ext.data as KpiExtended);
-      } finally { setLoading(false); }
+      } catch (e) {
+        console.warn('[admin/dash] fetch fail', e);
+      } finally {
+        clearTimeout(timeoutId);
+        if (!cancelled) setLoading(false);
+      }
     })();
+    return () => { cancelled = true; clearTimeout(timeoutId); };
   }, [isAdmin]);
 
   if (authLoading || !isAdmin) {

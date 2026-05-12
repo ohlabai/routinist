@@ -338,7 +338,7 @@ export default function ProfileEditPage() {
 
           <div>
             <p className="text-xs text-[var(--muted)] mb-1">성별</p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-3">
               {[
                 { v: 'male', label: '남성' },
                 { v: 'female', label: '여성' },
@@ -348,7 +348,7 @@ export default function ProfileEditPage() {
                   key={opt.v}
                   onClick={() => setGender(gender === opt.v ? '' : opt.v)}
                   type="button"
-                  className={`py-2.5 rounded-xl text-sm font-medium border transition-colors ${
+                  className={`min-h-[44px] py-3 rounded-xl text-sm font-medium border transition-colors ${
                     gender === opt.v
                       ? 'bg-[var(--accent)] text-white border-[var(--accent)]'
                       : 'bg-[var(--card)] text-[var(--foreground)] border-[var(--card-border)]'

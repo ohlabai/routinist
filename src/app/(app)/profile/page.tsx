@@ -357,7 +357,7 @@ export default function ProfilePage() {
               <button
                 key={l.code}
                 onClick={() => setLocale(l.code)}
-                className={`py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                className={`min-h-[44px] py-3 rounded-xl text-xs font-semibold transition-all ${
                   locale === l.code
                     ? 'bg-[var(--accent)] text-white'
                     : 'bg-[var(--card-border)]/30 text-[var(--muted)]'
@@ -381,7 +381,7 @@ export default function ProfilePage() {
               <button
                 key={opt.id}
                 onClick={() => setMode(opt.id)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                className={`flex-1 min-h-[44px] flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-semibold transition-all ${
                   mode === opt.id
                     ? 'bg-[var(--accent)] text-white'
                     : 'bg-[var(--card-border)]/30 text-[var(--muted)]'
