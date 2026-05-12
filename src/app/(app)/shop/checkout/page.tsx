@@ -457,8 +457,8 @@ function CheckoutContent() {
 
       <BusinessFooter variant="full" />
 
-      {/* Sticky CTA */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 max-w-lg w-full bg-[var(--background)]/95 backdrop-blur-lg border-t border-[var(--card-border)]/30 safe-area-bottom z-20">
+      {/* Sticky CTA — bottom-16 으로 5탭 nav (h-16, z-40) 위에 배치. z-50 으로 nav 덮음 */}
+      <div className="fixed bottom-16 left-1/2 -translate-x-1/2 max-w-lg w-full bg-[var(--background)]/95 backdrop-blur-lg border-t border-[var(--card-border)]/30 z-50">
         <div className="p-3">
           <button
             onClick={handlePay}
