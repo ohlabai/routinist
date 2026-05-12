@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import type { Profile } from '@/types';
-import { Users, ChevronRight } from 'lucide-react';
+import { Users, ChevronRight, ChevronDown } from 'lucide-react';
 import { startOfWeekStr } from '@/lib/kst';
 
 interface Row {
@@ -26,6 +26,7 @@ function startOfWeek(): string {
 export default function FriendsLeaderboard() {
   const { user, profile } = useAuth();
   const [rows, setRows] = useState<Row[] | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -95,23 +96,16 @@ export default function FriendsLeaderboard() {
   }
 
   const maxKm = Math.max(...rows.map(r => r.km), 1);
-  const visibleRows = rows.slice(0, 5);
-  const hasMore = rows.length > 5;
+  const COLLAPSED_LIMIT = 5;
+  const hasMore = rows.length > COLLAPSED_LIMIT;
+  const visibleRows = expanded ? rows : rows.slice(0, COLLAPSED_LIMIT);
+  const remainingCount = rows.length - COLLAPSED_LIMIT;
 
   return (
     <div className="mx-4 mt-3 rounded-2xl bg-[var(--card)] border border-[var(--card-border)] p-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-bold text-[var(--foreground)]">이번 주 친구 비교</h3>
-        {hasMore ? (
-          <Link
-            href="/social?tab=friends"
-            className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-0.5 active:scale-95 transition"
-          >
-            전체 {rows.length}명 보기 <ChevronRight size={11} />
-          </Link>
-        ) : (
-          <span className="text-[10px] text-[var(--muted)]">월요일 기준</span>
-        )}
+        <span className="text-[10px] text-[var(--muted)]">월요일 기준 · {rows.length}명</span>
       </div>
       <div className="space-y-2.5">
         {visibleRows.map((r, i) => (
@@ -159,6 +153,29 @@ export default function FriendsLeaderboard() {
           </Link>
         ))}
       </div>
+
+      {hasMore && (
+        <div className="mt-3 pt-3 border-t border-[var(--card-border)]/60 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setExpanded(v => !v)}
+            className="flex-1 inline-flex items-center justify-center gap-1 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-xs font-bold active:scale-95 transition"
+            aria-expanded={expanded}
+          >
+            {expanded ? '접기' : `더보기 (+${remainingCount}명)`}
+            <ChevronDown
+              size={12}
+              className={`transition-transform ${expanded ? 'rotate-180' : ''}`}
+            />
+          </button>
+          <Link
+            href="/social?tab=friends"
+            className="inline-flex items-center gap-0.5 px-3 py-2 rounded-lg text-[11px] font-bold text-[var(--muted)] hover:text-emerald-700 dark:hover:text-emerald-400 active:scale-95 transition"
+          >
+            친구 관리 <ChevronRight size={11} />
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

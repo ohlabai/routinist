@@ -28,19 +28,31 @@ export async function fetchReviews(
   offset: number = 0,
 ): Promise<ProductReview[]> {
   const supabase = getSupabase();
+  // product_reviews.user_id 는 auth.users(id) FK — profiles 와 직접 FK 가 없어
+  // embed `user:profiles(...)` 가 PostgREST 에서 실패 (cafe24 import 시 user_id NULL 다수).
+  // → reviews 본체와 profiles 를 분리 fetch 후 client-side merge.
   const { data, error } = await supabase
     .from('product_reviews')
-    .select(`
-      id, product_id, user_id, order_id, rating, body, helpful_count, is_hidden,
-      source, external_author, external_id, created_at, updated_at,
-      user:profiles(display_name, avatar_url)
-    `)
+    .select('id, product_id, user_id, order_id, rating, body, helpful_count, is_hidden, source, external_author, external_id, created_at, updated_at')
     .eq('product_id', productId)
     .eq('is_hidden', false)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
   if (error) throw error;
-  return (data ?? []) as unknown as ProductReview[];
+  const rows = (data ?? []) as ProductReview[];
+
+  const userIds = Array.from(new Set(rows.map(r => r.user_id).filter((id): id is string => !!id)));
+  if (userIds.length === 0) return rows;
+
+  const { data: profs } = await supabase
+    .from('profiles')
+    .select('id, display_name, avatar_url')
+    .in('id', userIds);
+  const profMap = new Map<string, { display_name?: string | null; avatar_url?: string | null }>();
+  (profs ?? []).forEach((p: { id: string; display_name?: string | null; avatar_url?: string | null }) => {
+    profMap.set(p.id, { display_name: p.display_name, avatar_url: p.avatar_url });
+  });
+  return rows.map(r => ({ ...r, user: r.user_id ? profMap.get(r.user_id) : undefined }));
 }
 
 export async function fetchMyReview(productId: string): Promise<ProductReview | null> {

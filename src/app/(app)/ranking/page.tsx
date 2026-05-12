@@ -11,7 +11,7 @@ import AppLogo from '@/components/AppLogo';
 import MileageRankingTab from '@/components/social/MileageRankingTab';
 import RankingBreakdown from '@/components/ranking/RankingBreakdown';
 import RankingTimeline from '@/components/ranking/RankingTimeline';
-import { Trophy, Coins, MapPin, Sparkles } from 'lucide-react';
+import { Trophy, Coins } from 'lucide-react';
 
 type SubTab = 'me' | 'mileage';
 type TimeAxis = 'today' | 'month' | 'year';
@@ -90,31 +90,6 @@ function RankingInner() {
             </Link>
           )}
 
-          <Link href="/ranking/engagement" className="card p-4 flex items-center justify-between active:scale-[0.99]">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center">
-                <Sparkles size={20} className="text-pink-600 dark:text-pink-400" />
-              </div>
-              <div>
-                <p className="text-base font-semibold text-[var(--foreground)]">활성도 랭킹</p>
-                <p className="text-sm text-[var(--muted)]">받은 좋아요 + 친구 수 기준</p>
-              </div>
-            </div>
-            <span className="text-[var(--muted)]">→</span>
-          </Link>
-
-          <Link href="/social/rankings" className="card p-4 flex items-center justify-between active:scale-[0.99]">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                <MapPin size={20} className="text-emerald-600 dark:text-emerald-400" />
-              </div>
-              <div>
-                <p className="text-base font-semibold text-[var(--foreground)]">지역 랭킹 상세</p>
-                <p className="text-sm text-[var(--muted)]">국가 · 시 · 구 세분화</p>
-              </div>
-            </div>
-            <span className="text-[var(--muted)]">→</span>
-          </Link>
         </div>
       )}
 

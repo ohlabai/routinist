@@ -6,9 +6,10 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
-import { Globe, MapPin, Cake, Sparkles, Trophy, ChevronRight } from 'lucide-react';
+import { Globe, MapPin, Cake, Sparkles, Trophy, ChevronRight, UserCircle2 } from 'lucide-react';
 
 type TimeAxis = 'today' | 'month' | 'year';
 
@@ -141,35 +142,27 @@ export default function RankingBreakdown({ axis }: Props) {
 
   return (
     <div className="space-y-3">
-      {/* Hero — 가장 좋은 순위 (클릭 시 해당 코호트 리스트로) */}
+      {/* Hero — 가장 좋은 순위 (build 101: 에메랄드 단색 + 중앙 정렬) */}
       <Link
         href={`/ranking/cohort?scope=${hero.scope_type}&axis=${axis}`}
-        className={`block rounded-3xl bg-gradient-to-br ${heroMeta.bg} border border-[var(--card-border)]/40 p-5 shadow-sm relative overflow-hidden active:scale-[0.99] transition`}
+        className="block rounded-3xl bg-gradient-to-br from-emerald-100/80 via-white to-emerald-50/40 dark:from-emerald-950/30 dark:via-zinc-900 dark:to-emerald-950/20 border border-emerald-300/50 dark:border-emerald-800/40 p-5 shadow-sm relative overflow-hidden active:scale-[0.99] transition"
       >
-        <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-white/30 blur-3xl pointer-events-none" />
-        <div className="relative">
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <heroMeta.Icon size={16} className={heroMeta.iconColor} />
-              <p className="text-[11px] font-bold text-[var(--muted)] uppercase tracking-wide">
-                최고 순위 · {hero.scope_label}
-              </p>
-            </div>
-            <ChevronRight size={14} className="text-[var(--muted)]" />
+        <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-72 h-72 rounded-full bg-gradient-to-br from-emerald-300/40 via-emerald-100/30 to-transparent blur-3xl pointer-events-none" />
+        <div className="relative text-center">
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <heroMeta.Icon size={14} className="text-emerald-600" />
+            <p className="text-[11px] font-bold text-[var(--muted)] uppercase tracking-wide">
+              최고 순위 · {hero.scope_label}
+            </p>
           </div>
-          <div className="flex items-baseline gap-1.5 mb-2">
-            <span className={`text-6xl font-extrabold leading-none tabular-nums tracking-tight ${
-              isTop ? 'text-emerald-600' : isTop10 ? 'text-emerald-500' : 'text-[var(--foreground)]'
-            }`}>
+          <div className="flex items-baseline justify-center gap-1.5 mb-1">
+            <span className="text-6xl font-extrabold leading-none tabular-nums tracking-tight text-emerald-600 dark:text-emerald-400">
               {hero.rank_position}
             </span>
             <span className="text-2xl font-extrabold text-[var(--foreground)]">위</span>
-            <span className="ml-auto text-xs text-[var(--muted)] font-bold">
-              / {hero.total_in_scope.toLocaleString()}명
-            </span>
           </div>
-          <p className="text-sm text-[var(--foreground)]">
-            <span className="font-semibold">{Number(hero.my_km).toFixed(1)}km</span>
+          <p className="text-xs text-[var(--muted)] font-bold mb-2">
+            / {hero.total_in_scope.toLocaleString()}명 · {Number(hero.my_km).toFixed(1)}km
           </p>
 
           {!isTop && Number(hero.km_to_top10) > 0 && hero.rank_position > 10 && (
@@ -189,9 +182,14 @@ export default function RankingBreakdown({ axis }: Props) {
             </div>
           )}
 
-          <div className="mt-3 rounded-xl bg-white/70 dark:bg-zinc-900/60 backdrop-blur-sm px-3 py-2 flex items-center gap-2">
+          <div className="mt-3 mx-auto inline-flex items-center justify-center gap-2 rounded-xl bg-white/70 dark:bg-zinc-900/60 backdrop-blur-sm px-3 py-2">
             <span className="text-lg">{heroMot.emoji}</span>
             <span className="text-sm font-bold text-[var(--foreground)]">{heroMot.text}</span>
+          </div>
+
+          <div className="mt-2 flex items-center justify-center gap-0.5 text-[11px] font-bold text-[var(--muted)]">
+            <span>전체 보기</span>
+            <ChevronRight size={11} />
           </div>
         </div>
       </Link>
@@ -240,6 +238,112 @@ export default function RankingBreakdown({ axis }: Props) {
           })}
         </div>
       )}
+
+      {/* build 101: 지역 랭킹 상세 인라인 — 클릭 없이 바로 표시 */}
+      <RegionLeaderboardInline axis={axis} />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// 지역 랭킹 인라인 리스트 (build 101) — fetch_cohort_leaderboard scope=region
+// ─────────────────────────────────────────────────────────────
+interface CohortRow {
+  user_id: string;
+  display_name: string;
+  avatar_url: string | null;
+  region_gu: string | null;
+  km: number;
+  rank_position: number;
+  is_me: boolean;
+}
+
+function RegionLeaderboardInline({ axis }: { axis: TimeAxis }) {
+  const { user } = useAuth();
+  const [rows, setRows] = useState<CohortRow[] | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const supabase = getSupabase();
+        const { data, error } = await supabase.rpc('fetch_cohort_leaderboard', {
+          caller_user_id: user.id,
+          scope_type: 'region',
+          time_axis: axis,
+          result_limit: 10,
+        });
+        if (cancelled) return;
+        if (error) { setRows([]); return; }
+        setRows((data ?? []) as CohortRow[]);
+      } catch { if (!cancelled) setRows([]); }
+    })();
+    return () => { cancelled = true; };
+  }, [user, axis]);
+
+  if (rows === null) {
+    return <div className="h-40 rounded-2xl bg-[var(--card-border)]/30 animate-pulse" />;
+  }
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl bg-gradient-to-br from-emerald-100/60 via-white to-emerald-50/30 dark:from-emerald-950/20 dark:via-zinc-900 dark:to-emerald-950/10 border border-emerald-300/40 dark:border-emerald-800/30 p-4 shadow-sm">
+      <Link
+        href={`/ranking/cohort?scope=region&axis=${axis}`}
+        className="flex items-center justify-between mb-3 active:scale-[0.99] transition"
+      >
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+            <MapPin size={15} className="text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <div>
+            <p className="text-sm font-extrabold text-[var(--foreground)]">우리 동네 TOP 10</p>
+            <p className="text-[10px] text-[var(--muted)]">같은 구 러너끼리</p>
+          </div>
+        </div>
+        <span className="inline-flex items-center text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
+          전체 <ChevronRight size={11} />
+        </span>
+      </Link>
+      <ol className="space-y-1.5">
+        {rows.map(r => {
+          const podiumBg =
+            r.rank_position === 1 ? 'bg-gradient-to-br from-amber-300 to-yellow-500 text-white' :
+            r.rank_position === 2 ? 'bg-gradient-to-br from-slate-300 to-slate-500 text-white' :
+            r.rank_position === 3 ? 'bg-gradient-to-br from-orange-300 to-amber-600 text-white' :
+            'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400';
+          return (
+            <li key={`${r.user_id}:${r.rank_position}`}>
+              <Link
+                href={r.is_me ? '/profile' : `/social/user?id=${r.user_id}`}
+                className={`flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition active:scale-[0.99] ${
+                  r.is_me
+                    ? 'bg-emerald-100/70 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700'
+                    : 'hover:bg-white/60 dark:hover:bg-zinc-900/40'
+                }`}
+              >
+                <span className={`w-7 h-7 inline-flex items-center justify-center text-xs font-extrabold rounded-full flex-shrink-0 tabular-nums ${podiumBg}`}>
+                  {r.rank_position}
+                </span>
+                <div className="w-7 h-7 rounded-full bg-[var(--card-border)] overflow-hidden flex-shrink-0">
+                  {r.avatar_url ? (
+                    <Image src={r.avatar_url} alt="" width={28} height={28} className="w-full h-full object-cover" />
+                  ) : (
+                    <UserCircle2 size={28} className="text-[var(--muted)]" />
+                  )}
+                </div>
+                <p className={`flex-1 min-w-0 text-sm truncate ${r.is_me ? 'font-extrabold text-emerald-700 dark:text-emerald-400' : 'font-semibold text-[var(--foreground)]'}`}>
+                  {r.display_name}{r.is_me && <span className="ml-0.5">(나)</span>}
+                </p>
+                <span className="text-sm font-extrabold tabular-nums text-[var(--foreground)]">
+                  {Number(r.km).toFixed(1)}<span className="text-[10px] font-bold text-[var(--muted)] ml-0.5">km</span>
+                </span>
+              </Link>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }

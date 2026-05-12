@@ -1,7 +1,7 @@
 'use client';
 
 // 홈 히어로 — 경쟁·소셜 피벗(2026-04-21) 의 핵심 장치.
-// build 100 재디자인: 순위별 컬러 시스템 (gold/silver/bronze/emerald) + halo deco + tier badge + 진행 progress bar.
+// build 101: 에메랄드 단색 통일 + 중앙 정렬 (사용자 피드백). 순위별 그라데이션 제거.
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -31,77 +31,25 @@ const AXIS_OPTIONS: { id: TimeAxis; label: string }[] = [
   { id: 'year', label: '올해' },
 ];
 
-// 순위별 컬러 시스템 — Tailwind JIT 가 스캔할 수 있도록 클래스 문자열 그대로 명시
-function getRankStyle(rank: number) {
-  if (rank === 1) {
-    return {
-      cardBg: 'bg-gradient-to-br from-amber-100 via-yellow-50 to-amber-50 dark:from-amber-950/40 dark:via-yellow-950/20 dark:to-amber-950/30',
-      cardBorder: 'border-amber-300/60 dark:border-amber-700/40',
-      halo: 'from-amber-300/50 via-yellow-200/30 to-transparent',
-      numberText: 'bg-gradient-to-br from-amber-500 via-yellow-500 to-amber-700 bg-clip-text text-transparent',
-      medalBg: 'bg-gradient-to-br from-amber-400 to-yellow-500',
-      medalShadow: 'shadow-[0_8px_24px_-4px_rgba(245,158,11,0.5)]',
-      accent: 'text-amber-700 dark:text-amber-400',
-      progressBg: 'bg-gradient-to-r from-amber-400 to-yellow-500',
-      icon: '👑',
-      label: '챔피언',
-    };
-  }
-  if (rank === 2) {
-    return {
-      cardBg: 'bg-gradient-to-br from-slate-100 via-zinc-50 to-slate-50 dark:from-slate-800/50 dark:via-zinc-900 dark:to-slate-800/40',
-      cardBorder: 'border-slate-300/60 dark:border-slate-700/40',
-      halo: 'from-slate-300/40 via-zinc-200/30 to-transparent',
-      numberText: 'bg-gradient-to-br from-slate-500 via-zinc-500 to-slate-700 bg-clip-text text-transparent',
-      medalBg: 'bg-gradient-to-br from-slate-300 to-slate-500',
-      medalShadow: 'shadow-[0_8px_24px_-4px_rgba(100,116,139,0.4)]',
-      accent: 'text-slate-700 dark:text-slate-300',
-      progressBg: 'bg-gradient-to-r from-slate-300 to-slate-500',
-      icon: '🥈',
-      label: '준우승권',
-    };
-  }
-  if (rank === 3) {
-    return {
-      cardBg: 'bg-gradient-to-br from-orange-100 via-amber-50 to-orange-50 dark:from-orange-950/40 dark:via-amber-950/20 dark:to-orange-950/30',
-      cardBorder: 'border-orange-300/60 dark:border-orange-800/40',
-      halo: 'from-orange-300/40 via-amber-200/30 to-transparent',
-      numberText: 'bg-gradient-to-br from-orange-500 via-amber-600 to-orange-700 bg-clip-text text-transparent',
-      medalBg: 'bg-gradient-to-br from-orange-400 to-amber-600',
-      medalShadow: 'shadow-[0_8px_24px_-4px_rgba(234,88,12,0.4)]',
-      accent: 'text-orange-700 dark:text-orange-400',
-      progressBg: 'bg-gradient-to-r from-orange-400 to-amber-600',
-      icon: '🥉',
-      label: '메달권',
-    };
-  }
-  if (rank <= 10) {
-    return {
-      cardBg: 'bg-gradient-to-br from-emerald-100/70 via-white to-emerald-50/40 dark:from-emerald-950/30 dark:via-zinc-900 dark:to-emerald-950/20',
-      cardBorder: 'border-emerald-300/50 dark:border-emerald-800/40',
-      halo: 'from-emerald-300/40 via-emerald-100/30 to-transparent',
-      numberText: 'text-emerald-600 dark:text-emerald-400',
-      medalBg: 'bg-gradient-to-br from-emerald-400 to-emerald-600',
-      medalShadow: 'shadow-[0_8px_24px_-4px_rgba(16,185,129,0.35)]',
-      accent: 'text-emerald-700 dark:text-emerald-400',
-      progressBg: 'bg-gradient-to-r from-emerald-400 to-emerald-600',
-      icon: '⭐',
-      label: 'TOP 10',
-    };
-  }
-  return {
-    cardBg: 'bg-gradient-to-br from-zinc-50 via-white to-emerald-50/30 dark:from-zinc-900 dark:via-zinc-900 dark:to-emerald-950/10',
-    cardBorder: 'border-[var(--card-border)]/60',
-    halo: 'from-emerald-200/30 via-transparent to-transparent',
-    numberText: 'text-[var(--foreground)]',
-    medalBg: 'bg-gradient-to-br from-emerald-100 to-emerald-200 dark:from-emerald-950/40 dark:to-emerald-900/40',
-    medalShadow: '',
-    accent: 'text-emerald-700 dark:text-emerald-400',
-    progressBg: 'bg-gradient-to-r from-emerald-400 to-emerald-500',
-    icon: '🏃',
-    label: '도전 중',
-  };
+// build 101: 모든 순위에 동일한 에메랄드 단색. tier label/아이콘만 순위에 따라 분기.
+function getRankTier(rank: number): { icon: string; label: string } {
+  if (rank === 1) return { icon: '👑', label: '챔피언' };
+  if (rank === 2) return { icon: '🥈', label: '준우승권' };
+  if (rank === 3) return { icon: '🥉', label: '메달권' };
+  if (rank <= 10) return { icon: '⭐', label: 'TOP 10' };
+  return { icon: '🏃', label: '도전 중' };
 }
+
+const UNIFIED_STYLE = {
+  cardBg: 'bg-gradient-to-br from-emerald-100/80 via-white to-emerald-50/40 dark:from-emerald-950/30 dark:via-zinc-900 dark:to-emerald-950/20',
+  cardBorder: 'border-emerald-300/50 dark:border-emerald-800/40',
+  halo: 'from-emerald-300/40 via-emerald-100/30 to-transparent',
+  accent: 'text-emerald-700 dark:text-emerald-400',
+  progressBg: 'bg-gradient-to-r from-emerald-400 to-emerald-600',
+  numberText: 'text-emerald-600 dark:text-emerald-400',
+  medalBg: 'bg-gradient-to-br from-emerald-400 to-emerald-600',
+  medalShadow: 'shadow-[0_8px_24px_-4px_rgba(16,185,129,0.4)]',
+};
 
 export default function HomeRankingHero() {
   const { user, profile } = useAuth();
@@ -266,7 +214,8 @@ export default function HomeRankingHero() {
     );
   }
 
-  const style = getRankStyle(rank.rank_position);
+  const style = UNIFIED_STYLE;
+  const tier = getRankTier(rank.rank_position);
   const isTopRank = rank.rank_position === 1;
   const isTop3 = rank.rank_position <= 3;
   const periodLabel = axis === 'today' ? '오늘' : axis === 'month' ? '이달' : '올해';
@@ -274,8 +223,6 @@ export default function HomeRankingHero() {
   const kmToNext = Math.max(0, Number(rank.km_to_next) || 0);
   const myKm = Number(rank.my_km) || 0;
 
-  // 다음 순위까지 진행률 — my_km / (my_km + km_to_next).
-  // 단순화: 0~100% 범위로 표시 (실제 의미는 "현재 위치에서 한 단계 위로 가는 거리감")
   const progressToNext = !isTopRank && kmToNext > 0 && myKm > 0
     ? Math.min(95, Math.max(15, (myKm / (myKm + kmToNext)) * 100))
     : 100;
@@ -284,10 +231,8 @@ export default function HomeRankingHero() {
 
   return (
     <div className={`mx-4 mt-3 rounded-3xl ${style.cardBg} border ${style.cardBorder} shadow-sm overflow-hidden relative`}>
-      {/* 배경 halo deco — 우상단 미묘한 blur 그라데이션 (Top3 일수록 강렬) */}
-      <div className={`absolute -top-16 -right-16 w-56 h-56 rounded-full bg-gradient-to-br ${style.halo} blur-3xl pointer-events-none`} />
+      <div className={`absolute -top-16 left-1/2 -translate-x-1/2 w-72 h-72 rounded-full bg-gradient-to-br ${style.halo} blur-3xl pointer-events-none`} />
 
-      {/* segmented control — 글래스모피즘 */}
       <div role="tablist" className="relative flex p-1 mx-4 mt-4 rounded-full bg-white/60 dark:bg-zinc-900/60 backdrop-blur-md border border-white/40 dark:border-zinc-800">
         {AXIS_OPTIONS.map((opt) => (
           <button
@@ -305,55 +250,46 @@ export default function HomeRankingHero() {
         ))}
       </div>
 
-      {/* 메인 영역 */}
       <button
         type="button"
         onClick={goDetail}
-        className="relative w-full px-5 pt-4 pb-5 text-left active:scale-[0.99] transition"
+        className="relative w-full px-5 pt-4 pb-5 text-center active:scale-[0.99] transition"
       >
-        {/* 메타 + tier badge */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-1.5 text-[11px] text-[var(--muted)] font-semibold tracking-wide uppercase">
-            <span>{rank.scope_label}</span>
-            <span className="text-[var(--card-border)]">·</span>
-            <span>{periodLabel}</span>
-          </div>
-          <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold ${style.accent} px-2 py-0.5 rounded-full bg-white/70 dark:bg-zinc-800/70 backdrop-blur-sm shadow-sm`}>
-            <span>{style.icon}</span>
-            <span>{style.label}</span>
+        <div className="flex items-center justify-center gap-1.5 mb-3 text-[11px] text-[var(--muted)] font-semibold tracking-wide uppercase">
+          <span>{rank.scope_label}</span>
+          <span className="text-[var(--card-border)]">·</span>
+          <span>{periodLabel}</span>
+          <span className="text-[var(--card-border)]">·</span>
+          <span className={`inline-flex items-center gap-0.5 font-extrabold ${style.accent}`}>
+            <span>{tier.icon}</span>
+            <span>{tier.label}</span>
           </span>
         </div>
 
-        {/* 메인 — 메달 (Top3) + 큰 숫자 */}
-        <div className="flex items-center gap-4">
-          {isTop3 && (
-            <div className={`w-16 h-16 rounded-2xl ${style.medalBg} ${style.medalShadow} flex items-center justify-center flex-shrink-0`}>
-              <span className="text-3xl drop-shadow-sm">{style.icon}</span>
-            </div>
-          )}
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-baseline gap-1.5">
-              <span
-                className={`leading-[0.85] font-extrabold tracking-tighter tabular-nums ${style.numberText}`}
-                style={{ fontSize: isTop3 ? '64px' : '72px' }}
-              >
-                {rank.rank_position}
-              </span>
-              <span className="text-xl font-extrabold text-[var(--foreground)]">위</span>
-              <span className="ml-auto text-[11px] text-[var(--muted)] font-bold whitespace-nowrap">
-                / {rank.total_in_scope.toLocaleString()}명
-              </span>
-            </div>
-            <p className="mt-2 text-sm">
-              <span className={`font-bold ${style.accent}`}>{name}</span>
-              <span className="text-[var(--muted)]"> · </span>
-              <span className="font-semibold text-[var(--foreground)]">{myKm.toFixed(1)}km</span>
-            </p>
+        {isTop3 && (
+          <div className={`mx-auto w-16 h-16 rounded-2xl ${style.medalBg} ${style.medalShadow} flex items-center justify-center mb-3`}>
+            <span className="text-3xl drop-shadow-sm">{tier.icon}</span>
           </div>
-        </div>
+        )}
 
-        {/* 다음 순위까지 progress bar */}
+        <div className="flex items-baseline justify-center gap-1.5">
+          <span
+            className={`leading-[0.85] font-extrabold tracking-tighter tabular-nums ${style.numberText}`}
+            style={{ fontSize: isTop3 ? '64px' : '72px' }}
+          >
+            {rank.rank_position}
+          </span>
+          <span className="text-xl font-extrabold text-[var(--foreground)]">위</span>
+        </div>
+        <p className="mt-1 text-[11px] text-[var(--muted)] font-bold">
+          / {rank.total_in_scope.toLocaleString()}명
+        </p>
+        <p className="mt-2 text-sm">
+          <span className={`font-bold ${style.accent}`}>{name}</span>
+          <span className="text-[var(--muted)]"> · </span>
+          <span className="font-semibold text-[var(--foreground)]">{myKm.toFixed(1)}km</span>
+        </p>
+
         {!isTopRank && kmToNext > 0 && (
           <div className="mt-4">
             <div className="flex items-center justify-between mb-1.5 text-[11px]">
@@ -371,18 +307,16 @@ export default function HomeRankingHero() {
           </div>
         )}
 
-        {/* 1위 메시지 박스 */}
         {isTopRank && (
-          <div className="mt-4 px-3 py-2.5 rounded-xl bg-white/70 dark:bg-zinc-900/60 backdrop-blur-sm flex items-center gap-2 text-sm shadow-sm">
-            <Crown size={16} className="text-amber-600 flex-shrink-0" />
-            <span className="font-extrabold text-amber-700 dark:text-amber-400">자리를 지키고 있어요</span>
-            <Sparkles size={14} className="ml-auto text-amber-500" />
+          <div className="mt-4 mx-auto max-w-[280px] px-3 py-2.5 rounded-xl bg-white/70 dark:bg-zinc-900/60 backdrop-blur-sm flex items-center justify-center gap-2 text-sm shadow-sm">
+            <Crown size={16} className="text-emerald-600 flex-shrink-0" />
+            <span className={`font-extrabold ${style.accent}`}>자리를 지키고 있어요</span>
+            <Sparkles size={14} className="text-emerald-500" />
           </div>
         )}
 
-        {/* 일반 CTA hint */}
         {!isTopRank && (
-          <div className="mt-3 flex items-center justify-end gap-1 text-xs font-bold text-[var(--muted)]">
+          <div className="mt-3 flex items-center justify-center gap-1 text-xs font-bold text-[var(--muted)]">
             <span>전체 랭킹 보기</span>
             <ChevronRight size={12} />
           </div>
