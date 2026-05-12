@@ -9,17 +9,23 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
 import { isAdminEmail } from '@/lib/admin-emails';
-import { ArrowLeft, Upload, AlertCircle } from 'lucide-react';
+import { getSupabase } from '@/lib/supabase';
+import { ArrowLeft, Upload, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function AdminClubImportPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const isAdmin = isAdminEmail(user?.email);
   const [html, setHtml] = useState('');
+  const [clubName, setClubName] = useState('BIT RUNNERS');
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [result, setResult] = useState<{
+    ok: boolean;
+    text: string;
+    summary?: { members: number; new_members: number; goals: number; activities: number };
+  } | null>(null);
 
   if (authLoading) return null;
   if (!user || !isAdmin) {
@@ -29,14 +35,41 @@ export default function AdminClubImportPage() {
 
   const handleImport = async () => {
     if (!html.trim()) {
-      setMsg('HTML 내용을 붙여넣어주세요');
+      setResult({ ok: false, text: 'HTML 내용을 붙여넣어주세요' });
       return;
     }
     setBusy(true);
-    setMsg('준비 중 — API endpoint 다음 라운드 활성화');
-    // TODO: POST /api/admin/club-import { html, year, month }
-    // 백엔드는 기존 import-club-monthly-html.mjs 로직 포팅 필요.
-    setTimeout(() => setBusy(false), 1500);
+    setResult(null);
+    try {
+      const supabase = getSupabase();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setResult({ ok: false, text: '인증 정보 없음 — 다시 로그인하세요' });
+        return;
+      }
+      const res = await fetch('/api/admin/club-import', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ html, clubName, year, month }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setResult({ ok: false, text: data?.error ?? `HTTP ${res.status}` });
+        return;
+      }
+      setResult({
+        ok: !!data.success,
+        text: data.success ? '✅ Import 완료' : (data.errors ?? []).join('\n'),
+        summary: data.summary,
+      });
+    } catch (e) {
+      setResult({ ok: false, text: e instanceof Error ? e.message : '실패' });
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -51,17 +84,26 @@ export default function AdminClubImportPage() {
       </header>
 
       <div className="px-4 pt-4 space-y-4">
-        <div className="card p-4 bg-amber-50/50 dark:bg-amber-950/20 border-amber-200/60">
+        <div className="card p-4 bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/60">
           <div className="flex items-start gap-2">
-            <AlertCircle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle size={16} className="text-emerald-600 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-[var(--foreground)] leading-relaxed">
-              매월 BIT Runners 매거진 HTML 을 붙여넣고 import 합니다. 자동화 API endpoint 는 다음 라운드에 추가됩니다 — 지금은 placeholder.
-              현재는 <code className="text-[10px] bg-[var(--card-border)]/40 px-1 rounded">supabase/scripts/import-club-monthly-html.mjs</code> 수동 실행.
+              매월 BIT RUNNERS 매거진 HTML 을 붙여넣고 import 합니다. HTML 안 <code className="text-[10px] bg-[var(--card-border)]/40 px-1 rounded">const MEMBERS_DATA = [...]</code> JSON 자동 추출.
+              같은 월 재실행 시 멱등 (이전 활동 자동 삭제 후 재insert).
             </p>
           </div>
         </div>
 
         <div className="card p-4 space-y-3">
+          <div>
+            <label className="block text-xs font-bold text-[var(--muted)] mb-1">클럽 이름</label>
+            <input
+              type="text"
+              value={clubName}
+              onChange={(e) => setClubName(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-[var(--card-border)] bg-[var(--background)] text-sm"
+            />
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-[var(--muted)] mb-1">연도</label>
@@ -93,19 +135,36 @@ export default function AdminClubImportPage() {
               rows={10}
               className="w-full px-3 py-2 rounded-xl border border-[var(--card-border)] bg-[var(--background)] text-xs font-mono resize-none"
             />
+            <p className="text-[10px] text-[var(--muted)] mt-1">{html.length.toLocaleString()} 문자</p>
           </div>
 
           <button
             onClick={handleImport}
-            disabled={busy || !html.trim()}
+            disabled={busy || !html.trim() || !clubName.trim()}
             className="w-full py-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-sm disabled:opacity-50 active:scale-[0.98] inline-flex items-center justify-center gap-1.5"
           >
             <Upload size={16} />
             {busy ? 'Import 중…' : `${year}년 ${month}월 결산 import`}
           </button>
 
-          {msg && (
-            <p className="text-xs text-center text-[var(--muted)]">{msg}</p>
+          {result && (
+            <div className={`mt-2 p-3 rounded-xl text-xs ${
+              result.ok
+                ? 'bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 text-emerald-700 dark:text-emerald-400'
+                : 'bg-rose-50 dark:bg-rose-950/30 border border-rose-200/60 text-rose-700 dark:text-rose-400'
+            }`}>
+              <div className="flex items-start gap-1.5">
+                {result.ok && <CheckCircle2 size={14} className="flex-shrink-0 mt-0.5" />}
+                <div className="flex-1">
+                  <p className="font-bold whitespace-pre-wrap break-all">{result.text}</p>
+                  {result.summary && (
+                    <p className="mt-1 text-[10px] opacity-80">
+                      멤버 {result.summary.members}명 (신규 {result.summary.new_members}) · 목표 {result.summary.goals} · 활동 {result.summary.activities}건
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>

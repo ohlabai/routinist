@@ -94,12 +94,20 @@ export default function MileagePage() {
               <span className="text-2xl ml-1">P</span>
             </p>
             <p className="text-xs text-white/80 mt-2 mb-4">1km = 1P 기본 (어제도 달리면 ×2)</p>
-            <Link
-              href="/mileage/gift"
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-white text-emerald-700 text-sm font-extrabold shadow-md active:scale-95 transition"
-            >
-              <Gift size={14} /> 선물하기
-            </Link>
+            <div className="flex flex-wrap gap-2 justify-center">
+              <Link
+                href="/mileage/gift"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-white text-emerald-700 text-sm font-extrabold shadow-md active:scale-95 transition"
+              >
+                <Gift size={14} /> 선물하기
+              </Link>
+              <Link
+                href="/mileage/donate"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-pink-500 text-white text-sm font-extrabold shadow-md active:scale-95 transition"
+              >
+                <Gift size={14} /> 클럽 후원
+              </Link>
+            </div>
           </div>
         </div>
       </section>
