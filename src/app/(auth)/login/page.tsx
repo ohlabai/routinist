@@ -152,9 +152,15 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 relative overflow-hidden bg-gradient-to-br from-blue-50 via-white to-green-50 text-gray-900 py-10">
-      <div className="absolute top-[-80px] right-[-60px] w-64 h-64 rounded-full bg-blue-200/30 blur-3xl" />
-      <div className="absolute bottom-[-60px] left-[-40px] w-48 h-48 rounded-full bg-green-200/30 blur-3xl" />
+    <div
+      className="min-h-screen flex flex-col items-center justify-center px-6 relative bg-gradient-to-br from-blue-50 via-white to-green-50 text-gray-900"
+      style={{
+        paddingTop: 'max(40px, env(safe-area-inset-top))',
+        paddingBottom: 'max(40px, env(safe-area-inset-bottom))',
+      }}
+    >
+      <div className="absolute top-[-80px] right-[-60px] w-64 h-64 rounded-full bg-blue-200/30 blur-3xl pointer-events-none z-0" />
+      <div className="absolute bottom-[-60px] left-[-40px] w-48 h-48 rounded-full bg-green-200/30 blur-3xl pointer-events-none z-0" />
 
       <div className="flex flex-col items-center text-center mb-10 relative z-10">
         <div className="mb-4">

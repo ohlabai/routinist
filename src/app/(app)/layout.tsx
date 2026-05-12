@@ -41,6 +41,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // ('/shop/' / '/shop?...' / '/shop/index.html' 등) 모두 동일하게 매칭.
   const normalizedPath = pathname.replace(/\?.*$/, '').replace(/\/+$/, '') || '/';
   const isShop = normalizedPath === '/shop' || normalizedPath.startsWith('/shop/');
+  // 게스트 진입 허용 — 고객지원/약관 등 정보성 페이지. (app) 내부에 있지만 로그인 강제 안 함.
+  // (Apple App Review 가 미로그인 상태에서 우연히 진입할 가능성 — 무반응처럼 보임 방지.)
+  const isGuestAllowed = isShop ||
+    normalizedPath === '/support' ||
+    normalizedPath === '/privacy' ||
+    normalizedPath === '/terms';
   const isChat = normalizedPath === '/messages/chat' || normalizedPath.startsWith('/messages/chat/');
   // 메인 탭 5개 중 자체 sticky header 를 가진 페이지들 — layout 공통 헤더 중복 회피 (사용자 신고).
   // map 은 자체 헤더가 없어 layout 헤더 유지. dashboard/social/profile 은 본인 페이지의 sticky header 만 사용.
@@ -73,13 +79,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!loading && !user) {
-      // 쇼핑은 비로그인 게스트 둘러보기 허용 (build 100 — 토스 매니저 피드백).
+      // 쇼핑 + 정보성(고객지원/약관) 페이지는 비로그인 게스트 허용.
       // 그 외 (app) 페이지는 로그인 강제.
-      if (!isShop) {
+      if (!isGuestAllowed) {
         router.replace('/login');
       }
     }
-  }, [user, loading, router, isShop]);
+  }, [user, loading, router, isGuestAllowed]);
 
   useEffect(() => {
     if (!loading) { setLoadingTimeout(false); return; }
@@ -146,8 +152,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // 게스트 쇼핑 둘러보기 허용 (build 100) — !user 여도 /shop 은 렌더.
-  if (!user && !isShop) return null;
+  // 게스트 허용 페이지(/shop, /support, /privacy, /terms) — !user 여도 렌더.
+  if (!user && !isGuestAllowed) return null;
 
   // h-[100dvh] + overflow-hidden 으로 flex 컨테이너를 뷰포트 높이에 고정.
   // 이전 min-h-screen 구조에서 iOS WebView 의 바운스/에러 상태 시 sticky bottom 탭바가
