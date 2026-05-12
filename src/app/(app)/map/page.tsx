@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { fetchRoutesForUser } from '@/lib/map-data';
 import { loadGoogleMaps, API_KEY } from '@/lib/google-maps';
 import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
 import type { Activity, Profile } from '@/types';
 import PullToRefresh from '@/components/PullToRefresh';
 import AppLogo from '@/components/AppLogo';
@@ -205,6 +207,7 @@ function navigateToFallback(map: google.maps.Map, profile: Profile | null) {
 }
 
 export default function MapPage() {
+  const router = useRouter();
   const { user, profile } = useAuth();
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<google.maps.Map | null>(null);
@@ -412,7 +415,14 @@ export default function MapPage() {
     <div className="max-w-lg mx-auto pb-8 bg-[var(--background)] min-h-screen">
       {/* Sticky Header — 다른 탭과 동일 패턴 (build 100 통일) */}
       <header className="sticky top-0 z-30 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
-        <div className="px-4 py-3 flex items-center gap-2">
+        <div className="px-3 py-3 flex items-center gap-2">
+          <button
+            onClick={() => router.back()}
+            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition"
+            aria-label="뒤로"
+          >
+            <ArrowLeft size={20} />
+          </button>
           <AppLogo size={28} />
           <h1 className="text-xl font-extrabold tracking-tight">지도</h1>
         </div>

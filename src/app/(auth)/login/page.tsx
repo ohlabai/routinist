@@ -212,20 +212,23 @@ export default function LoginPage() {
               <div className="flex-1 h-px bg-gray-200" />
             </div>
 
-            <button
-              onClick={() => setMode('email-signup')}
-              disabled={loadingProvider !== null}
-              className="w-full py-3 rounded-xl border border-emerald-500 bg-white text-emerald-700 font-semibold hover:bg-emerald-50 disabled:opacity-50"
-            >
-              이메일로 회원가입
-            </button>
-            <button
-              onClick={() => setMode('email-login')}
-              disabled={loadingProvider !== null}
-              className="w-full py-2.5 text-sm text-gray-500 hover:text-gray-800 disabled:opacity-50"
-            >
-              이미 계정이 있어요 — 이메일로 로그인
-            </button>
+            {/* 회원가입 / 로그인 동등 2버튼 (build 104) — 재설치 사용자 혼란 방지 */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setMode('email-login')}
+                disabled={loadingProvider !== null}
+                className="min-h-[44px] py-3 rounded-xl border border-emerald-500 bg-white text-emerald-700 font-semibold hover:bg-emerald-50 disabled:opacity-50"
+              >
+                이메일 로그인
+              </button>
+              <button
+                onClick={() => setMode('email-signup')}
+                disabled={loadingProvider !== null}
+                className="min-h-[44px] py-3 rounded-xl bg-emerald-500 text-white font-semibold hover:bg-emerald-600 disabled:opacity-50"
+              >
+                이메일 회원가입
+              </button>
+            </div>
           </div>
         )}
 

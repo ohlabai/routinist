@@ -2,13 +2,14 @@
 
 // 이번 주 내 친구들 미니 리더보드.
 // 친구(=내가 팔로우한 유저) + 나 포함 이번 주 km 합계 비교.
+// build 104: 5명 초과 시 인라인 expand → bottom sheet 로 전환. 텍스트 위치도 정리.
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import type { Profile } from '@/types';
-import { Users, ChevronRight, ChevronDown } from 'lucide-react';
+import { Users, ChevronRight, X } from 'lucide-react';
 import { startOfWeekStr } from '@/lib/kst';
 
 interface Row {
@@ -23,10 +24,55 @@ function startOfWeek(): string {
   return startOfWeekStr();
 }
 
+function FriendRow({ row, rank, maxKm }: { row: Row; rank: number; maxKm: number }) {
+  return (
+    <Link
+      href={row.isMe ? '/profile' : `/social/user?id=${row.user_id}`}
+      className="flex items-center gap-2.5"
+    >
+      <span className={`w-7 h-7 inline-flex items-center justify-center text-xs font-extrabold rounded-full flex-shrink-0 tabular-nums ${
+        rank === 1
+          ? 'bg-gradient-to-br from-amber-300 to-yellow-500 text-white shadow-sm'
+          : rank === 2
+            ? 'bg-gradient-to-br from-slate-300 to-slate-500 text-white shadow-sm'
+            : rank === 3
+              ? 'bg-gradient-to-br from-orange-300 to-amber-600 text-white shadow-sm'
+              : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'
+      }`}>
+        {rank}
+      </span>
+      <div className="w-8 h-8 rounded-full bg-[var(--card-border)] overflow-hidden flex-shrink-0">
+        {row.avatar_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={row.avatar_url} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-[11px] font-bold text-[var(--muted)]">
+            {row.display_name.slice(0, 1)}
+          </div>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline justify-between">
+          <span className={`text-sm truncate ${row.isMe ? 'font-bold text-emerald-700 dark:text-emerald-400' : 'font-semibold text-[var(--foreground)]'}`}>
+            {row.display_name}{row.isMe ? ' (나)' : ''}
+          </span>
+          <span className="text-xs text-[var(--muted)] ml-2 font-semibold tabular-nums">{row.km.toFixed(1)}km</span>
+        </div>
+        <div className="mt-1 h-1.5 bg-[var(--card-border)] rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full ${row.isMe ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' : 'bg-emerald-400/70'}`}
+            style={{ width: `${(row.km / maxKm) * 100}%` }}
+          />
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 export default function FriendsLeaderboard() {
   const { user, profile } = useAuth();
   const [rows, setRows] = useState<Row[] | null>(null);
-  const [expanded, setExpanded] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -83,6 +129,14 @@ export default function FriendsLeaderboard() {
     })();
   }, [user, profile]);
 
+  // body 스크롤 락 (시트 열렸을 때)
+  useEffect(() => {
+    if (!sheetOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [sheetOpen]);
+
   if (!rows) return null;
 
   if (rows.length <= 1) {
@@ -98,84 +152,93 @@ export default function FriendsLeaderboard() {
   const maxKm = Math.max(...rows.map(r => r.km), 1);
   const COLLAPSED_LIMIT = 5;
   const hasMore = rows.length > COLLAPSED_LIMIT;
-  const visibleRows = expanded ? rows : rows.slice(0, COLLAPSED_LIMIT);
+  const visibleRows = rows.slice(0, COLLAPSED_LIMIT);
   const remainingCount = rows.length - COLLAPSED_LIMIT;
 
   return (
-    <div className="mx-4 mt-3 rounded-2xl bg-[var(--card)] border border-[var(--card-border)] p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-bold text-[var(--foreground)]">이번 주 친구 비교</h3>
-        <span className="text-[10px] text-[var(--muted)]">월요일 기준 · {rows.length}명</span>
-      </div>
-      <div className="space-y-2.5">
-        {visibleRows.map((r, i) => (
-          <Link
-            key={r.user_id}
-            href={r.isMe ? '/profile' : `/social/user?id=${r.user_id}`}
-            className="flex items-center gap-2.5"
-          >
-            {/* Medal 스타일 랭킹 배지 — 동그라미 가운데 정렬 (사용자 피드백 build 100) */}
-            <span className={`w-7 h-7 inline-flex items-center justify-center text-xs font-extrabold rounded-full flex-shrink-0 tabular-nums ${
-              i === 0
-                ? 'bg-gradient-to-br from-amber-300 to-yellow-500 text-white shadow-sm'
-                : i === 1
-                  ? 'bg-gradient-to-br from-slate-300 to-slate-500 text-white shadow-sm'
-                  : i === 2
-                    ? 'bg-gradient-to-br from-orange-300 to-amber-600 text-white shadow-sm'
-                    : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'
-            }`}>
-              {i + 1}
+    <>
+      <div className="mx-4 mt-3 rounded-2xl bg-[var(--card)] border border-[var(--card-border)] p-4">
+        <div className="flex items-baseline justify-between mb-3">
+          <h3 className="text-sm font-bold text-[var(--foreground)]">
+            이번 주 친구 비교
+            <span className="ml-1.5 text-[11px] font-semibold text-[var(--muted)]">
+              · {rows.length}명
             </span>
-            <div className="w-8 h-8 rounded-full bg-[var(--card-border)] overflow-hidden flex-shrink-0">
-              {r.avatar_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={r.avatar_url} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-[11px] font-bold text-[var(--muted)]">
-                  {r.display_name.slice(0, 1)}
-                </div>
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-baseline justify-between">
-                <span className={`text-sm truncate ${r.isMe ? 'font-bold text-emerald-700 dark:text-emerald-400' : 'font-semibold text-[var(--foreground)]'}`}>
-                  {r.display_name}{r.isMe ? ' (나)' : ''}
-                </span>
-                <span className="text-xs text-[var(--muted)] ml-2 font-semibold tabular-nums">{r.km.toFixed(1)}km</span>
-              </div>
-              <div className="mt-1 h-1.5 bg-[var(--card-border)] rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full ${r.isMe ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' : 'bg-emerald-400/70'}`}
-                  style={{ width: `${(r.km / maxKm) * 100}%` }}
-                />
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
+          </h3>
+          <span className="text-[10px] text-[var(--muted)]">월요일 기준</span>
+        </div>
+        <div className="space-y-2.5">
+          {visibleRows.map((r, i) => (
+            <FriendRow key={r.user_id} row={r} rank={i + 1} maxKm={maxKm} />
+          ))}
+        </div>
 
-      {hasMore && (
-        <div className="mt-3 pt-3 border-t border-[var(--card-border)]/60 flex items-center gap-2">
+        {hasMore && (
           <button
             type="button"
-            onClick={() => setExpanded(v => !v)}
-            className="flex-1 inline-flex items-center justify-center gap-1 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-xs font-bold active:scale-95 transition"
-            aria-expanded={expanded}
+            onClick={() => setSheetOpen(true)}
+            className="mt-3 w-full inline-flex items-center justify-center gap-1 py-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-xs font-bold active:scale-95 transition"
           >
-            {expanded ? '접기' : `더보기 (+${remainingCount}명)`}
-            <ChevronDown
-              size={12}
-              className={`transition-transform ${expanded ? 'rotate-180' : ''}`}
-            />
+            친구 모두 보기 (+{remainingCount}명) <ChevronRight size={12} />
           </button>
-          <Link
-            href="/social?tab=friends"
-            className="inline-flex items-center gap-0.5 px-3 py-2 rounded-lg text-[11px] font-bold text-[var(--muted)] hover:text-emerald-700 dark:hover:text-emerald-400 active:scale-95 transition"
+        )}
+      </div>
+
+      {sheetOpen && (
+        <div
+          className="fixed inset-0 z-[80] bg-black/50 flex items-end animate-fade-in"
+          onClick={() => setSheetOpen(false)}
+        >
+          <div
+            className="w-full bg-[var(--background)] rounded-t-3xl shadow-2xl max-h-[85dvh] flex flex-col animate-slide-up"
+            onClick={(e) => e.stopPropagation()}
           >
-            친구 관리 <ChevronRight size={11} />
-          </Link>
+            {/* 핸들 + 헤더 */}
+            <div className="flex-shrink-0 pt-2 pb-1">
+              <div className="mx-auto w-10 h-1 rounded-full bg-[var(--card-border)]" />
+            </div>
+            <div className="flex-shrink-0 px-4 py-3 flex items-center justify-between border-b border-[var(--card-border)]/40">
+              <div>
+                <h2 className="text-base font-extrabold text-[var(--foreground)]">
+                  친구 비교 · {rows.length}명
+                </h2>
+                <p className="text-[11px] text-[var(--muted)] mt-0.5">월요일 기준 · km 합계 정렬</p>
+              </div>
+              <button
+                onClick={() => setSheetOpen(false)}
+                aria-label="닫기"
+                className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--card-border)]/30 active:scale-90 transition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* 전체 리스트 */}
+            <div
+              className="flex-1 overflow-y-auto overscroll-contain px-4 py-3 space-y-2.5"
+              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 60px)' }}
+            >
+              {rows.map((r, i) => (
+                <FriendRow key={r.user_id} row={r} rank={i + 1} maxKm={maxKm} />
+              ))}
+            </div>
+
+            {/* 하단 친구 관리 CTA */}
+            <div
+              className="flex-shrink-0 border-t border-[var(--card-border)]/40 px-4 py-3 bg-[var(--background)]"
+              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}
+            >
+              <Link
+                href="/social?tab=friends"
+                onClick={() => setSheetOpen(false)}
+                className="w-full inline-flex items-center justify-center gap-1 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-bold active:scale-95 transition"
+              >
+                친구 관리 <ChevronRight size={14} />
+              </Link>
+            </div>
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
