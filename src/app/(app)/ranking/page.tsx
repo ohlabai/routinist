@@ -11,14 +11,18 @@ import AppLogo from '@/components/AppLogo';
 import MileageRankingTab from '@/components/social/MileageRankingTab';
 import RankingBreakdown from '@/components/ranking/RankingBreakdown';
 import RankingTimeline from '@/components/ranking/RankingTimeline';
-import { Trophy, Coins } from 'lucide-react';
+import { Trophy, Coins, Users, Globe } from 'lucide-react';
+import ContestTab from '@/components/contest/ContestTab';
+import WorldTab from '@/components/world/WorldTab';
 
-type SubTab = 'me' | 'mileage';
+type SubTab = 'me' | 'mileage' | 'contest' | 'world';
 type TimeAxis = 'today' | 'month' | 'year';
 
 const SUB_TABS: { id: SubTab; label: string; Icon: typeof Trophy }[] = [
   { id: 'me', label: '내 랭킹', Icon: Trophy },
   { id: 'mileage', label: '마일리지', Icon: Coins },
+  { id: 'contest', label: '하루 대회', Icon: Users },
+  { id: 'world', label: '세계를 달려', Icon: Globe },
 ];
 
 function RankingInner() {
@@ -26,7 +30,7 @@ function RankingInner() {
   const searchParams = useSearchParams();
   const initialTab = (searchParams.get('tab') as SubTab) ?? 'me';
   const [activeSub, setActiveSub] = useState<SubTab>(
-    ['me', 'mileage'].includes(initialTab) ? initialTab : 'me'
+    ['me', 'mileage', 'contest', 'world'].includes(initialTab) ? initialTab : 'me'
   );
   const [axis, setAxis] = useState<TimeAxis>('month');
 
@@ -42,12 +46,13 @@ function RankingInner() {
       </header>
 
       <div className="px-4 pt-4">
-      <div className="flex bg-[var(--card)] border border-[var(--card-border)] rounded-2xl p-1 mb-5 shadow-sm">
+      {/* 4탭 — 가로 스크롤 (build 106 하루 대회·세계를 달려 추가). 화면 좁아서 등분 안 함. */}
+      <div className="flex bg-[var(--card)] border border-[var(--card-border)] rounded-2xl p-1 mb-5 shadow-sm overflow-x-auto scrollbar-hide gap-1">
         {SUB_TABS.map(s => (
           <button
             key={s.id}
             onClick={() => setActiveSub(s.id)}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-extrabold transition-all active:scale-95 ${
+            className={`flex-shrink-0 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-extrabold transition-all active:scale-95 whitespace-nowrap ${
               activeSub === s.id
                 ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/30'
                 : 'text-[var(--muted)]'
@@ -94,6 +99,8 @@ function RankingInner() {
       )}
 
       {activeSub === 'mileage' && <MileageRankingTab />}
+      {activeSub === 'contest' && <ContestTab />}
+      {activeSub === 'world' && <WorldTab />}
       </div>
     </div>
   );

@@ -253,9 +253,9 @@ export default function HomeRankingHero() {
       <button
         type="button"
         onClick={goDetail}
-        className="relative w-full px-5 pt-4 pb-5 text-center active:scale-[0.99] transition"
+        className="relative w-full px-5 pt-3 pb-4 text-center active:scale-[0.99] transition"
       >
-        <div className="flex items-center justify-center gap-1.5 mb-3 text-[11px] text-[var(--muted)] font-semibold tracking-wide uppercase">
+        <div className="flex items-center justify-center gap-1.5 mb-2 text-[13px] text-[var(--muted)] font-bold tracking-wide">
           <span>{rank.scope_label}</span>
           <span className="text-[var(--card-border)]">·</span>
           <span>{periodLabel}</span>
@@ -266,25 +266,27 @@ export default function HomeRankingHero() {
           </span>
         </div>
 
-        {isTop3 && (
-          <div className={`mx-auto w-16 h-16 rounded-2xl ${style.medalBg} ${style.medalShadow} flex items-center justify-center mb-3`}>
-            <span className="text-3xl drop-shadow-sm">{tier.icon}</span>
+        {/* 메달 + 숫자 + "위" 한 줄 — 카드 압축 + 숫자 크기 ↑ (사용자 피드백 build 106) */}
+        <div className="flex items-center justify-center gap-3">
+          {isTop3 && (
+            <div className={`w-14 h-14 rounded-2xl ${style.medalBg} ${style.medalShadow} flex items-center justify-center flex-shrink-0`}>
+              <span className="text-2xl drop-shadow-sm">{tier.icon}</span>
+            </div>
+          )}
+          <div className="flex items-baseline">
+            <span
+              className={`leading-[0.85] font-extrabold tracking-tighter tabular-nums ${style.numberText}`}
+              style={{ fontSize: '96px' }}
+            >
+              {rank.rank_position}
+            </span>
+            <span className="text-3xl font-extrabold text-[var(--foreground)] ml-1">위</span>
           </div>
-        )}
-
-        <div className="flex items-baseline justify-center gap-1.5">
-          <span
-            className={`leading-[0.85] font-extrabold tracking-tighter tabular-nums ${style.numberText}`}
-            style={{ fontSize: isTop3 ? '64px' : '72px' }}
-          >
-            {rank.rank_position}
-          </span>
-          <span className="text-xl font-extrabold text-[var(--foreground)]">위</span>
         </div>
-        <p className="mt-1 text-[11px] text-[var(--muted)] font-bold">
+        <p className="mt-1 text-xs text-[var(--muted)] font-bold">
           / {rank.total_in_scope.toLocaleString()}명
         </p>
-        <p className="mt-2 text-sm">
+        <p className="mt-2 text-base">
           <span className={`font-bold ${style.accent}`}>{name}</span>
           <span className="text-[var(--muted)]"> · </span>
           <span className="font-semibold text-[var(--foreground)]">{myKm.toFixed(1)}km</span>

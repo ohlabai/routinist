@@ -7,7 +7,10 @@ export interface RoutinePhoto {
   photo_id: string;
   photo_url: string;
   caption: string | null;
-  essay_body: string | null;       // 포토에세이 본문 (사용자 피드백 #10)
+  essay_body: string | null;       // 포토에세이 본문 (legacy, 메뉴에서 숨김 — build 106)
+  quote_id: string | null;          // build 106: 공유카드 등록 시 선택된 명언 id
+  quote_text: string | null;         // 명언 본문 (view join)
+  quote_author: string | null;       // 명언 작성자
   user_id: string;
   display_name: string;
   avatar_url: string | null;
@@ -195,6 +198,9 @@ function mapRow(row: Record<string, unknown>): RoutinePhoto {
     photo_url: row.photo_url as string,
     caption: (row.caption as string) ?? null,
     essay_body: (row.essay_body as string) ?? null,
+    quote_id: (row.quote_id as string) ?? null,
+    quote_text: (row.quote_text as string) ?? null,
+    quote_author: (row.quote_author as string) ?? null,
     user_id: row.user_id as string,
     display_name: row.display_name as string,
     avatar_url: (row.avatar_url as string) ?? null,

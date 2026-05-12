@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, ShoppingBag, Users, Package, AlertCircle, ChevronRight,
-  Beaker, Coins, TrendingUp, Sparkles, Settings,
+  Beaker, Coins, TrendingUp, Sparkles, Settings, Stethoscope, Globe,
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
@@ -279,6 +279,8 @@ export default function AdminDashboardPage() {
               <AdminLink href="/admin/products" icon={<Package size={20} />} label="상품 관리" />
               <AdminLink href="/admin/mileage" icon={<Coins size={20} />} label="마일리지 정책" />
               <AdminLink href="/admin/experiments" icon={<Beaker size={20} />} label="A/B 실험" />
+              <AdminLink href="/admin/courses" icon={<Globe size={20} />} label="가상 코스" />
+              <AdminLink href="/profile/audit" icon={<Stethoscope size={20} />} label="데이터 점검" />
             </div>
           </Section>
         </>

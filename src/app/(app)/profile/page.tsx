@@ -155,15 +155,14 @@ export default function ProfilePage() {
     { href: '/mileage/gift', label: t('profile.actionMileageGift'), Icon: Gift, color: 'text-pink-500' },
   ];
 
+  // build 106 메뉴 IA 재편 — 나의 명언/명언사전/러너의 에세이는 소셜 탭으로 이전.
+  // 데이터 점검은 어드민 전용으로 이동.
   const settings: { href: string; label: string; Icon: typeof HelpCircle }[] = [
-    { href: '/quotes/mine', label: '나의 명언', Icon: HelpCircle },
-    { href: '/quotes/ranking', label: '명언 사전 (랭킹)', Icon: HelpCircle },
-    { href: '/essays', label: '러너의 에세이', Icon: HelpCircle },
     { href: '/shop/orders', label: '내 주문 내역', Icon: HelpCircle },
     { href: '/shop/addresses', label: '배송지 관리', Icon: HelpCircle },
-    { href: '/profile/audit', label: t('profile.menuAudit'), Icon: Stethoscope },
     ...(isAdmin ? [
       { href: '/admin', label: '어드민 대시보드', Icon: Settings },
+      { href: '/profile/audit', label: t('profile.menuAudit'), Icon: Stethoscope },
       { href: '/admin/mileage', label: t('profile.menuAdminMileage'), Icon: Settings },
       { href: '/admin/orders', label: '주문 관리 (관리자)', Icon: Settings },
       { href: '/admin/products', label: '상품 관리 (관리자)', Icon: Settings },

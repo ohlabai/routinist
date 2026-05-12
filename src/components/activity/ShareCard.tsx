@@ -1,13 +1,12 @@
 'use client';
 
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { Share2, X, ImagePlus, Check, ThumbsUp, Dices, PenLine, Sparkles } from 'lucide-react';
+import { Share2, X, ImagePlus, Check, ThumbsUp, Dices, PenLine, Copy } from 'lucide-react';
 import { isNativeApp } from '@/lib/health-sync';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
 import { fetchRandomQuote, toggleQuoteLike, isFallbackQuote, type DailyQuote } from '@/lib/quotes-data';
 import { createUserQuote } from '@/lib/user-quotes';
-import { updatePhotoEssay } from '@/lib/routine-photos';
 import { getSupabase } from '@/lib/supabase';
 import AppToast from '@/components/AppToast';
 import type { Activity } from '@/types';
@@ -161,7 +160,12 @@ function drawCard(
     theme.bg(ctx, W, H);
   }
 
-  // 경로 — 명언 영역(상단 200~440) 다음에 그려짐.
+  // 경로 — build 100 회귀 fix: 명언과 안 겹치도록 mapY 더 아래로 + 그림자 강화.
+  // 이전엔 mapY=280 으로 명언(quoteY=200 중심, 3줄이면 ~264 까지)과 28px 만 떨어져 시각적으로 답답하거나
+  // 배경사진 위 흰색 선이 밝은 영역에 묻혀 안 보이는 회귀 발생. fix:
+  //   1) mapY 320 (명언 3줄 끝 + 56 padding)
+  //   2) 그림자 lineWidth 16 / alpha 0.7 — 사진 배경에서도 또렷
+  //   3) 본체 lineWidth 8 — 폴리라인 가독성 ↑
   const hasRoute = activity.route_data?.coordinates?.length;
   if (hasRoute) {
     const coords = activity.route_data!.coordinates;
@@ -170,11 +174,10 @@ function drawCard(
     const minLat = Math.min(...lats), maxLat = Math.max(...lats);
     const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
 
-    // 명언/지도/거리 위치 위로 ↑ (사용자 피드백 — 5/11 layout 재조정).
     const padding = 120;
     const mapW = W - padding * 2;
     const mapH = 480;
-    const mapY = 280;
+    const mapY = 320;
 
     const scaleX = mapW / (maxLng - minLng || 0.001);
     const scaleY = mapH / (maxLat - minLat || 0.001);
@@ -183,15 +186,15 @@ function drawCard(
     const offsetX = padding + (mapW - (maxLng - minLng) * scale) / 2;
     const offsetY = mapY + (mapH - (maxLat - minLat) * scale) / 2;
 
-    // 그림자
+    // 그림자 (배경사진 위에서도 또렷하게)
     ctx.beginPath();
     coords.forEach(([lng, lat], i) => {
       const x = offsetX + (lng - minLng) * scale;
       const y = offsetY + mapH - (lat - minLat) * scale;
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     });
-    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-    ctx.lineWidth = 10;
+    ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+    ctx.lineWidth = 16;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.stroke();
@@ -204,18 +207,20 @@ function drawCard(
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     });
     ctx.strokeStyle = bgImage ? '#ffffff' : theme.routeColor;
-    ctx.lineWidth = 6;
+    ctx.lineWidth = 8;
     ctx.stroke();
 
-    // 시작/끝점
+    // 시작/끝점 — 흰 테두리로 사진 배경에서도 또렷
     const [sx, sy] = [offsetX + (coords[0][0] - minLng) * scale, offsetY + mapH - (coords[0][1] - minLat) * scale];
     const last = coords[coords.length - 1];
     const [ex, ey] = [offsetX + (last[0] - minLng) * scale, offsetY + mapH - (last[1] - minLat) * scale];
 
     ctx.fillStyle = '#22C55E';
-    ctx.beginPath(); ctx.arc(sx, sy, 12, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(sx, sy, 14, 0, Math.PI * 2); ctx.fill();
+    if (bgImage) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.stroke(); }
     ctx.fillStyle = '#EF4444';
-    ctx.beginPath(); ctx.arc(ex, ey, 12, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(ex, ey, 14, 0, Math.PI * 2); ctx.fill();
+    if (bgImage) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.stroke(); }
   }
 
   const mainColor = bgImage ? '#ffffff' : theme.textMain;
@@ -563,13 +568,10 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
   // 루틴포토 등록 — 디폴트 ON (체크 해제하면 캘린더만 저장).
   // 캘린더 저장은 항상 자동 (UI 표시 X — 사용자 의도).
   const [registerToGallery, setRegisterToGallery] = useState(true);
-  // 사용자 피드백 #8 — 나의 명언 작성. 모달 형태로 띄움.
+  // 나의 명언 작성. 모달 형태로 띄움.
   const [showMyQuoteModal, setShowMyQuoteModal] = useState(false);
   const [myQuoteText, setMyQuoteText] = useState('');
   const [submittingMyQuote, setSubmittingMyQuote] = useState(false);
-  // 사용자 피드백 #10 — 포토에세이. 등록 시 함께 저장 → 갤러리에 첫 줄 노출.
-  const [essayBody, setEssayBody] = useState('');
-  const [showEssayInput, setShowEssayInput] = useState(false);
 
   // 공유카드 열 때마다 random 명언 + 🎲 버튼으로 새로 굴릴 수 있음.
   // SNS 도배 회피 + 사용자가 마음에 들 때까지 새로 받음.
@@ -647,10 +649,11 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
           data: base64,
           directory: Directory.Cache,
         });
-        // 네이티브 공유 시트로 열기
+        // 네이티브 공유 시트로 열기 — 명언 캡션 함께 전달
         const { Share } = await import('@capacitor/share');
         await Share.share({
           title: `${activity.distance_km.toFixed(2)}km 러닝`,
+          text: shareCaption,
           url: result.uri,
         });
       } catch (err) {
@@ -714,7 +717,9 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
         ),
       ];
       if (includeGallery) {
-        const trimmedEssay = essayBody.trim();
+        // 명언이 현재 표시 중이면 photo 와 함께 quote_id 저장 → 갤러리 카드 캡션으로 노출.
+        // fallback 명언(id 가 'fallback-...') 은 quotes 테이블 row 가 아니므로 제외.
+        const quoteIdForCard = quote && !isFallbackQuote(quote) ? quote.id : null;
         tasks.push(
           withTimeout(
             supabase.from('activity_photos').insert({
@@ -723,7 +728,7 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
               photo_url: photoUrl,
               share_in_gallery: true,
               sort_order: 0,
-              essay_body: trimmedEssay || null,
+              quote_id: quoteIdForCard,
             }),
             8000,
             'activity_photos insert',
@@ -754,6 +759,11 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
     }
   };
 
+  // 인스타식 캡션 — 명언 + 거리. 공유 시 텍스트로 함께 전달, 사용자가 SNS 캡션에 그대로 활용.
+  const shareCaption = quote
+    ? `"${quote.text}"${quote.author ? ` — ${quote.author}` : ''}\n\n#Routinist #${activity.distance_km.toFixed(1)}km`
+    : `오늘도 한 발 더. ${activity.distance_km.toFixed(2)}km #Routinist`;
+
   const handleShare = async () => {
     if (!canvasRef.current) return;
 
@@ -767,7 +777,13 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
       if (!blob) return;
       const file = new File([blob], `routinist-${activity.activity_date}.png`, { type: 'image/png' });
       if (navigator.share) {
-        try { await navigator.share({ files: [file], title: `${activity.distance_km.toFixed(2)}km 러닝` }); } catch { /* cancelled */ }
+        try {
+          await navigator.share({
+            files: [file],
+            title: `${activity.distance_km.toFixed(2)}km 러닝`,
+            text: shareCaption,
+          });
+        } catch { /* cancelled */ }
       } else { await handleDownload(); }
     }, 'image/png');
   };
@@ -871,43 +887,31 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
             )}
           </div>
 
-          {/* 포토에세이 (사용자 피드백 #10) — 사용자가 짧은 글을 쓰면 갤러리에 첫 줄 노출.
-              읽을거리 컨텐츠 생성 + 체류시간 증가. */}
-          {!hideRegister && registerToGallery && (
+          {/* 명언 캡션 — 인스타식 카드 아래 텍스트 (작업 3).
+              SNS 공유 시 함께 전달되는 캡션 + 갤러리에 텍스트로도 저장됨. */}
+          {quote && (
             <div className="px-1">
-              {!showEssayInput ? (
+              <div className="rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-900/40 px-3 py-2.5">
+                <p className="text-sm text-emerald-900 dark:text-emerald-100 leading-snug">
+                  &ldquo;{quote.text}&rdquo;
+                  {quote.author && (
+                    <span className="text-xs text-emerald-700 dark:text-emerald-300 font-semibold"> — {quote.author}</span>
+                  )}
+                </p>
                 <button
-                  onClick={() => setShowEssayInput(true)}
-                  className="w-full text-left text-xs text-emerald-600 dark:text-emerald-400 font-semibold inline-flex items-center gap-1 active:scale-[0.99]"
+                  onClick={async () => {
+                    const caption = `"${quote.text}"${quote.author ? ` — ${quote.author}` : ''}\n\n#Routinist #${activity.distance_km.toFixed(1)}km`;
+                    try {
+                      await navigator.clipboard.writeText(caption);
+                      setRegisterToast('✨ 캡션 복사됨');
+                      setTimeout(() => setRegisterToast(null), 1500);
+                    } catch { /* clipboard 거부 */ }
+                  }}
+                  className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-emerald-700 dark:text-emerald-300 font-bold active:scale-95"
                 >
-                  <PenLine size={12} /> 오늘의 에세이 쓰기 (선택)
+                  <Copy size={11} /> 캡션 복사
                 </button>
-              ) : (
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1">
-                      <Sparkles size={11} /> 오늘의 에세이
-                    </span>
-                    <button
-                      onClick={() => { setShowEssayInput(false); setEssayBody(''); }}
-                      className="text-[11px] text-[var(--muted)]"
-                    >
-                      취소
-                    </button>
-                  </div>
-                  <textarea
-                    value={essayBody}
-                    onChange={(e) => setEssayBody(e.target.value.slice(0, 2000))}
-                    placeholder="오늘의 러닝을 한 줄로 기록해보세요. 갤러리에서 다른 러너들이 읽을 수 있어요."
-                    rows={3}
-                    className="w-full px-3 py-2 rounded-xl border border-[var(--card-border)] bg-[var(--background)] text-sm focus:outline-none focus:border-emerald-500 resize-none"
-                  />
-                  <div className="flex justify-between mt-1">
-                    <span className="text-[10px] text-[var(--muted)]">{essayBody.length}/2000</span>
-                    <span className="text-[10px] text-[var(--muted)]">{essayBody.trim() ? '✓ 카드에 첫 줄 노출' : '비워두면 노출 안 됨'}</span>
-                  </div>
-                </div>
-              )}
+              </div>
             </div>
           )}
 

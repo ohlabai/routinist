@@ -159,13 +159,16 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
           </div>
         </button>
 
-        {/* 에세이 본문 — 카드 외부 하단 (사진 아래) 별도 영역. 사용자 피드백 #3. */}
-        {photo.essay_body && (
+        {/* 인스타식 캡션 — build 106: 사진 아래 작성자가 선택한 명언이 캡션으로 노출.
+            quote_text 우선, 없으면 legacy essay_body fallback. */}
+        {(photo.quote_text || photo.essay_body) && (
           <div className="px-3.5 py-3 bg-[var(--card)] border-t border-[var(--card-border)]/40">
-            <p className="text-[13px] italic text-[var(--foreground)] leading-relaxed line-clamp-3 break-keep">
-              &ldquo;{photo.essay_body.replace(/\s+/g, ' ').trim()}&rdquo;
+            <p className="text-[14px] italic text-[var(--foreground)] leading-relaxed line-clamp-3 break-keep">
+              &ldquo;{(photo.quote_text ?? photo.essay_body ?? '').replace(/\s+/g, ' ').trim()}&rdquo;
             </p>
-            <p className="text-[10px] text-[var(--muted)] mt-1.5">— @{photo.display_name}</p>
+            <p className="text-[11px] text-[var(--muted)] mt-1.5 font-semibold">
+              — {photo.quote_author ?? `@${photo.display_name}`}
+            </p>
           </div>
         )}
 
@@ -289,10 +292,10 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
             <X size={26} strokeWidth={2.5} className="text-white" />
           </button>
           <div className="absolute left-4 right-4 bottom-[calc(env(safe-area-inset-bottom)+24px)] space-y-3" onClick={(e) => e.stopPropagation()}>
-            {photo.essay_body && (
+            {(photo.quote_text || photo.essay_body) && (
               <div className="px-4 py-3 rounded-2xl bg-black/55 backdrop-blur-md text-white text-sm leading-relaxed max-h-40 overflow-y-auto">
-                <p className="italic whitespace-pre-wrap">&ldquo;{photo.essay_body}&rdquo;</p>
-                <p className="mt-2 text-[11px] text-white/70">— @{photo.display_name}</p>
+                <p className="italic whitespace-pre-wrap">&ldquo;{photo.quote_text ?? photo.essay_body}&rdquo;</p>
+                <p className="mt-2 text-[11px] text-white/70">— {photo.quote_author ?? `@${photo.display_name}`}</p>
               </div>
             )}
             <div className="flex items-center justify-between gap-3">

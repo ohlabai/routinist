@@ -11,7 +11,8 @@ import { searchUsers, fetchPublicUsers, getMyClubs, fetchFollowing } from '@/lib
 import { getSupabase } from '@/lib/supabase';
 import UserRow from '@/components/social/UserRow';
 import PhotosTab from '@/components/photos/PhotosTab';
-import { User as UserIcon, Users, Search, Plus, MapPin, Camera, Trophy } from 'lucide-react';
+import QuotesTab from '@/components/social/QuotesTab';
+import { User as UserIcon, Users, Search, Plus, MapPin, Camera, Trophy, MessageSquare } from 'lucide-react';
 import { startOfWeekStr } from '@/lib/kst';
 import type { Profile, Club } from '@/types';
 import AppLogo from '@/components/AppLogo';
@@ -20,6 +21,7 @@ const SECTIONS = [
   { id: 'friends', label: '친구', Icon: UserIcon },
   { id: 'clubs', label: '클럽', Icon: Users },
   { id: 'photos', label: '포토', Icon: Camera },
+  { id: 'quotes', label: '명언', Icon: MessageSquare },
 ] as const;
 
 type SectionId = typeof SECTIONS[number]['id'];
@@ -33,7 +35,7 @@ function SocialPageInner() {
   const searchParams = useSearchParams();
   const initialTab = (searchParams.get('tab') as SectionId) ?? 'friends';
   const [activeSection, setActiveSection] = useState<SectionId>(
-    ['friends', 'clubs', 'photos'].includes(initialTab) ? initialTab : 'friends'
+    ['friends', 'clubs', 'photos', 'quotes'].includes(initialTab) ? initialTab : 'friends'
   );
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState<Profile[]>([]);
@@ -289,6 +291,9 @@ function SocialPageInner() {
 
       {/* 포토 탭 — 신규 */}
       {activeSection === 'photos' && <PhotosTab />}
+
+      {/* 명언 탭 (build 106) — 내 정보에서 이전, 트위터식 텍스트 피드 */}
+      {activeSection === 'quotes' && <QuotesTab />}
       </div>
     </div>
   );
