@@ -1,0 +1,133 @@
+'use client';
+
+// 랭킹 페이지 (build 100 신규) — 내 랭킹 + 마일리지 2 서브탭.
+// 이전 /social 의 me, mileage 서브탭에서 이전. /social 은 친구/클럽/포토만 유지.
+
+import { useState, Suspense } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { useAuth } from '@/components/AuthProvider';
+import AppLogo from '@/components/AppLogo';
+import MileageRankingTab from '@/components/social/MileageRankingTab';
+import RankingBreakdown from '@/components/ranking/RankingBreakdown';
+import RankingTimeline from '@/components/ranking/RankingTimeline';
+import { Trophy, Coins, MapPin, Sparkles } from 'lucide-react';
+
+type SubTab = 'me' | 'mileage';
+type TimeAxis = 'today' | 'month' | 'year';
+
+const SUB_TABS: { id: SubTab; label: string; Icon: typeof Trophy }[] = [
+  { id: 'me', label: '내 랭킹', Icon: Trophy },
+  { id: 'mileage', label: '마일리지', Icon: Coins },
+];
+
+function RankingInner() {
+  const { profile } = useAuth();
+  const searchParams = useSearchParams();
+  const initialTab = (searchParams.get('tab') as SubTab) ?? 'me';
+  const [activeSub, setActiveSub] = useState<SubTab>(
+    ['me', 'mileage'].includes(initialTab) ? initialTab : 'me'
+  );
+  const [axis, setAxis] = useState<TimeAxis>('month');
+
+  const hasDemographics = !!(profile?.region_gu || profile?.birth_year || profile?.gender);
+
+  return (
+    <div className="max-w-lg mx-auto pb-12 bg-[var(--background)] min-h-screen">
+      <header className="sticky top-0 z-30 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
+        <div className="px-4 py-3 flex items-center gap-2">
+          <AppLogo size={28} />
+          <h1 className="text-xl font-extrabold tracking-tight">랭킹</h1>
+        </div>
+      </header>
+
+      <div className="px-4 pt-4">
+      <div className="flex bg-[var(--card)] border border-[var(--card-border)] rounded-2xl p-1 mb-5 shadow-sm">
+        {SUB_TABS.map(s => (
+          <button
+            key={s.id}
+            onClick={() => setActiveSub(s.id)}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-extrabold transition-all active:scale-95 ${
+              activeSub === s.id
+                ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/30'
+                : 'text-[var(--muted)]'
+            }`}
+          >
+            <s.Icon size={16} />
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {activeSub === 'me' && (
+        <div className="space-y-4">
+          <div className="flex gap-2">
+            {(['today', 'month', 'year'] as TimeAxis[]).map(a => (
+              <button
+                key={a}
+                onClick={() => setAxis(a)}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                  axis === a
+                    ? 'bg-emerald-500 text-white shadow-sm'
+                    : 'bg-[var(--card-bg)] text-[var(--muted)] border border-[var(--card-border)]'
+                }`}
+              >
+                {a === 'today' ? '🔥 오늘' : a === 'month' ? '📅 이달' : '🏆 올해'}
+              </button>
+            ))}
+          </div>
+
+          {hasDemographics ? (
+            <>
+              <RankingBreakdown axis={axis} />
+              {/* 시계열 그래프 (build 100) — 주/월/년 × scope × rank/km */}
+              <RankingTimeline />
+            </>
+          ) : (
+            <Link href="/profile/edit" className="block rounded-3xl bg-gradient-to-br from-emerald-100/80 to-emerald-50/40 p-6 shadow-sm border border-emerald-200/60">
+              <p className="text-lg font-bold text-[var(--foreground)]">내 조건 입력하고 랭킹 보기 →</p>
+              <p className="text-sm text-[var(--muted)] mt-1">지역·출생년도·성별을 설정하면 4가지 축으로 내 위치가 보여요</p>
+            </Link>
+          )}
+
+          <Link href="/ranking/engagement" className="card p-4 flex items-center justify-between active:scale-[0.99]">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center">
+                <Sparkles size={20} className="text-pink-600 dark:text-pink-400" />
+              </div>
+              <div>
+                <p className="text-base font-semibold text-[var(--foreground)]">활성도 랭킹</p>
+                <p className="text-sm text-[var(--muted)]">받은 좋아요 + 친구 수 기준</p>
+              </div>
+            </div>
+            <span className="text-[var(--muted)]">→</span>
+          </Link>
+
+          <Link href="/social/rankings" className="card p-4 flex items-center justify-between active:scale-[0.99]">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                <MapPin size={20} className="text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-base font-semibold text-[var(--foreground)]">지역 랭킹 상세</p>
+                <p className="text-sm text-[var(--muted)]">국가 · 시 · 구 세분화</p>
+              </div>
+            </div>
+            <span className="text-[var(--muted)]">→</span>
+          </Link>
+        </div>
+      )}
+
+      {activeSub === 'mileage' && <MileageRankingTab />}
+      </div>
+    </div>
+  );
+}
+
+export default function RankingPage() {
+  return (
+    <Suspense fallback={<div className="p-8 flex justify-center"><div className="animate-spin w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full" /></div>}>
+      <RankingInner />
+    </Suspense>
+  );
+}

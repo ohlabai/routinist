@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import type { Profile } from '@/types';
-import { Users } from 'lucide-react';
+import { Users, ChevronRight } from 'lucide-react';
 import { startOfWeekStr } from '@/lib/kst';
 
 interface Row {
@@ -95,43 +95,63 @@ export default function FriendsLeaderboard() {
   }
 
   const maxKm = Math.max(...rows.map(r => r.km), 1);
+  const visibleRows = rows.slice(0, 5);
+  const hasMore = rows.length > 5;
 
   return (
     <div className="mx-4 mt-3 rounded-2xl bg-[var(--card)] border border-[var(--card-border)] p-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-bold text-[var(--foreground)]">이번 주 친구 비교</h3>
-        <span className="text-[10px] text-[var(--muted)]">월요일 기준</span>
+        {hasMore ? (
+          <Link
+            href="/social?tab=friends"
+            className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-0.5 active:scale-95 transition"
+          >
+            전체 {rows.length}명 보기 <ChevronRight size={11} />
+          </Link>
+        ) : (
+          <span className="text-[10px] text-[var(--muted)]">월요일 기준</span>
+        )}
       </div>
-      <div className="space-y-2">
-        {rows.slice(0, 10).map((r, i) => (
+      <div className="space-y-2.5">
+        {visibleRows.map((r, i) => (
           <Link
             key={r.user_id}
             href={r.isMe ? '/profile' : `/social/user?id=${r.user_id}`}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2.5"
           >
-            <span className={`w-5 text-xs font-bold text-center ${i === 0 ? 'text-amber-500' : 'text-[var(--muted)]'}`}>
+            {/* Medal 스타일 랭킹 배지 — 동그라미 가운데 정렬 (사용자 피드백 build 100) */}
+            <span className={`w-7 h-7 inline-flex items-center justify-center text-xs font-extrabold rounded-full flex-shrink-0 tabular-nums ${
+              i === 0
+                ? 'bg-gradient-to-br from-amber-300 to-yellow-500 text-white shadow-sm'
+                : i === 1
+                  ? 'bg-gradient-to-br from-slate-300 to-slate-500 text-white shadow-sm'
+                  : i === 2
+                    ? 'bg-gradient-to-br from-orange-300 to-amber-600 text-white shadow-sm'
+                    : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'
+            }`}>
               {i + 1}
             </span>
-            <div className="w-7 h-7 rounded-full bg-[var(--card-border)] overflow-hidden flex-shrink-0">
+            <div className="w-8 h-8 rounded-full bg-[var(--card-border)] overflow-hidden flex-shrink-0">
               {r.avatar_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={r.avatar_url} alt="" className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-[var(--muted)]">
+                <div className="w-full h-full flex items-center justify-center text-[11px] font-bold text-[var(--muted)]">
                   {r.display_name.slice(0, 1)}
                 </div>
               )}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline justify-between">
-                <span className={`text-sm truncate ${r.isMe ? 'font-bold text-[var(--accent)]' : 'font-medium text-[var(--foreground)]'}`}>
+                <span className={`text-sm truncate ${r.isMe ? 'font-bold text-emerald-700 dark:text-emerald-400' : 'font-semibold text-[var(--foreground)]'}`}>
                   {r.display_name}{r.isMe ? ' (나)' : ''}
                 </span>
-                <span className="text-xs text-[var(--muted)] ml-2">{r.km.toFixed(1)}km</span>
+                <span className="text-xs text-[var(--muted)] ml-2 font-semibold tabular-nums">{r.km.toFixed(1)}km</span>
               </div>
               <div className="mt-1 h-1.5 bg-[var(--card-border)] rounded-full overflow-hidden">
                 <div
-                  className={`h-full rounded-full ${r.isMe ? 'bg-[var(--accent)]' : 'bg-emerald-400/70'}`}
+                  className={`h-full rounded-full ${r.isMe ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' : 'bg-emerald-400/70'}`}
                   style={{ width: `${(r.km / maxKm) * 100}%` }}
                 />
               </div>

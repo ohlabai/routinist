@@ -24,6 +24,7 @@ export type TranslationKey =
   | 'nav.home'
   | 'nav.map'
   | 'nav.ranking'
+  | 'nav.social'
   | 'nav.shop'
   | 'nav.profile'
   | 'home.matchedRank.cta'
@@ -78,6 +79,7 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'nav.home': '홈',
     'nav.map': '지도',
     'nav.ranking': '랭킹',
+    'nav.social': '소셜',
     'nav.shop': '쇼핑',
     'nav.profile': '내 정보',
     'home.matchedRank.cta': '내 랭킹 보기',
@@ -131,6 +133,7 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'nav.home': 'Home',
     'nav.map': 'Map',
     'nav.ranking': 'Ranking',
+    'nav.social': 'Social',
     'nav.shop': 'Shop',
     'nav.profile': 'Profile',
     'home.matchedRank.cta': 'See your ranking',
@@ -184,6 +187,7 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'nav.home': 'ホーム',
     'nav.map': 'マップ',
     'nav.ranking': 'ランキング',
+    'nav.social': 'ソーシャル',
     'nav.shop': 'ショップ',
     'nav.profile': 'プロフィール',
     'home.matchedRank.cta': 'ランキングを見る',
@@ -237,6 +241,7 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'nav.home': '主页',
     'nav.map': '地图',
     'nav.ranking': '排行',
+    'nav.social': '社交',
     'nav.shop': '商店',
     'nav.profile': '我的',
     'home.matchedRank.cta': '查看我的排名',
@@ -290,6 +295,7 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'nav.home': 'Inicio',
     'nav.map': 'Mapa',
     'nav.ranking': 'Ranking',
+    'nav.social': 'Social',
     'nav.shop': 'Tienda',
     'nav.profile': 'Mi perfil',
     'home.matchedRank.cta': 'Ver mi ranking',

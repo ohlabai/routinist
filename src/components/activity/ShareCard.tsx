@@ -129,7 +129,6 @@ function drawCard(
   userIdLabel?: string,
   quote?: DailyQuote | null,
   monthlyGoalKm?: number,
-  essayBody?: string,
 ) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -370,7 +369,8 @@ function drawCard(
     const showLike = !isFallbackQuote(quote);
 
     ctx.font = '500 30px -apple-system, BlinkMacSystemFont, sans-serif';
-    const dashStr = '— ';
+    // dash 짧게 (사용자 피드백: em dash 너무 길어 보임)
+    const dashStr = '- ';
     const authorStr = author ? `${dashStr}${author}` : '';
     const authorW = author ? ctx.measureText(authorStr).width : 0;
 
@@ -413,9 +413,9 @@ function drawCard(
   // (1) 월간 일별 세로 막대 — 위. (2) 가로 progress bar — 아래 (더 띄움).
   // "5월 목표" 라벨 제거. 5/11 + 88.2/200km 모두 progress bar **아래**에 같은 폰트(32px).
 
-  // (1) 월간 일별 세로 막대 그래프 — 위로
+  // (1) 월간 일별 세로 막대 그래프 — 위로 (사용자 피드백: 더 위로)
   if (dailyKm.size > 0) {
-    const chartTop = 1380;  // 1410 → 1380 위로
+    const chartTop = 1320;  // 1380 → 1320 위로
     const chartH = 110;
     const chartPadX = 100;
     const chartW = W - chartPadX * 2;
@@ -439,9 +439,9 @@ function drawCard(
     }
   }
 
-  // (2) 가로 progress bar — 아래. 위 막대와 충분히 띄움 (1380+110=1490 → 1620). 라벨 정리.
+  // (2) 가로 progress bar — 아래. 위 막대 (1320+110=1430) 와 띄움. 라벨 정리.
   if (monthlyGoalKm && monthlyGoalKm > 0 && monthSum > 0) {
-    const goalBarTop = 1620;
+    const goalBarTop = 1560;
     const goalBarH = 14;
     const goalBarPadX = 100;
     const goalBarW = W - goalBarPadX * 2;
@@ -477,23 +477,8 @@ function drawCard(
     ctx.fillText(`${monthSum.toFixed(1)} / ${monthlyGoalKm.toFixed(0)}km`, goalBarPadX + goalBarW, labelY);
   }
 
-  // 포토에세이 첫 1~2줄 — progress bar 아래, footer 위 영역에 인용체로 노출 (사용자 피드백 #10).
-  // 너무 길면 한 줄로 압축 + "…".
-  if (essayBody && essayBody.trim()) {
-    const essayY = 1680;
-    ctx.font = '500 italic 30px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillStyle = bgImage ? 'rgba(255,255,255,0.85)' : subColor;
-    ctx.textAlign = 'center';
-    const maxW = W - 160;
-    const text = essayBody.trim().replace(/\s+/g, ' ');
-    // 첫 단어 wrap → 한 줄. 너무 길면 …
-    let line = text;
-    while (ctx.measureText(line + '…').width > maxW && line.length > 1) {
-      line = line.slice(0, -1);
-    }
-    if (line.length < text.length) line = line.trim() + '…';
-    ctx.fillText(line, W / 2, essayY);
-  }
+  // 포토에세이 — 공유카드 캔버스에는 표시 X (사용자 피드백 build 100).
+  // essay 입력은 갤러리 카드 노출용으로만 사용. ShareCard 캔버스 자체는 깔끔하게.
 
   // Footer — 한 라인 가운데 정렬. 좌측 @userId (emerald, 본인 강조), 구분 |, 우측 Routinist.
   // 사용자 결정 (2026-05-09): 자기 이름이 더 중요. 가운데 정렬 + emerald 색으로 강조.
@@ -633,8 +618,8 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
 
   const generate = useCallback(() => {
     if (!canvasRef.current) return;
-    drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage, activities, userIdLabel, quote, monthlyGoalKm, essayBody);
-  }, [activity, displayName, themeIdx, bgImage, activities, userIdLabel, quote, monthlyGoalKm, essayBody]);
+    drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage, activities, userIdLabel, quote, monthlyGoalKm);
+  }, [activity, displayName, themeIdx, bgImage, activities, userIdLabel, quote, monthlyGoalKm]);
 
   useEffect(() => { generate(); }, [generate]);
 

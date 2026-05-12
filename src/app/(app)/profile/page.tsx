@@ -179,14 +179,9 @@ export default function ProfilePage() {
     <div className="max-w-lg mx-auto pb-12 bg-[var(--background)] min-h-screen">
       {/* Sticky Header */}
       <header className="sticky top-0 z-30 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
-        <div className="flex items-center justify-between px-4 py-3">
+        <div className="px-4 py-3 flex items-center gap-2">
+          <AppLogo size={28} />
           <h1 className="text-xl font-extrabold tracking-tight">내 정보</h1>
-          <Link
-            href="/profile/edit"
-            className="text-xs font-bold text-emerald-600 inline-flex items-center gap-1 active:scale-95 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30"
-          >
-            편집
-          </Link>
         </div>
       </header>
 
@@ -203,7 +198,15 @@ export default function ProfilePage() {
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-2xl font-bold text-[var(--foreground)] truncate">{profile?.display_name}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-2xl font-bold text-[var(--foreground)] truncate">{profile?.display_name}</h2>
+              <Link
+                href="/profile/edit"
+                className="text-[10px] font-bold text-emerald-600 inline-flex items-center gap-0.5 active:scale-95 px-2 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/30 flex-shrink-0"
+              >
+                편집
+              </Link>
+            </div>
             {profile?.region_gu ? (
               <p className="text-xs text-[var(--muted)] flex items-center gap-1">
                 <MapPin size={12} /> {profile.region_si} {profile.region_gu} {profile.region_dong || ''}

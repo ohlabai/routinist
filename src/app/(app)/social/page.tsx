@@ -1,7 +1,7 @@
 'use client';
 
-// 소셜/랭킹 허브 — 4탭 구조 (내 랭킹 / 친구 / 클럽 / 포토)
-// 2026-04-21 컨셉 피벗: 경쟁·소셜 중심. 포토 탭 신규 추가.
+// 소셜 허브 (build 100 재편) — 3탭: 친구 / 클럽 / 포토.
+// 내 랭킹 + 마일리지 서브탭은 /ranking 페이지로 이전.
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import Link from 'next/link';
@@ -11,34 +11,18 @@ import { searchUsers, fetchPublicUsers, getMyClubs, fetchFollowing } from '@/lib
 import { getSupabase } from '@/lib/supabase';
 import UserRow from '@/components/social/UserRow';
 import PhotosTab from '@/components/photos/PhotosTab';
-import MileageRankingTab from '@/components/social/MileageRankingTab';
-import { User as UserIcon, Users, Trophy, Search, Plus, MapPin, Camera, Sparkles, TrendingUp, Coins } from 'lucide-react';
+import { User as UserIcon, Users, Search, Plus, MapPin, Camera, Trophy } from 'lucide-react';
 import { startOfWeekStr } from '@/lib/kst';
 import type { Profile, Club } from '@/types';
 import AppLogo from '@/components/AppLogo';
 
 const SECTIONS = [
-  { id: 'me', label: '내 랭킹', Icon: Trophy },
   { id: 'friends', label: '친구', Icon: UserIcon },
   { id: 'clubs', label: '클럽', Icon: Users },
   { id: 'photos', label: '포토', Icon: Camera },
-  { id: 'mileage', label: '마일리지', Icon: Coins },
 ] as const;
 
 type SectionId = typeof SECTIONS[number]['id'];
-
-interface HeroRank {
-  scope_label: string;
-  scope_type: string;
-  rank_position: number;
-  total_in_scope: number;
-  my_km: number;
-  km_to_next: number;
-  target_rank: number;
-  time_axis_out: string;
-}
-
-type TimeAxis = 'today' | 'month' | 'year';
 
 function startOfWeek(): string {
   return startOfWeekStr();
@@ -47,17 +31,15 @@ function startOfWeek(): string {
 function SocialPageInner() {
   const { user, profile } = useAuth();
   const searchParams = useSearchParams();
-  const initialTab = (searchParams.get('tab') as SectionId) ?? 'me';
+  const initialTab = (searchParams.get('tab') as SectionId) ?? 'friends';
   const [activeSection, setActiveSection] = useState<SectionId>(
-    ['me', 'friends', 'clubs', 'photos'].includes(initialTab) ? initialTab : 'me'
+    ['friends', 'clubs', 'photos'].includes(initialTab) ? initialTab : 'friends'
   );
-  const [axis, setAxis] = useState<TimeAxis>('month');
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState<Profile[]>([]);
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
   const [myClubs, setMyClubs] = useState<Club[]>([]);
   const [loading, setLoading] = useState(true);
-  const [heroRank, setHeroRank] = useState<HeroRank | null>(null);
   const [friendsCompare, setFriendsCompare] = useState<{ id: string; name: string; avatar: string | null; km: number; isMe: boolean }[]>([]);
 
   const loadData = useCallback(async () => {
@@ -97,26 +79,6 @@ function SocialPageInner() {
     }
   }, [user, profile]);
 
-  // 히어로 랭킹 — 시간축 변경 시 재조회
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const supabase = getSupabase();
-        const { data } = await supabase.rpc('find_hero_rank', {
-          target_user_id: user.id,
-          time_axis: axis,
-        });
-        const row = Array.isArray(data) ? data[0] : data;
-        if (!cancelled) setHeroRank(row ? row as HeroRank : null);
-      } catch (e) {
-        console.warn('[Social] hero 실패', e);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [user, axis]);
-
   useEffect(() => { loadData(); }, [loadData]);
 
   const handleSearch = async (query: string) => {
@@ -136,7 +98,8 @@ function SocialPageInner() {
     <div className="max-w-lg mx-auto pb-12 bg-[var(--background)] min-h-screen">
       {/* Sticky Header */}
       <header className="sticky top-0 z-30 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
-        <div className="px-4 py-3">
+        <div className="px-4 py-3 flex items-center gap-2">
+          <AppLogo size={28} />
           <h1 className="text-xl font-extrabold tracking-tight">소셜</h1>
         </div>
       </header>
@@ -160,85 +123,7 @@ function SocialPageInner() {
         ))}
       </div>
 
-      {/* 내 랭킹 — 히어로 상세 + 시간축 + 진행형 메시지 (그린 테마) */}
-      {activeSection === 'me' && (
-        <div className="space-y-5">
-          {/* 시간축 */}
-          <div className="flex gap-2">
-            {(['today', 'month', 'year'] as TimeAxis[]).map(a => (
-              <button
-                key={a}
-                onClick={() => setAxis(a)}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                  axis === a
-                    ? 'bg-emerald-500 text-white shadow-sm'
-                    : 'bg-[var(--card-bg)] text-[var(--muted)] border border-[var(--card-border)]'
-                }`}
-              >
-                {a === 'today' ? '🔥 오늘' : a === 'month' ? '📅 이달' : '🏆 올해'}
-              </button>
-            ))}
-          </div>
-
-          {/* 내 순위 카드 */}
-          {heroRank ? (
-            <div className="rounded-3xl bg-gradient-to-br from-emerald-100/80 via-white to-emerald-50/40 dark:from-emerald-950/40 dark:via-zinc-900 dark:to-emerald-950/10 p-6 shadow-sm border border-emerald-200/60 dark:border-emerald-900/30">
-              <p className="text-sm text-[var(--muted)]">
-                <span className="font-bold text-emerald-700 dark:text-emerald-400">{name}</span>님은 <span className="font-semibold">{heroRank.scope_label}</span>에서
-              </p>
-              <div className="flex items-baseline gap-1 mt-1.5">
-                <span className={`text-7xl font-extrabold leading-none ${
-                  heroRank.rank_position <= 3 ? 'text-emerald-600'
-                  : heroRank.rank_position <= 10 ? 'text-emerald-500'
-                  : 'text-[var(--foreground)]'
-                }`}>
-                  {heroRank.rank_position}
-                </span>
-                <span className="text-3xl font-bold text-[var(--foreground)]">위</span>
-                <span className="text-base text-[var(--muted)] ml-2">/ {heroRank.total_in_scope}명</span>
-              </div>
-              <p className="text-base text-[var(--muted)] mt-2">
-                {axis === 'today' ? '오늘' : axis === 'month' ? '이달' : '올해'} <span className="font-bold text-[var(--foreground)]">{Number(heroRank.my_km).toFixed(1)}km</span>
-              </p>
-
-              {heroRank.rank_position === 1 ? (
-                <div className="mt-4 rounded-2xl bg-white/80 dark:bg-zinc-900/70 backdrop-blur px-4 py-3.5">
-                  <p className="text-base font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
-                    <Sparkles size={18} /> {axis === 'today' ? '오늘의' : axis === 'month' ? '이달의' : '올해의'} 1위! 🎉
-                  </p>
-                </div>
-              ) : heroRank.km_to_next > 0 && (
-                <div className="mt-4 rounded-2xl bg-white/80 dark:bg-zinc-900/70 backdrop-blur px-4 py-3.5 flex items-center gap-2">
-                  <TrendingUp size={18} className="text-emerald-600" />
-                  <p className="text-base font-semibold text-[var(--foreground)]">
-                    <span className="text-emerald-700 dark:text-emerald-400 font-extrabold">{Number(heroRank.km_to_next).toFixed(1)}km</span> 더 달리면{' '}
-                    <span className="text-emerald-700 dark:text-emerald-400 font-extrabold">{heroRank.target_rank}위</span>로 올라가요!
-                  </p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <Link href="/profile/edit" className="block rounded-3xl bg-gradient-to-br from-emerald-100/80 to-emerald-50/40 p-6 shadow-sm border border-emerald-200/60">
-              <p className="text-lg font-bold text-[var(--foreground)]">내 조건 입력하고 랭킹 보기 →</p>
-              <p className="text-sm text-[var(--muted)] mt-1">지역·출생년도·성별을 설정하면 비슷한 러너 중 내 위치가 보여요</p>
-            </Link>
-          )}
-
-          {/* 지역 랭킹 상세 이동 */}
-          <Link href="/social/rankings" className="card p-4 flex items-center justify-between active:scale-[0.99]">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                <MapPin size={20} className="text-emerald-600 dark:text-emerald-400" />
-              </div>
-              <div>
-                <p className="text-base font-semibold text-[var(--foreground)]">지역 랭킹 상세</p>
-                <p className="text-sm text-[var(--muted)]">국가 · 시 · 구 세분화</p>
-              </div>
-            </div>
-            <span className="text-[var(--muted)]">→</span>
-          </Link>
-        </div>
-      )}
+      {/* 내 랭킹 + 마일리지 서브탭은 /ranking 페이지로 이전 (build 100). */}
 
       {/* 친구 탭 */}
       {activeSection === 'friends' && (
@@ -400,8 +285,7 @@ function SocialPageInner() {
         </div>
       )}
 
-      {/* 마일리지 탭 (build 62) */}
-      {activeSection === 'mileage' && <MileageRankingTab />}
+      {/* 마일리지 탭은 /ranking 으로 이전 (build 100). */}
 
       {/* 포토 탭 — 신규 */}
       {activeSection === 'photos' && <PhotosTab />}

@@ -5,22 +5,22 @@ import { UserDataProvider } from '@/components/UserDataProvider';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Home, Map, Trophy, User, ShoppingBag } from 'lucide-react';
+import { Home, Trophy, User, ShoppingBag, Users } from 'lucide-react';
 import { syncHealthData, isNativeApp } from '@/lib/health-sync';
 import AppLogo from '@/components/AppLogo';
 import { useI18n } from '@/lib/i18n';
 
-// 5탭 구조: 통계는 홈에 흡수, 쇼핑은 수익 모델이라 최상위로 승격 (Cafe24 연동)
-// activeFor: 해당 경로에서도 이 탭이 활성화된 것으로 표시 (내 정보 하위 페이지들)
+// 5탭 구조 (build 100 재편): 홈 / 랭킹 / 소셜 / 쇼핑 / 내정보.
+// 지도는 홈 캘린더 아래 미니맵으로 흡수. 랭킹 ↔ 소셜 분리 (이전 /social 의 me, mileage 서브탭이 랭킹으로 이전).
 const TABS_BASE: {
   href: string;
-  labelKey: 'nav.home' | 'nav.map' | 'nav.ranking' | 'nav.shop' | 'nav.profile';
+  labelKey: 'nav.home' | 'nav.ranking' | 'nav.social' | 'nav.shop' | 'nav.profile';
   Icon: typeof Home;
   activeFor?: string[];
 }[] = [
-  { href: '/dashboard', labelKey: 'nav.home', Icon: Home },
-  { href: '/map', labelKey: 'nav.map', Icon: Map },
-  { href: '/social', labelKey: 'nav.ranking', Icon: Trophy },
+  { href: '/dashboard', labelKey: 'nav.home', Icon: Home, activeFor: ['/map'] },
+  { href: '/ranking', labelKey: 'nav.ranking', Icon: Trophy },
+  { href: '/social', labelKey: 'nav.social', Icon: Users },
   { href: '/shop', labelKey: 'nav.shop', Icon: ShoppingBag },
   {
     href: '/profile',
@@ -47,15 +47,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const isHome = normalizedPath === '/dashboard';
   const isSocial = normalizedPath === '/social';
   const isProfile = normalizedPath === '/profile';
-  const hideLayoutHeader = isShop || isChat || isHome || isSocial || isProfile;
+  const isRanking = normalizedPath === '/ranking';
+  const isMap = normalizedPath === '/map';
+  const hideLayoutHeader = isShop || isChat || isHome || isSocial || isProfile || isRanking || isMap;
   const lastSyncRef = useRef<number>(0);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
 
   // PAGE_TITLES 동적 (locale 따라 변경) — 한글 키는 i18n 미적용 페이지의 fallback
   const PAGE_TITLES: Record<string, string> = {
     '/dashboard': t('nav.home'),
-    '/map': t('nav.map') === 'Map' ? 'Running Map' : t('nav.map'),
-    '/social': t('nav.ranking'),
+    '/map': '지도',
+    '/ranking': t('nav.ranking'),
+    '/social': t('nav.social'),
     '/profile': t('nav.profile'),
     '/goals': '목표 설정',
     '/history': '히스토리',
@@ -70,9 +73,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!loading && !user) {
-      router.replace('/login');
+      // 쇼핑은 비로그인 게스트 둘러보기 허용 (build 100 — 토스 매니저 피드백).
+      // 그 외 (app) 페이지는 로그인 강제.
+      if (!isShop) {
+        router.replace('/login');
+      }
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, isShop]);
 
   useEffect(() => {
     if (!loading) { setLoadingTimeout(false); return; }
@@ -139,7 +146,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user) return null;
+  // 게스트 쇼핑 둘러보기 허용 (build 100) — !user 여도 /shop 은 렌더.
+  if (!user && !isShop) return null;
 
   // h-[100dvh] + overflow-hidden 으로 flex 컨테이너를 뷰포트 높이에 고정.
   // 이전 min-h-screen 구조에서 iOS WebView 의 바운스/에러 상태 시 sticky bottom 탭바가

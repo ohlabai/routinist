@@ -34,6 +34,7 @@ function ProductDetailContent() {
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
   const [bottomSheetOpen, setBottomSheetOpen] = useState(false);
+  const [bottomSheetMode, setBottomSheetMode] = useState<'cart' | 'buyNow'>('cart');
   const [imageIdx, setImageIdx] = useState(0);
   const [liked, setLiked] = useState(false);
 
@@ -81,10 +82,28 @@ function ProductDetailContent() {
     setTimeout(() => setToast(null), ms);
   };
 
+  // 바로 구매: 항상 BottomSheet 열기 (옵션 + 수량 선택). 사용자 피드백 build 100.
+  // 옵션 없는 상품도 수량 선택 가능하게 + 옵션 있는 상품은 컬러/사이즈 선택.
+  const handleBuyNow = async () => {
+    if (!product) return;
+    if (!user) { router.push('/login'); return; }
+    setBottomSheetMode('buyNow');
+    setBottomSheetOpen(true);
+  };
+
+  // 장바구니: BottomSheet 옵션 선택 모드 (variants 있으면) / 빠른 추가 (variants 없으면)
   const handleAddToCart = async () => {
     if (!product) return;
     if (!user) { router.push('/login'); return; }
-    if (variants.length > 0 && !selectedVariantId) { setBottomSheetOpen(true); return; }
+    // variants 있고 옵션 미선택 → 옵션 선택 BottomSheet. 그 외엔 BottomSheet 로 수량까지 같이.
+    setBottomSheetMode('cart');
+    setBottomSheetOpen(true);
+  };
+
+  // BottomSheet 내 confirm — 모드별 분기
+  const confirmAddToCart = async () => {
+    if (!product) return;
+    if (variants.length > 0 && !selectedVariantId) { showToast('옵션을 선택해주세요', 'warn'); return; }
     if (availableStock < quantity) { showToast('재고가 부족해요', 'warn'); return; }
     setSubmitting(true);
     try {
@@ -98,12 +117,11 @@ function ProductDetailContent() {
     }
   };
 
-  const handleBuyNow = async () => {
+  const confirmBuyNow = () => {
     if (!product) return;
-    if (!user) { router.push('/login'); return; }
-    if (variants.length > 0 && !selectedVariantId) { setBottomSheetOpen(true); return; }
+    if (variants.length > 0 && !selectedVariantId) { showToast('옵션을 선택해주세요', 'warn'); return; }
+    if (availableStock < quantity) { showToast('재고가 부족해요', 'warn'); return; }
     // 토스 가맹키 도착 전까지 결제 비활성화 — 친근 안내 (사용자 피드백).
-    // 가맹키 도착 시 이 분기 제거하면 즉시 결제 활성화.
     if (!process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY) {
       showToast('조금만 기다려주세요\n다음주 정식 런칭 후 살 수 있어요 ✨', 'warn', 3500);
       return;
@@ -240,17 +258,24 @@ function ProductDetailContent() {
         )}
         <h1 className="text-xl font-extrabold text-[var(--foreground)] leading-tight mb-3">{product.name}</h1>
 
-        {/* 평점 */}
+        {/* 평점 — 클릭 시 리뷰 섹션으로 스크롤 (사용자 피드백 build 100) */}
         {(product.rating_count ?? 0) > 0 && (
-          <div className="inline-flex items-center gap-1.5 mb-3">
+          <button
+            type="button"
+            onClick={() => {
+              const el = document.getElementById('product-reviews');
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+            className="inline-flex items-center gap-1.5 mb-3 active:scale-95 transition"
+          >
             <div className="flex items-center gap-0.5">
               {[1,2,3,4,5].map(i => (
                 <Star key={i} size={13} className={i <= Math.round(product.rating_avg ?? 0) ? 'text-amber-400 fill-amber-400' : 'text-zinc-300 dark:text-zinc-600'} />
               ))}
             </div>
             <span className="text-sm font-bold text-[var(--foreground)]">{(product.rating_avg ?? 0).toFixed(1)}</span>
-            <span className="text-xs text-[var(--muted)]">리뷰 {product.rating_count}개</span>
-          </div>
+            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold underline">리뷰 {product.rating_count}개 →</span>
+          </button>
         )}
 
         {/* 재고 긴급 안내 */}
@@ -287,7 +312,7 @@ function ProductDetailContent() {
         )}
       </div>
 
-      {/* 혜택 카드 */}
+      {/* 혜택 카드 — 사용자 친화 문구 (build 100). "청약철회" 같은 법률 용어 제거. */}
       <div className="px-4 mb-4">
         <div className="grid grid-cols-2 gap-2">
           <div className="card p-3 flex items-center gap-2.5 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 border-emerald-200/50 dark:border-emerald-900/30">
@@ -295,8 +320,8 @@ function ProductDetailContent() {
               <Truck size={16} className="text-emerald-600" />
             </div>
             <div>
-              <p className="text-[10px] text-[var(--muted)] font-medium">5만원 이상</p>
-              <p className="text-xs font-bold text-[var(--foreground)]">무료배송</p>
+              <p className="text-[10px] text-[var(--muted)] font-medium">무조건</p>
+              <p className="text-xs font-bold text-[var(--foreground)]">당일 출고</p>
             </div>
           </div>
           <div className="card p-3 flex items-center gap-2.5 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 border-emerald-200/50 dark:border-emerald-900/30">
@@ -304,8 +329,8 @@ function ProductDetailContent() {
               <ShieldCheck size={16} className="text-emerald-600" />
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] text-[var(--muted)] font-medium whitespace-nowrap">7일 이내</p>
-              <p className="text-xs font-bold text-[var(--foreground)] whitespace-nowrap">청약 철회</p>
+              <p className="text-[10px] text-[var(--muted)] font-medium whitespace-nowrap">1만원 이상</p>
+              <p className="text-xs font-bold text-[var(--foreground)] whitespace-nowrap">무료 배송</p>
             </div>
           </div>
         </div>
@@ -361,8 +386,8 @@ function ProductDetailContent() {
         </div>
       )}
 
-      {/* 리뷰 */}
-      <div className="px-4 border-t border-[var(--card-border)]/40">
+      {/* 리뷰 — anchor scroll target (build 100) */}
+      <div id="product-reviews" className="px-4 border-t border-[var(--card-border)]/40 scroll-mt-4">
         <ProductReviews
           productId={product.id}
           ratingAvg={product.rating_avg ?? 0}
@@ -370,8 +395,9 @@ function ProductDetailContent() {
         />
       </div>
 
-      {/* Sticky 액션 바 */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 max-w-lg w-full bg-[var(--background)]/95 backdrop-blur-lg border-t border-[var(--card-border)]/30 safe-area-bottom z-20">
+      {/* Sticky 액션 바 — main 컨테이너 내 sticky 로 (build 100). BottomNav 위에 자연 노출.
+          기존: fixed bottom-0 → BottomNav (z-40) 가 가려 결제 버튼 안 보임 신고. */}
+      <div className="sticky bottom-0 left-0 right-0 bg-[var(--background)]/95 backdrop-blur-lg border-t border-[var(--card-border)]/30 z-20">
         <div className="flex items-center gap-2 px-3 py-3">
           <button
             onClick={async () => {
@@ -497,14 +523,26 @@ function ProductDetailContent() {
                 </span>
               </div>
 
-              <button
-                onClick={handleAddToCart}
-                disabled={submitting}
-                className="w-full py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base active:scale-[0.98] disabled:opacity-50 inline-flex items-center justify-center gap-2 shadow-md shadow-emerald-500/30"
-              >
-                <Check size={18} />
-                {submitting ? '담는 중…' : '장바구니에 담기'}
-              </button>
+              {/* CTA — mode 별 분기 (build 100). 바로 구매 시에는 결제 진입, 장바구니 시에는 add 후 닫기 */}
+              {bottomSheetMode === 'buyNow' ? (
+                <button
+                  onClick={confirmBuyNow}
+                  disabled={submitting}
+                  className="w-full py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base active:scale-[0.98] disabled:opacity-50 inline-flex items-center justify-center gap-2 shadow-md shadow-emerald-500/30"
+                >
+                  <Check size={18} />
+                  바로 구매하기
+                </button>
+              ) : (
+                <button
+                  onClick={confirmAddToCart}
+                  disabled={submitting}
+                  className="w-full py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base active:scale-[0.98] disabled:opacity-50 inline-flex items-center justify-center gap-2 shadow-md shadow-emerald-500/30"
+                >
+                  <Check size={18} />
+                  {submitting ? '담는 중…' : '장바구니에 담기'}
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -9,6 +9,7 @@ import { Trophy, MapPin, UserCircle2 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import { dataCache, onCacheInvalidated } from '@/lib/data-cache';
+import MileageBreakdownModal from './MileageBreakdownModal';
 
 type Scope = 'all' | 'gu' | 'age';
 
@@ -34,6 +35,7 @@ export default function MileageRankingTab() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [retryKey, setRetryKey] = useState(0);
+  const [openUser, setOpenUser] = useState<{ id: string; rank: number } | null>(null);
 
   // cache invalidation 이벤트 listen — PullToRefresh 에서 발사 시 fresh fetch
   useEffect(() => {
@@ -149,7 +151,12 @@ export default function MileageRankingTab() {
           {rows.map((r, idx) => {
             const isMe = r.id === user?.id;
             return (
-              <div key={r.id} className={`flex items-center gap-3 p-3 ${isMe ? 'bg-emerald-50/60 dark:bg-emerald-950/20' : ''}`}>
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => setOpenUser({ id: r.id, rank: idx + 1 })}
+                className={`w-full flex items-center gap-3 p-3 text-left active:scale-[0.99] transition ${isMe ? 'bg-emerald-50/60 dark:bg-emerald-950/20' : 'hover:bg-[var(--card-border)]/30'}`}
+              >
                 <span className={`w-7 text-center text-sm font-bold ${idx < 3 ? 'text-emerald-600' : 'text-[var(--muted)]'}`}>
                   {idx + 1}
                 </span>
@@ -174,10 +181,18 @@ export default function MileageRankingTab() {
                   <p className="text-base font-bold text-emerald-600 tabular-nums">{r.mileage_balance.toLocaleString()}</p>
                   <p className="text-[10px] text-[var(--muted)]">마일</p>
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
+      )}
+
+      {openUser && (
+        <MileageBreakdownModal
+          userId={openUser.id}
+          rank={openUser.rank}
+          onClose={() => setOpenUser(null)}
+        />
       )}
     </div>
   );

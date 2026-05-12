@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Heart } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { fetchRoutesForUser } from '@/lib/map-data';
-import { fetchDailyQuote, toggleQuoteLike, isFallbackQuote, type DailyQuote } from '@/lib/quotes-data';
 import { loadGoogleMaps, API_KEY } from '@/lib/google-maps';
 import Link from 'next/link';
 import type { Activity, Profile } from '@/types';
 import PullToRefresh from '@/components/PullToRefresh';
+import AppLogo from '@/components/AppLogo';
 import { syncRouteData, isNativeApp } from '@/lib/health-sync';
 
 // 마지막 자동 GPS 경로 sync 시간 — localStorage 에 저장 (5분 throttle)
@@ -406,68 +405,22 @@ export default function MapPage() {
   const totalKm = filtered.reduce((sum, a) => sum + Number(a.distance_km), 0);
   const routeCount = filtered.filter(a => a.route_data).length;
 
-  // 일별 명언 — DB daily_quote RPC. 좋아요 누르면 카운트 + 하트 색 변경.
-  const [quote, setQuote] = useState<DailyQuote | null>(null);
-  const [likeBusy, setLikeBusy] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchDailyQuote().then(q => { if (!cancelled) setQuote(q); });
-    return () => { cancelled = true; };
-  }, []);
-
-  const handleToggleQuoteLike = useCallback(async () => {
-    if (!quote || likeBusy || isFallbackQuote(quote)) return;
-    setLikeBusy(true);
-    const prev = quote;
-    setQuote({
-      ...quote,
-      liked_by_me: !quote.liked_by_me,
-      like_count: quote.like_count + (quote.liked_by_me ? -1 : 1),
-    });
-    try {
-      const res = await toggleQuoteLike(quote.id);
-      setQuote(q => (q ? { ...q, liked_by_me: res.liked, like_count: res.like_count } : q));
-    } catch (err) {
-      console.warn('명언 좋아요 실패:', err);
-      setQuote(prev);
-    } finally {
-      setLikeBusy(false);
-    }
-  }, [quote, likeBusy]);
+  // 명언 영역 제거 (build 100) — 사용자 피드백.
 
   return (
     <PullToRefresh onRefresh={loadRoutes}>
-    <div className="max-w-lg mx-auto px-4 py-4 space-y-4 pb-8">
-
-      {/* 오늘의 명언 — DB daily_quote, 좋아요 가능 */}
-      {quote && (
-        <div className="card p-3 bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-950/30 dark:to-green-950/30 border-0">
-          <p className="text-sm text-center italic text-[var(--foreground)]">
-            &ldquo;{quote.text}&rdquo;
-            {quote.author && <span className="not-italic text-xs text-[var(--muted)]"> — {quote.author}</span>}
-          </p>
-          {!isFallbackQuote(quote) && (
-            <div className="flex items-center justify-center mt-2">
-              <button
-                onClick={handleToggleQuoteLike}
-                disabled={likeBusy}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/60 dark:bg-black/20 disabled:opacity-50"
-                aria-label={quote.liked_by_me ? '좋아요 취소' : '명언 좋아요'}
-              >
-                <Heart
-                  size={14}
-                  className={quote.liked_by_me ? 'text-red-500' : 'text-[var(--muted)]'}
-                  fill={quote.liked_by_me ? '#ef4444' : 'transparent'}
-                />
-                <span className={`text-xs ${quote.liked_by_me ? 'text-red-500 font-semibold' : 'text-[var(--muted)]'}`}>
-                  {quote.like_count}
-                </span>
-              </button>
-            </div>
-          )}
+    <div className="max-w-lg mx-auto pb-8 bg-[var(--background)] min-h-screen">
+      {/* Sticky Header — 다른 탭과 동일 패턴 (build 100 통일) */}
+      <header className="sticky top-0 z-30 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
+        <div className="px-4 py-3 flex items-center gap-2">
+          <AppLogo size={28} />
+          <h1 className="text-xl font-extrabold tracking-tight">지도</h1>
         </div>
-      )}
+      </header>
+
+      <div className="px-4 py-4 space-y-4">
+
+      {/* 오늘의 명언 영역 제거 (build 100) — 사용자 피드백: 지도 위 명언 불필요. */}
 
       {/* GPS 경로 자동 sync 인디케이터 — Map 진입 시 5분 throttle 로 1회 자동 실행. */}
       {(routeSyncing || routeSyncMsg) && (
@@ -616,6 +569,7 @@ export default function MapPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
     </PullToRefresh>
   );

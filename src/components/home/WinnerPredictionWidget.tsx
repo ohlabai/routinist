@@ -4,10 +4,11 @@
 // 1인 1픽 (변경 불가). 마일리지 X. 맞추면 +10 점 + "예측왕" 뱃지.
 
 import { useEffect, useState, useCallback } from 'react';
-import { Trophy, Check } from 'lucide-react';
+import { Trophy, Check, Users, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import AppToast from '@/components/AppToast';
+import WinnerPredictionFullModal from './WinnerPredictionFullModal';
 
 interface Round {
   id: string;
@@ -35,6 +36,7 @@ export default function WinnerPredictionWidget() {
   const [loading, setLoading] = useState(true);
   const [picking, setPicking] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [showFull, setShowFull] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -120,7 +122,8 @@ export default function WinnerPredictionWidget() {
   const isClosed = closesIn <= 0 || round.state !== 'open';
 
   return (
-    <div className="mx-4 mt-3 rounded-3xl bg-gradient-to-br from-yellow-50 via-white to-amber-50 dark:from-yellow-950/20 dark:via-zinc-900 dark:to-amber-950/10 border border-yellow-200/60 dark:border-yellow-800/30 p-4 shadow-sm">
+    <>
+    <div className="mx-4 mt-3 rounded-3xl bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:from-emerald-950/30 dark:via-zinc-900 dark:to-teal-950/10 border border-emerald-200/60 dark:border-emerald-900/30 p-4 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <div>
           <p className="text-base font-bold text-[var(--foreground)] flex items-center gap-1.5">
@@ -174,7 +177,7 @@ export default function WinnerPredictionWidget() {
                 className={`flex items-center gap-2 p-2 rounded-xl border transition active:scale-95 ${
                   isMyPick
                     ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700'
-                    : 'bg-white dark:bg-zinc-900 border-[var(--card-border)] hover:border-yellow-300'
+                    : 'bg-white dark:bg-zinc-900 border-[var(--card-border)] hover:border-emerald-300'
                 } ${alreadyPicked || isClosed ? 'opacity-50' : ''}`}
               >
                 <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden flex-shrink-0">
@@ -196,8 +199,34 @@ export default function WinnerPredictionWidget() {
         </div>
       )}
 
+      {/* 전체 후보 보기 — 4명 grid 로는 부족하다는 피드백 (build 100) */}
+      {candidates.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowFull(true)}
+          className="mt-3 w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/80 dark:bg-zinc-900/60 border border-emerald-200/60 dark:border-emerald-800/40 text-xs font-extrabold text-emerald-700 dark:text-emerald-400 active:scale-[0.98] transition"
+        >
+          <Users size={14} />
+          <span>전체 후보 30명 보기</span>
+          <ChevronRight size={12} />
+        </button>
+      )}
+
       {/* 픽 완료 후 안내 박스 제거 — 사용자가 다른 후보 누르면 다이얼로그로 안내 (build 63 회고). */}
       {toast && <AppToast text={toast} tone="info" onClose={() => setToast(null)} durationMs={3000} />}
     </div>
+
+    {showFull && round && (
+      <WinnerPredictionFullModal
+        roundId={round.id}
+        myPick={round.my_pick}
+        isClosed={isClosed}
+        onClose={() => setShowFull(false)}
+        onPick={async (userId) => {
+          await pick(userId);
+        }}
+      />
+    )}
+    </>
   );
 }

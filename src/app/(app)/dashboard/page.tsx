@@ -37,14 +37,17 @@ import WeeklyRecapCard from '@/components/home/WeeklyRecapCard';
 import HomeCalendarCard from '@/components/home/HomeCalendarCard';
 import HealthConnectCard from '@/components/home/HealthConnectCard';
 import { syncHealthData, isNativeApp } from '@/lib/health-sync';
-// SyncStaleBadge 제거 — HealthConnectCard 와 정보 중복 (사용자 신고 build 63)
 import WinnerPredictionWidget from '@/components/home/WinnerPredictionWidget';
 import TodayLocalTop from '@/components/home/TodayLocalTop';
-import RoutinePhotoCarousel from '@/components/home/RoutinePhotoCarousel';
+// RoutinePhotoCarousel 제거 — 소셜 탭 포토 갤러리와 중복 (build 100)
 import FriendsLeaderboard from '@/components/home/FriendsLeaderboard';
 import OnThisDayCard from '@/components/home/OnThisDayCard';
 import LiveRunningIndicator from '@/components/home/LiveRunningIndicator';
 import RankNeighbors from '@/components/home/RankNeighbors';
+import HomeMapPreview from '@/components/home/HomeMapPreview';
+import HomeChallengeCard from '@/components/home/HomeChallengeCard';
+import HomeOnboardingCard from '@/components/home/HomeOnboardingCard';
+import HomeFriendStories from '@/components/home/HomeFriendStories';
 import FreshnessBadge from '@/components/FreshnessBadge';
 import AppToast from '@/components/AppToast';
 import Link from 'next/link';
@@ -53,7 +56,7 @@ import {
   BarChart3, TrendingUp,
 } from 'lucide-react';
 import { chartStyle } from '@/lib/chart-theme';
-import { toLocalDateStr, todayStr as kstToday } from '@/lib/kst';
+import { toLocalDateStr } from '@/lib/kst';
 
 type PeriodMode = 'weekly' | 'monthly' | 'quarterly' | 'half' | 'yearly';
 type ChartType = 'bar' | 'line';
@@ -111,7 +114,6 @@ export default function DashboardPage() {
     }
   }, [profile]);
 
-  // 차트 데이터 로드
   const loadStats = useCallback(async () => {
     if (!user) return;
     setStatsLoading(true);
@@ -146,7 +148,7 @@ export default function DashboardPage() {
 
   useEffect(() => { loadStats(); }, [loadStats]);
 
-  // 상세 차트 데이터 로드 — 8초 안에 응답 없으면 빈 배열 fallback (무한 로딩 방지)
+  // 상세 차트 — 8초 안에 응답 없으면 빈 배열 fallback
   const loadDetail = useCallback(async () => {
     if (!user) return;
     setDetailLoading(true);
@@ -209,7 +211,6 @@ export default function DashboardPage() {
     return daySet.size;
   }, [activities, year, month]);
 
-  // 목표 — useMemo 로 묶어 매 렌더 재계산 막기
   const goalState = useMemo(() => {
     const currentGoal = goals.find(g => g.year === year && g.month === month);
     const goalKm = currentGoal?.goal_km || 0;
@@ -223,7 +224,6 @@ export default function DashboardPage() {
   }, [goals, year, month, monthlyDistance]);
   const { goalKm, goalProgress, goalRemaining, dailyNeeded } = goalState;
 
-  // 미니 캘린더
   const calendarActivities = useMemo(() =>
     activities.filter(a => {
       const d = new Date(a.activity_date);
@@ -232,7 +232,6 @@ export default function DashboardPage() {
     [activities, year, month]
   );
 
-  // 통산 & 스트릭 — getStreak / getMaxStreak 가 activities 전체를 순회하므로 useMemo 필수
   const totalKm = Number(profile?.total_distance_km ?? 0);
   const totalRuns = profile?.total_runs ?? 0;
   const streakState = useMemo(() => {
@@ -247,36 +246,30 @@ export default function DashboardPage() {
   }, [activities]);
   const { streak, maxStreak, isRecordBreaking, daysToRecord } = streakState;
 
-  // 월별 (전년 대비 YTD: 같은 월까지만 비교해야 "전년 대비 -676km" 같은 오해가 없음)
-  const ytdMonth = new Date().getMonth(); // 0-11
+  const ytdMonth = new Date().getMonth();
   const yearlyTotal = monthlyData.slice(0, ytdMonth + 1).reduce((s, d) => s + d.distance, 0);
   const yearlyPrevTotal = monthlyData.slice(0, ytdMonth + 1).reduce((s, d) => s + (d.prevDistance || 0), 0);
 
-  // 전년 동기간 비교 (build 63 신규) — 이번 주 / 이번 달 / 분기 / 반기 카드용
   const yoyComparison = useMemo(() => {
     const now = new Date();
     const yearMs = 365 * 24 * 60 * 60 * 1000;
     const dayMs = 24 * 60 * 60 * 1000;
 
-    // 이번 주 (월요일~오늘) vs 작년 동기간
     const startOfThisWeek = new Date(now);
-    const dow = (now.getDay() + 6) % 7; // 월=0
+    const dow = (now.getDay() + 6) % 7;
     startOfThisWeek.setHours(0, 0, 0, 0);
     startOfThisWeek.setDate(now.getDate() - dow);
     const startOfLastWeek = new Date(startOfThisWeek.getTime() - yearMs);
     const endOfLastWeekRange = new Date(now.getTime() - yearMs);
 
-    // 이번 달 1일 ~ 오늘 vs 작년 같은 기간
     const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfLastYearMonth = new Date(now.getFullYear() - 1, now.getMonth(), 1);
     const endOfLastYearMonthRange = new Date(now.getTime() - yearMs);
 
-    // 이번 분기 (현재 분기 시작) ~ 오늘 vs 작년 같은 기간
     const q = Math.floor(now.getMonth() / 3);
     const startOfThisQ = new Date(now.getFullYear(), q * 3, 1);
     const startOfLastYearQ = new Date(now.getFullYear() - 1, q * 3, 1);
 
-    // 이번 반기 (1~6 또는 7~12) ~ 오늘 vs 작년
     const h = now.getMonth() < 6 ? 0 : 1;
     const startOfThisH = new Date(now.getFullYear(), h * 6, 1);
     const startOfLastYearH = new Date(now.getFullYear() - 1, h * 6, 1);
@@ -307,7 +300,6 @@ export default function DashboardPage() {
     };
   }, [activities]);
 
-  // 일별 거리 (최근 30일) — 월별 차트 대신 홈 첫 차트로 사용
   const dailyData = useMemo(() => {
     const map = new Map<string, number>();
     activities.forEach(a => {
@@ -329,7 +321,6 @@ export default function DashboardPage() {
   }, [activities]);
   const daily30Total = dailyData.reduce((s, d) => s + d.distance, 0);
 
-  // 요일/시간대
   const hourGroups = [
     { label: '새벽 (0~6시)', count: hourStats.slice(0, 6).reduce((s, h) => s + h.runCount, 0) },
     { label: '오전 (6~12시)', count: hourStats.slice(6, 12).reduce((s, h) => s + h.runCount, 0) },
@@ -342,23 +333,20 @@ export default function DashboardPage() {
     dayStats[0] || { day: '-', runCount: 0, avgDistance: 0 }
   );
 
-  // 상세 차트 계산.
-  // 비교 룰 (build 67 fix): 분기/반기/월간일 때 "현 시점까지의 동기간" 만 합산해야 의미 있는 비교.
-  // ex) 2026 분기 = Q1+Q2 (현재 분기까지) vs 2025 Q1+Q2.
-  // 사용자 신고 build 64 의 "전년 대비 -467km(-35%)" 는 2026 Q1+Q2 vs 2025 전체 (Q1~Q4) 였던 게 원인.
+  // 비교 룰 (build 67 fix): 분기/반기/월간 — "현 시점까지의 동기간" 만 합산
   const ytdSliceCount = (() => {
     const isCurrentYear = detailYear === new Date().getFullYear();
-    if (!isCurrentYear) return detailData.length; // 과거 연도는 1년 전체로 비교
-    const m = new Date().getMonth(); // 0-11
+    if (!isCurrentYear) return detailData.length;
+    const m = new Date().getMonth();
     if (periodMode === 'monthly') return m + 1;
     if (periodMode === 'quarterly') return Math.floor(m / 3) + 1;
     if (periodMode === 'half') return m < 6 ? 1 : 2;
-    if (periodMode === 'weekly') return detailData.length; // weekly 는 이미 최근 12주만
-    if (periodMode === 'yearly') return detailData.length; // yearly 는 항목별 자체 prev
+    if (periodMode === 'weekly') return detailData.length;
+    if (periodMode === 'yearly') return detailData.length;
     return detailData.length;
   })();
   const detailSliced = periodMode === 'yearly'
-    ? detailData.slice(detailData.length - 1) // 연간 → 선택 연도 한 해만 (비교는 prevDistance 가 자체로 포함)
+    ? detailData.slice(detailData.length - 1)
     : detailData.slice(0, ytdSliceCount);
   const detailTotal = (periodMode === 'yearly')
     ? (detailData[detailData.length - 1]?.distance ?? 0)
@@ -369,7 +357,6 @@ export default function DashboardPage() {
   const hasDetailPrev = detailSliced.some((d) => d.prevDistance !== undefined && d.prevDistance > 0)
     || (periodMode === 'yearly' && (detailData[detailData.length - 1]?.prevDistance ?? 0) > 0);
 
-  // 주간/월간/연간/누적 요약
   const weekActivities = getWeeklyActivities(activities);
   const weekKm = weekActivities.reduce((s, a) => s + Number(a.distance_km), 0);
   const weekRuns = weekActivities.length;
@@ -378,15 +365,8 @@ export default function DashboardPage() {
 
   const [syncToast, setSyncToast] = useState<string | null>(null);
 
-  // PullToRefresh = 사용자가 "최신 데이터 보고 싶다" 의 명시적 lever.
-  // (1) Apple Health sync 트리거 (네이티브 앱에서만, 30s race 가드)
-  // (2) DB 캐시 새로고침 — sync 가 새 row 를 넣었다면 즉시 반영, 안 넣었어도 최소 stale 한 거 갱신
-  // (3) 결과 toast — "어제 기록 안 들어와요" 신고 진단 가능하게
-  // (4) 마일리지 적립 토스트 (사용자 피드백 #12) — sync 후 잔액 증가분 친근하게 알림
   const handleRefresh = useCallback(async () => {
     let toast = '';
-    // 적립 비교용 — sync 직전 잔액 스냅샷.
-    // React state (profile.mileage_balance) 는 stale 가능 → DB 직접 read 로 정확한 base.
     let balanceBefore = 0;
     if (user) {
       try {
@@ -395,8 +375,6 @@ export default function DashboardPage() {
       } catch {}
     }
     if (user && isNativeApp()) {
-      // Pull-to-refresh = 사용자의 명시적 동기화 의도. lastSync 즉시 갱신 (낙관적).
-      // HealthConnectCard 가 CustomEvent 를 listen 해서 라벨 즉시 reflow.
       const optimisticTs = Date.now();
       window.localStorage.setItem('last_health_sync', new Date(optimisticTs).toISOString());
       window.localStorage.setItem(`first_sync_done:${user.id}`, String(optimisticTs));
@@ -421,18 +399,25 @@ export default function DashboardPage() {
         toast = `동기화 중에 문제가 생겼어요\n${e instanceof Error ? e.message : '알 수 없음'}`;
       }
     }
-    // 신문 모델 (build 58): hero 캐시도 같이 invalidate. UserDataProvider.refresh 만으론 hero 갱신 안 됨.
-    // dataCache.invalidate('') 가 빈 prefix 발사 = 모든 listener 가 fresh fetch.
     if (user) {
       const { dataCache } = await import('@/lib/data-cache');
       dataCache.invalidate(`hero:rank:${user.id}`);
       dataCache.invalidate(`hero:neighbors:${user.id}`);
-      // localtop 은 region key 라 별도 invalidate
       dataCache.invalidate('home:localtop:');
+    }
+    // 친구 추월 + 1위 등극 + 새 PB 푸시 enqueue (build 100) — fire-and-forget, RPC 내부 디바운스
+    if (user) {
+      try {
+        const { getSupabase } = await import('@/lib/supabase');
+        const sb = getSupabase();
+        await Promise.all([
+          sb.rpc('enqueue_friend_overtake_pushes', { my_user_id: user.id }),
+          sb.rpc('enqueue_my_milestone_pushes', { my_user_id: user.id }),
+        ]);
+      } catch {}
     }
     await Promise.all([loadStats(), refresh()]);
 
-    // 마일리지 적립 비교 — sync 직전 base 와 sync 후 잔액 모두 DB 직접 read.
     if (user) {
       try {
         const { fetchMileageBalance } = await import('@/lib/mileage-data');
@@ -457,295 +442,215 @@ export default function DashboardPage() {
   return (
     <PullToRefresh onRefresh={handleRefresh}>
     <div className="max-w-lg mx-auto pb-8 bg-[var(--background)] min-h-screen">
-    {/* Sticky Header — 다른 탭과 동일한 [로고 + 타이틀] 좌측 정렬 패턴 */}
+    {/* Sticky Header — 히스토리 칩은 #23 기간별 상세 통계 카드 헤더로 이동 (build 100 재배치) */}
     <header className="sticky top-0 z-20 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
-      <div className="px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <AppLogo size={28} />
-          <h1 className="text-xl font-extrabold tracking-tight">홈</h1>
-        </div>
-        <Link href="/history" className="text-xs font-bold text-emerald-600 inline-flex items-center gap-0.5 active:scale-95 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30">
-          히스토리 <ChevronRight size={12} />
-        </Link>
+      <div className="px-4 py-3 flex items-center gap-2">
+        <AppLogo size={28} />
+        <h1 className="text-xl font-extrabold tracking-tight">홈</h1>
       </div>
     </header>
       {syncToast && (
         <AppToast text={syncToast} tone={syncToast.startsWith('동기화 실패') ? 'warn' : 'ok'} position="top" onClose={() => setSyncToast(null)} durationMs={4000} />
       )}
-      {/* 홈 hero 영역 — 카드 간 여백 + 일관 spacing 으로 어수선함 해소 (사용자 피드백 #2).
-          이전: 각 컴포넌트 자체 margin 만 의존 → stacking 답답함.
-          현재: space-y-2 wrapper + 좌우 padding 통일. */}
-      <div className="space-y-2 pt-1">
-        {/* HealthKit 연동 카드 — App Store 가이드 2.5.1 (HealthKit UI 명확성) 위해 홈 최상단 (build 62) */}
+
+      {/* ========== ① HealthKit + 개인 통계 + 경쟁/소셜 묶음 ==========
+          순서 (build 100 재배치):
+          1 HealthKit → 2 주간Recap → 3 스트릭경고 → 4 이름헤더 → 5 4칩 → 6 이달목표
+          → 7 랭킹Hero (활성화 hero) → 8 LiveRunning → 9 캘린더 → 10 지역배너
+          → 11 Friends → 12 Predict → 13 LocalTop → 14 Neighbors → 15 OnThisDay */}
+      <div className="space-y-3 pt-1">
+        {/* 1 HealthKit — App Store 2.5.1 요건 */}
         <HealthConnectCard />
-        {/* 동기부여 카드 — 조건부 (피드백 #14 새 아이디어) */}
-        <WeeklyRecapCard activities={activities} />
-        <StreakWarningCard activities={activities} streak={getStreak(activities)} />
-        {/* ========== 홈 히어로 (경쟁·소셜 중심) ========== */}
-        {/* above-the-fold: 즉시 마운트. PullToRefresh 가 sync 트리거 역할. */}
-        <HomeRankingHero />
-        <LiveRunningIndicator />
-      </div>
 
-      {/* below-the-fold: 뷰포트 진입 시 마운트 — 첫 렌더 부담 분산 */}
-      <LazyMount minHeight={120} rootMargin="300px"><RankNeighbors /></LazyMount>
-      <LazyMount minHeight={200} rootMargin="300px"><WinnerPredictionWidget /></LazyMount>
-      <LazyMount minHeight={140} rootMargin="300px"><OnThisDayCard /></LazyMount>
-      <LazyMount minHeight={160} rootMargin="300px"><TodayLocalTop /></LazyMount>
-      <LazyMount minHeight={180} rootMargin="300px"><FriendsLeaderboard /></LazyMount>
+        {/* 1.5 신규 가입자 onboarding 가이드 (build 100) — 가입 7일 이내 + 5회 미만일 때만 노출 */}
+        <HomeOnboardingCard />
 
-      <div className="p-4 space-y-4">
-      {/* ========== 헤더 ==========
-          히스토리 링크는 상단 sticky header 의 칩에만 표시 (중복 제거 — 사용자 피드백). */}
-      <div className="flex items-center justify-between pt-2">
-        <div>
-          <h2 className="text-xl font-bold text-[var(--foreground)]">
-            {profile?.display_name ?? '러너'}님의 {month}월
-          </h2>
-          <div className="flex items-center gap-2 mt-0.5">
-            <p className="text-xs text-[var(--muted)]">통산 {totalKm.toFixed(0)}km · {totalRuns}회 러닝</p>
-            <FreshnessBadge ts={lastUpdated} onRefresh={refresh} />
-          </div>
+        {/* 2 주간 리캡 + 3 스트릭 경고 (둘 다 조건부, 자체 padding 없어 wrap) */}
+        <div className="mx-4 space-y-3">
+          <WeeklyRecapCard activities={activities} />
+          <StreakWarningCard activities={activities} streak={getStreak(activities)} />
         </div>
-      </div>
 
-      {/* 지역 미설정 배너 — region_gu (한국) 또는 country_code (해외) 둘 다 없을 때만. */}
-      {profile && !profile.region_gu && !profile.country_code && (
-        <Link href="/profile/edit" className="block card p-3 bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-950/30 dark:to-green-950/30 border-0">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">📍</span>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-[var(--foreground)]">지역을 설정하면 랭킹에 참여할 수 있어요!</p>
-              <p className="text-xs text-[var(--muted)]">프로필에서 시/구/동을 선택해보세요</p>
+        {/* 4 {이름}님의 N월 헤더 */}
+        <div className="mx-4 flex items-center justify-between pt-1">
+          <div>
+            <h2 className="text-xl font-bold text-[var(--foreground)]">
+              {profile?.display_name ?? '러너'}님의 {month}월
+            </h2>
+            <div className="flex items-center gap-2 mt-0.5">
+              <p className="text-xs text-[var(--muted)]">통산 {totalKm.toFixed(0)}km · {totalRuns}회 러닝</p>
+              <FreshnessBadge ts={lastUpdated} onRefresh={refresh} />
             </div>
-            <ChevronRight size={16} className="text-[var(--accent)]" />
-          </div>
-        </Link>
-      )}
-
-      {/* ========== ① 오늘/이달 4칩 요약 ========== */}
-      <div className="card p-5">
-        <div className="grid grid-cols-4 gap-3 text-center">
-          <div>
-            <p className="text-2xl font-extrabold text-[var(--accent)]">{todayKm.toFixed(1)}</p>
-            <p className="text-xs text-[var(--muted)] mt-0.5">오늘 km</p>
-          </div>
-          <div>
-            <p className="text-2xl font-extrabold text-[var(--foreground)]">
-              {todayPaceSec
-                ? formatPace(todayPaceSec)
-                : recentPace
-                  ? formatPace(recentPace.pace)
-                  : '-'}
-            </p>
-            <p className="text-xs text-[var(--muted)] mt-0.5">
-              {todayPaceSec ? '오늘 페이스' : recentPace ? '최근 페이스' : '오늘 페이스'}
-            </p>
-          </div>
-          <div>
-            <p className="text-2xl font-extrabold text-green-600">{monthlyDistance.toFixed(1)}</p>
-            <p className="text-xs text-[var(--muted)] mt-0.5">이달 km</p>
-          </div>
-          <div>
-            <p className="text-2xl font-extrabold text-lime-600 dark:text-lime-500">{monthlyRunDays}</p>
-            <p className="text-xs text-[var(--muted)] mt-0.5">이달 일수</p>
           </div>
         </div>
-      </div>
 
-      {/* ========== ② 이달 목표 ========== */}
-      <div className={`card p-5 relative overflow-hidden ${goalKm > 0 && goalProgress >= 100 ? 'goal-achieved' : ''}`}>
-        {/* 달성 시 shimmer 배경 */}
-        {goalKm > 0 && goalProgress >= 100 && (
-          <div className="absolute inset-0 achievement-shimmer pointer-events-none" />
-        )}
-        <div className="relative">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-base font-semibold text-[var(--foreground)]">내 {month}월 목표</h3>
-            <Link href="/goals" className="text-sm text-[var(--accent)] font-semibold flex items-center gap-0.5">
-              설정 <ChevronRight size={14} />
-            </Link>
+        {/* 5 오늘/이달 4칩 */}
+        <div className="mx-4 card p-5">
+          <div className="grid grid-cols-4 gap-3 text-center">
+            <div>
+              <p className="text-2xl font-extrabold text-[var(--accent)]">{todayKm.toFixed(1)}</p>
+              <p className="text-xs text-[var(--muted)] mt-0.5">오늘 km</p>
+            </div>
+            <div>
+              <p className="text-2xl font-extrabold text-[var(--foreground)]">
+                {todayPaceSec ? formatPace(todayPaceSec) : recentPace ? formatPace(recentPace.pace) : '-'}
+              </p>
+              <p className="text-xs text-[var(--muted)] mt-0.5">
+                {todayPaceSec ? '오늘 페이스' : recentPace ? '최근 페이스' : '오늘 페이스'}
+              </p>
+            </div>
+            <div>
+              <p className="text-2xl font-extrabold text-green-600">{monthlyDistance.toFixed(1)}</p>
+              <p className="text-xs text-[var(--muted)] mt-0.5">이달 km</p>
+            </div>
+            <div>
+              <p className="text-2xl font-extrabold text-lime-600 dark:text-lime-500">{monthlyRunDays}</p>
+              <p className="text-xs text-[var(--muted)] mt-0.5">이달 일수</p>
+            </div>
           </div>
-          {goalKm > 0 ? (
-            <>
-              {/* 큰 숫자 제거 — 4칩의 '이달 km'과 중복. 진행률에 집중 */}
-              <div className="bg-[var(--card-border)] rounded-full h-5 overflow-hidden relative mb-2">
-                <div
-                  className={`h-full rounded-full transition-all duration-1000 ease-out relative ${
-                    goalProgress >= 100
-                      ? 'bg-gradient-to-r from-green-400 to-green-500'
-                      : 'bg-gradient-to-r from-[var(--accent)] to-blue-400'
-                  }`}
-                  style={{ width: `${goalProgress}%` }}
-                >
-                  {goalProgress > 10 && (
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-base font-bold text-white">
-                      {goalProgress.toFixed(0)}%
-                    </span>
-                  )}
-                </div>
-                <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                  <Flag size={10} className={goalProgress >= 100 ? 'text-green-500' : 'text-[var(--muted)]'} />
-                </div>
-              </div>
-              {goalProgress >= 100 ? (
-                <div className="mt-2 flex items-center justify-center gap-1 text-green-600 font-bold">
-                  <span className="confetti-emoji">🎉</span>
-                  <span className="confetti-emoji">🏆</span>
-                  <span className="mx-2 text-base">{goalKm}km 목표 달성!</span>
-                  <span className="confetti-emoji">✨</span>
-                  <span className="confetti-emoji">🎊</span>
-                </div>
-              ) : (
-                <div className="flex justify-between items-center text-xs text-[var(--muted)]">
-                  <span>/ <span className="font-semibold text-[var(--foreground)]">{goalKm}km</span> 목표</span>
-                  <span>남은 {goalRemaining.toFixed(1)}km · 하루 {dailyNeeded.toFixed(1)}km</span>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="text-center py-4 space-y-2">
-              <p className="text-3xl">🎯</p>
-              <p className="text-sm font-medium text-[var(--foreground)]">아직 이번 달 목표가 없습니다</p>
-              <Link href="/goals" className="text-sm text-[var(--accent)] font-semibold inline-block">
-                목표 설정하기 →
+        </div>
+
+        {/* 6 이달 목표 */}
+        <div className={`mx-4 card p-5 relative overflow-hidden ${goalKm > 0 && goalProgress >= 100 ? 'goal-achieved' : ''}`}>
+          {goalKm > 0 && goalProgress >= 100 && (
+            <div className="absolute inset-0 achievement-shimmer pointer-events-none" />
+          )}
+          <div className="relative">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-base font-semibold text-[var(--foreground)]">내 {month}월 목표</h3>
+              <Link href="/goals" className="text-sm text-[var(--accent)] font-semibold flex items-center gap-0.5">
+                설정 <ChevronRight size={14} />
               </Link>
             </div>
-          )}
+            {goalKm > 0 ? (
+              <>
+                <div className="bg-[var(--card-border)] rounded-full h-5 overflow-hidden relative mb-2">
+                  <div
+                    className={`h-full rounded-full transition-all duration-1000 ease-out relative ${
+                      goalProgress >= 100
+                        ? 'bg-gradient-to-r from-green-400 to-green-500'
+                        : 'bg-gradient-to-r from-[var(--accent)] to-blue-400'
+                    }`}
+                    style={{ width: `${goalProgress}%` }}
+                  >
+                    {goalProgress > 10 && (
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-base font-bold text-white">
+                        {goalProgress.toFixed(0)}%
+                      </span>
+                    )}
+                  </div>
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                    <Flag size={10} className={goalProgress >= 100 ? 'text-green-500' : 'text-[var(--muted)]'} />
+                  </div>
+                </div>
+                {goalProgress >= 100 ? (
+                  <div className="mt-2 flex items-center justify-center gap-1 text-green-600 font-bold">
+                    <span className="confetti-emoji">🎉</span>
+                    <span className="confetti-emoji">🏆</span>
+                    <span className="mx-2 text-base">{goalKm}km 목표 달성!</span>
+                    <span className="confetti-emoji">✨</span>
+                    <span className="confetti-emoji">🎊</span>
+                  </div>
+                ) : (
+                  <div className="flex justify-between items-center text-xs text-[var(--muted)]">
+                    <span>/ <span className="font-semibold text-[var(--foreground)]">{goalKm}km</span> 목표</span>
+                    <span>남은 {goalRemaining.toFixed(1)}km · 하루 {dailyNeeded.toFixed(1)}km</span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-4 space-y-2">
+                <p className="text-3xl">🎯</p>
+                <p className="text-sm font-medium text-[var(--foreground)]">아직 이번 달 목표가 없습니다</p>
+                <Link href="/goals" className="text-sm text-[var(--accent)] font-semibold inline-block">
+                  목표 설정하기 →
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* 6.5 이번 주 도전 (build 100) — 자동 챌린지 + 진행률 + 동기부여 멘트 */}
+        <HomeChallengeCard />
+
+        {/* 6.7 친구 활동 스토리 (build 100) — 친구가 없거나 사진이 없으면 자동 hidden */}
+        <HomeFriendStories />
+
+        {/* 7 랭킹 Hero — 활성화 핵심 */}
+        <HomeRankingHero />
+
+        {/* 8 실시간 러닝 */}
+        <LiveRunningIndicator />
+
+        {/* 9 월 캘린더 */}
+        <div className="mx-4"><HomeCalendarCard /></div>
+
+        {/* 9.5 미니맵 (build 100) — 지도 탭 흡수. SVG polyline + LazyMount 로 가벼움 */}
+        <LazyMount minHeight={200} rootMargin="300px"><HomeMapPreview /></LazyMount>
+
+        {/* 10 지역 미설정 배너 (조건부) */}
+        {profile && !profile.region_gu && !profile.country_code && (
+          <Link href="/profile/edit" className="mx-4 block card p-3 bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-950/30 dark:to-green-950/30 border-0">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">📍</span>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-[var(--foreground)]">지역을 설정하면 랭킹에 참여할 수 있어요!</p>
+                <p className="text-xs text-[var(--muted)]">프로필에서 시/구/동을 선택해보세요</p>
+              </div>
+              <ChevronRight size={16} className="text-[var(--accent)]" />
+            </div>
+          </Link>
+        )}
+
+        {/* 11~15 below-the-fold 소셜 묶음 */}
+        <LazyMount minHeight={180} rootMargin="300px"><FriendsLeaderboard /></LazyMount>
+        <LazyMount minHeight={200} rootMargin="300px"><WinnerPredictionWidget /></LazyMount>
+        <LazyMount minHeight={160} rootMargin="300px"><TodayLocalTop /></LazyMount>
+        <LazyMount minHeight={120} rootMargin="300px"><RankNeighbors /></LazyMount>
+        <LazyMount minHeight={140} rootMargin="300px"><OnThisDayCard /></LazyMount>
       </div>
 
-      {/* ========== ③ 월 캘린더 — inline 풀 콘텐츠 (build 68). 페이지 이동 없음 ========== */}
-      <HomeCalendarCard />
+      {/* ========== ② 통계 차트 묶음 ==========
+          16 스트릭 → 17 PB → 18 일별30일 → 19 12주 → 20 페이스 → 21 요일 → 22 시간대
+          → 23 기간별 상세 (+히스토리 링크) → 24 요약 4칩 → 25 최근 활동 */}
+      <div className="p-4 space-y-4">
 
-      {/* ========== ④ 일별 거리 추이 (최근 30일) ========== */}
-      <LazyMount minHeight={260}>
+      {/* 16 연속 달리기 스트릭 */}
+      <LazyMount minHeight={160}>
       <div className="card p-5">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-base font-semibold text-[var(--foreground)]">일별 거리 추이</h3>
-          <span className="text-xs text-[var(--muted)]">최근 30일 · 총 {daily30Total.toFixed(1)}km</span>
+        <div className="flex items-center gap-2 mb-3">
+          <Flame size={16} className="text-orange-500" />
+          <h3 className="text-base font-semibold text-[var(--foreground)]">연속 달리기 스트릭</h3>
         </div>
-        <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={dailyData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-            <defs>
-              <linearGradient id="homeDailyGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#34D399" />
-                <stop offset="100%" stopColor="#10B981" />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" vertical={false} />
-            <XAxis
-              dataKey="label"
-              tick={{ fontSize: 10, fill: 'var(--muted)' }}
-              axisLine={false}
-              tickLine={false}
-              interval={4}
-            />
-            <YAxis tick={{ fontSize: chartStyle.tickFontSize, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
-            <Tooltip
-              contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 13 }}
-              formatter={(value) => [`${value}km`]}
-              cursor={{ fill: 'var(--card-border)', opacity: 0.3 }}
-            />
-            <Bar dataKey="distance" fill="url(#homeDailyGrad)" radius={chartStyle.barRadius} animationDuration={chartStyle.animationDuration} />
-          </BarChart>
-        </ResponsiveContainer>
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div>
+            <p className="text-3xl font-extrabold text-orange-500">{streak}</p>
+            <p className="text-xs text-[var(--muted)] mt-0.5">현재 연속일</p>
+          </div>
+          <div className="border-x border-[var(--card-border)]">
+            <p className="text-3xl font-extrabold text-purple-500">{maxStreak}</p>
+            <p className="text-xs text-[var(--muted)] mt-0.5">최장 연속일</p>
+          </div>
+          <div>
+            <p className="text-3xl font-extrabold text-[var(--foreground)]">{totalRuns}</p>
+            <p className="text-xs text-[var(--muted)] mt-0.5">총 러닝</p>
+          </div>
+        </div>
+        {isRecordBreaking && maxStreak >= 2 && (
+          <p className="text-center text-xs font-bold text-orange-500 mt-3 achievement-shimmer rounded-lg py-1.5">
+            🔥 최장 기록 갱신 중!
+          </p>
+        )}
+        {daysToRecord > 0 && daysToRecord <= 3 && (
+          <p className="text-center text-xs font-semibold text-[var(--accent)] mt-3">
+            역대 최장 기록까지 {daysToRecord}일!
+          </p>
+        )}
       </div>
       </LazyMount>
 
-      {/* ========== ⑤ 주간 거리 트렌드 ========== */}
-      {weeklyData.length > 0 && (
-        <LazyMount minHeight={240}>
-        <div className="card p-5">
-          <div className="flex items-baseline justify-between mb-3">
-            <h3 className="text-base font-bold text-[var(--foreground)]">최근 12주 러닝</h3>
-            {(() => {
-              // 전년 동기 비교 — activities 에서 직접 계산
-              const nowMs = Date.now();
-              const _12wMs = 12 * 7 * 24 * 60 * 60 * 1000;
-              const yearMs = 365 * 24 * 60 * 60 * 1000;
-              let thisSum = 0, lastSum = 0;
-              activities.forEach(a => {
-                const t = new Date(a.activity_date).getTime();
-                if (t >= nowMs - _12wMs) thisSum += a.distance_km;
-                else if (t >= nowMs - yearMs - _12wMs && t < nowMs - yearMs) lastSum += a.distance_km;
-              });
-              // 전년 데이터 없어도 표시 (사용자 신고 #10): "전년 동기 첫 기록"
-              const diff = thisSum - lastSum;
-              if (lastSum < 0.5 && thisSum < 0.5) return null; // 둘 다 0 이면 무의미
-              if (lastSum < 0.5) {
-                return <span className="text-xs font-semibold text-emerald-600">전년 동기 첫 기록 🎉</span>;
-              }
-              const sign = diff >= 0 ? '+' : '';
-              const color = diff >= 0 ? 'text-emerald-600' : 'text-rose-500';
-              return (
-                <span className={`text-xs font-semibold ${color}`}>
-                  전년 동기 {sign}{diff.toFixed(0)}km
-                </span>
-              );
-            })()}
-          </div>
-          <ResponsiveContainer width="100%" height={160}>
-            <BarChart data={weeklyData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="homeWeeklyGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#A78BFA" />
-                  <stop offset="100%" stopColor="#8B5CF6" />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
-              <Tooltip
-                contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 12 }}
-                formatter={(value) => [`${value}km`]}
-                cursor={{ fill: 'var(--card-border)', opacity: 0.3 }}
-              />
-              <Bar dataKey="distance" fill="url(#homeWeeklyGrad)" radius={chartStyle.barRadius} animationDuration={chartStyle.animationDuration} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        </LazyMount>
-      )}
-
-      {/* ========== ⑥ 페이스 추이 ========== */}
-      {paceTrend.some(p => p.avgPace !== null) && (
-        <LazyMount minHeight={260}>
-        <div className="card p-5">
-          <h3 className="text-base font-bold text-[var(--foreground)] mb-3">페이스 추이 (최근 12개월)</h3>
-          <ResponsiveContainer width="100%" height={180}>
-            <AreaChart data={paceTrend.filter(p => p.avgPace !== null)} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
-              <defs>
-                <linearGradient id="homePaceGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10B981" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="#10B981" stopOpacity={0.05} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
-              <YAxis
-                tick={{ fontSize: 11, fill: 'var(--muted)' }}
-                reversed
-                domain={['dataMin - 20', 'dataMax + 20']}
-                tickFormatter={(v: number) => `${Math.floor(v / 60)}'${String(Math.round(v % 60)).padStart(2, '0')}"`}
-                axisLine={false} tickLine={false}
-              />
-              <Tooltip
-                contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 12 }}
-                formatter={(value) => [formatPace(Number(value)), '평균 페이스']}
-              />
-              <Area type="monotone" dataKey="avgPace" stroke="#10B981" strokeWidth={2.5} fill="url(#homePaceGrad)" dot={{ r: 4, fill: '#10B981' }} animationDuration={chartStyle.animationDuration} />
-            </AreaChart>
-          </ResponsiveContainer>
-          <p className="text-xs text-[var(--muted)] mt-2 text-center">아래로 갈수록 빠른 페이스</p>
-        </div>
-        </LazyMount>
-      )}
-
-      {/* ========== ⑦ 개인 베스트 — 누적/올해 탭 ========== */}
+      {/* 17 개인 베스트 — 올해/누적 탭 */}
       {personalBests && (() => {
-        // 올해 PB 는 useUserData 의 activities 에서 클라 사이드 필터링.
-        // (별도 RPC 추가 안 하고 이미 가진 데이터 재활용 — fetchPersonalBests 와 동일 로직).
         const yearStart = `${year}-01-01`;
         const yearEnd = `${year}-12-31`;
         const ya = activities.filter(a => a.activity_date >= yearStart && a.activity_date <= yearEnd);
@@ -827,7 +732,129 @@ export default function DashboardPage() {
         );
       })()}
 
-      {/* ========== ⑧ 요일별 패턴 ========== */}
+      {/* 18 일별 거리 추이 (최근 30일) */}
+      <LazyMount minHeight={260}>
+      <div className="card p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-base font-semibold text-[var(--foreground)]">일별 거리 추이</h3>
+          <span className="text-xs text-[var(--muted)]">최근 30일 · 총 {daily30Total.toFixed(1)}km</span>
+        </div>
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={dailyData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+            <defs>
+              <linearGradient id="homeDailyGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#34D399" />
+                <stop offset="100%" stopColor="#10B981" />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" vertical={false} />
+            <XAxis
+              dataKey="label"
+              tick={{ fontSize: 10, fill: 'var(--muted)' }}
+              axisLine={false}
+              tickLine={false}
+              interval={4}
+            />
+            <YAxis tick={{ fontSize: chartStyle.tickFontSize, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+            <Tooltip
+              contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 13 }}
+              formatter={(value) => [`${value}km`]}
+              cursor={{ fill: 'var(--card-border)', opacity: 0.3 }}
+            />
+            <Bar dataKey="distance" fill="url(#homeDailyGrad)" radius={chartStyle.barRadius} animationDuration={chartStyle.animationDuration} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      </LazyMount>
+
+      {/* 19 최근 12주 러닝 */}
+      {weeklyData.length > 0 && (
+        <LazyMount minHeight={240}>
+        <div className="card p-5">
+          <div className="flex items-baseline justify-between mb-3">
+            <h3 className="text-base font-bold text-[var(--foreground)]">최근 12주 러닝</h3>
+            {(() => {
+              const nowMs = Date.now();
+              const _12wMs = 12 * 7 * 24 * 60 * 60 * 1000;
+              const yearMs = 365 * 24 * 60 * 60 * 1000;
+              let thisSum = 0, lastSum = 0;
+              activities.forEach(a => {
+                const t = new Date(a.activity_date).getTime();
+                if (t >= nowMs - _12wMs) thisSum += a.distance_km;
+                else if (t >= nowMs - yearMs - _12wMs && t < nowMs - yearMs) lastSum += a.distance_km;
+              });
+              const diff = thisSum - lastSum;
+              if (lastSum < 0.5 && thisSum < 0.5) return null;
+              if (lastSum < 0.5) {
+                return <span className="text-xs font-semibold text-emerald-600">전년 동기 첫 기록 🎉</span>;
+              }
+              const sign = diff >= 0 ? '+' : '';
+              const color = diff >= 0 ? 'text-emerald-600' : 'text-rose-500';
+              return (
+                <span className={`text-xs font-semibold ${color}`}>
+                  전년 동기 {sign}{diff.toFixed(0)}km
+                </span>
+              );
+            })()}
+          </div>
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart data={weeklyData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="homeWeeklyGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#A78BFA" />
+                  <stop offset="100%" stopColor="#8B5CF6" />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+              <Tooltip
+                contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 12 }}
+                formatter={(value) => [`${value}km`]}
+                cursor={{ fill: 'var(--card-border)', opacity: 0.3 }}
+              />
+              <Bar dataKey="distance" fill="url(#homeWeeklyGrad)" radius={chartStyle.barRadius} animationDuration={chartStyle.animationDuration} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        </LazyMount>
+      )}
+
+      {/* 20 페이스 추이 (최근 12개월) */}
+      {paceTrend.some(p => p.avgPace !== null) && (
+        <LazyMount minHeight={260}>
+        <div className="card p-5">
+          <h3 className="text-base font-bold text-[var(--foreground)] mb-3">페이스 추이 (최근 12개월)</h3>
+          <ResponsiveContainer width="100%" height={180}>
+            <AreaChart data={paceTrend.filter(p => p.avgPace !== null)} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
+              <defs>
+                <linearGradient id="homePaceGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10B981" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="#10B981" stopOpacity={0.05} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" vertical={false} />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+              <YAxis
+                tick={{ fontSize: 11, fill: 'var(--muted)' }}
+                reversed
+                domain={['dataMin - 20', 'dataMax + 20']}
+                tickFormatter={(v: number) => `${Math.floor(v / 60)}'${String(Math.round(v % 60)).padStart(2, '0')}"`}
+                axisLine={false} tickLine={false}
+              />
+              <Tooltip
+                contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 12 }}
+                formatter={(value) => [formatPace(Number(value)), '평균 페이스']}
+              />
+              <Area type="monotone" dataKey="avgPace" stroke="#10B981" strokeWidth={2.5} fill="url(#homePaceGrad)" dot={{ r: 4, fill: '#10B981' }} animationDuration={chartStyle.animationDuration} />
+            </AreaChart>
+          </ResponsiveContainer>
+          <p className="text-xs text-[var(--muted)] mt-2 text-center">아래로 갈수록 빠른 페이스</p>
+        </div>
+        </LazyMount>
+      )}
+
+      {/* 21 요일별 패턴 */}
       {dayStats.length > 0 && dayStats.some(d => d.runCount > 0) && (
         <LazyMount minHeight={360}>
         <div className="card p-5">
@@ -858,7 +885,7 @@ export default function DashboardPage() {
         </LazyMount>
       )}
 
-      {/* ========== ⑨ 시간대별 분포 ========== */}
+      {/* 22 시간대별 분포 */}
       {hourStats.some(h => h.runCount > 0) && (
         <LazyMount minHeight={220}>
         <div className="card p-5">
@@ -892,46 +919,15 @@ export default function DashboardPage() {
         </LazyMount>
       )}
 
-      {/* ========== ⑩ 연속 달리기 스트릭 (Wordle 스타일 Current/Max) ========== */}
-      <LazyMount minHeight={160}>
-      <div className="card p-5">
-        <div className="flex items-center gap-2 mb-3">
-          <Flame size={16} className="text-orange-500" />
-          <h3 className="text-base font-semibold text-[var(--foreground)]">연속 달리기 스트릭</h3>
-        </div>
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div>
-            <p className="text-3xl font-extrabold text-orange-500">{streak}</p>
-            <p className="text-xs text-[var(--muted)] mt-0.5">현재 연속일</p>
-          </div>
-          <div className="border-x border-[var(--card-border)]">
-            <p className="text-3xl font-extrabold text-purple-500">{maxStreak}</p>
-            <p className="text-xs text-[var(--muted)] mt-0.5">최장 연속일</p>
-          </div>
-          <div>
-            <p className="text-3xl font-extrabold text-[var(--foreground)]">{totalRuns}</p>
-            <p className="text-xs text-[var(--muted)] mt-0.5">총 러닝</p>
-          </div>
-        </div>
-
-        {/* 동기부여 문구 */}
-        {isRecordBreaking && maxStreak >= 2 && (
-          <p className="text-center text-xs font-bold text-orange-500 mt-3 achievement-shimmer rounded-lg py-1.5">
-            🔥 최장 기록 갱신 중!
-          </p>
-        )}
-        {daysToRecord > 0 && daysToRecord <= 3 && (
-          <p className="text-center text-xs font-semibold text-[var(--accent)] mt-3">
-            역대 최장 기록까지 {daysToRecord}일!
-          </p>
-        )}
-      </div>
-      </LazyMount>
-
-      {/* ========== ⑪ 상세 기간별 차트 ========== */}
+      {/* 23 기간별 상세 통계 (+ 히스토리 링크 — 기존 sticky 헤더에서 이동) */}
       <LazyMount minHeight={420}>
       <div className="card p-5">
-        <h3 className="text-base font-bold text-[var(--foreground)] mb-3">기간별 상세 통계</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-base font-bold text-[var(--foreground)]">기간별 상세 통계</h3>
+          <Link href="/history" className="text-xs font-bold text-emerald-600 inline-flex items-center gap-0.5 active:scale-95 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30">
+            히스토리 <ChevronRight size={12} />
+          </Link>
+        </div>
 
         <div className="flex items-center justify-center gap-4 mb-3">
           <button onClick={() => setDetailYear((y) => y - 1)} className="text-[var(--muted)] text-xl font-bold">&lt;</button>
@@ -1050,7 +1046,7 @@ export default function DashboardPage() {
       </div>
       </LazyMount>
 
-      {/* ========== ⑫ 주간/월간/연간/누적 요약 ========== */}
+      {/* 24 요약 4칩 — 이번 주/이번 달/올해/누적 */}
       <LazyMount minHeight={200}>
       <div className="card p-5">
         <h3 className="text-base font-bold text-[var(--foreground)] mb-4">요약</h3>
@@ -1093,7 +1089,7 @@ export default function DashboardPage() {
       </div>
       </LazyMount>
 
-      {/* ========== ⑬ 최근 활동 ========== */}
+      {/* 25 최근 활동 */}
       <LazyMount minHeight={300}>
       <div className="card p-5">
         <div className="flex items-center justify-between mb-3">
@@ -1147,8 +1143,6 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
-
-      {/* ⑬ 최근 활동 닫기 */}
       </LazyMount>
 
       {statsLoading && monthlyData.length === 0 && (
@@ -1156,10 +1150,7 @@ export default function DashboardPage() {
       )}
       </div>
 
-      {/* ========== 하단 루틴포토 인기 캐러셀 (친구×1.5, 동네×1.3 가중치) ========== */}
-      <LazyMount rootMargin="400px" minHeight={220}>
-        <RoutinePhotoCarousel />
-      </LazyMount>
+      {/* 루틴포토 카루셀 제거 — 소셜 탭 포토 갤러리(인스타 스타일)와 중복 (build 100). */}
     </div>
     </PullToRefresh>
   );

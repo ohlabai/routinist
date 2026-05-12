@@ -163,17 +163,12 @@ function ShopContent() {
       {/* ===== Sticky Header — 다른 탭 (홈/지도/랭킹) 과 동일 패턴 ===== */}
       <header className="sticky top-0 z-30 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
         <div className="flex items-center justify-between px-4 py-3">
+          {/* 좌측: 다른 탭과 동일 [R심볼 + 메뉴명] 패턴 (build 100 통일) */}
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setMenuOpen(true)}
-              className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition -ml-1"
-              aria-label="메뉴"
-            >
-              <Menu size={20} className="text-[var(--foreground)]" />
-            </button>
             <AppLogo size={28} />
             <h1 className="text-xl font-extrabold tracking-tight text-[var(--foreground)]">쇼핑</h1>
           </div>
+          {/* 우측: 검색 / 카트 / 메뉴 — 햄버거는 좌측에서 우측으로 이동 (사용자 피드백) */}
           <div className="flex items-center gap-1">
             <button
               onClick={() => setSearchOpen(true)}
@@ -194,6 +189,13 @@ function ShopContent() {
                 </span>
               )}
             </Link>
+            <button
+              onClick={() => setMenuOpen(true)}
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition"
+              aria-label="메뉴"
+            >
+              <Menu size={20} className="text-[var(--foreground)]" />
+            </button>
           </div>
         </div>
 
