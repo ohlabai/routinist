@@ -3,13 +3,15 @@
 // 루틴포토 단일 카드 — 썸네일 + 좋아요 + 러닝 기록 오버레이.
 // 친근·귀여운 컨셉: 둥근 카드, 더블탭 하트 애니메이션, soft shadow.
 
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Heart, MapPin, X, MoreVertical, Trash2, Flag } from 'lucide-react';
+import { Heart, MapPin, X, MoreVertical, Trash2, Flag, MessageCircle } from 'lucide-react';
 import type { RoutinePhoto } from '@/lib/routine-photos';
 import { togglePhotoLike, deleteMyPhoto, reportPhoto } from '@/lib/routine-photos';
+import { fetchPhotoCommentCount } from '@/lib/photo-comments';
 import { useAuth } from '@/components/AuthProvider';
 import AppToast from '@/components/AppToast';
+import PhotoCommentsSheet from './PhotoCommentsSheet';
 
 interface Props {
   photo: RoutinePhoto;
@@ -38,6 +40,18 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
   const [removed, setRemoved] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [reporting, setReporting] = useState(false);
+  const [showComments, setShowComments] = useState(false);
+  const [commentCount, setCommentCount] = useState<number>(0);
+
+  // 댓글 카운트 lazy fetch (sheet 안 열어도 카운트 표시).
+  // 갤러리 그리드에서 N개 동시 fetch — 작은 head:true count 라 부담 적음.
+  useEffect(() => {
+    let cancelled = false;
+    fetchPhotoCommentCount(photo.photo_id)
+      .then(n => { if (!cancelled) setCommentCount(n); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [photo.photo_id]);
 
   const handleReport = async (reason: 'inappropriate' | 'spam' | 'harassment' | 'other') => {
     if (reporting) return;
@@ -179,9 +193,9 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
           />
         </button>
 
-        {/* ⋯ 메뉴: 본인이면 [삭제], 타인이면 [신고] (Apple 1.2 UGC 의무). 좋아요 버튼 아래. */}
+        {/* ⋯ 메뉴: 본인이면 [삭제], 타인이면 [신고] (Apple 1.2 UGC 의무). 좋아요/댓글 아래. */}
         {user && (
-          <div className="absolute top-12 right-2 z-10">
+          <div className="absolute top-[88px] right-2 z-10">
             <button
               onClick={(e) => { e.stopPropagation(); setShowMenu(s => !s); }}
               aria-label="더보기"
@@ -214,12 +228,36 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
           </div>
         )}
 
-        {likes > 0 && (
-          <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-white/90 backdrop-blur text-[11px] font-bold text-gray-800 flex items-center gap-0.5 shadow-sm">
-            <Heart size={10} fill="#ef4444" className="text-red-500" strokeWidth={0} />
-            {likes}
+        {/* 좋아요/댓글 카운트 — 사진 좌상단 (build 100 댓글 통합) */}
+        {(likes > 0 || commentCount > 0) && (
+          <div className="absolute top-2 left-2 flex items-center gap-1">
+            {likes > 0 && (
+              <div className="px-2 py-0.5 rounded-full bg-white/90 backdrop-blur text-[11px] font-bold text-gray-800 flex items-center gap-0.5 shadow-sm">
+                <Heart size={10} fill="#ef4444" className="text-red-500" strokeWidth={0} />
+                {likes}
+              </div>
+            )}
+            {commentCount > 0 && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowComments(true); }}
+                className="px-2 py-0.5 rounded-full bg-white/90 backdrop-blur text-[11px] font-bold text-gray-800 flex items-center gap-0.5 shadow-sm active:scale-95 transition"
+                aria-label="댓글 보기"
+              >
+                <MessageCircle size={10} className="text-emerald-600" strokeWidth={2.5} />
+                {commentCount}
+              </button>
+            )}
           </div>
         )}
+
+        {/* 댓글 버튼 — 좋아요 버튼 아래 (사진 우측). 카운트와 별개로 항상 노출 */}
+        <button
+          onClick={(e) => { e.stopPropagation(); setShowComments(true); }}
+          aria-label="댓글 작성"
+          className="absolute top-12 right-2 w-9 h-9 rounded-full bg-white/90 backdrop-blur shadow-md flex items-center justify-center active:scale-95 transition z-10"
+        >
+          <MessageCircle size={16} className="text-gray-700" strokeWidth={2.2} />
+        </button>
 
         {animate && liked && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -372,6 +410,15 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
             </button>
           </div>
         </div>
+      )}
+
+      {/* 댓글 sheet (build 100) */}
+      {showComments && (
+        <PhotoCommentsSheet
+          photoId={photo.photo_id}
+          onClose={() => setShowComments(false)}
+          onCountChange={setCommentCount}
+        />
       )}
 
       {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2500} />}
