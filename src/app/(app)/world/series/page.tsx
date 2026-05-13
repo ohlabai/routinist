@@ -1,11 +1,11 @@
 'use client';
 
 // 챌린지 시리즈 상세 (build 131).
-// 시리즈 안 코스 list + 내 진행 + 시리즈 메달 안내.
+// /world/series?slug=korea_heritage 형태 query string (output: export 호환)
 
-import { useEffect, useState, use, useCallback } from 'react';
+import { useEffect, useState, useCallback, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Trophy, MapPin, Sparkles, Coins, Check } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
 import AppLogo from '@/components/AppLogo';
@@ -28,8 +28,9 @@ interface SeriesCourse {
   my_progress_km: number;
 }
 
-export default function SeriesDetailPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = use(params);
+function SeriesInner() {
+  const sp = useSearchParams();
+  const slug = sp.get('slug') ?? '';
   const router = useRouter();
   const [rows, setRows] = useState<SeriesCourse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,6 +43,7 @@ export default function SeriesDetailPage({ params }: { params: Promise<{ slug: s
   };
 
   const load = useCallback(async () => {
+    if (!slug) return;
     setLoading(true);
     try {
       const supabase = getSupabase();
@@ -76,7 +78,12 @@ export default function SeriesDetailPage({ params }: { params: Promise<{ slug: s
       </header>
 
       <div className="p-4 space-y-3">
-        {loading ? (
+        {!slug ? (
+          <Link href="/ranking?tab=world" className="block card p-5 text-center">
+            <p className="text-sm font-bold">시리즈를 선택해주세요</p>
+            <p className="text-xs text-emerald-600 mt-1">월드런 탭으로 →</p>
+          </Link>
+        ) : loading ? (
           <>
             <div className="card p-5 h-40 animate-pulse" />
             {[0,1,2].map(i => <div key={i} className="card p-4 h-32 animate-pulse" />)}
@@ -85,7 +92,6 @@ export default function SeriesDetailPage({ params }: { params: Promise<{ slug: s
           <p className="text-center py-12 text-sm text-[var(--muted)]">시리즈를 찾을 수 없어요</p>
         ) : (
           <>
-            {/* hero — 시리즈 정보 */}
             <div className={`relative overflow-hidden rounded-3xl p-5 shadow-lg ${
               allDone ? 'bg-gradient-to-br from-amber-400 to-orange-500 shadow-amber-500/40' : 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/30'
             }`}>
@@ -112,7 +118,6 @@ export default function SeriesDetailPage({ params }: { params: Promise<{ slug: s
               </div>
             </div>
 
-            {/* 코스 list */}
             <div className="space-y-2">
               {rows.map((c, i) => {
                 const done = !!c.my_completed_at;
@@ -166,5 +171,13 @@ export default function SeriesDetailPage({ params }: { params: Promise<{ slug: s
 
       {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2000} />}
     </div>
+  );
+}
+
+export default function SeriesDetailPage() {
+  return (
+    <Suspense fallback={<div className="p-8 flex justify-center"><div className="animate-spin w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full" /></div>}>
+      <SeriesInner />
+    </Suspense>
   );
 }

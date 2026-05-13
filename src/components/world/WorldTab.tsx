@@ -227,7 +227,7 @@ export default function WorldTab() {
                       </div>
                     </div>
                   </button>
-                  <NextLink href={`/world/series/${s.slug}`} className={`mt-2 block text-center py-1 rounded-lg text-[10px] font-extrabold ${
+                  <NextLink href={`/world/series?slug=${s.slug}`} className={`mt-2 block text-center py-1 rounded-lg text-[10px] font-extrabold ${
                     active ? 'bg-white/25 text-white' : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300'
                   }`}>
                     자세히 →
