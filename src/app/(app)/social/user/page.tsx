@@ -387,8 +387,14 @@ function UserProfileContent() {
         </div>
       ))}
 
+      {/* 친구 이번 주 회고 (build 130) */}
+      <FriendWeeklyRecap userId={profile.id} />
+
       {/* Achievement 배지 (build 129) */}
       <AchievementsCard userId={profile.id} />
+
+      {/* 친구 월드런 코스 (build 130) */}
+      <FriendCoursesCard userId={profile.id} />
 
       {/* 친구 30일 활동 막대그래프 (build 124) */}
       <FriendActivityChart userId={profile.id} />
@@ -609,6 +615,100 @@ export default function UserProfilePage() {
     }>
       <UserProfileContent />
     </Suspense>
+  );
+}
+
+// ── 친구 이번 주 회고 (build 130) ─────────────
+function FriendWeeklyRecap({ userId }: { userId: string }) {
+  const [recap, setRecap] = useState<{ week_km: number; week_runs: number; week_longest: number; week_avg_pace: number | null; month_km: number; month_runs: number } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const supabase = getSupabase();
+        const { data } = await supabase.rpc('fetch_user_weekly_recap', { p_user_id: userId });
+        setRecap(data as typeof recap);
+      } catch { /* ignore */ } finally {
+        setLoading(false);
+      }
+    })();
+  }, [userId]);
+
+  if (loading) return <div className="card p-4 h-28 animate-pulse" />;
+  if (!recap || (recap.week_runs === 0 && recap.month_runs === 0)) return null;
+
+  const paceStr = recap.week_avg_pace ? `${Math.floor(recap.week_avg_pace / 60)}'${String(Math.round(recap.week_avg_pace % 60)).padStart(2, '0')}"` : '—';
+
+  return (
+    <div className="card p-4">
+      <div className="flex items-center gap-1.5 mb-3">
+        <Trophy size={14} className="text-emerald-500" />
+        <h3 className="text-sm font-extrabold">이번 주 · 이번 달</h3>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 p-3">
+          <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">이번 주</p>
+          <p className="text-xl font-extrabold text-[var(--foreground)] mt-0.5 tabular-nums">{Number(recap.week_km).toFixed(1)}<span className="text-xs ml-0.5">km</span></p>
+          <p className="text-[11px] text-[var(--muted)] mt-0.5 font-bold">
+            {recap.week_runs}회 · 최장 {Number(recap.week_longest).toFixed(1)}km · {paceStr}/km
+          </p>
+        </div>
+        <div className="rounded-xl bg-amber-50/60 dark:bg-amber-950/20 p-3">
+          <p className="text-[10px] font-bold text-amber-700 dark:text-amber-300">이번 달</p>
+          <p className="text-xl font-extrabold text-[var(--foreground)] mt-0.5 tabular-nums">{Number(recap.month_km).toFixed(1)}<span className="text-xs ml-0.5">km</span></p>
+          <p className="text-[11px] text-[var(--muted)] mt-0.5 font-bold">{recap.month_runs}회</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 친구 월드런 코스 (build 130) ─────────────
+function FriendCoursesCard({ userId }: { userId: string }) {
+  const [list, setList] = useState<{ course_id: string; name: string; country: string | null; distance_km: number; started_at: string; completed_at: string | null }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const supabase = getSupabase();
+        const { data } = await supabase.rpc('fetch_user_courses_public', { p_user_id: userId });
+        setList((data ?? []) as typeof list);
+      } catch { /* ignore */ } finally {
+        setLoading(false);
+      }
+    })();
+  }, [userId]);
+
+  if (loading) return null;
+  if (list.length === 0) return null;
+
+  const completed = list.filter(c => c.completed_at).length;
+
+  return (
+    <div className="card p-4">
+      <div className="flex items-center justify-between mb-2.5">
+        <div className="flex items-center gap-1.5">
+          <span className="text-base">🌍</span>
+          <h3 className="text-sm font-extrabold">월드런 도전</h3>
+        </div>
+        <span className="text-xs font-bold text-emerald-600 tabular-nums">완주 {completed} / {list.length}</span>
+      </div>
+      <div className="space-y-1.5">
+        {list.slice(0, 5).map(c => {
+          const done = !!c.completed_at;
+          return (
+            <div key={c.course_id} className={`flex items-center gap-2.5 px-2 py-2 rounded-lg ${done ? 'bg-amber-50/60 dark:bg-amber-950/20' : 'bg-[var(--card-border)]/20'}`}>
+              <span className={done ? 'text-amber-500' : 'text-[var(--muted)]'}>{done ? '🏆' : '🏃'}</span>
+              <span className="flex-1 text-sm font-bold truncate">{c.name}</span>
+              <span className="text-xs text-[var(--muted)] font-bold">{Number(c.distance_km).toFixed(1)}km</span>
+            </div>
+          );
+        })}
+        {list.length > 5 && <p className="text-[10px] text-[var(--muted)] text-center mt-1">+ {list.length - 5}개 더</p>}
+      </div>
+    </div>
   );
 }
 
