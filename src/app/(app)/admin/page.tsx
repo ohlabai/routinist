@@ -281,6 +281,7 @@ export default function AdminDashboardPage() {
               <AdminLink href="/admin/experiments" icon={<Beaker size={20} />} label="A/B 실험" />
               <AdminLink href="/admin/courses" icon={<Globe size={20} />} label="가상 코스" />
               <AdminLink href="/admin/feedback" icon={<MessageSquare size={20} />} label="제안 모더레이션" />
+              <AdminLink href="/admin/users" icon={<Users size={20} />} label="회원 관리" />
               <AdminLink href="/profile/audit" icon={<Stethoscope size={20} />} label="데이터 점검" />
             </div>
           </Section>

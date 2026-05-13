@@ -160,12 +160,10 @@ function drawCard(
     theme.bg(ctx, W, H);
   }
 
-  // 경로 — build 100 회귀 fix: 명언과 안 겹치도록 mapY 더 아래로 + 그림자 강화.
-  // 이전엔 mapY=280 으로 명언(quoteY=200 중심, 3줄이면 ~264 까지)과 28px 만 떨어져 시각적으로 답답하거나
-  // 배경사진 위 흰색 선이 밝은 영역에 묻혀 안 보이는 회귀 발생. fix:
-  //   1) mapY 320 (명언 3줄 끝 + 56 padding)
-  //   2) 그림자 lineWidth 16 / alpha 0.7 — 사진 배경에서도 또렷
-  //   3) 본체 lineWidth 8 — 폴리라인 가독성 ↑
+  // 경로 — build 106 fix 후 사용자 추가 피드백 (build 110): 지도가 아래로 처져 보임.
+  // mapY 320 → 290 으로 위로 올려 상하 여백 균형감.
+  // 명언(quoteY=200, 1~2 줄) 끝 ~250 + 40 padding = 290. OK.
+  // 그림자/본체 두께는 유지 (배경사진 위 가독성 보장).
   const hasRoute = activity.route_data?.coordinates?.length;
   if (hasRoute) {
     const coords = activity.route_data!.coordinates;
@@ -177,7 +175,7 @@ function drawCard(
     const padding = 120;
     const mapW = W - padding * 2;
     const mapH = 480;
-    const mapY = 320;
+    const mapY = 290;
 
     const scaleX = mapW / (maxLng - minLng || 0.001);
     const scaleY = mapH / (maxLat - minLat || 0.001);
@@ -232,6 +230,7 @@ function drawCard(
 
   // 월간 합계 + 일별 거리 맵 — 그래프(하단) + stats 4번째 컬럼에서 사용.
   let monthSum = 0;
+  let monthRunCount = 0;  // build 110: 그 달 총 러닝 횟수 (막대그래프 아래 표시)
   let dailyKm = new Map<number, number>();
   let activityMonth = 0;
   let activityYear = 0;
@@ -244,12 +243,12 @@ function drawCard(
     daysInMonth = new Date(activityYear, activityMonth + 1, 0).getDate();
     todayDay = activityDate.getDate();
 
-    monthSum = monthlyActivities
-      .filter(a => {
-        const d = new Date(a.activity_date);
-        return d.getFullYear() === activityYear && d.getMonth() === activityMonth;
-      })
-      .reduce((s, a) => s + a.distance_km, 0);
+    const inMonth = monthlyActivities.filter(a => {
+      const d = new Date(a.activity_date);
+      return d.getFullYear() === activityYear && d.getMonth() === activityMonth;
+    });
+    monthSum = inMonth.reduce((s, a) => s + a.distance_km, 0);
+    monthRunCount = inMonth.length;
 
     dailyKm = new Map<number, number>();
     monthlyActivities.forEach(a => {
@@ -441,6 +440,17 @@ function drawCard(
       const barH = Math.max(h, 3);
       const barTop = chartTop + chartH - barH;
       ctx.fillRect(x, barTop, barWidth, barH);
+    }
+
+    // build 110: 그 달 총 러닝 횟수 — 막대그래프 아래 우측에 작게 라벨.
+    // "11회" 형태. 사용자 피드백 (2026-05-14).
+    if (monthRunCount > 0) {
+      const labelY = chartTop + chartH + 38;
+      ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillStyle = bgImage ? 'rgba(255,255,255,0.95)' : mainColor;
+      ctx.textAlign = 'right';
+      ctx.fillText(`이달 ${monthRunCount}회`, chartPadX + chartW, labelY);
+      ctx.textAlign = 'center';
     }
   }
 
