@@ -8,6 +8,7 @@ import { useUserData } from '@/components/UserDataProvider';
 import { fetchRandomQuote, toggleQuoteLike, isFallbackQuote, type DailyQuote } from '@/lib/quotes-data';
 import { createUserQuote } from '@/lib/user-quotes';
 import { getSupabase } from '@/lib/supabase';
+import { track } from '@/lib/analytics';
 import AppToast from '@/components/AppToast';
 import type { Activity } from '@/types';
 
@@ -776,6 +777,7 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
 
   const handleShare = async () => {
     if (!canvasRef.current) return;
+    track('share_card_share', { activity_id: activity.id, distance_km: activity.distance_km, has_quote: !!quote, native: isNativeApp() });
 
     if (isNativeApp()) {
       // 네이티브에서는 handleDownload가 공유까지 처리

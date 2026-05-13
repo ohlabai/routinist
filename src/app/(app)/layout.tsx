@@ -9,6 +9,7 @@ import { Home, Trophy, User, ShoppingBag, Users } from 'lucide-react';
 import { syncHealthData, isNativeApp } from '@/lib/health-sync';
 import AppLogo from '@/components/AppLogo';
 import { useI18n } from '@/lib/i18n';
+import AnalyticsAutoTracker from '@/components/AnalyticsAutoTracker';
 
 // 5탭 구조 (build 100 재편): 홈 / 랭킹 / 소셜 / 쇼핑 / 내정보.
 // 지도는 홈 캘린더 아래 미니맵으로 흡수. 랭킹 ↔ 소셜 분리 (이전 /social 의 me, mileage 서브탭이 랭킹으로 이전).
@@ -180,6 +181,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* 메인 컨텐츠 — 유일한 스크롤 영역 */}
       <main className="flex-1 overflow-y-auto overscroll-contain">
+        <AnalyticsAutoTracker />
         <UserDataProvider>{children}</UserDataProvider>
       </main>
 

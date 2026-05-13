@@ -41,6 +41,24 @@ interface TopQuote { id: string; text: string; author: string; like_count: numbe
 interface TopRunner { display_name: string; avatar_url: string | null; runs: number; total_km: number; }
 interface TopContent { photos: TopPhoto[] | null; quotes: TopQuote[] | null; top_runners_30d: TopRunner[] | null; }
 
+interface EventRow { event_name: string; n: number; }
+interface PathRow { path: string; views: number; unique_users: number; }
+interface EventsSummary {
+  total_events: number;
+  unique_users: number;
+  top_events: EventRow[] | null;
+  top_paths: PathRow[] | null;
+}
+interface Funnel {
+  signup: number;
+  first_run: number;
+  first_photo: number;
+  first_friend: number;
+  first_world_start: number;
+  first_world_complete: number;
+  first_medal_request: number;
+}
+
 export default function AdminAnalyticsPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -52,6 +70,8 @@ export default function AdminAnalyticsPage() {
   const [activation, setActivation] = useState<Activation | null>(null);
   const [hourMap, setHourMap] = useState<HourRow[]>([]);
   const [topContent, setTopContent] = useState<TopContent | null>(null);
+  const [eventsSummary, setEventsSummary] = useState<EventsSummary | null>(null);
+  const [funnel, setFunnel] = useState<Funnel | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -63,7 +83,7 @@ export default function AdminAnalyticsPage() {
     setLoading(true);
     try {
       const supabase = getSupabase();
-      const [ov, su, ad, rt, act, hm, top] = await Promise.all([
+      const [ov, su, ad, rt, act, hm, top, ev, fn] = await Promise.all([
         supabase.rpc('admin_analytics_overview'),
         supabase.rpc('admin_analytics_signups_daily', { p_days: 30 }),
         supabase.rpc('admin_analytics_activity_daily', { p_days: 30 }),
@@ -71,6 +91,8 @@ export default function AdminAnalyticsPage() {
         supabase.rpc('admin_analytics_activation'),
         supabase.rpc('admin_analytics_hour_heatmap'),
         supabase.rpc('admin_analytics_top_content', { p_limit: 5 }),
+        supabase.rpc('admin_analytics_events_summary', { p_days: 7 }),
+        supabase.rpc('admin_analytics_funnel'),
       ]);
       if (ov.data) setOverview(ov.data as Overview);
       if (su.data) setSignups((su.data as { day: string; count: number }[]).map(r => ({ day: String(r.day).slice(5), count: r.count })));
@@ -79,6 +101,8 @@ export default function AdminAnalyticsPage() {
       if (act.data) setActivation(act.data as Activation);
       if (hm.data) setHourMap(hm.data as HourRow[]);
       if (top.data) setTopContent(top.data as TopContent);
+      if (ev.data) setEventsSummary(ev.data as EventsSummary);
+      if (fn.data) setFunnel(fn.data as Funnel);
     } catch (e) {
       console.warn('[admin/analytics] fail', e);
     } finally {
@@ -313,6 +337,69 @@ export default function AdminAnalyticsPage() {
                   </div>
                 ))}
               </div>
+            </Section>
+          )}
+
+          {/* 사용자 여정 펀넬 (Phase B) — 가입부터 메달 신청까지 conversion */}
+          {funnel && (
+            <Section title="사용자 여정 펀넬" icon={<TrendingUp size={14} className="text-violet-500" />}>
+              <div className="card p-3">
+                {[
+                  { label: '가입', value: funnel.signup, key: 'signup' },
+                  { label: '첫 활동', value: funnel.first_run, key: 'first_run' },
+                  { label: '첫 사진 공유', value: funnel.first_photo, key: 'first_photo' },
+                  { label: '첫 친구', value: funnel.first_friend, key: 'first_friend' },
+                  { label: '월드런 시작', value: funnel.first_world_start, key: 'first_world_start' },
+                  { label: '월드런 완주', value: funnel.first_world_complete, key: 'first_world_complete' },
+                  { label: '메달 신청', value: funnel.first_medal_request, key: 'first_medal_request' },
+                ].map((step) => (
+                  <div key={step.key} className="flex items-center gap-2 py-1.5">
+                    <span className="text-xs font-bold text-[var(--muted)] w-24 flex-shrink-0">{step.label}</span>
+                    <div className="flex-1 h-5 rounded-full bg-[var(--card-border)]/30 overflow-hidden">
+                      <div className="h-full rounded-full bg-gradient-to-r from-violet-400 to-violet-600 transition-all" style={{ width: `${pct(step.value, funnel.signup)}%` }} />
+                    </div>
+                    <span className="text-xs font-extrabold tabular-nums w-10 text-right">{step.value.toLocaleString()}</span>
+                    <span className="text-[10px] font-bold text-violet-600 w-9 text-right">{pct(step.value, funnel.signup)}%</span>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {/* 이벤트 추적 (Phase B) — top events + paths */}
+          {eventsSummary && eventsSummary.total_events > 0 && (
+            <Section title="이벤트 추적 (7일)" icon={<Zap size={14} className="text-amber-500" />}>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <Stat label="총 이벤트" value={eventsSummary.total_events.toLocaleString()} tone="amber" />
+                <Stat label="추적된 사용자" value={eventsSummary.unique_users.toLocaleString()} />
+              </div>
+              {eventsSummary.top_paths && eventsSummary.top_paths.length > 0 && (
+                <div className="card p-3 mb-2">
+                  <p className="text-[11px] font-extrabold text-[var(--muted)] mb-1.5">인기 화면 (페이지뷰)</p>
+                  <div className="space-y-1">
+                    {eventsSummary.top_paths.slice(0, 10).map((p) => (
+                      <div key={p.path} className="flex items-center gap-2">
+                        <span className="text-xs font-mono truncate flex-1">{p.path}</span>
+                        <span className="text-xs font-bold tabular-nums text-[var(--muted)]">{p.views.toLocaleString()}회</span>
+                        <span className="text-[10px] font-bold tabular-nums text-emerald-600">{p.unique_users}명</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {eventsSummary.top_events && eventsSummary.top_events.length > 0 && (
+                <div className="card p-3">
+                  <p className="text-[11px] font-extrabold text-[var(--muted)] mb-1.5">자주 발생한 이벤트</p>
+                  <div className="space-y-1">
+                    {eventsSummary.top_events.slice(0, 10).map((e) => (
+                      <div key={e.event_name} className="flex items-center gap-2">
+                        <span className="text-xs font-mono truncate flex-1">{e.event_name}</span>
+                        <span className="text-xs font-bold tabular-nums text-amber-600">{e.n.toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </Section>
           )}
 

@@ -9,6 +9,7 @@ import { ArrowLeft, ThumbsUp, MessageSquare, Bug, Sparkles, Layout, HelpCircle, 
 import { useAuth } from '@/components/AuthProvider';
 import AppLogo from '@/components/AppLogo';
 import AppToast from '@/components/AppToast';
+import { track } from '@/lib/analytics';
 import {
   fetchFeedback,
   fetchMyFeedbackUpvotes,
@@ -407,6 +408,7 @@ function ComposeModal({ onClose, onCreated, onError }: {
     setSubmitting(true);
     try {
       await createFeedback(category, t, b, isPublic);
+      track('feedback_create', { category, is_public: isPublic, body_length: b.length });
       onCreated();
     } catch (e) {
       onError(e instanceof Error ? e.message : '등록 실패');

@@ -16,6 +16,7 @@ import {
 import AppToast from '@/components/AppToast';
 import CourseDetailSheet from './CourseDetailSheet';
 import { Coins } from 'lucide-react';
+import { track } from '@/lib/analytics';
 
 // 코스 카드용 미리보기 SVG — preview_path (0~100) 정규화 폴리라인.
 // 시작점=에메랄드 원, 끝점=주황 원. 배경 그리드 + 폴리라인 그림자.
@@ -135,6 +136,8 @@ export default function WorldTab() {
     setStarting(courseId);
     try {
       await startCourse(courseId);
+      const name = confirmStart?.name ?? available.find(c => c.id === courseId)?.name;
+      track('world_course_start', { course_id: courseId, course_name: name });
       showToast('✨ 코스를 시작했어요');
       setConfirmStart(null);
       await load();
