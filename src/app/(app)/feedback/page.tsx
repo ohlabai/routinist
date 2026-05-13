@@ -5,7 +5,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ThumbsUp, MessageSquare, Bug, Sparkles, Layout, HelpCircle, Plus, X, Check, Trash2, Lock, Globe } from 'lucide-react';
+import { ArrowLeft, ThumbsUp, MessageSquare, Bug, Sparkles, Layout, HelpCircle, Plus, X, Check, Trash2, Lock, Globe, Flag } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import AppLogo from '@/components/AppLogo';
 import AppToast from '@/components/AppToast';
@@ -15,12 +15,14 @@ import {
   toggleFeedbackUpvote,
   createFeedback,
   deleteMyFeedback,
+  reportFeedback,
   CATEGORY_LABEL,
   STATUS_LABEL,
   STATUS_COLOR,
   type FeedbackPost,
   type FeedbackCategory,
   type FeedbackStatus,
+  type FeedbackReportReason,
 } from '@/lib/feedback-data';
 
 const CATEGORY_ICONS: Record<FeedbackCategory, typeof Bug> = {
@@ -67,6 +69,8 @@ export default function FeedbackPage() {
   const [composeOpen, setComposeOpen] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [likeBusy, setLikeBusy] = useState<string | null>(null);
+  const [reportTarget, setReportTarget] = useState<FeedbackPost | null>(null);
+  const [reporting, setReporting] = useState(false);
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
 
   const showToast = useCallback((text: string, tone: 'ok' | 'warn' = 'ok') => {
@@ -123,6 +127,20 @@ export default function FeedbackPage() {
       showToast('삭제됨');
     } catch (e) {
       showToast(e instanceof Error ? e.message : '삭제 실패', 'warn');
+    }
+  };
+
+  const handleReport = async (reason: FeedbackReportReason) => {
+    if (!reportTarget) return;
+    setReporting(true);
+    try {
+      await reportFeedback(reportTarget.id, reason);
+      showToast('신고가 접수됐어요. 24시간 안에 검토합니다');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : '신고 실패', 'warn');
+    } finally {
+      setReporting(false);
+      setReportTarget(null);
     }
   };
 
@@ -272,14 +290,22 @@ export default function FeedbackPage() {
                     <ThumbsUp size={14} fill={p.liked_by_me ? '#ffffff' : 'transparent'} />
                     {p.upvote_count}
                   </button>
-                  {isMine && (
+                  {isMine ? (
                     <button
                       onClick={() => handleDelete(p.id)}
                       className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs text-rose-600 dark:text-rose-400 font-semibold active:scale-95"
                     >
                       <Trash2 size={11} /> 삭제
                     </button>
-                  )}
+                  ) : user ? (
+                    <button
+                      onClick={() => setReportTarget(p)}
+                      className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs text-[var(--muted)] font-semibold active:scale-95"
+                      aria-label="신고"
+                    >
+                      <Flag size={11} /> 신고
+                    </button>
+                  ) : null}
                 </div>
               </article>
             );
@@ -305,6 +331,53 @@ export default function FeedbackPage() {
           onCreated={() => { setComposeOpen(false); load(); showToast('✨ 제안이 등록됐어요'); }}
           onError={(msg) => showToast(msg, 'warn')}
         />
+      )}
+
+      {/* 신고 다이얼로그 (Apple 1.2 UGC) */}
+      {reportTarget && (
+        <div
+          className="fixed inset-0 z-[80] bg-black/65 flex items-center justify-center p-4"
+          onClick={() => !reporting && setReportTarget(null)}
+        >
+          <div
+            className="w-full max-w-xs bg-[var(--background)] rounded-3xl p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col items-center gap-2 mb-4">
+              <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center">
+                <Flag size={24} className="text-amber-600" />
+              </div>
+              <h3 className="text-base font-bold">게시글 신고</h3>
+              <p className="text-xs text-[var(--muted)] text-center leading-relaxed">
+                신고 사유를 선택해주세요. 3회 누적되면 자동 숨김 처리되며 24시간 안에 운영자가 검토합니다.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              {([
+                { id: 'inappropriate', label: '부적절한 콘텐츠' },
+                { id: 'spam', label: '스팸/광고' },
+                { id: 'harassment', label: '괴롭힘/혐오' },
+                { id: 'other', label: '기타' },
+              ] as const).map(opt => (
+                <button
+                  key={opt.id}
+                  onClick={() => handleReport(opt.id)}
+                  disabled={reporting}
+                  className="w-full px-3 py-3 rounded-xl bg-[var(--card-border)]/30 text-sm font-semibold disabled:opacity-50 active:bg-[var(--card-border)]/60"
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setReportTarget(null)}
+              disabled={reporting}
+              className="w-full mt-3 py-2.5 text-sm text-[var(--muted)] disabled:opacity-50"
+            >
+              취소
+            </button>
+          </div>
+        </div>
       )}
 
       {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2200} />}

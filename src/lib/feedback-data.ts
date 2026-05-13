@@ -124,3 +124,15 @@ export async function deleteMyFeedback(id: string): Promise<void> {
   const { error } = await supabase.from('feedback_posts').delete().eq('id', id);
   if (error) throw error;
 }
+
+// Apple 1.2 UGC — 부적절 게시글 신고. 같은 사용자 24h 내 중복 신고는 RPC 가 차단.
+export type FeedbackReportReason = 'inappropriate' | 'spam' | 'harassment' | 'other';
+export async function reportFeedback(feedbackId: string, reason: FeedbackReportReason, detail?: string): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase.rpc('report_feedback', {
+    p_feedback_id: feedbackId,
+    p_reason: reason,
+    p_detail: detail ?? null,
+  });
+  if (error) throw error;
+}
