@@ -7,14 +7,17 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, MapPin, Users, Activity, MessageCircle, Search, UserPlus, Calendar } from 'lucide-react';
+import { ArrowLeft, MapPin, Users, Activity, MessageCircle, Search, UserPlus, Calendar, Zap } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import {
   fetchNearbyRunners,
+  fetchPaceMatchedRunners,
+  formatPace,
   SCOPE_LABEL,
   SCOPE_DESC,
   type NearbyRunner,
   type NearbyScope,
+  type PaceMatchedRunner,
 } from '@/lib/nearby-data';
 import { followUser, unfollowUser, fetchFollowing } from '@/lib/social-data';
 import GenderBadge from '@/components/profile/GenderBadge';
@@ -35,7 +38,9 @@ export default function NearbyPage() {
   const router = useRouter();
   const { user, profile } = useAuth();
   const [scope, setScope] = useState<NearbyScope>('gu');
+  const [mode, setMode] = useState<'region' | 'pace'>('region');
   const [runners, setRunners] = useState<NearbyRunner[]>([]);
+  const [paceRunners, setPaceRunners] = useState<PaceMatchedRunner[]>([]);
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -50,26 +55,37 @@ export default function NearbyPage() {
     if (!user) return;
     setLoading(true);
     try {
-      const [list, following] = await Promise.all([
-        fetchNearbyRunners(scope, 100),
-        fetchFollowing(user.id).catch(() => []),
-      ]);
-      setRunners(list);
-      setFollowingIds(new Set(following.map(f => f.id)));
-      track('nearby_search', { scope, result_count: list.length });
+      const followingPromise = fetchFollowing(user.id).catch(() => []);
+      if (mode === 'pace') {
+        const [pace, following] = await Promise.all([
+          fetchPaceMatchedRunners(20).catch(() => []),
+          followingPromise,
+        ]);
+        setPaceRunners(pace);
+        setFollowingIds(new Set(following.map(f => f.id)));
+        track('nearby_search', { mode: 'pace', result_count: pace.length });
+      } else {
+        const [list, following] = await Promise.all([
+          fetchNearbyRunners(scope, 100),
+          followingPromise,
+        ]);
+        setRunners(list);
+        setFollowingIds(new Set(following.map(f => f.id)));
+        track('nearby_search', { mode: 'region', scope, result_count: list.length });
+      }
     } catch (e) {
       showToast(e instanceof Error ? e.message : '검색 실패', 'warn');
     } finally {
       setLoading(false);
     }
-  }, [user, scope]);
+  }, [user, scope, mode]);
 
-  // 첫 진입 — 자동 검색 (region 가지고 있는 경우만)
+  // 첫 진입 + mode 변경 시 자동 검색
   useEffect(() => {
-    if (user && profile?.region_gu) {
+    if (user && (mode === 'pace' || profile?.region_gu)) {
       void search();
     }
-  }, [user, profile?.region_gu, search]);
+  }, [user, profile?.region_gu, mode, search]);
 
   const handleFollow = async (target: NearbyRunner) => {
     if (busy === target.user_id) return;
@@ -106,34 +122,64 @@ export default function NearbyPage() {
           <h1 className="text-xl font-extrabold tracking-tight">동네 러너 찾기</h1>
         </div>
 
-        {/* scope 칩 + 검색 */}
-        <div className="px-4 pb-3 flex items-center gap-2 overflow-x-auto scrollbar-hide">
-          {SCOPES.map(s => (
-            <button
-              key={s}
-              onClick={() => setScope(s)}
-              disabled={loading}
-              className={`flex-shrink-0 px-3.5 py-2 rounded-full text-sm font-bold whitespace-nowrap active:scale-95 transition ${
-                scope === s
-                  ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/30'
-                  : 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--muted)]'
-              }`}
-            >
-              {SCOPE_LABEL[s]}
-            </button>
-          ))}
+        {/* mode toggle — 동네 vs 페이스 */}
+        <div className="px-4 pb-2 flex gap-1.5">
           <button
-            onClick={search}
-            disabled={loading || noRegion}
-            className="flex-shrink-0 ml-auto px-3.5 py-2 rounded-full bg-emerald-500 text-white font-bold text-sm active:scale-95 disabled:opacity-50 inline-flex items-center gap-1"
+            onClick={() => setMode('region')}
+            className={`flex-1 py-2 rounded-full text-xs font-extrabold active:scale-95 inline-flex items-center justify-center gap-1 ${
+              mode === 'region' ? 'bg-emerald-500 text-white shadow' : 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--muted)]'
+            }`}
           >
-            <Search size={14} /> 찾기
+            <MapPin size={12} /> 동네별
+          </button>
+          <button
+            onClick={() => setMode('pace')}
+            className={`flex-1 py-2 rounded-full text-xs font-extrabold active:scale-95 inline-flex items-center justify-center gap-1 ${
+              mode === 'pace' ? 'bg-emerald-500 text-white shadow' : 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--muted)]'
+            }`}
+          >
+            <Zap size={12} /> 비슷한 페이스
           </button>
         </div>
+
+        {/* scope 칩 (region 모드에서만) + 검색 */}
+        {mode === 'region' && (
+          <div className="px-4 pb-3 flex items-center gap-2 overflow-x-auto scrollbar-hide">
+            {SCOPES.map(s => (
+              <button
+                key={s}
+                onClick={() => setScope(s)}
+                disabled={loading}
+                className={`flex-shrink-0 px-3.5 py-2 rounded-full text-sm font-bold whitespace-nowrap active:scale-95 transition ${
+                  scope === s
+                    ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/30'
+                    : 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--muted)]'
+                }`}
+              >
+                {SCOPE_LABEL[s]}
+              </button>
+            ))}
+            <button
+              onClick={search}
+              disabled={loading || noRegion}
+              className="flex-shrink-0 ml-auto px-3.5 py-2 rounded-full bg-emerald-500 text-white font-bold text-sm active:scale-95 disabled:opacity-50 inline-flex items-center gap-1"
+            >
+              <Search size={14} /> 찾기
+            </button>
+          </div>
+        )}
       </header>
 
       <div className="p-4 space-y-3">
-        {noRegion ? (
+        {mode === 'pace' ? (
+          <PaceMatchedSection
+            runners={paceRunners}
+            loading={loading}
+            followingIds={followingIds}
+            busy={busy}
+            onFollow={(r) => handleFollow({ ...r, region_si: null, region_dong: null, bio: null, birth_year: null, total_runs: 0, total_distance_km: 0, last_active: null } as NearbyRunner)}
+          />
+        ) : noRegion ? (
           <Link href="/profile/edit" className="block rounded-2xl bg-gradient-to-br from-emerald-100/80 to-emerald-50/40 dark:from-emerald-950/30 dark:to-emerald-950/10 border border-emerald-200/60 dark:border-emerald-900/40 p-5 active:scale-[0.99]">
             <p className="text-base font-extrabold text-[var(--foreground)] inline-flex items-center gap-1.5">
               <MapPin size={16} className="text-emerald-600" /> 우리 동네부터 설정해주세요
@@ -242,5 +288,99 @@ export default function NearbyPage() {
 
       {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2000} />}
     </div>
+  );
+}
+
+// 페이스 매칭 결과 — 30일 평균 페이스 ±20초 범위 러너
+function PaceMatchedSection({ runners, loading, followingIds, busy, onFollow }: {
+  runners: PaceMatchedRunner[];
+  loading: boolean;
+  followingIds: Set<string>;
+  busy: string | null;
+  onFollow: (r: PaceMatchedRunner) => void;
+}) {
+  if (loading) {
+    return (
+      <div className="space-y-2">
+        {[0,1,2,3].map(i => <div key={i} className="card p-3 h-20 animate-pulse" />)}
+      </div>
+    );
+  }
+  if (runners.length === 0) {
+    return (
+      <div className="text-center py-16 px-6">
+        <div className="w-16 h-16 rounded-full bg-emerald-50 dark:bg-emerald-950/30 mx-auto mb-3 flex items-center justify-center">
+          <Zap size={28} className="text-emerald-500" />
+        </div>
+        <p className="text-base font-extrabold mb-1">비슷한 페이스의 러너가 아직 없어요</p>
+        <p className="text-sm text-[var(--muted)]">최근 30일 페이스 데이터가 쌓이면 더 정확하게 추천돼요</p>
+      </div>
+    );
+  }
+  return (
+    <>
+      <div className="rounded-2xl bg-gradient-to-br from-emerald-50/70 to-emerald-50/30 dark:from-emerald-950/30 dark:to-emerald-950/10 border border-emerald-200/50 dark:border-emerald-900/40 p-4">
+        <p className="text-sm font-extrabold text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1.5 mb-1">
+          <Zap size={14} /> 비슷한 페이스의 러너
+        </p>
+        <p className="text-xs text-[var(--muted)] leading-relaxed">
+          30일 평균 페이스가 ±20초 차이 안 러너입니다. 함께 달리면 페이스 유지에 도움돼요.
+        </p>
+      </div>
+
+      {runners.map(r => {
+        const following = followingIds.has(r.user_id);
+        return (
+          <article key={r.user_id} className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] p-4">
+            <div className="flex items-start gap-3">
+              <Link href={`/social/user?id=${r.user_id}`} className="flex-shrink-0">
+                <div className="w-12 h-12 rounded-full bg-[var(--card-border)]/40 overflow-hidden">
+                  {r.avatar_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={r.avatar_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-base font-bold text-[var(--muted)]">
+                      {r.display_name.slice(0, 1)}
+                    </div>
+                  )}
+                </div>
+              </Link>
+              <div className="flex-1 min-w-0">
+                <Link href={`/social/user?id=${r.user_id}`} className="inline-flex items-center gap-1.5">
+                  <p className="text-base font-extrabold truncate">{r.display_name}</p>
+                  <GenderBadge gender={r.gender} show={r.show_gender} size={13} />
+                </Link>
+                <p className="text-xs text-[var(--muted)] inline-flex items-center gap-1 mt-0.5">
+                  <MapPin size={11} /> {r.region_gu ?? '지역 미설정'}
+                </p>
+                <div className="mt-1.5 flex items-center gap-3 text-[11px]">
+                  <span className="inline-flex items-center gap-0.5 font-bold text-emerald-600">
+                    <Zap size={11} /> {formatPace(r.avg_pace_sec)}/km
+                  </span>
+                  <span className="text-[var(--muted)] font-bold">
+                    내 페이스와 ±{Math.round(r.pace_diff_sec)}초
+                  </span>
+                  <span className="text-[var(--muted)] font-bold">
+                    · 30일 {r.runs_30d}회
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => onFollow(r)}
+                disabled={busy === r.user_id}
+                aria-label={following ? '친구 끊기' : '친구 추가'}
+                className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-50 transition ${
+                  following
+                    ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
+                    : 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/25'
+                }`}
+              >
+                <UserPlus size={16} />
+              </button>
+            </div>
+          </article>
+        );
+      })}
+    </>
   );
 }

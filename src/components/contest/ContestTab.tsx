@@ -6,6 +6,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Plus, Users, Clock, Trophy, Flag, X, MapPin, Calendar, Globe } from 'lucide-react';
 import Link from 'next/link';
+import PhotoLightbox, { type LightboxPhoto } from '@/components/PhotoLightbox';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
 import { fetchFollowing } from '@/lib/social-data';
@@ -482,6 +483,7 @@ function ContestDetailSheet({ contestId, myUserId, activities, onClose, onChange
   const [submitting, setSubmitting] = useState(false);
   const [attaching, setAttaching] = useState<string | null>(null);
   const [showAttach, setShowAttach] = useState(false);
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [info, setInfo] = useState<ContestInfoRow | null>(null);
 
   const load = useCallback(async () => {
@@ -700,19 +702,37 @@ function ContestDetailSheet({ contestId, myUserId, activities, onClose, onChange
             <p className="text-xs text-[var(--muted)] italic px-1">아직 등록된 사진이 없어요</p>
           ) : (
             <div className="grid grid-cols-3 gap-1.5">
-              {photos.map(ph => (
-                <div key={ph.photo_id} className="aspect-square rounded-lg overflow-hidden bg-[var(--card-border)]/40 relative">
+              {photos.map((ph, i) => (
+                <button
+                  key={ph.photo_id}
+                  onClick={() => setLightboxIdx(i)}
+                  className="aspect-square rounded-lg overflow-hidden bg-[var(--card-border)]/40 relative active:scale-[0.97] transition"
+                >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={ph.photo_url} alt="" className="w-full h-full object-cover" />
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-1.5">
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-1.5 text-left">
                     <p className="text-[9px] font-bold text-white truncate">@{ph.display_name}</p>
                     <p className="text-[8px] text-white/80">{ph.distance_km.toFixed(1)}km</p>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
         </div>
+
+        {/* Lightbox — 사진 클릭 시 풀스크린 캐러셀 */}
+        {lightboxIdx !== null && (
+          <PhotoLightbox
+            photos={photos.map<LightboxPhoto>(p => ({
+              photo_id: p.photo_id,
+              photo_url: p.photo_url,
+              display_name: p.display_name,
+              distance_km: p.distance_km,
+            }))}
+            initialIndex={lightboxIdx}
+            onClose={() => setLightboxIdx(null)}
+          />
+        )}
 
         {isHost && info?.status !== 'finished' && (
           <button

@@ -25,6 +25,7 @@ import {
 } from '@/lib/club-activation';
 import InviteQRCard from '@/components/clubs/InviteQRCard';
 import ClubExternalArchive from '@/components/clubs/ClubExternalArchive';
+import ClubChallengeSection from '@/components/club/ClubChallengeSection';
 import Link from 'next/link';
 import type { Club, ClubMember } from '@/types';
 import AppLogo from '@/components/AppLogo';
@@ -934,6 +935,9 @@ function ClubDetail() {
       {/* 챌린지·모임 탭 */}
       {activeTab === 'challenges' && (
         <div className="space-y-5">
+          {/* 클럽 마라톤 — 단체 코스 챌린지 (build 118) */}
+          <ClubChallengeSection clubId={clubId!} canManage={isAdmin} />
+
           {/* 섹션: 챌린지 */}
           <div>
             <div className="flex items-center justify-between mb-2">
