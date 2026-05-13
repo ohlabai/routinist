@@ -328,6 +328,20 @@ function PaceMatchedSection({ runners, loading, followingIds, busy, onFollow }: 
         </p>
       </div>
 
+      {/* 페이스 그룹 진입점 */}
+      <Link href="/pace-groups" className="block rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 p-4 shadow-md shadow-emerald-500/30 active:scale-[0.99]">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center flex-shrink-0">
+            <Users size={20} className="text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-extrabold text-white">페이스 그룹 둘러보기</p>
+            <p className="text-xs text-white/85 mt-0.5">6단계 페이스대 가상 클럽 — 같은 속도의 친구들</p>
+          </div>
+          <span className="text-white text-base font-bold">→</span>
+        </div>
+      </Link>
+
       {runners.map(r => {
         const following = followingIds.has(r.user_id);
         return (

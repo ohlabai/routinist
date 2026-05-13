@@ -59,6 +59,16 @@ interface Funnel {
   first_medal_request: number;
 }
 
+interface WeeklyReport {
+  new_users: { this: number; prev: number };
+  active_users: { this: number; prev: number };
+  runs: { this: number; prev: number };
+  km: { this: number; prev: number };
+  photos: { this: number; prev: number };
+  feedback: { this: number; prev: number };
+  contests: { this: number; prev: number };
+}
+
 export default function AdminAnalyticsPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -72,6 +82,7 @@ export default function AdminAnalyticsPage() {
   const [topContent, setTopContent] = useState<TopContent | null>(null);
   const [eventsSummary, setEventsSummary] = useState<EventsSummary | null>(null);
   const [funnel, setFunnel] = useState<Funnel | null>(null);
+  const [weekly, setWeekly] = useState<WeeklyReport | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -83,7 +94,7 @@ export default function AdminAnalyticsPage() {
     setLoading(true);
     try {
       const supabase = getSupabase();
-      const [ov, su, ad, rt, act, hm, top, ev, fn] = await Promise.all([
+      const [ov, su, ad, rt, act, hm, top, ev, fn, wk] = await Promise.all([
         supabase.rpc('admin_analytics_overview'),
         supabase.rpc('admin_analytics_signups_daily', { p_days: 30 }),
         supabase.rpc('admin_analytics_activity_daily', { p_days: 30 }),
@@ -93,6 +104,7 @@ export default function AdminAnalyticsPage() {
         supabase.rpc('admin_analytics_top_content', { p_limit: 5 }),
         supabase.rpc('admin_analytics_events_summary', { p_days: 7 }),
         supabase.rpc('admin_analytics_funnel'),
+        supabase.rpc('admin_weekly_report'),
       ]);
       if (ov.data) setOverview(ov.data as Overview);
       if (su.data) setSignups((su.data as { day: string; count: number }[]).map(r => ({ day: String(r.day).slice(5), count: r.count })));
@@ -103,6 +115,7 @@ export default function AdminAnalyticsPage() {
       if (top.data) setTopContent(top.data as TopContent);
       if (ev.data) setEventsSummary(ev.data as EventsSummary);
       if (fn.data) setFunnel(fn.data as Funnel);
+      if (wk.data) setWeekly(wk.data as WeeklyReport);
     } catch (e) {
       console.warn('[admin/analytics] fail', e);
     } finally {
@@ -340,6 +353,28 @@ export default function AdminAnalyticsPage() {
             </Section>
           )}
 
+          {/* 위클리 리포트 (build 119) — 이번주 vs 지난주 변화 */}
+          {weekly && (
+            <Section title="위클리 리포트 (vs 지난 7일)" icon={<TrendingUp size={14} className="text-emerald-500" />}>
+              <div className="grid grid-cols-2 gap-2">
+                <WeeklyCard label="신규 가입" this_={weekly.new_users.this} prev={weekly.new_users.prev} />
+                <WeeklyCard label="활성 유저" this_={weekly.active_users.this} prev={weekly.active_users.prev} />
+                <WeeklyCard label="활동 수" this_={weekly.runs.this} prev={weekly.runs.prev} />
+                <WeeklyCard label="총 km" this_={weekly.km.this} prev={weekly.km.prev} unit="km" />
+                <WeeklyCard label="포토" this_={weekly.photos.this} prev={weekly.photos.prev} />
+                <WeeklyCard label="친선런" this_={weekly.contests.this} prev={weekly.contests.prev} />
+              </div>
+              {weekly.feedback.this > 0 && (
+                <div className="card p-3 mt-2 inline-flex items-center gap-2 w-full">
+                  <MessageSquare size={14} className="text-blue-500" />
+                  <span className="text-xs font-bold flex-1">제안 게시판 신규 글</span>
+                  <span className="text-sm font-extrabold text-emerald-600">{weekly.feedback.this}건</span>
+                  <span className="text-[10px] text-[var(--muted)]">(지난주 {weekly.feedback.prev})</span>
+                </div>
+              )}
+            </Section>
+          )}
+
           {/* 사용자 여정 펀넬 (Phase B) — 가입부터 메달 신청까지 conversion */}
           {funnel && (
             <Section title="사용자 여정 펀넬" icon={<TrendingUp size={14} className="text-violet-500" />}>
@@ -420,6 +455,23 @@ export default function AdminAnalyticsPage() {
 
 function pct(n: number, d: number): number {
   return d > 0 ? Math.round((n / d) * 100) : 0;
+}
+
+function WeeklyCard({ label, this_, prev, unit }: { label: string; this_: number; prev: number; unit?: string }) {
+  const diff = Number(this_) - Number(prev);
+  const pctDiff = prev > 0 ? Math.round((diff / prev) * 100) : (this_ > 0 ? 100 : 0);
+  const tone = diff >= 0 ? 'text-emerald-600' : 'text-rose-500';
+  return (
+    <div className="card p-3">
+      <p className="text-[10px] text-[var(--muted)] font-bold">{label}</p>
+      <p className="text-lg font-extrabold mt-0.5 tabular-nums">
+        {Number(this_).toLocaleString()}{unit && <span className="text-[10px] font-bold ml-0.5 opacity-70">{unit}</span>}
+      </p>
+      <p className={`text-[10px] font-extrabold mt-0.5 ${tone}`}>
+        {diff >= 0 ? '▲' : '▼'} {Math.abs(diff).toLocaleString()} ({pctDiff > 0 ? '+' : ''}{pctDiff}%)
+      </p>
+    </div>
+  );
 }
 
 function peakColor(row: HourRow, all: HourRow[]): string {
