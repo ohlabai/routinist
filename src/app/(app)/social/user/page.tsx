@@ -389,6 +389,9 @@ function UserProfileContent() {
       {/* 친구 30일 활동 막대그래프 (build 124) */}
       <FriendActivityChart userId={profile.id} />
 
+      {/* 친구 30일 컬러 캘린더 (build 126) */}
+      <FriendCalendarCard userId={profile.id} />
+
       {/* 친구 최근 7일 GPS 미니맵 (build 125) */}
       <FriendMiniMap userId={profile.id} />
 
@@ -602,6 +605,93 @@ export default function UserProfilePage() {
     }>
       <UserProfileContent />
     </Suspense>
+  );
+}
+
+// ── 친구 30일 컬러 캘린더 (build 126) ─────────────
+function FriendCalendarCard({ userId }: { userId: string }) {
+  const [rows, setRows] = useState<{ activity_date: string; distance_km: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const supabase = getSupabase();
+        const { data } = await supabase.rpc('fetch_user_recent_routes', { p_user_id: userId, p_days: 30 });
+        setRows((data ?? []) as typeof rows);
+      } catch { /* ignore */ } finally {
+        setLoading(false);
+      }
+    })();
+  }, [userId]);
+
+  if (loading) return <div className="card p-4 h-32 animate-pulse" />;
+  if (rows.length === 0) return null;
+
+  // 30일 그리드 + 일별 km 합
+  const today = new Date();
+  const cells: { date: string; km: number; isToday: boolean }[] = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const ymd = d.toISOString().slice(0, 10);
+    const km = rows.filter(r => r.activity_date === ymd).reduce((s, r) => s + Number(r.distance_km), 0);
+    cells.push({ date: ymd, km, isToday: i === 0 });
+  }
+
+  // 첫 셀의 요일에 맞춰 padding (일=0)
+  const firstWeekday = new Date(cells[0].date).getDay();
+  const padded: ({ date: string; km: number; isToday: boolean } | null)[] = [
+    ...Array(firstWeekday).fill(null),
+    ...cells,
+  ];
+
+  return (
+    <div className="card p-4">
+      <div className="flex items-center justify-between mb-2.5">
+        <div className="flex items-center gap-1.5">
+          <Trophy size={14} className="text-emerald-500" />
+          <h3 className="text-sm font-extrabold">30일 캘린더</h3>
+        </div>
+        <span className="text-xs font-bold text-emerald-600 tabular-nums">{rows.length}회</span>
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {['일','월','화','수','목','금','토'].map(d => (
+          <div key={d} className={`text-center text-[10px] font-bold ${d === '일' ? 'text-rose-500' : d === '토' ? 'text-blue-500' : 'text-[var(--muted)]'}`}>{d}</div>
+        ))}
+        {padded.map((c, i) => {
+          if (!c) return <div key={i} className="aspect-square" />;
+          return (
+            <div
+              key={i}
+              className={`aspect-square rounded-md flex flex-col items-center justify-center text-[10px] font-bold ${
+                c.km === 0
+                  ? 'bg-[var(--card-border)]/20 text-[var(--muted)]'
+                  : c.km < 3
+                    ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300'
+                    : c.km < 7
+                      ? 'bg-emerald-300/70 dark:bg-emerald-700/60 text-emerald-900 dark:text-emerald-100'
+                      : c.km < 15
+                        ? 'bg-emerald-500 text-white'
+                        : 'bg-emerald-700 text-white'
+              } ${c.isToday ? 'ring-2 ring-amber-400' : ''}`}
+              title={`${c.date} · ${c.km.toFixed(1)}km`}
+            >
+              <span className="text-[9px] opacity-70">{new Date(c.date).getDate()}</span>
+              {c.km > 0 && <span className="text-[10px] tabular-nums">{c.km.toFixed(0)}</span>}
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex items-center justify-end gap-1.5 mt-2 text-[10px] text-[var(--muted)] font-bold">
+        <span>적음</span>
+        <span className="w-3 h-3 rounded-sm bg-emerald-100 dark:bg-emerald-900/30" />
+        <span className="w-3 h-3 rounded-sm bg-emerald-300/70" />
+        <span className="w-3 h-3 rounded-sm bg-emerald-500" />
+        <span className="w-3 h-3 rounded-sm bg-emerald-700" />
+        <span>많음</span>
+      </div>
+    </div>
   );
 }
 

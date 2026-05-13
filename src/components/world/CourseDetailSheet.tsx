@@ -6,6 +6,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { X, Trophy, Users, Award, MapPin, Download, Truck, Globe, Crown, Sparkles, BookOpen, Mountain, ExternalLink, Play, Flag as FlagIcon } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
+import { loadGoogleMaps, API_KEY } from '@/lib/google-maps';
+import type { RealLatLng } from '@/lib/world-data';
 import {
   fetchCourseById,
   fetchCourseRunners,
@@ -94,12 +96,20 @@ export default function CourseDetailSheet({ courseId, onClose }: Props) {
             <p className="text-center text-sm text-[var(--muted)] py-12">코스를 찾을 수 없어요</p>
           ) : (
             <>
-              {/* 큰 지도 + 라이브 트래커 */}
-              <LiveTrackerMap
-                path={course.preview_path}
-                runners={runners}
-                myUserId={user?.id ?? null}
-              />
+              {/* 큰 지도 + 라이브 트래커 — real_path 있으면 Google Maps, 없으면 SVG fallback */}
+              {course.real_path && course.real_path.length >= 2 ? (
+                <GoogleLiveTracker
+                  realPath={course.real_path}
+                  runners={runners}
+                  myUserId={user?.id ?? null}
+                />
+              ) : (
+                <LiveTrackerMap
+                  path={course.preview_path}
+                  runners={runners}
+                  myUserId={user?.id ?? null}
+                />
+              )}
 
               {/* 참가비 + 한줄 설명 */}
               <div className="rounded-2xl bg-gradient-to-br from-amber-50/60 to-orange-50/30 dark:from-amber-950/30 dark:to-amber-950/10 border border-amber-200/60 dark:border-amber-800/40 p-3 flex items-center justify-between">
@@ -334,6 +344,150 @@ export default function CourseDetailSheet({ courseId, onClose }: Props) {
 
         {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2200} />}
       </div>
+    </div>
+  );
+}
+
+// ── Google Maps 라이브 트래커 (build 126) ──
+function GoogleLiveTracker({ realPath, runners, myUserId }: {
+  realPath: RealLatLng[];
+  runners: CourseRunner[];
+  myUserId: string | null;
+}) {
+  const mapDivRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const polylineRef = useRef<google.maps.Polyline | null>(null);
+  const markersRef = useRef<google.maps.Marker[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!API_KEY) { setError('지도 API 키 없음'); return; }
+    loadGoogleMaps().then(() => setLoaded(true)).catch(e => setError(e instanceof Error ? e.message : '실패'));
+  }, []);
+
+  // 진행률 ratio 로 path 위 위치 계산
+  const posOf = useCallback((ratio: number): RealLatLng => {
+    if (realPath.length < 2) return realPath[0];
+    const cum: number[] = [0];
+    for (let i = 1; i < realPath.length; i++) {
+      const dx = realPath[i].lng - realPath[i - 1].lng;
+      const dy = realPath[i].lat - realPath[i - 1].lat;
+      cum.push(cum[i - 1] + Math.sqrt(dx * dx + dy * dy));
+    }
+    const total = cum[cum.length - 1];
+    const target = total * Math.min(1, Math.max(0, ratio));
+    for (let i = 1; i < realPath.length; i++) {
+      if (cum[i] >= target) {
+        const t = (target - cum[i - 1]) / (cum[i] - cum[i - 1] || 1);
+        return {
+          lat: realPath[i - 1].lat + (realPath[i].lat - realPath[i - 1].lat) * t,
+          lng: realPath[i - 1].lng + (realPath[i].lng - realPath[i - 1].lng) * t,
+        };
+      }
+    }
+    return realPath[realPath.length - 1];
+  }, [realPath]);
+
+  useEffect(() => {
+    if (!loaded || !mapDivRef.current) return;
+
+    if (!mapRef.current) {
+      mapRef.current = new window.google.maps.Map(mapDivRef.current, {
+        zoom: 10,
+        center: realPath[0],
+        disableDefaultUI: true,
+        zoomControl: true,
+        gestureHandling: 'greedy',
+        styles: [
+          { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+          { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+        ],
+      });
+
+      // 폴리라인
+      polylineRef.current = new window.google.maps.Polyline({
+        path: realPath,
+        map: mapRef.current,
+        strokeColor: '#10b981',
+        strokeOpacity: 0.9,
+        strokeWeight: 5,
+      });
+
+      // 시작/끝 마커
+      new window.google.maps.Marker({
+        position: realPath[0],
+        map: mapRef.current,
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: 8,
+          fillColor: '#10b981', fillOpacity: 1,
+          strokeColor: '#ffffff', strokeWeight: 2,
+        },
+        title: '시작',
+      });
+      new window.google.maps.Marker({
+        position: realPath[realPath.length - 1],
+        map: mapRef.current,
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: 8,
+          fillColor: '#f97316', fillOpacity: 1,
+          strokeColor: '#ffffff', strokeWeight: 2,
+        },
+        title: '피니시',
+      });
+
+      // bounds fit
+      const bounds = new window.google.maps.LatLngBounds();
+      realPath.forEach(p => bounds.extend(p));
+      mapRef.current.fitBounds(bounds, 30);
+    }
+
+    // 러너 마커 재생성
+    markersRef.current.forEach(m => m.setMap(null));
+    markersRef.current = [];
+
+    runners.slice(0, 10).forEach(r => {
+      const isMe = r.user_id === myUserId;
+      const pos = posOf(r.ratio);
+      const marker = new window.google.maps.Marker({
+        position: pos,
+        map: mapRef.current!,
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: isMe ? 10 : 7,
+          fillColor: isMe ? '#10b981' : '#3b82f6',
+          fillOpacity: 0.95,
+          strokeColor: '#ffffff',
+          strokeWeight: 2.5,
+        },
+        title: `${r.display_name} · ${(r.ratio * 100).toFixed(0)}%`,
+        zIndex: isMe ? 1000 : 100,
+      });
+      markersRef.current.push(marker);
+    });
+  }, [loaded, realPath, runners, myUserId, posOf]);
+
+  useEffect(() => {
+    return () => {
+      markersRef.current.forEach(m => m.setMap(null));
+      markersRef.current = [];
+    };
+  }, []);
+
+  if (error) {
+    return (
+      <div className="h-56 rounded-2xl bg-[var(--card-border)]/20 flex items-center justify-center text-xs text-[var(--muted)]">
+        지도 로드 실패 — {error}
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl overflow-hidden border-2 border-emerald-200/60 dark:border-emerald-900/40">
+      {!loaded && <div className="h-56 animate-pulse bg-[var(--card-border)]/30" />}
+      <div ref={mapDivRef} style={{ height: 240, display: loaded ? 'block' : 'none' }} />
     </div>
   );
 }

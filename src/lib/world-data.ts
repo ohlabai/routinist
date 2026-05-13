@@ -25,6 +25,7 @@ export const CONTINENT_EMOJI: Record<Continent, string> = {
 export interface ElevationPoint { km: number; m: number; }
 export interface Landmark { km: number; name: string; description?: string; }
 export interface PastWinner { year: number; name: string; time: string; notes?: string; }
+export interface RealLatLng { lat: number; lng: number; }
 
 export interface VirtualCourse {
   id: string;
@@ -34,6 +35,7 @@ export interface VirtualCourse {
   description: string | null;
   hero_image_url: string | null;
   preview_path: PreviewPoint[] | null;
+  real_path: RealLatLng[] | null;  // 실제 GPS 좌표 (Google Maps 통합용)
   entry_fee_p: number;
   continent: Continent | null;
   story: string | null;
@@ -90,7 +92,7 @@ export interface MyCourse {
 }
 
 const COURSE_FIELDS_LIST = 'id, name, distance_km, country, description, hero_image_url, preview_path, entry_fee_p, continent, sort_order';
-const COURSE_FIELDS_FULL = 'id, name, distance_km, country, description, hero_image_url, preview_path, entry_fee_p, continent, story, past_winners, youtube_url, official_url, elevation_profile, landmarks, course_record';
+const COURSE_FIELDS_FULL = 'id, name, distance_km, country, description, hero_image_url, preview_path, real_path, entry_fee_p, continent, story, past_winners, youtube_url, official_url, elevation_profile, landmarks, course_record';
 
 export async function fetchAvailableCourses(): Promise<VirtualCourse[]> {
   const supabase = getSupabase();
