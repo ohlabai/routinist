@@ -4,7 +4,8 @@
 // 클럽 상세 페이지에 마운트. owner/admin 만 새 코스 시작 가능, 멤버 모두의 km 자동 누적.
 
 import { useEffect, useState, useCallback } from 'react';
-import { Globe, Trophy, Plus, X, Users, Crown, Download, Sparkles } from 'lucide-react';
+import { Globe, Trophy, Plus, X, Users, Crown, Download, Sparkles, Mail, Copy } from 'lucide-react';
+import { getSupabase } from '@/lib/supabase';
 import {
   fetchClubCourses,
   fetchClubCourseLeaderboard,
@@ -26,6 +27,7 @@ export default function ClubChallengeSection({ clubId, canManage }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [boardCourseId, setBoardCourseId] = useState<string | null>(null);
   const [celebrate, setCelebrate] = useState<ClubCourse | null>(null);
+  const [emailsOpen, setEmailsOpen] = useState(false);
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
 
   const showToast = (text: string, tone: 'ok' | 'warn' = 'ok') => {
@@ -61,14 +63,25 @@ export default function ClubChallengeSection({ clubId, canManage }: Props) {
         <h2 className="text-sm font-extrabold inline-flex items-center gap-1.5">
           <Trophy size={14} className="text-amber-500" /> 클럽 마라톤
         </h2>
-        {canManage && (
-          <button
-            onClick={() => setPickerOpen(true)}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-emerald-500 text-white font-bold text-xs active:scale-95"
-          >
-            <Plus size={12} /> 코스 시작
-          </button>
-        )}
+        <div className="flex items-center gap-1.5">
+          {canManage && (
+            <button
+              onClick={() => setEmailsOpen(true)}
+              aria-label="멤버 이메일"
+              className="w-8 h-8 rounded-full bg-[var(--card-border)]/30 flex items-center justify-center active:scale-95"
+            >
+              <Mail size={13} className="text-[var(--muted)]" />
+            </button>
+          )}
+          {canManage && (
+            <button
+              onClick={() => setPickerOpen(true)}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-emerald-500 text-white font-bold text-xs active:scale-95"
+            >
+              <Plus size={12} /> 코스 시작
+            </button>
+          )}
+        </div>
       </div>
 
       {loading ? (
@@ -150,6 +163,10 @@ export default function ClubChallengeSection({ clubId, canManage }: Props) {
         />
       )}
 
+      {emailsOpen && (
+        <ClubEmailsSheet clubId={clubId} onClose={() => setEmailsOpen(false)} />
+      )}
+
       {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2000} />}
     </section>
   );
@@ -223,6 +240,76 @@ function ClubCompletionCelebration({ clubId, course, onClose }: {
             축하해요!
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 클럽 멤버 이메일 sheet (운영자만) — 인증서 발송 등에 활용 ──
+function ClubEmailsSheet({ clubId, onClose }: { clubId: string; onClose: () => void }) {
+  const [rows, setRows] = useState<{ user_id: string; email: string; display_name: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const supabase = getSupabase();
+        const { data, error } = await supabase.rpc('fetch_club_member_emails', { p_club_id: clubId });
+        if (error) throw error;
+        setRows((data ?? []) as { user_id: string; email: string; display_name: string }[]);
+      } catch (e) {
+        setMsg(e instanceof Error ? e.message : '조회 실패');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [clubId]);
+
+  const allEmails = rows.map(r => r.email).filter(Boolean).join(', ');
+
+  const copyAll = async () => {
+    try {
+      await navigator.clipboard.writeText(allEmails);
+      setMsg('📋 모든 이메일 복사됨');
+      setTimeout(() => setMsg(null), 1800);
+    } catch { /* ignore */ }
+  };
+
+  const mailto = `mailto:?bcc=${encodeURIComponent(allEmails)}&subject=${encodeURIComponent('Routinist 클럽 알림')}&body=${encodeURIComponent('안녕하세요 ' + rows.length + '명의 클럽 멤버에게 알려드립니다.\n\n')}`;
+
+  return (
+    <div className="fixed inset-0 z-[85] bg-black/65 flex items-end sm:items-center justify-center sm:p-3" onClick={onClose}>
+      <div className="w-full sm:max-w-md bg-[var(--background)] rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="sticky top-0 z-10 px-4 py-3 bg-[var(--background)] border-b border-[var(--card-border)] rounded-t-3xl flex items-center justify-between">
+          <h3 className="text-base font-extrabold inline-flex items-center gap-1.5">
+            <Mail size={16} className="text-emerald-500" /> 클럽 멤버 이메일 · {rows.length}명
+          </h3>
+          <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90"><X size={18} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-1.5">
+          {loading ? (
+            [0,1,2].map(i => <div key={i} className="h-10 bg-[var(--card-border)]/30 animate-pulse rounded-xl" />)
+          ) : rows.length === 0 ? (
+            <p className="text-center text-sm text-[var(--muted)] py-12">멤버 없음</p>
+          ) : (
+            rows.map(r => (
+              <div key={r.user_id} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[var(--card)] border border-[var(--card-border)]/40">
+                <span className="text-sm font-bold truncate flex-1">{r.display_name}</span>
+                <span className="text-xs text-[var(--muted)] font-mono truncate">{r.email}</span>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="sticky bottom-0 px-4 py-3 bg-[var(--background)] border-t border-[var(--card-border)]/40 flex gap-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}>
+          <button onClick={copyAll} className="flex-1 py-2.5 rounded-xl bg-[var(--card-border)]/40 font-bold text-xs active:scale-95 inline-flex items-center justify-center gap-1">
+            <Copy size={12} /> 전체 복사
+          </button>
+          <a href={mailto} className="flex-1 py-2.5 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-xs active:scale-95 inline-flex items-center justify-center gap-1">
+            <Mail size={12} /> 메일 작성
+          </a>
+        </div>
+        {msg && <p className="text-[11px] text-center font-bold text-emerald-600 pb-2">{msg}</p>}
       </div>
     </div>
   );

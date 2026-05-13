@@ -120,6 +120,40 @@ export async function finishContest(contestId: string): Promise<void> {
   if (error) throw error;
 }
 
+export interface ContestMessage {
+  id: number;
+  user_id: string;
+  display_name: string;
+  avatar_url: string | null;
+  body: string;
+  created_at: string;
+}
+
+export async function fetchContestMessages(contestId: string, limit = 200): Promise<ContestMessage[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.rpc('fetch_contest_messages', { p_contest_id: contestId, p_limit: limit });
+  if (error) throw error;
+  return (data ?? []) as ContestMessage[];
+}
+
+export async function postContestMessage(contestId: string, body: string): Promise<void> {
+  const supabase = getSupabase();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('로그인이 필요합니다');
+  const { error } = await supabase.from('contest_messages').insert({
+    contest_id: contestId,
+    user_id: user.id,
+    body: body.trim(),
+  });
+  if (error) throw error;
+}
+
+export async function deleteMyContestMessage(messageId: number): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase.from('contest_messages').delete().eq('id', messageId);
+  if (error) throw error;
+}
+
 // event_type 별 단위 / 정렬 방향 라벨
 export function formatContestValue(eventType: ContestEvent, value: number | null): string {
   if (value === null || value === undefined) return '—';

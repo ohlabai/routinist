@@ -7,6 +7,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { Plus, Users, Clock, Trophy, Flag, X, MapPin, Calendar, Globe } from 'lucide-react';
 import Link from 'next/link';
 import PhotoLightbox, { type LightboxPhoto } from '@/components/PhotoLightbox';
+import ContestChatSheet from './ContestChatSheet';
+import { MessageCircle } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
 import { fetchFollowing } from '@/lib/social-data';
@@ -484,6 +486,7 @@ function ContestDetailSheet({ contestId, myUserId, activities, onClose, onChange
   const [attaching, setAttaching] = useState<string | null>(null);
   const [showAttach, setShowAttach] = useState(false);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
   const [info, setInfo] = useState<ContestInfoRow | null>(null);
 
   const load = useCallback(async () => {
@@ -578,10 +581,28 @@ function ContestDetailSheet({ contestId, myUserId, activities, onClose, onChange
               {contestDate} · {contestEventLabel(eventType)}
             </p>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90">
-            <X size={16} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setChatOpen(true)}
+              aria-label="채팅"
+              className="w-9 h-9 rounded-full flex items-center justify-center bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 active:scale-95"
+            >
+              <MessageCircle size={16} />
+            </button>
+            <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90">
+              <X size={16} />
+            </button>
+          </div>
         </div>
+
+        {chatOpen && (
+          <ContestChatSheet
+            contestId={contestId}
+            contestTitle={info?.title ?? '친선런'}
+            myUserId={myUserId}
+            onClose={() => setChatOpen(false)}
+          />
+        )}
 
         {/* 모집 정보 (공개 친선런만) — build 117 */}
         {info?.is_public && (info.meetup_location || info.meetup_time || info.max_participants) && (

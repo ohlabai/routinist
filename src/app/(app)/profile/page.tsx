@@ -159,6 +159,7 @@ export default function ProfilePage() {
   // 데이터 점검은 어드민 전용으로 이동.
   const settings: { href: string; label: string; Icon: typeof HelpCircle }[] = [
     { href: '/feedback', label: '제안 / 버그 게시판', Icon: HelpCircle },
+    { href: '/profile/push-settings', label: '알림 설정', Icon: HelpCircle },
     { href: '/shop/orders', label: '내 주문 내역', Icon: HelpCircle },
     { href: '/shop/addresses', label: '배송지 관리', Icon: HelpCircle },
     ...(isAdmin ? [

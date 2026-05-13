@@ -775,6 +775,31 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
     ? `"${quote.text}"${quote.author ? ` — ${quote.author}` : ''}\n\n#Routinist #${activity.distance_km.toFixed(1)}km`
     : `오늘도 한 발 더. ${activity.distance_km.toFixed(2)}km #Routinist`;
 
+  // build 121 — X(트위터) / 카카오톡 / 인스타그램 (캡션 복사) intent
+  const shareToX = () => {
+    track('share_card_x', { activity_id: activity.id });
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareCaption)}`;
+    if (typeof window !== 'undefined') window.open(url, '_blank', 'noopener');
+  };
+  const shareToKakao = async () => {
+    // KakaoTalk 정식 SDK 없으므로 클립보드 복사 + 안내. (정식은 Kakao Share SDK 가 필요)
+    track('share_card_kakao', { activity_id: activity.id });
+    try {
+      await navigator.clipboard.writeText(shareCaption);
+      setRegisterToast('카카오톡에 붙여넣기 — 캡션 복사됨');
+      setTimeout(() => setRegisterToast(null), 2200);
+    } catch { /* ignore */ }
+  };
+  const shareToInstagram = async () => {
+    track('share_card_instagram', { activity_id: activity.id });
+    // 인스타그램은 URL intent 가 없음 — 캡션 복사 후 사용자에게 사진+캡션 인스타에 붙여넣기 유도.
+    try {
+      await navigator.clipboard.writeText(shareCaption);
+      setRegisterToast('인스타 캡션 복사됨. 사진과 함께 붙여넣기');
+      setTimeout(() => setRegisterToast(null), 2400);
+    } catch { /* ignore */ }
+  };
+
   const handleShare = async () => {
     if (!canvasRef.current) return;
     track('share_card_share', { activity_id: activity.id, distance_km: activity.distance_km, has_quote: !!quote, native: isNativeApp() });
@@ -910,19 +935,42 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
                     <span className="text-xs text-emerald-700 dark:text-emerald-300 font-semibold"> — {quote.author}</span>
                   )}
                 </p>
-                <button
-                  onClick={async () => {
-                    const caption = `"${quote.text}"${quote.author ? ` — ${quote.author}` : ''}\n\n#Routinist #${activity.distance_km.toFixed(1)}km`;
-                    try {
-                      await navigator.clipboard.writeText(caption);
-                      setRegisterToast('✨ 캡션 복사됨');
-                      setTimeout(() => setRegisterToast(null), 1500);
-                    } catch { /* clipboard 거부 */ }
-                  }}
-                  className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-emerald-700 dark:text-emerald-300 font-bold active:scale-95"
-                >
-                  <Copy size={11} /> 캡션 복사
-                </button>
+                <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                  <button
+                    onClick={async () => {
+                      const caption = `"${quote.text}"${quote.author ? ` — ${quote.author}` : ''}\n\n#Routinist #${activity.distance_km.toFixed(1)}km`;
+                      try {
+                        await navigator.clipboard.writeText(caption);
+                        setRegisterToast('✨ 캡션 복사됨');
+                        setTimeout(() => setRegisterToast(null), 1500);
+                      } catch { /* clipboard 거부 */ }
+                    }}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white/80 dark:bg-zinc-800/80 text-[11px] text-emerald-700 dark:text-emerald-300 font-bold active:scale-95"
+                  >
+                    <Copy size={10} /> 복사
+                  </button>
+                  <button
+                    onClick={shareToX}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-black text-white text-[11px] font-extrabold active:scale-95"
+                    aria-label="X에 공유"
+                  >
+                    𝕏
+                  </button>
+                  <button
+                    onClick={shareToKakao}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-400 text-zinc-900 text-[11px] font-extrabold active:scale-95"
+                    aria-label="카카오톡으로 공유"
+                  >
+                    카카오톡
+                  </button>
+                  <button
+                    onClick={shareToInstagram}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 text-white text-[11px] font-extrabold active:scale-95"
+                    aria-label="인스타그램 캡션 복사"
+                  >
+                    Insta
+                  </button>
+                </div>
               </div>
             </div>
           )}
