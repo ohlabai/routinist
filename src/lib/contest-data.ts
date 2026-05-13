@@ -34,6 +34,12 @@ export async function createDailyContest(
   contestDate: string,
   eventType: ContestEvent,
   inviteeIds: string[],
+  options?: {
+    isPublic?: boolean;
+    meetupLocation?: string | null;
+    meetupTime?: string | null;
+    maxParticipants?: number | null;
+  },
 ): Promise<string> {
   const supabase = getSupabase();
   const { data, error } = await supabase.rpc('create_daily_contest', {
@@ -41,9 +47,48 @@ export async function createDailyContest(
     p_contest_date: contestDate,
     p_event_type: eventType,
     p_invitee_ids: inviteeIds,
+    p_is_public: options?.isPublic ?? false,
+    p_meetup_location: options?.meetupLocation ?? null,
+    p_meetup_time: options?.meetupTime ?? null,
+    p_max_participants: options?.maxParticipants ?? null,
   });
   if (error) throw error;
   return data as string;
+}
+
+export interface PublicContest {
+  contest_id: string;
+  title: string;
+  contest_date: string;
+  event_type: ContestEvent;
+  meetup_location: string | null;
+  meetup_time: string | null;
+  host_region_gu: string | null;
+  max_participants: number | null;
+  status: ContestStatus;
+  host_user_id: string;
+  host_name: string;
+  host_avatar: string | null;
+  participant_count: number;
+  my_joined: boolean;
+  created_at: string;
+}
+
+export async function fetchPublicContests(regionGu?: string | null, onlyUpcoming = true): Promise<PublicContest[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.rpc('fetch_public_contests', {
+    p_region_gu: regionGu ?? null,
+    p_only_upcoming: onlyUpcoming,
+    p_limit: 50,
+  });
+  if (error) throw error;
+  return (data ?? []) as PublicContest[];
+}
+
+export async function joinPublicContest(contestId: string): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase.rpc('join_public_contest', { p_contest_id: contestId });
+  if (error) throw error;
 }
 
 export async function submitContestResult(contestId: string, activityId: string): Promise<void> {

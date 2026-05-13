@@ -183,6 +183,23 @@ function SocialPageInner() {
             </div>
           )}
 
+          {/* 동네 러너 진입점 (build 116 A) */}
+          <Link
+            href="/nearby"
+            className="block rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 p-4 active:scale-[0.99] shadow-md shadow-emerald-500/30"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center flex-shrink-0">
+                <MapPin size={20} className="text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-extrabold text-white">동네 러너 찾기</p>
+                <p className="text-xs text-white/85 mt-0.5">같은 동·구·시 러너와 친구 맺고 함께 달려요</p>
+              </div>
+              <span className="text-white text-base font-bold">→</span>
+            </div>
+          </Link>
+
           {/* 러너 찾기 */}
           <div>
             <h2 className="text-base font-bold text-[var(--foreground)] mb-3">러너 찾기</h2>

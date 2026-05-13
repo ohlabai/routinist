@@ -28,6 +28,7 @@ export default function ProfileEditPage() {
 
   const [birthYear, setBirthYear] = useState<string>(profile?.birth_year?.toString() ?? '');
   const [gender, setGender] = useState<string>(profile?.gender ?? '');
+  const [showGender, setShowGender] = useState<boolean>((profile as { show_gender?: boolean } | null)?.show_gender ?? true);
   const [runningSince, setRunningSince] = useState<string>(profile?.running_since ?? '');
 
   const [avatarPreview, setAvatarPreview] = useState(profile?.avatar_url ?? '');
@@ -140,6 +141,7 @@ export default function ProfileEditPage() {
           region_gu: isKorea ? (gu || null) : null,
           birth_year: birthYear ? parseInt(birthYear, 10) : null,
           gender: gender || null,
+          show_gender: showGender,
           running_since: runningSince || null,
           updated_at: new Date().toISOString(),
         })
@@ -358,6 +360,17 @@ export default function ProfileEditPage() {
                 </button>
               ))}
             </div>
+            {(gender === 'male' || gender === 'female') && (
+              <label className="flex items-center gap-2 mt-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showGender}
+                  onChange={(e) => setShowGender(e.target.checked)}
+                  className="w-4 h-4 accent-emerald-500"
+                />
+                <span className="text-xs text-[var(--muted)]">프로필에 성별 아이콘(♂/♀) 표시</span>
+              </label>
+            )}
           </div>
 
           <div>

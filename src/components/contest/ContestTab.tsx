@@ -4,7 +4,8 @@
 // 친구끼리 모여 같은 날 달리고 결과를 모아 랭킹으로 보는 즉석 친선전.
 
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Users, Clock, Trophy, Flag, X } from 'lucide-react';
+import { Plus, Users, Clock, Trophy, Flag, X, MapPin, Calendar, Globe } from 'lucide-react';
+import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
 import { fetchFollowing } from '@/lib/social-data';
@@ -14,11 +15,14 @@ import {
   submitContestResult,
   fetchContestLeaderboard,
   finishContest,
+  fetchPublicContests,
+  joinPublicContest,
   contestEventLabel,
   formatContestValue,
   type ContestSummary,
   type ContestLeaderRow,
   type ContestEvent,
+  type PublicContest,
 } from '@/lib/contest-data';
 import { todayStr } from '@/lib/kst';
 import AppToast from '@/components/AppToast';
@@ -28,9 +32,11 @@ export default function ContestTab() {
   const { user, profile } = useAuth();
   const { activities } = useUserData();
   const [items, setItems] = useState<ContestSummary[]>([]);
+  const [publicList, setPublicList] = useState<PublicContest[]>([]);
   const [loading, setLoading] = useState(true);
   const [composeOpen, setComposeOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [joining, setJoining] = useState<string | null>(null);
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
 
   const showToast = useCallback((text: string, tone: 'ok' | 'warn' = 'ok') => {
@@ -42,19 +48,106 @@ export default function ContestTab() {
     if (!user) return;
     setLoading(true);
     try {
-      const list = await fetchMyContests();
-      setItems(list);
+      const [mine, pub] = await Promise.all([
+        fetchMyContests().catch(() => [] as ContestSummary[]),
+        fetchPublicContests(profile?.region_gu ?? null, true).catch(() => [] as PublicContest[]),
+      ]);
+      setItems(mine);
+      // 본인이 호스트한 공개 친선런은 내 친선런 카드에 이미 나오므로 publicList 에서 제외
+      const mineIds = new Set(mine.map(m => m.contest_id));
+      setPublicList(pub.filter(p => !mineIds.has(p.contest_id)));
     } catch (e) {
       console.warn('[contest] load fail', e);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, profile?.region_gu]);
+
+  const handleJoinPublic = async (c: PublicContest) => {
+    if (joining === c.contest_id) return;
+    setJoining(c.contest_id);
+    try {
+      await joinPublicContest(c.contest_id);
+      showToast('✨ 참가 신청됨');
+      await load();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : '참가 실패', 'warn');
+    } finally {
+      setJoining(null);
+    }
+  };
 
   useEffect(() => { load(); }, [load]);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-5">
+      {/* 공개 모집판 (build 116 A) — 같은 동네 사용자가 만든 공개 친선런 */}
+      {publicList.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-extrabold inline-flex items-center gap-1.5">
+              <Globe size={14} className="text-emerald-500" /> 모집판 · {profile?.region_gu ?? '내 동네'}
+            </h2>
+            <span className="text-[10px] text-[var(--muted)] font-bold">{publicList.length}건</span>
+          </div>
+          <div className="space-y-2">
+            {publicList.map(c => (
+              <article key={c.contest_id} className="rounded-2xl bg-gradient-to-br from-emerald-50/60 to-emerald-50/20 dark:from-emerald-950/30 dark:to-emerald-950/10 border border-emerald-200/60 dark:border-emerald-900/40 p-4">
+                <div className="flex items-start gap-2.5">
+                  <Link href={`/social/user?id=${c.host_user_id}`} className="w-10 h-10 rounded-full bg-[var(--card-border)]/40 overflow-hidden flex-shrink-0">
+                    {c.host_avatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={c.host_avatar} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-sm font-bold text-[var(--muted)]">{c.host_name?.slice(0,1)}</div>
+                    )}
+                  </Link>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-extrabold truncate">{c.title}</p>
+                    <p className="text-[11px] text-[var(--muted)] mt-0.5">{c.host_name} 모집 · {c.host_region_gu}</p>
+                  </div>
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex-shrink-0">
+                    {contestEventLabel(c.event_type)}
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                  <span className="inline-flex items-center gap-1 text-[var(--muted)] font-semibold">
+                    <Calendar size={11} /> {c.contest_date}{c.meetup_time ? ` · ${c.meetup_time}` : ''}
+                  </span>
+                  {c.meetup_location && (
+                    <span className="inline-flex items-center gap-1 text-[var(--muted)] font-semibold truncate">
+                      <MapPin size={11} /> {c.meetup_location}
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1 text-emerald-600 font-bold">
+                    <Users size={11} /> {c.participant_count}{c.max_participants ? `/${c.max_participants}` : ''}
+                  </span>
+                </div>
+                <div className="mt-2.5 flex gap-2">
+                  <button
+                    onClick={() => setDetailId(c.contest_id)}
+                    className="flex-1 py-2 rounded-xl bg-[var(--card)] border border-[var(--card-border)] font-bold text-xs active:scale-95"
+                  >
+                    자세히
+                  </button>
+                  {c.my_joined ? (
+                    <span className="flex-1 py-2 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-center font-bold text-xs">참가 완료</span>
+                  ) : (
+                    <button
+                      onClick={() => handleJoinPublic(c)}
+                      disabled={joining === c.contest_id || (c.max_participants !== null && c.participant_count >= c.max_participants)}
+                      className="flex-1 py-2 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-xs disabled:opacity-50 active:scale-95"
+                    >
+                      {joining === c.contest_id ? '신청 중…' : '참가 신청'}
+                    </button>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* 헤더 + 만들기 */}
       <div className="flex items-center justify-between">
         <h2 className="text-base font-extrabold">내 친선런</h2>
@@ -173,6 +266,10 @@ function ContestComposeModal({ myUserId, myName, onClose, onCreated, onError }: 
   const [eventType, setEventType] = useState<ContestEvent>('distance');
   const [friends, setFriends] = useState<Profile[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [isPublic, setIsPublic] = useState(false);
+  const [meetupLocation, setMeetupLocation] = useState('');
+  const [meetupTime, setMeetupTime] = useState('');
+  const [maxParticipants, setMaxParticipants] = useState<number | ''>('');
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -193,7 +290,12 @@ function ContestComposeModal({ myUserId, myName, onClose, onCreated, onError }: 
     if (t.length < 2) { onError('제목이 너무 짧아요 (2자 이상)'); return; }
     setCreating(true);
     try {
-      await createDailyContest(t, contestDate, eventType, Array.from(selected));
+      await createDailyContest(t, contestDate, eventType, Array.from(selected), {
+        isPublic,
+        meetupLocation: meetupLocation.trim() || null,
+        meetupTime: meetupTime.trim() || null,
+        maxParticipants: typeof maxParticipants === 'number' ? maxParticipants : null,
+      });
       onCreated();
     } catch (e) {
       onError(e instanceof Error ? e.message : '생성 실패');
@@ -246,8 +348,67 @@ function ContestComposeModal({ myUserId, myName, onClose, onCreated, onError }: 
           </div>
         </div>
 
+        {/* 공개 모집 토글 (build 116 A) */}
+        <button
+          type="button"
+          onClick={() => setIsPublic(!isPublic)}
+          className={`w-full mt-3 flex items-start gap-3 p-3 rounded-2xl border-2 text-left active:scale-[0.99] transition ${
+            isPublic ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-300/60 dark:border-emerald-800/40' : 'bg-[var(--card)] border-[var(--card-border)]'
+          }`}
+        >
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+            isPublic ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white' : 'bg-[var(--card-border)]/40 text-[var(--muted)]'
+          }`}>
+            <Globe size={16} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-extrabold">{isPublic ? '공개 모집판 (같은 동네 누구나)' : '친구 초대만'}</p>
+            <p className="text-[11px] text-[var(--muted)] mt-0.5 leading-snug">
+              {isPublic ? '내 동네 러너들이 모집판에서 보고 참가 신청해요.' : '선택한 친구들만 참가할 수 있어요.'}
+            </p>
+          </div>
+        </button>
+
+        {/* 공개 모집 때만 — 만남 장소·시간·인원 */}
+        {isPublic && (
+          <div className="mt-2 space-y-2 px-1">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs font-bold text-[var(--muted)] mb-1">시간 (선택)</label>
+                <input
+                  type="time"
+                  value={meetupTime}
+                  onChange={(e) => setMeetupTime(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border-2 border-[var(--card-border)] bg-[var(--background)] text-sm focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-[var(--muted)] mb-1">정원 (선택)</label>
+                <input
+                  type="number"
+                  min={2}
+                  max={50}
+                  value={maxParticipants}
+                  onChange={(e) => setMaxParticipants(e.target.value ? Math.max(2, Math.min(50, Number(e.target.value))) : '')}
+                  placeholder="제한 없음"
+                  className="w-full px-3 py-2 rounded-xl border-2 border-[var(--card-border)] bg-[var(--background)] text-sm focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-[var(--muted)] mb-1">만남 장소 (선택)</label>
+              <input
+                value={meetupLocation}
+                onChange={(e) => setMeetupLocation(e.target.value.slice(0, 80))}
+                placeholder="예) 한강 잠실대교 북단"
+                className="w-full px-3 py-2 rounded-xl border-2 border-[var(--card-border)] bg-[var(--background)] text-sm focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+          </div>
+        )}
+
         <label className="block text-xs font-bold text-[var(--muted)] mt-3 mb-1">
-          참가자 ({selected.size + 1}명 · 나 포함)
+          {isPublic ? '미리 초대 (선택)' : `참가자 (${selected.size + 1}명 · 나 포함)`}
         </label>
         {friends.length === 0 ? (
           <p className="text-xs text-[var(--muted)] italic">아직 친구가 없어요. 일단 나 혼자 시작할 수 있어요.</p>
