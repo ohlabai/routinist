@@ -442,6 +442,23 @@ export default function MapPage() {
         </div>
       )}
 
+      {/* 동네 러너 진입점 (build 124) */}
+      <Link
+        href="/map/neighborhood"
+        className="block rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 p-3.5 shadow-md shadow-emerald-500/30 active:scale-[0.99]"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center flex-shrink-0">
+            <AppLogo size={20} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-extrabold text-white">동네 러너 코스 보기</p>
+            <p className="text-[11px] text-white/85 mt-0.5">같은 동네 러너들의 폴리라인을 색별로</p>
+          </div>
+          <span className="text-white text-base font-bold">→</span>
+        </div>
+      </Link>
+
       {/* 기간 필터 + 잔디 칩 범례 (스크롤 없이 바로 보임) */}
       <div className="space-y-2">
         <div className="flex gap-1.5">

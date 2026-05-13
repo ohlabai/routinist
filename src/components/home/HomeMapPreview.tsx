@@ -136,9 +136,17 @@ export default function HomeMapPreview() {
           <MapPin size={16} className="text-emerald-600" />
           <h3 className="text-sm font-bold text-[var(--foreground)]">최근 7일 러닝 경로</h3>
         </div>
-        <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold inline-flex items-center gap-0.5">
-          지도 보기 <ChevronRight size={12} />
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = '/map/neighborhood'; }}
+            className="text-[11px] text-emerald-700 dark:text-emerald-300 font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 active:scale-95 cursor-pointer"
+          >
+            동네 러너
+          </span>
+          <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold inline-flex items-center gap-0.5">
+            지도 <ChevronRight size={12} />
+          </span>
+        </div>
       </div>
 
       <div className="rounded-xl bg-gradient-to-br from-emerald-50/60 via-white to-emerald-50/30 dark:from-emerald-950/20 dark:via-zinc-900 dark:to-emerald-950/10 border border-emerald-200/30 dark:border-emerald-900/20 overflow-hidden">

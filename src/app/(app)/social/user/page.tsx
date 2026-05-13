@@ -386,6 +386,9 @@ function UserProfileContent() {
         </div>
       ))}
 
+      {/* 친구 30일 활동 막대그래프 (build 124) */}
+      <FriendActivityChart userId={profile.id} />
+
       {/* 배지 */}
       {badges.length > 0 && (
         <div className="card p-4">
@@ -596,5 +599,69 @@ export default function UserProfilePage() {
     }>
       <UserProfileContent />
     </Suspense>
+  );
+}
+
+// ── 친구 30일 활동 막대 (build 124) ─────────────
+function FriendActivityChart({ userId }: { userId: string }) {
+  const [rows, setRows] = useState<{ activity_id: string; distance_km: number; activity_date: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const supabase = getSupabase();
+        const { data } = await supabase.rpc('fetch_user_recent_routes', { p_user_id: userId, p_days: 30 });
+        setRows((data ?? []) as { activity_id: string; distance_km: number; activity_date: string }[]);
+      } catch { /* ignore */ } finally {
+        setLoading(false);
+      }
+    })();
+  }, [userId]);
+
+  if (loading) return <div className="card p-4 h-28 animate-pulse" />;
+  if (rows.length === 0) return null;
+
+  // 30일 그리드
+  const today = new Date();
+  const days: { date: string; km: number }[] = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const ymd = d.toISOString().slice(0, 10);
+    const km = rows.filter(r => r.activity_date === ymd).reduce((s, r) => s + Number(r.distance_km), 0);
+    days.push({ date: ymd, km });
+  }
+  const maxKm = Math.max(...days.map(d => d.km), 1);
+
+  return (
+    <div className="card p-4">
+      <div className="flex items-center justify-between mb-2.5">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40">30일</span>
+          <h3 className="text-sm font-extrabold">활동 그래프</h3>
+        </div>
+        <span className="text-xs font-bold text-emerald-600 tabular-nums">
+          {rows.reduce((s, r) => s + Number(r.distance_km), 0).toFixed(1)}km · {rows.length}회
+        </span>
+      </div>
+      <div className="flex items-end gap-[2px] h-16">
+        {days.map((d, i) => {
+          const h = d.km > 0 ? Math.max(4, (d.km / maxKm) * 100) : 4;
+          return (
+            <div
+              key={i}
+              className={`flex-1 rounded-t-sm ${d.km > 0 ? 'bg-emerald-500' : 'bg-[var(--card-border)]/30'}`}
+              style={{ height: `${h}%` }}
+              title={`${d.date} · ${d.km.toFixed(1)}km`}
+            />
+          );
+        })}
+      </div>
+      <div className="flex items-center justify-between mt-1.5 text-[10px] text-[var(--muted)] font-bold">
+        <span>{days[0].date.slice(5)}</span>
+        <span>오늘</span>
+      </div>
+    </div>
   );
 }
