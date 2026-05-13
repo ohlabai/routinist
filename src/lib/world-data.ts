@@ -4,6 +4,24 @@ import { getSupabase } from './supabase';
 
 export interface PreviewPoint { x: number; y: number; }
 
+export type Continent = 'asia' | 'europe' | 'americas' | 'oceania' | 'africa' | 'global';
+export const CONTINENT_LABEL: Record<Continent, string> = {
+  asia: '아시아',
+  europe: '유럽',
+  americas: '미주',
+  oceania: '오세아니아',
+  africa: '아프리카',
+  global: '글로벌',
+};
+export const CONTINENT_EMOJI: Record<Continent, string> = {
+  asia: '🌏',
+  europe: '🇪🇺',
+  americas: '🇺🇸',
+  oceania: '🇦🇺',
+  africa: '🌍',
+  global: '🌐',
+};
+
 export interface VirtualCourse {
   id: string;
   name: string;
@@ -13,6 +31,7 @@ export interface VirtualCourse {
   hero_image_url: string | null;
   preview_path: PreviewPoint[] | null;
   entry_fee_p: number;
+  continent: Continent | null;
   is_active?: boolean;
   sort_order?: number;
 }
@@ -63,7 +82,7 @@ export async function fetchAvailableCourses(): Promise<VirtualCourse[]> {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('virtual_courses')
-    .select('id, name, distance_km, country, description, hero_image_url, preview_path, entry_fee_p, sort_order')
+    .select('id, name, distance_km, country, description, hero_image_url, preview_path, entry_fee_p, continent, sort_order')
     .eq('is_active', true)
     .order('sort_order', { ascending: true });
   if (error) throw error;
@@ -75,7 +94,7 @@ export async function fetchCourseById(courseId: string): Promise<VirtualCourse |
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('virtual_courses')
-    .select('id, name, distance_km, country, description, hero_image_url, preview_path, entry_fee_p')
+    .select('id, name, distance_km, country, description, hero_image_url, preview_path, entry_fee_p, continent')
     .eq('id', courseId)
     .maybeSingle();
   if (error) throw error;

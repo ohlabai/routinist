@@ -9,9 +9,12 @@ import {
   fetchAvailableCourses,
   fetchMyCourses,
   startCourse,
+  CONTINENT_LABEL,
+  CONTINENT_EMOJI,
   type VirtualCourse,
   type MyCourse,
   type PreviewPoint,
+  type Continent,
 } from '@/lib/world-data';
 import AppToast from '@/components/AppToast';
 import CourseDetailSheet from './CourseDetailSheet';
@@ -98,6 +101,7 @@ export default function WorldTab() {
   const [starting, setStarting] = useState<string | null>(null);
   const [detailCourseId, setDetailCourseId] = useState<string | null>(null);
   const [confirmStart, setConfirmStart] = useState<VirtualCourse | null>(null);
+  const [continentFilter, setContinentFilter] = useState<Continent | 'all'>('all');
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
 
   const showToast = useCallback((text: string, tone: 'ok' | 'warn' = 'ok') => {
@@ -183,6 +187,25 @@ export default function WorldTab() {
         </Section>
       )}
 
+      {/* 대륙 필터 칩 (build 122 — #17 카테고리) */}
+      <section>
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pb-1 -mx-1 px-1">
+          {(['all', 'asia', 'europe', 'americas', 'oceania', 'africa', 'global'] as const).map(c => (
+            <button
+              key={c}
+              onClick={() => setContinentFilter(c)}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-extrabold whitespace-nowrap active:scale-95 transition ${
+                continentFilter === c
+                  ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/30'
+                  : 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--muted)]'
+              }`}
+            >
+              {c === 'all' ? '전체' : `${CONTINENT_EMOJI[c]} ${CONTINENT_LABEL[c]}`}
+            </button>
+          ))}
+        </div>
+      </section>
+
       {/* 시작 가능한 코스 */}
       <Section title="새 코스" icon={<Globe size={14} className="text-emerald-500" />}>
         {loading ? (
@@ -197,7 +220,7 @@ export default function WorldTab() {
           </div>
         ) : (
           <div className="space-y-3">
-            {available.map(c => (
+            {available.filter(c => continentFilter === 'all' || c.continent === continentFilter).map(c => (
               <div key={c.id} className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] overflow-hidden">
                 {/* 지도 미리보기 + 클릭 시 상세 */}
                 <button onClick={() => setDetailCourseId(c.id)} className="w-full text-left active:opacity-90">

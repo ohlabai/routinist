@@ -327,26 +327,26 @@ function ContestComposeModal({ myUserId, myName, onClose, onCreated, onError }: 
           className="w-full px-3.5 py-2.5 rounded-xl border-2 border-[var(--card-border)] bg-[var(--background)] text-sm focus:outline-none focus:border-emerald-500"
         />
 
-        <div className="grid grid-cols-2 gap-2 mt-3">
+        <div className="grid grid-cols-2 gap-3 mt-4">
           <div>
-            <label className="block text-xs font-bold text-[var(--muted)] mb-1">날짜</label>
+            <label className="block text-xs font-bold text-[var(--muted)] mb-2">날짜</label>
             <input
               type="date"
               value={contestDate}
               onChange={(e) => setContestDate(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl border-2 border-[var(--card-border)] bg-[var(--background)] text-sm focus:outline-none focus:border-emerald-500"
+              className="w-full px-3 py-3 rounded-xl border-2 border-[var(--card-border)] bg-[var(--background)] text-sm focus:outline-none focus:border-emerald-500"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-[var(--muted)] mb-1">종목</label>
+            <label className="block text-xs font-bold text-[var(--muted)] mb-2">종목</label>
             <select
               value={eventType}
               onChange={(e) => setEventType(e.target.value as ContestEvent)}
-              className="w-full px-3 py-2.5 rounded-xl border-2 border-[var(--card-border)] bg-[var(--background)] text-sm focus:outline-none focus:border-emerald-500"
+              className="w-full px-3 py-3 rounded-xl border-2 border-[var(--card-border)] bg-[var(--background)] text-sm focus:outline-none focus:border-emerald-500 appearance-none"
             >
-              <option value="distance">거리 (긴 사람 우승)</option>
-              <option value="duration">시간 (오래 달림)</option>
-              <option value="pace">페이스 (빠른 사람)</option>
+              <option value="distance">거리 (멀리)</option>
+              <option value="duration">시간 (오래)</option>
+              <option value="pace">페이스 (빠르게)</option>
             </select>
           </div>
         </div>

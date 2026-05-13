@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Heart, MapPin, X, MoreVertical, Trash2, Flag, MessageCircle } from 'lucide-react';
+import { Heart, MapPin, X, Trash2, Flag, MessageCircle } from 'lucide-react';
 import type { RoutinePhoto } from '@/lib/routine-photos';
 import { togglePhotoLike, deleteMyPhoto, reportPhoto } from '@/lib/routine-photos';
 import { fetchPhotoCommentCount } from '@/lib/photo-comments';
@@ -34,7 +34,6 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
   const [animate, setAnimate] = useState(false);
   const [busy, setBusy] = useState(false);
   const [showLightbox, setShowLightbox] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
@@ -68,7 +67,6 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
       setToast({ text: friendly, tone: 'warn' });
     } finally {
       setShowReport(false);
-      setShowMenu(false);
       setReporting(false);
     }
   };
@@ -88,7 +86,6 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
       setDeleting(false);
     } finally {
       setShowDeleteConfirm(false);
-      setShowMenu(false);
     }
   };
 
@@ -198,40 +195,7 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
           />
         </button>
 
-        {/* ⋯ 메뉴: 본인이면 [삭제], 타인이면 [신고] (Apple 1.2 UGC 의무). 좋아요/댓글 아래. */}
-        {user && (
-          <div className="absolute top-[88px] right-2 z-10">
-            <button
-              onClick={(e) => { e.stopPropagation(); setShowMenu(s => !s); }}
-              aria-label="더보기"
-              className="w-9 h-9 rounded-full bg-white/90 backdrop-blur shadow-md flex items-center justify-center"
-            >
-              <MoreVertical size={16} className="text-gray-700" strokeWidth={2.2} />
-            </button>
-            {showMenu && (
-              <div
-                className="absolute right-0 mt-1 w-32 bg-white dark:bg-zinc-900 rounded-xl shadow-xl border border-[var(--card-border)] overflow-hidden"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {isOwner ? (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setShowMenu(false); setShowDeleteConfirm(true); }}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-red-500 font-semibold active:bg-red-50 dark:active:bg-red-950/30"
-                  >
-                    <Trash2 size={14} /> 삭제
-                  </button>
-                ) : (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setShowMenu(false); setShowReport(true); }}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-amber-700 dark:text-amber-300 font-semibold active:bg-amber-50 dark:active:bg-amber-950/30"
-                  >
-                    <Flag size={14} /> 신고
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+        {/* ⋯ 더보기 메뉴 제거 (build 122) — 삭제/신고는 Lightbox 안에서 처리 */}
 
         {/* 좋아요/댓글 카운트 — 사진 좌상단 (build 100 댓글 통합) */}
         {(likes > 0 || commentCount > 0) && (
@@ -255,7 +219,7 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
           </div>
         )}
 
-        {/* 댓글 버튼 — 좋아요 버튼 아래 (사진 우측). 카운트와 별개로 항상 노출 */}
+        {/* 댓글 버튼 + 더보기 — 우측에 묶음 */}
         <button
           onClick={(e) => { e.stopPropagation(); setShowComments(true); }}
           aria-label="댓글 작성"
@@ -263,6 +227,17 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
         >
           <MessageCircle size={16} className="text-gray-700" strokeWidth={2.2} />
         </button>
+
+        {/* 본인 = 삭제 / 타인 = 신고. lightbox 안 + 카드 외부 footer 두 곳에서 처리 (사용자 피드백: 우측 ⋯ 메뉴 중복) */}
+        {user && (
+          <button
+            onClick={(e) => { e.stopPropagation(); if (isOwner) setShowDeleteConfirm(true); else setShowReport(true); }}
+            aria-label={isOwner ? '삭제' : '신고'}
+            className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-white/85 backdrop-blur shadow flex items-center justify-center active:scale-95 z-10"
+          >
+            {isOwner ? <Trash2 size={13} className="text-rose-500" /> : <Flag size={13} className="text-amber-600" />}
+          </button>
+        )}
 
         {animate && liked && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
