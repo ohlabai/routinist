@@ -12,8 +12,38 @@ export interface VirtualCourse {
   description: string | null;
   hero_image_url: string | null;
   preview_path: PreviewPoint[] | null;
+  entry_fee_p: number;
   is_active?: boolean;
   sort_order?: number;
+}
+
+export interface CourseRunner {
+  user_id: string;
+  display_name: string;
+  avatar_url: string | null;
+  region_gu: string | null;
+  progress_km: number;
+  ratio: number;
+  completed_at: string | null;
+  started_at: string;
+}
+
+export interface MedalStatus {
+  course_id: string;
+  awarded_at: string | null;
+  requested_at: string | null;
+  request_status: 'none' | 'requested' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
+  shipping_name: string | null;
+  shipping_address: string | null;
+  payment_amount: number | null;
+}
+
+export interface MedalShippingForm {
+  shipping_name: string;
+  shipping_phone: string;
+  shipping_address: string;
+  shipping_zipcode: string;
+  payment_amount?: number;
 }
 
 export interface MyCourse {
@@ -33,11 +63,61 @@ export async function fetchAvailableCourses(): Promise<VirtualCourse[]> {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('virtual_courses')
-    .select('id, name, distance_km, country, description, hero_image_url, preview_path, sort_order')
+    .select('id, name, distance_km, country, description, hero_image_url, preview_path, entry_fee_p, sort_order')
     .eq('is_active', true)
     .order('sort_order', { ascending: true });
   if (error) throw error;
   return (data ?? []) as VirtualCourse[];
+}
+
+// 코스 단일 정보 (상세 sheet 용)
+export async function fetchCourseById(courseId: string): Promise<VirtualCourse | null> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('virtual_courses')
+    .select('id, name, distance_km, country, description, hero_image_url, preview_path, entry_fee_p')
+    .eq('id', courseId)
+    .maybeSingle();
+  if (error) throw error;
+  return data as VirtualCourse | null;
+}
+
+// 라이브 트래커 — 같은 코스 참가자들의 현재 진행 위치
+export async function fetchCourseRunners(courseId: string): Promise<CourseRunner[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.rpc('fetch_course_runners', { p_course_id: courseId });
+  if (error) throw error;
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    user_id: r.user_id as string,
+    display_name: r.display_name as string,
+    avatar_url: (r.avatar_url as string) ?? null,
+    region_gu: (r.region_gu as string) ?? null,
+    progress_km: Number(r.progress_km ?? 0),
+    ratio: Number(r.ratio ?? 0),
+    completed_at: (r.completed_at as string) ?? null,
+    started_at: r.started_at as string,
+  }));
+}
+
+export async function fetchMyMedalStatus(courseId: string): Promise<MedalStatus | null> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.rpc('fetch_my_medal_status', { p_course_id: courseId });
+  if (error) throw error;
+  const row = (data ?? [])[0];
+  return row ? (row as MedalStatus) : null;
+}
+
+export async function requestCourseMedal(courseId: string, form: MedalShippingForm): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase.rpc('request_course_medal', {
+    p_course_id: courseId,
+    p_shipping_name: form.shipping_name,
+    p_shipping_phone: form.shipping_phone,
+    p_shipping_address: form.shipping_address,
+    p_shipping_zipcode: form.shipping_zipcode,
+    p_payment_amount: form.payment_amount ?? 30000,
+  });
+  if (error) throw error;
 }
 
 export async function fetchMyCourses(): Promise<MyCourse[]> {

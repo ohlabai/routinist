@@ -14,6 +14,8 @@ import {
   type PreviewPoint,
 } from '@/lib/world-data';
 import AppToast from '@/components/AppToast';
+import CourseDetailSheet from './CourseDetailSheet';
+import { Coins } from 'lucide-react';
 
 // 코스 카드용 미리보기 SVG — preview_path (0~100) 정규화 폴리라인.
 // 시작점=에메랄드 원, 끝점=주황 원. 배경 그리드 + 폴리라인 그림자.
@@ -93,6 +95,8 @@ export default function WorldTab() {
   const [pathMap, setPathMap] = useState<Map<string, PreviewPoint[] | null>>(new Map());
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState<string | null>(null);
+  const [detailCourseId, setDetailCourseId] = useState<string | null>(null);
+  const [confirmStart, setConfirmStart] = useState<VirtualCourse | null>(null);
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
 
   const showToast = useCallback((text: string, tone: 'ok' | 'warn' = 'ok') => {
@@ -132,6 +136,7 @@ export default function WorldTab() {
     try {
       await startCourse(courseId);
       showToast('✨ 코스를 시작했어요');
+      setConfirmStart(null);
       await load();
     } catch (e) {
       showToast(e instanceof Error ? e.message : '시작 실패', 'warn');
@@ -149,7 +154,11 @@ export default function WorldTab() {
       {inProgress.length > 0 && (
         <Section title="진행 중" icon={<Flag size={14} className="text-emerald-500" />}>
           <div className="space-y-2.5">
-            {inProgress.map(c => <ProgressCard key={c.course_id} course={c} path={pathMap.get(c.course_id) ?? null} />)}
+            {inProgress.map(c => (
+              <button key={c.course_id} onClick={() => setDetailCourseId(c.course_id)} className="block w-full text-left active:scale-[0.99] transition">
+                <ProgressCard course={c} path={pathMap.get(c.course_id) ?? null} />
+              </button>
+            ))}
           </div>
         </Section>
       )}
@@ -187,8 +196,10 @@ export default function WorldTab() {
           <div className="space-y-3">
             {available.map(c => (
               <div key={c.id} className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] overflow-hidden">
-                {/* 지도 미리보기 — 위쪽 풀폭 */}
-                <CoursePreview path={c.preview_path} />
+                {/* 지도 미리보기 + 클릭 시 상세 */}
+                <button onClick={() => setDetailCourseId(c.id)} className="w-full text-left active:opacity-90">
+                  <CoursePreview path={c.preview_path} />
+                </button>
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-2 mb-1">
                     <h3 className="text-base font-extrabold truncate">{c.name}</h3>
@@ -196,25 +207,77 @@ export default function WorldTab() {
                       {c.distance_km.toFixed(1)}km
                     </span>
                   </div>
-                  <p className="text-xs text-[var(--muted)] inline-flex items-center gap-1 font-semibold">
-                    <MapPin size={11} /> {c.country ?? '세계'}
-                  </p>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="text-[var(--muted)] inline-flex items-center gap-1 font-semibold">
+                      <MapPin size={11} /> {c.country ?? '세계'}
+                    </span>
+                    <span className="text-amber-700 dark:text-amber-300 inline-flex items-center gap-0.5 font-extrabold">
+                      <Coins size={11} /> 참가비 {c.entry_fee_p.toLocaleString()}P
+                    </span>
+                  </div>
                   {c.description && (
-                    <p className="text-[13px] text-[var(--foreground)] mt-2 leading-relaxed break-keep">{c.description}</p>
+                    <p className="text-[13px] text-[var(--foreground)] mt-2 leading-relaxed break-keep line-clamp-3">{c.description}</p>
                   )}
-                  <button
-                    onClick={() => handleStart(c.id)}
-                    disabled={starting === c.id}
-                    className="mt-3 w-full py-3 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-sm active:scale-[0.99] disabled:opacity-50 shadow-md shadow-emerald-500/25"
-                  >
-                    {starting === c.id ? '시작 중…' : '도전 시작'}
-                  </button>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={() => setDetailCourseId(c.id)}
+                      className="flex-1 py-3 rounded-xl bg-[var(--card)] border-2 border-[var(--card-border)] font-bold text-sm active:scale-[0.99]"
+                    >
+                      자세히
+                    </button>
+                    <button
+                      onClick={() => setConfirmStart(c)}
+                      disabled={starting === c.id}
+                      className="flex-1 py-3 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-sm active:scale-[0.99] disabled:opacity-50 shadow-md shadow-emerald-500/25"
+                    >
+                      {starting === c.id ? '시작 중…' : '도전 시작'}
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         )}
       </Section>
+
+      {/* 참가비 차감 확인 다이얼로그 */}
+      {confirmStart && (
+        <div className="fixed inset-0 z-[80] bg-black/65 flex items-center justify-center p-4" onClick={() => starting !== confirmStart.id && setConfirmStart(null)}>
+          <div className="w-full max-w-xs bg-[var(--background)] rounded-3xl p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex flex-col items-center gap-2 mb-4">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-50 dark:from-emerald-900/40 dark:to-emerald-950/40 flex items-center justify-center">
+                <Coins size={24} className="text-emerald-600" />
+              </div>
+              <h3 className="text-base font-extrabold text-center">{confirmStart.name} 도전</h3>
+              <p className="text-sm text-[var(--muted)] text-center leading-relaxed">
+                참가비 <span className="font-extrabold text-emerald-600">{confirmStart.entry_fee_p.toLocaleString()}P</span> 가 차감돼요.
+                <br />지금부터 누적 km 이 코스에 쌓이고, 완주 시 디지털 인증서 + 메달 신청이 열려요.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setConfirmStart(null)}
+                disabled={starting === confirmStart.id}
+                className="flex-1 py-3 rounded-xl bg-[var(--card-border)]/30 font-semibold text-sm disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => handleStart(confirmStart.id)}
+                disabled={starting === confirmStart.id}
+                className="flex-1 py-3 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-sm disabled:opacity-50 active:scale-95"
+              >
+                {starting === confirmStart.id ? '차감 중…' : '결제하고 시작'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 코스 상세 sheet */}
+      {detailCourseId && (
+        <CourseDetailSheet courseId={detailCourseId} onClose={() => { setDetailCourseId(null); load(); }} />
+      )}
 
       {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2200} />}
     </div>
