@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, ShoppingBag, Users, Package, AlertCircle, ChevronRight,
-  Beaker, Coins, TrendingUp, Sparkles, Settings, Stethoscope, Globe, MessageSquare, Award,
+  Beaker, Coins, TrendingUp, Sparkles, Settings, Stethoscope, Globe, MessageSquare, Award, BarChart3,
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
@@ -275,14 +275,15 @@ export default function AdminDashboardPage() {
           {/* 어드민 메뉴 */}
           <Section title="관리 메뉴" icon={<Settings size={16} className="text-emerald-500" />}>
             <div className="grid grid-cols-2 gap-2">
+              <AdminLink href="/admin/analytics" icon={<BarChart3 size={20} />} label="분석 대시보드" />
+              <AdminLink href="/admin/users" icon={<Users size={20} />} label="회원 관리" />
+              <AdminLink href="/admin/feedback" icon={<MessageSquare size={20} />} label="제안 모더레이션" />
+              <AdminLink href="/admin/medals" icon={<Award size={20} />} label="메달 신청" />
+              <AdminLink href="/admin/courses" icon={<Globe size={20} />} label="가상 코스" />
               <AdminLink href="/admin/orders" icon={<ShoppingBag size={20} />} label="주문 관리" />
               <AdminLink href="/admin/products" icon={<Package size={20} />} label="상품 관리" />
               <AdminLink href="/admin/mileage" icon={<Coins size={20} />} label="마일리지 정책" />
               <AdminLink href="/admin/experiments" icon={<Beaker size={20} />} label="A/B 실험" />
-              <AdminLink href="/admin/courses" icon={<Globe size={20} />} label="가상 코스" />
-              <AdminLink href="/admin/medals" icon={<Award size={20} />} label="메달 신청" />
-              <AdminLink href="/admin/feedback" icon={<MessageSquare size={20} />} label="제안 모더레이션" />
-              <AdminLink href="/admin/users" icon={<Users size={20} />} label="회원 관리" />
               <AdminLink href="/profile/audit" icon={<Stethoscope size={20} />} label="데이터 점검" />
             </div>
           </Section>
