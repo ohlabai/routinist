@@ -21,8 +21,8 @@ type TimeAxis = 'today' | 'month' | 'year';
 const SUB_TABS: { id: SubTab; label: string; Icon: typeof Trophy }[] = [
   { id: 'me', label: '내 랭킹', Icon: Trophy },
   { id: 'mileage', label: '마일리지', Icon: Coins },
-  { id: 'contest', label: '하루 대회', Icon: Users },
-  { id: 'world', label: '세계를 달려', Icon: Globe },
+  { id: 'contest', label: '친선런', Icon: Users },
+  { id: 'world', label: '월드런', Icon: Globe },
 ];
 
 function RankingInner() {

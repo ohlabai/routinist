@@ -57,7 +57,7 @@ export default function ContestTab() {
     <div className="space-y-3">
       {/* 헤더 + 만들기 */}
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-extrabold">내 대회</h2>
+        <h2 className="text-base font-extrabold">내 친선런</h2>
         <button
           onClick={() => setComposeOpen(true)}
           className="inline-flex items-center gap-1 px-3.5 py-2 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-bold text-sm shadow active:scale-95"
@@ -77,13 +77,13 @@ export default function ContestTab() {
           <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 mx-auto mb-2 flex items-center justify-center">
             <Users size={26} className="text-emerald-600" />
           </div>
-          <p className="text-base font-extrabold">아직 참여한 대회가 없어요</p>
+          <p className="text-base font-extrabold">아직 참여한 친선런이 없어요</p>
           <p className="text-sm text-[var(--muted)] mt-1">친구와 짧은 친선전을 만들어 보세요</p>
           <button
             onClick={() => setComposeOpen(true)}
             className="mt-3 inline-flex items-center gap-1 px-4 py-2 rounded-full bg-emerald-500 text-white font-bold text-sm active:scale-95"
           >
-            <Plus size={14} /> 첫 대회 만들기
+            <Plus size={14} /> 첫 친선런 만들기
           </button>
         </div>
       ) : (
@@ -128,7 +128,7 @@ export default function ContestTab() {
           myUserId={user?.id ?? ''}
           myName={profile?.display_name ?? '나'}
           onClose={() => setComposeOpen(false)}
-          onCreated={() => { setComposeOpen(false); load(); showToast('✨ 대회가 만들어졌어요'); }}
+          onCreated={() => { setComposeOpen(false); load(); showToast('✨ 친선런이 만들어졌어요'); }}
           onError={(msg) => showToast(msg, 'warn')}
         />
       )}
@@ -207,7 +207,7 @@ function ContestComposeModal({ myUserId, myName, onClose, onCreated, onError }: 
       <div className="w-full max-w-md bg-[var(--background)] rounded-3xl p-5 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between mb-3">
           <h3 className="text-base font-extrabold inline-flex items-center gap-1.5">
-            <Users size={16} className="text-emerald-500" /> 하루 대회 만들기
+            <Users size={16} className="text-emerald-500" /> 친선런 만들기
           </h3>
           <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90">
             <X size={16} />
@@ -283,7 +283,7 @@ function ContestComposeModal({ myUserId, myName, onClose, onCreated, onError }: 
           disabled={creating || title.trim().length < 2}
           className="w-full mt-4 py-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-sm disabled:opacity-50 active:scale-[0.98]"
         >
-          {creating ? '만드는 중…' : `대회 만들기 (${myName} 호스트)`}
+          {creating ? '만드는 중…' : `친선런 만들기 (${myName} 호스트)`}
         </button>
       </div>
     </div>
@@ -338,10 +338,10 @@ function ContestDetailSheet({ contestId, myUserId, activities, onClose, onChange
   };
 
   const handleFinish = async () => {
-    if (!confirm('대회를 마감할까요? 이후 결과 변경 불가.')) return;
+    if (!confirm('친선런을 마감할까요? 이후 결과 변경 불가.')) return;
     try {
       await finishContest(contestId);
-      onToast('대회를 마감했어요');
+      onToast('친선런을 마감했어요');
       await load();
       onChanged();
     } catch (e) {
@@ -359,7 +359,7 @@ function ContestDetailSheet({ contestId, myUserId, activities, onClose, onChange
       <div className="w-full max-w-md bg-[var(--background)] rounded-3xl p-5 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between mb-3">
           <div>
-            <h3 className="text-base font-extrabold">{info?.title ?? '대회'}</h3>
+            <h3 className="text-base font-extrabold">{info?.title ?? '친선런'}</h3>
             <p className="text-xs text-[var(--muted)] mt-0.5">
               {contestDate} · {contestEventLabel(eventType)}
             </p>
@@ -436,7 +436,7 @@ function ContestDetailSheet({ contestId, myUserId, activities, onClose, onChange
             onClick={handleFinish}
             className="w-full mt-4 py-3 rounded-2xl bg-[var(--card)] border border-[var(--card-border)] text-[var(--foreground)] font-bold text-sm active:scale-[0.99] inline-flex items-center justify-center gap-1.5"
           >
-            <Trophy size={14} /> 대회 마감 (호스트)
+            <Trophy size={14} /> 친선런 마감 (호스트)
           </button>
         )}
       </div>

@@ -2,6 +2,8 @@
 
 import { getSupabase } from './supabase';
 
+export interface PreviewPoint { x: number; y: number; }
+
 export interface VirtualCourse {
   id: string;
   name: string;
@@ -9,6 +11,7 @@ export interface VirtualCourse {
   country: string | null;
   description: string | null;
   hero_image_url: string | null;
+  preview_path: PreviewPoint[] | null;
   is_active?: boolean;
   sort_order?: number;
 }
@@ -30,7 +33,7 @@ export async function fetchAvailableCourses(): Promise<VirtualCourse[]> {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('virtual_courses')
-    .select('id, name, distance_km, country, description, hero_image_url, sort_order')
+    .select('id, name, distance_km, country, description, hero_image_url, preview_path, sort_order')
     .eq('is_active', true)
     .order('sort_order', { ascending: true });
   if (error) throw error;
