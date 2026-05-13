@@ -238,7 +238,7 @@ export default function WorldTab() {
                       <MapPin size={11} /> {c.country ?? '세계'}
                     </span>
                     <span className="text-amber-700 dark:text-amber-300 inline-flex items-center gap-0.5 font-extrabold">
-                      <Coins size={11} /> 참가비 {c.entry_fee_p.toLocaleString()}P
+                      <Coins size={11} /> {c.entry_fee_p.toLocaleString()} 마일리지
                     </span>
                   </div>
                   {c.description && (
@@ -276,7 +276,7 @@ export default function WorldTab() {
               </div>
               <h3 className="text-base font-extrabold text-center">{confirmStart.name} 도전</h3>
               <p className="text-sm text-[var(--muted)] text-center leading-relaxed">
-                참가비 <span className="font-extrabold text-emerald-600">{confirmStart.entry_fee_p.toLocaleString()}P</span> 가 차감돼요.
+                참가비 <span className="font-extrabold text-emerald-600">{confirmStart.entry_fee_p.toLocaleString()} 마일리지</span> 가 차감돼요.
                 <br />지금부터 누적 km 이 코스에 쌓이고, 완주 시 디지털 인증서 + 메달 신청이 열려요.
               </p>
             </div>

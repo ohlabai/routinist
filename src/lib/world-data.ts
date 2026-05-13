@@ -22,6 +22,10 @@ export const CONTINENT_EMOJI: Record<Continent, string> = {
   global: '🌐',
 };
 
+export interface ElevationPoint { km: number; m: number; }
+export interface Landmark { km: number; name: string; description?: string; }
+export interface PastWinner { year: number; name: string; time: string; notes?: string; }
+
 export interface VirtualCourse {
   id: string;
   name: string;
@@ -32,6 +36,13 @@ export interface VirtualCourse {
   preview_path: PreviewPoint[] | null;
   entry_fee_p: number;
   continent: Continent | null;
+  story: string | null;
+  past_winners: PastWinner[] | null;
+  youtube_url: string | null;
+  official_url: string | null;
+  elevation_profile: ElevationPoint[] | null;
+  landmarks: Landmark[] | null;
+  course_record: string | null;
   is_active?: boolean;
   sort_order?: number;
 }
@@ -78,23 +89,26 @@ export interface MyCourse {
   has_medal: boolean;
 }
 
+const COURSE_FIELDS_LIST = 'id, name, distance_km, country, description, hero_image_url, preview_path, entry_fee_p, continent, sort_order';
+const COURSE_FIELDS_FULL = 'id, name, distance_km, country, description, hero_image_url, preview_path, entry_fee_p, continent, story, past_winners, youtube_url, official_url, elevation_profile, landmarks, course_record';
+
 export async function fetchAvailableCourses(): Promise<VirtualCourse[]> {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('virtual_courses')
-    .select('id, name, distance_km, country, description, hero_image_url, preview_path, entry_fee_p, continent, sort_order')
+    .select(COURSE_FIELDS_LIST)
     .eq('is_active', true)
     .order('sort_order', { ascending: true });
   if (error) throw error;
   return (data ?? []) as VirtualCourse[];
 }
 
-// 코스 단일 정보 (상세 sheet 용)
+// 코스 단일 정보 (상세 sheet 용) — 풍부한 데이터
 export async function fetchCourseById(courseId: string): Promise<VirtualCourse | null> {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('virtual_courses')
-    .select('id, name, distance_km, country, description, hero_image_url, preview_path, entry_fee_p, continent')
+    .select(COURSE_FIELDS_FULL)
     .eq('id', courseId)
     .maybeSingle();
   if (error) throw error;

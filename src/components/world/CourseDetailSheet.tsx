@@ -4,7 +4,7 @@
 // 라이브 트래커 (참가자 마커) + 디지털 인증서 PDF + 메달 신청 폼.
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { X, Trophy, Users, Award, MapPin, Download, Truck, Globe, Crown, Sparkles } from 'lucide-react';
+import { X, Trophy, Users, Award, MapPin, Download, Truck, Globe, Crown, Sparkles, BookOpen, Mountain, ExternalLink, Play, Flag as FlagIcon } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import {
   fetchCourseById,
@@ -101,10 +101,112 @@ export default function CourseDetailSheet({ courseId, onClose }: Props) {
                 myUserId={user?.id ?? null}
               />
 
+              {/* 참가비 + 한줄 설명 */}
+              <div className="rounded-2xl bg-gradient-to-br from-amber-50/60 to-orange-50/30 dark:from-amber-950/30 dark:to-amber-950/10 border border-amber-200/60 dark:border-amber-800/40 p-3 flex items-center justify-between">
+                <span className="text-xs font-bold text-amber-700 dark:text-amber-300">참가비</span>
+                <span className="text-base font-extrabold text-amber-700 dark:text-amber-300">{course.entry_fee_p.toLocaleString()} 마일리지</span>
+              </div>
+
               {/* 코스 설명 */}
               {course.description && (
                 <div className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] p-4">
                   <p className="text-[14px] text-[var(--foreground)] leading-relaxed break-keep">{course.description}</p>
+                </div>
+              )}
+
+              {/* 스토리텔링 (build 123 — The Conqueror 풍) */}
+              {course.story && (
+                <div className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] p-4">
+                  <p className="text-xs font-extrabold text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1 mb-2">
+                    <BookOpen size={12} /> 코스 이야기
+                  </p>
+                  <p className="text-[14px] text-[var(--foreground)] leading-relaxed break-keep whitespace-pre-wrap">{course.story}</p>
+                  {course.official_url && (
+                    <a
+                      href={course.official_url}
+                      target="_blank"
+                      rel="noopener"
+                      className="mt-2.5 inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 active:scale-95"
+                    >
+                      공식 사이트 <ExternalLink size={10} />
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {/* 유튜브 영상 임베드 */}
+              {course.youtube_url && (
+                <a
+                  href={course.youtube_url}
+                  target="_blank"
+                  rel="noopener"
+                  className="block rounded-2xl bg-gradient-to-br from-rose-500/95 to-rose-600 p-4 shadow-md active:scale-[0.98]"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur flex items-center justify-center flex-shrink-0">
+                      <Play size={22} className="text-white ml-0.5" fill="white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-extrabold text-white">대회 영상 보기</p>
+                      <p className="text-[11px] text-white/85 mt-0.5">YouTube 에서 코스 미리보기</p>
+                    </div>
+                    <ExternalLink size={16} className="text-white/85" />
+                  </div>
+                </a>
+              )}
+
+              {/* 고도 프로파일 */}
+              {course.elevation_profile && course.elevation_profile.length > 0 && (
+                <div className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] p-4">
+                  <p className="text-xs font-extrabold text-[var(--muted)] inline-flex items-center gap-1 mb-2">
+                    <Mountain size={12} className="text-emerald-500" /> 고도 프로파일
+                  </p>
+                  <ElevationChart points={course.elevation_profile} />
+                </div>
+              )}
+
+              {/* 주요 지점 (랜드마크) */}
+              {course.landmarks && course.landmarks.length > 0 && (
+                <div className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] p-4">
+                  <p className="text-xs font-extrabold text-[var(--muted)] inline-flex items-center gap-1 mb-2">
+                    <FlagIcon size={12} className="text-emerald-500" /> 코스 주요 지점
+                  </p>
+                  <div className="space-y-2">
+                    {course.landmarks.map((l, i) => (
+                      <div key={i} className="flex items-start gap-2.5 px-2 py-1.5">
+                        <span className="text-[11px] font-extrabold text-emerald-600 tabular-nums w-12 flex-shrink-0">
+                          {l.km.toFixed(1)}km
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold">{l.name}</p>
+                          {l.description && <p className="text-[11px] text-[var(--muted)] mt-0.5 leading-snug">{l.description}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 역대 우승자 */}
+              {course.past_winners && course.past_winners.length > 0 && (
+                <div className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] p-4">
+                  <p className="text-xs font-extrabold text-[var(--muted)] inline-flex items-center gap-1 mb-2">
+                    <Crown size={12} className="text-amber-500" /> 역대 우승자
+                  </p>
+                  <div className="space-y-1.5">
+                    {course.past_winners.map((w, i) => (
+                      <div key={i} className="flex items-center gap-2 px-2 py-1.5">
+                        <span className="text-xs font-bold text-amber-600 tabular-nums w-10 flex-shrink-0">{w.year}</span>
+                        <span className="text-sm font-bold flex-1 truncate">{w.name}</span>
+                        <span className="text-sm font-extrabold text-emerald-600 tabular-nums">{w.time}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {course.course_record && (
+                    <p className="text-[11px] text-[var(--muted)] mt-2 italic border-t border-[var(--card-border)]/40 pt-2">
+                      코스 기록: {course.course_record}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -231,6 +333,43 @@ export default function CourseDetailSheet({ courseId, onClose }: Props) {
         )}
 
         {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2200} />}
+      </div>
+    </div>
+  );
+}
+
+// 고도 프로파일 SVG 차트
+function ElevationChart({ points }: { points: { km: number; m: number }[] }) {
+  if (points.length === 0) return null;
+  const maxKm = Math.max(...points.map(p => p.km), 1);
+  const minM = Math.min(...points.map(p => p.m));
+  const maxM = Math.max(...points.map(p => p.m));
+  const range = Math.max(1, maxM - minM);
+  const w = 100, h = 40;
+  const norm = (km: number, m: number) => ({
+    x: (km / maxKm) * w,
+    y: h - ((m - minM) / range) * h,
+  });
+  const pts = points.map(p => norm(p.km, p.m));
+  const linePath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ');
+  const areaPath = `${linePath} L ${w} ${h} L 0 ${h} Z`;
+
+  return (
+    <div className="relative">
+      <svg viewBox={`0 0 ${w} ${h + 8}`} preserveAspectRatio="none" className="w-full" style={{ height: 120 }}>
+        <defs>
+          <linearGradient id="elev-grad" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#10b981" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="#10b981" stopOpacity="0.05" />
+          </linearGradient>
+        </defs>
+        <path d={areaPath} fill="url(#elev-grad)" />
+        <path d={linePath} fill="none" stroke="#10b981" strokeWidth="0.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <div className="flex items-center justify-between text-[10px] text-[var(--muted)] font-bold mt-1">
+        <span>0km · {Math.round(points[0].m)}m</span>
+        <span className="text-emerald-600">최고 {Math.round(maxM)}m</span>
+        <span>{points[points.length - 1].km.toFixed(1)}km · {Math.round(points[points.length - 1].m)}m</span>
       </div>
     </div>
   );
