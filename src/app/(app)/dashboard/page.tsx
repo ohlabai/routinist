@@ -170,6 +170,12 @@ export default function DashboardPage() {
 
   useEffect(() => { loadDetail(); }, [loadDetail]);
 
+  // Achievement 자동 체크 (build 129) — dashboard 진입 시 1회
+  useEffect(() => {
+    if (!user) return;
+    import('@/lib/achievements-data').then(m => m.checkAndAwardAchievements()).catch(() => { /* silent */ });
+  }, [user]);
+
   // ========== 요약 계산 ==========
   const todayActivities = useMemo(
     () => activities.filter(a => a.activity_date === todayStr),

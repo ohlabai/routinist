@@ -24,6 +24,7 @@ import type { Profile } from '@/types';
 import AppLogo from '@/components/AppLogo';
 import AppToast from '@/components/AppToast';
 import GenderBadge from '@/components/profile/GenderBadge';
+import AchievementsCard from '@/components/profile/AchievementsCard';
 import { logClientWarn } from '@/lib/error-logger';
 import { daysAgoStr, toLocalMonthStr, toLocalDateStr } from '@/lib/kst';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
@@ -385,6 +386,9 @@ function UserProfileContent() {
           </Link>
         </div>
       ))}
+
+      {/* Achievement 배지 (build 129) */}
+      <AchievementsCard userId={profile.id} />
 
       {/* 친구 30일 활동 막대그래프 (build 124) */}
       <FriendActivityChart userId={profile.id} />
