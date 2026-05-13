@@ -6,4 +6,4 @@
 // 본인 프로필 조회는 `select('*')` 사용 OK — RLS 가 auth.uid() = id 로 제한.
 
 export const PUBLIC_PROFILE_FIELDS =
-  'id, display_name, avatar_url, bio, region_si, region_gu, region_dong, is_public, total_distance_km, total_runs, total_duration_seconds, country_code, running_since, created_at, updated_at';
+  'id, display_name, avatar_url, bio, region_si, region_gu, region_dong, is_public, total_distance_km, total_runs, total_duration_seconds, country_code, running_since, gender, show_gender, created_at, updated_at';

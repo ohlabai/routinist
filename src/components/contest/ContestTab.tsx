@@ -452,6 +452,20 @@ function ContestComposeModal({ myUserId, myName, onClose, onCreated, onError }: 
 }
 
 // ── 대회 상세 sheet ─────────────────────────────────────
+
+interface ContestInfoRow {
+  event_type: ContestEvent;
+  status: 'open' | 'running' | 'finished';
+  host_user_id: string;
+  contest_date: string;
+  title: string;
+  is_public: boolean;
+  meetup_location: string | null;
+  meetup_time: string | null;
+  max_participants: number | null;
+  host_region_gu: string | null;
+}
+
 function ContestDetailSheet({ contestId, myUserId, activities, onClose, onChanged, onError, onToast }: {
   contestId: string;
   myUserId: string;
@@ -462,25 +476,57 @@ function ContestDetailSheet({ contestId, myUserId, activities, onClose, onChange
   onToast: (text: string, tone?: 'ok' | 'warn') => void;
 }) {
   const [rows, setRows] = useState<ContestLeaderRow[]>([]);
+  const [photos, setPhotos] = useState<{ photo_id: string; photo_url: string; user_id: string; display_name: string; avatar_url: string | null; distance_km: number; created_at: string }[]>([]);
+  const [myAttachable, setMyAttachable] = useState<{ id: string; photo_url: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [info, setInfo] = useState<{ event_type: ContestEvent; status: 'open' | 'running' | 'finished'; host_user_id: string; contest_date: string; title: string } | null>(null);
+  const [attaching, setAttaching] = useState<string | null>(null);
+  const [showAttach, setShowAttach] = useState(false);
+  const [info, setInfo] = useState<ContestInfoRow | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const list = await fetchContestLeaderboard(contestId);
+      const [list, sb] = await Promise.all([
+        fetchContestLeaderboard(contestId),
+        import('@/lib/supabase').then(m => m.getSupabase()),
+      ]);
       setRows(list);
-      const { getSupabase } = await import('@/lib/supabase');
-      const sb = getSupabase();
-      const { data } = await sb.from('daily_contests').select('event_type, status, host_user_id, contest_date, title').eq('id', contestId).maybeSingle();
-      if (data) setInfo(data as unknown as { event_type: ContestEvent; status: 'open' | 'running' | 'finished'; host_user_id: string; contest_date: string; title: string });
+      const { data } = await sb.from('daily_contests').select('event_type, status, host_user_id, contest_date, title, is_public, meetup_location, meetup_time, max_participants, host_region_gu').eq('id', contestId).maybeSingle();
+      if (data) setInfo(data as unknown as ContestInfoRow);
+
+      // 만남 후기 사진 fetch
+      const { fetchContestPhotos, fetchMyPhotosForDate } = await import('@/lib/routine-photos');
+      const cPhotos = await fetchContestPhotos(contestId).catch(() => []);
+      setPhotos(cPhotos);
+
+      // 본인이 contest date 에 등록한 사진 (attach 후보)
+      if (data?.contest_date) {
+        const mine = await fetchMyPhotosForDate(data.contest_date as string).catch(() => []);
+        const cPhotoIds = new Set(cPhotos.map(p => p.photo_id));
+        setMyAttachable(mine.filter(m => !cPhotoIds.has(m.id)));
+      }
     } catch (e) {
       console.warn('[contest detail] fail', e);
     } finally {
       setLoading(false);
     }
   }, [contestId]);
+
+  const handleAttach = async (photoId: string) => {
+    setAttaching(photoId);
+    try {
+      const { attachPhotoToContest } = await import('@/lib/routine-photos');
+      await attachPhotoToContest(photoId, contestId);
+      onToast('✨ 사진이 친선런에 연결됐어요');
+      setShowAttach(false);
+      await load();
+    } catch (e) {
+      onError(e instanceof Error ? e.message : '연결 실패');
+    } finally {
+      setAttaching(null);
+    }
+  };
 
   useEffect(() => { load(); }, [load]);
 
@@ -520,7 +566,12 @@ function ContestDetailSheet({ contestId, myUserId, activities, onClose, onChange
       <div className="w-full max-w-md bg-[var(--background)] rounded-3xl p-5 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between mb-3">
           <div>
-            <h3 className="text-base font-extrabold">{info?.title ?? '친선런'}</h3>
+            <h3 className="text-base font-extrabold inline-flex items-center gap-1.5">
+              {info?.title ?? '친선런'}
+              {info?.is_public && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">공개</span>
+              )}
+            </h3>
             <p className="text-xs text-[var(--muted)] mt-0.5">
               {contestDate} · {contestEventLabel(eventType)}
             </p>
@@ -529,6 +580,21 @@ function ContestDetailSheet({ contestId, myUserId, activities, onClose, onChange
             <X size={16} />
           </button>
         </div>
+
+        {/* 모집 정보 (공개 친선런만) — build 117 */}
+        {info?.is_public && (info.meetup_location || info.meetup_time || info.max_participants) && (
+          <div className="mb-3 rounded-xl bg-gradient-to-br from-emerald-50/70 to-emerald-50/30 dark:from-emerald-950/30 dark:to-emerald-950/10 border border-emerald-200/60 dark:border-emerald-900/40 p-3 space-y-1">
+            {info.meetup_time && (
+              <p className="text-xs inline-flex items-center gap-1.5"><Clock size={11} className="text-emerald-600" /> <span className="font-bold">{info.meetup_time}</span></p>
+            )}
+            {info.meetup_location && (
+              <p className="text-xs inline-flex items-start gap-1.5"><MapPin size={11} className="text-emerald-600 mt-0.5 flex-shrink-0" /> <span className="font-bold">{info.meetup_location}</span></p>
+            )}
+            {info.max_participants && (
+              <p className="text-xs inline-flex items-center gap-1.5"><Users size={11} className="text-emerald-600" /> <span className="font-bold">정원 {rows.length}/{info.max_participants}명</span></p>
+            )}
+          </div>
+        )}
 
         {loading ? (
           <div className="space-y-2">
@@ -591,6 +657,62 @@ function ContestDetailSheet({ contestId, myUserId, activities, onClose, onChange
             )}
           </div>
         )}
+
+        {/* 함께한 사진 (build 117) — 사진 grid + 본인 사진 attach */}
+        <div className="mt-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-bold text-[var(--muted)]">함께한 사진</p>
+            {myAttachable.length > 0 && (
+              <button
+                onClick={() => setShowAttach(s => !s)}
+                className="text-xs font-extrabold text-emerald-600 active:scale-95"
+              >
+                {showAttach ? '닫기' : `+ 내 사진 ${myAttachable.length}장 연결`}
+              </button>
+            )}
+          </div>
+
+          {showAttach && myAttachable.length > 0 && (
+            <div className="rounded-xl bg-emerald-50/40 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-900/40 p-2 mb-2">
+              <p className="text-[10px] text-[var(--muted)] mb-1.5 px-1">{contestDate} 등록한 사진 — 친선런 갤러리에 추가</p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {myAttachable.slice(0, 9).map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => handleAttach(p.id)}
+                    disabled={attaching === p.id}
+                    className="aspect-square rounded-lg overflow-hidden bg-[var(--card-border)]/40 active:scale-95 disabled:opacity-50 relative"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={p.photo_url} alt="" className="w-full h-full object-cover" />
+                    {attaching === p.id && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                        <span className="text-white text-[10px] font-bold">연결 중…</span>
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {photos.length === 0 ? (
+            <p className="text-xs text-[var(--muted)] italic px-1">아직 등록된 사진이 없어요</p>
+          ) : (
+            <div className="grid grid-cols-3 gap-1.5">
+              {photos.map(ph => (
+                <div key={ph.photo_id} className="aspect-square rounded-lg overflow-hidden bg-[var(--card-border)]/40 relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={ph.photo_url} alt="" className="w-full h-full object-cover" />
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-1.5">
+                    <p className="text-[9px] font-bold text-white truncate">@{ph.display_name}</p>
+                    <p className="text-[8px] text-white/80">{ph.distance_km.toFixed(1)}km</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {isHost && info?.status !== 'finished' && (
           <button

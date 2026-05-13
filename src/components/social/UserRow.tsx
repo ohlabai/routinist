@@ -4,6 +4,7 @@ import Link from 'next/link';
 import type { Profile } from '@/types';
 import FollowButton from './FollowButton';
 import AppLogo from '@/components/AppLogo';
+import GenderBadge from '@/components/profile/GenderBadge';
 
 interface UserRowProps {
   profile: Profile;
@@ -28,7 +29,14 @@ export default function UserRow({ profile, currentUserId, isFollowing = false, s
         </div>
       </Link>
       <Link href={`/profile/view?id=${profile.id}`} className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-[var(--foreground)] truncate">{profile.display_name}</p>
+        <p className="text-sm font-semibold text-[var(--foreground)] truncate inline-flex items-center gap-1">
+          {profile.display_name}
+          <GenderBadge
+            gender={profile.gender as 'male' | 'female' | null | undefined}
+            show={(profile as { show_gender?: boolean }).show_gender ?? true}
+            size={11}
+          />
+        </p>
         <p className="text-xs text-[var(--muted)]">{Number(profile.total_distance_km).toFixed(1)}km · {profile.total_runs}회</p>
       </Link>
       {showFollow && !isSelf && (

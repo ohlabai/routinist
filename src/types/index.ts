@@ -82,6 +82,7 @@ export interface Profile {
   country_code: string | null;
   birth_year: number | null;
   gender: 'male' | 'female' | 'other' | null;
+  show_gender?: boolean;
   running_since: string | null;
   is_public: boolean;
   total_distance_km: number;

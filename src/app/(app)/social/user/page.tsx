@@ -23,6 +23,7 @@ import { PUBLIC_PROFILE_FIELDS } from '@/lib/profile-fields';
 import type { Profile } from '@/types';
 import AppLogo from '@/components/AppLogo';
 import AppToast from '@/components/AppToast';
+import GenderBadge from '@/components/profile/GenderBadge';
 import { logClientWarn } from '@/lib/error-logger';
 import { daysAgoStr, toLocalMonthStr, toLocalDateStr } from '@/lib/kst';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
@@ -300,7 +301,14 @@ function UserProfileContent() {
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-bold text-[var(--foreground)] truncate">{profile.display_name}</h1>
+            <h1 className="text-xl font-bold text-[var(--foreground)] truncate inline-flex items-center gap-1.5">
+              {profile.display_name}
+              <GenderBadge
+                gender={profile.gender as 'male' | 'female' | null | undefined}
+                show={(profile as { show_gender?: boolean }).show_gender ?? true}
+                size={16}
+              />
+            </h1>
             {regionLabel && (
               <p className="text-xs text-[var(--muted)] flex items-center gap-1 mt-1">
                 <MapPin size={12} /> {regionLabel}

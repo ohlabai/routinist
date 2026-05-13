@@ -12,6 +12,7 @@ import { fetchPhotoCommentCount } from '@/lib/photo-comments';
 import { useAuth } from '@/components/AuthProvider';
 import AppToast from '@/components/AppToast';
 import PhotoCommentsSheet from './PhotoCommentsSheet';
+import GenderBadge from '@/components/profile/GenderBadge';
 
 interface Props {
   photo: RoutinePhoto;
@@ -175,10 +176,11 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
         {/* 사용자 ID — 별도 클릭 영역. 사진 위 left-2 bottom-2 (오버레이 위에 z-index). */}
         <Link
           href={`/social/user?id=${photo.user_id}`}
-          className="absolute left-2 bottom-2 z-10 flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/90 backdrop-blur text-[11px] font-bold text-gray-800 shadow-sm active:scale-95 transition"
+          className="absolute left-2 bottom-2 z-10 flex items-center gap-1 px-2 py-1 rounded-full bg-white/90 backdrop-blur text-[11px] font-bold text-gray-800 shadow-sm active:scale-95 transition"
           aria-label={`${photo.display_name} 프로필 보기`}
         >
           <span className="truncate max-w-[120px]">@{photo.display_name}</span>
+          <GenderBadge gender={photo.gender} show={photo.show_gender} size={11} />
         </Link>
 
         {/* 좋아요 하트 */}

@@ -11,10 +11,13 @@ export interface RoutinePhoto {
   quote_id: string | null;          // build 106: 공유카드 등록 시 선택된 명언 id
   quote_text: string | null;         // 명언 본문 (view join)
   quote_author: string | null;       // 명언 작성자
+  contest_id: string | null;         // build 117: 친선런 연결
   user_id: string;
   display_name: string;
   avatar_url: string | null;
   region_gu: string | null;
+  gender: 'male' | 'female' | null;  // build 117
+  show_gender: boolean;
   distance_km: number;
   activity_date: string;
   like_count: number;
@@ -138,6 +141,59 @@ export async function deleteMyPhoto(photoId: string, photoUrl: string): Promise<
   }
 }
 
+// 친선런과 사진 연결 (build 117)
+export async function attachPhotoToContest(photoId: string, contestId: string): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase.rpc('attach_photo_to_contest', {
+    p_photo_id: photoId,
+    p_contest_id: contestId,
+  });
+  if (error) throw error;
+}
+
+export interface ContestPhoto {
+  photo_id: string;
+  photo_url: string;
+  user_id: string;
+  display_name: string;
+  avatar_url: string | null;
+  distance_km: number;
+  created_at: string;
+}
+
+export async function fetchContestPhotos(contestId: string): Promise<ContestPhoto[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.rpc('fetch_contest_photos', { p_contest_id: contestId });
+  if (error) throw error;
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    photo_id: r.photo_id as string,
+    photo_url: r.photo_url as string,
+    user_id: r.user_id as string,
+    display_name: r.display_name as string,
+    avatar_url: (r.avatar_url as string) ?? null,
+    distance_km: Number(r.distance_km ?? 0),
+    created_at: r.created_at as string,
+  }));
+}
+
+// 본인의 같은 날짜 사진 list — contest 에 attach 할 후보 선택용
+export async function fetchMyPhotosForDate(date: string): Promise<{ id: string; photo_url: string; created_at: string }[]> {
+  const supabase = getSupabase();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+  const { data, error } = await supabase
+    .from('activity_photos')
+    .select('id, photo_url, created_at, activities!inner(activity_date)')
+    .eq('user_id', user.id)
+    .eq('activities.activity_date', date)
+    .order('created_at', { ascending: false })
+    .limit(20);
+  if (error) return [];
+  return (data ?? []).map((r: { id: string; photo_url: string; created_at: string }) => ({
+    id: r.id, photo_url: r.photo_url, created_at: r.created_at,
+  }));
+}
+
 // 사진 신고 (Apple 1.2 UGC 의무). 같은 사람이 같은 사진 여러번 신고는 unique 제약 없이 허용.
 export async function reportPhoto(photoId: string, reason: 'inappropriate' | 'spam' | 'harassment' | 'other', detail?: string): Promise<void> {
   const supabase = getSupabase();
@@ -201,10 +257,13 @@ function mapRow(row: Record<string, unknown>): RoutinePhoto {
     quote_id: (row.quote_id as string) ?? null,
     quote_text: (row.quote_text as string) ?? null,
     quote_author: (row.quote_author as string) ?? null,
+    contest_id: (row.contest_id as string) ?? null,
     user_id: row.user_id as string,
     display_name: row.display_name as string,
     avatar_url: (row.avatar_url as string) ?? null,
     region_gu: (row.region_gu as string) ?? null,
+    gender: (row.gender as 'male' | 'female') ?? null,
+    show_gender: row.show_gender !== false,
     distance_km: Number(row.distance_km ?? 0),
     activity_date: row.activity_date as string,
     like_count: Number(row.like_count ?? 0),
