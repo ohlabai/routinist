@@ -389,6 +389,9 @@ function UserProfileContent() {
       {/* 친구 30일 활동 막대그래프 (build 124) */}
       <FriendActivityChart userId={profile.id} />
 
+      {/* 친구 최근 7일 GPS 미니맵 (build 125) */}
+      <FriendMiniMap userId={profile.id} />
+
       {/* 배지 */}
       {badges.length > 0 && (
         <div className="card p-4">
@@ -599,6 +602,68 @@ export default function UserProfilePage() {
     }>
       <UserProfileContent />
     </Suspense>
+  );
+}
+
+// ── 친구 최근 7일 GPS 미니맵 (build 125) ─────────────
+function FriendMiniMap({ userId }: { userId: string }) {
+  const [activities, setActivities] = useState<{ activity_id: string; distance_km: number; route_data: { coordinates?: [number, number][] } | null }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const supabase = getSupabase();
+        const { data } = await supabase.rpc('fetch_user_recent_routes', { p_user_id: userId, p_days: 7 });
+        setActivities((data ?? []) as typeof activities);
+      } catch { /* ignore */ } finally {
+        setLoading(false);
+      }
+    })();
+  }, [userId]);
+
+  if (loading) return <div className="card p-4 h-32 animate-pulse" />;
+  const withRoute = activities.filter(a => a.route_data?.coordinates && a.route_data.coordinates.length >= 2);
+  if (withRoute.length === 0) return null;
+
+  const W = 320, H = 140, PAD = 8;
+  const all: { lng: number; lat: number }[] = [];
+  withRoute.forEach(a => a.route_data?.coordinates?.forEach(([lng, lat]) => all.push({ lng, lat })));
+  const minLng = Math.min(...all.map(c => c.lng));
+  const maxLng = Math.max(...all.map(c => c.lng));
+  const minLat = Math.min(...all.map(c => c.lat));
+  const maxLat = Math.max(...all.map(c => c.lat));
+  const spanLng = maxLng - minLng || 0.001;
+  const spanLat = maxLat - minLat || 0.001;
+  const scale = Math.min((W - PAD * 2) / spanLng, (H - PAD * 2) / spanLat);
+  const offX = PAD + ((W - PAD * 2) - spanLng * scale) / 2;
+  const offY = PAD + ((H - PAD * 2) - spanLat * scale) / 2;
+
+  return (
+    <div className="card p-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1.5">
+          <MapPin size={14} className="text-emerald-500" />
+          <h3 className="text-sm font-extrabold">최근 7일 러닝 경로</h3>
+        </div>
+        <span className="text-xs font-bold text-emerald-600 tabular-nums">{withRoute.length}회</span>
+      </div>
+      <div className="rounded-xl bg-gradient-to-br from-emerald-50/60 via-white to-emerald-50/30 dark:from-emerald-950/20 dark:via-zinc-900 dark:to-emerald-950/10 border border-emerald-200/30 dark:border-emerald-900/20 overflow-hidden">
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 140 }} preserveAspectRatio="xMidYMid meet">
+          {withRoute.map((a, idx) => {
+            const coords = a.route_data?.coordinates ?? [];
+            if (coords.length < 2) return null;
+            const opacity = 0.95 - (idx / Math.max(1, withRoute.length - 1)) * 0.5;
+            const d = coords.map(([lng, lat], i) => {
+              const x = offX + (lng - minLng) * scale;
+              const y = H - (offY + (lat - minLat) * scale);
+              return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+            }).join(' ');
+            return <path key={idx} d={d} fill="none" stroke="#10b981" strokeOpacity={opacity} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />;
+          })}
+        </svg>
+      </div>
+    </div>
   );
 }
 

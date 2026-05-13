@@ -1,16 +1,16 @@
 'use client';
 
-// 동네 러너 지도 (build 124 — #9, #11).
-// 본인 + 같은 region_gu 다른 러너의 최근 N일 폴리라인을 SVG 로 색별 표시.
-// Google Maps 통합은 별도 build — 일단 가벼운 SVG 로 직관적 시각화.
+// 동네 러너 지도 (build 125 — Google Maps 통합).
+// 본인 + 같은 region_gu 다른 러너의 최근 N일 폴리라인을 실제 지도 위에 색별 표시.
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, MapPin, Users, Activity as ActivityIcon, ChevronRight } from 'lucide-react';
+import { ArrowLeft, MapPin, Users, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import { fetchRoutesForUser } from '@/lib/map-data';
+import { loadGoogleMaps, API_KEY } from '@/lib/google-maps';
 import type { Activity } from '@/types';
 import AppLogo from '@/components/AppLogo';
 import AppToast from '@/components/AppToast';
@@ -30,6 +30,13 @@ type DaysFilter = 3 | 7 | 30;
 
 // 12색 팔레트 — 본인은 emerald, 타인은 색 순환
 const PALETTE = ['#3b82f6', '#f97316', '#a855f7', '#ec4899', '#06b6d4', '#84cc16', '#f59e0b', '#ef4444', '#8b5cf6', '#0ea5e9', '#22c55e', '#eab308'];
+const MY_COLOR = '#10b981';
+
+declare global {
+  interface Window {
+    google: typeof google;
+  }
+}
 
 export default function NeighborhoodMapPage() {
   const router = useRouter();
@@ -39,13 +46,27 @@ export default function NeighborhoodMapPage() {
   const [neighborRoutes, setNeighborRoutes] = useState<NeighborhoodRoute[]>([]);
   const [loading, setLoading] = useState(true);
   const [highlightUserId, setHighlightUserId] = useState<string | null>(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
+  const mapDivRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const polylinesRef = useRef<{ key: string; polyline: google.maps.Polyline }[]>([]);
 
   const showToast = (text: string, tone: 'ok' | 'warn' = 'ok') => {
     setToast({ text, tone });
     setTimeout(() => setToast(null), 2000);
   };
 
+  // Google Maps 로드
+  useEffect(() => {
+    if (!API_KEY) { setMapError('지도 API 키가 설정되지 않았어요'); return; }
+    loadGoogleMaps()
+      .then(() => setMapLoaded(true))
+      .catch(e => setMapError(e instanceof Error ? e.message : '지도 로드 실패'));
+  }, []);
+
+  // 데이터 fetch
   const load = useCallback(async () => {
     if (!user) return;
     setLoading(true);
@@ -71,43 +92,89 @@ export default function NeighborhoodMapPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  // SVG viewBox 계산 — 본인 + 이웃 모든 좌표 모아서 bbox
-  const svgData = useMemo(() => {
-    const all: { lng: number; lat: number }[] = [];
-    myActivities.forEach(a => {
-      a.route_data?.coordinates?.forEach(([lng, lat]) => all.push({ lng, lat }));
-    });
-    neighborRoutes.forEach(r => {
-      r.route_data?.coordinates?.forEach(([lng, lat]) => all.push({ lng, lat }));
-    });
-    if (all.length === 0) return null;
-    const lngs = all.map(c => c.lng);
-    const lats = all.map(c => c.lat);
-    const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
-    const minLat = Math.min(...lats), maxLat = Math.max(...lats);
-    return { minLng, maxLng, minLat, maxLat };
-  }, [myActivities, neighborRoutes]);
+  // 지도 + 폴리라인 그리기
+  useEffect(() => {
+    if (!mapLoaded || !mapDivRef.current) return;
 
-  const VBW = 100, VBH = 60;
-  const PAD = 3;
-  const toPath = (coords: [number, number][]): string => {
-    if (!svgData || coords.length < 2) return '';
-    const { minLng, maxLng, minLat, maxLat } = svgData;
-    const spanLng = maxLng - minLng || 0.001;
-    const spanLat = maxLat - minLat || 0.001;
-    const scaleX = (VBW - PAD * 2) / spanLng;
-    const scaleY = (VBH - PAD * 2) / spanLat;
-    const scale = Math.min(scaleX, scaleY);
-    const offX = PAD + ((VBW - PAD * 2) - spanLng * scale) / 2;
-    const offY = PAD + ((VBH - PAD * 2) - spanLat * scale) / 2;
-    return coords.map(([lng, lat], i) => {
-      const x = offX + (lng - minLng) * scale;
-      const y = VBH - (offY + (lat - minLat) * scale);
-      return `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`;
-    }).join(' ');
-  };
+    // 모든 좌표 모아서 bbox 계산
+    const allLatLng: { lat: number; lng: number }[] = [];
+    myActivities.forEach(a => a.route_data?.coordinates?.forEach(([lng, lat]) => allLatLng.push({ lat, lng })));
+    neighborRoutes.forEach(r => r.route_data?.coordinates?.forEach(([lng, lat]) => allLatLng.push({ lat, lng })));
 
-  const myCoords = myActivities.flatMap(a => a.route_data?.coordinates ?? []);
+    if (allLatLng.length === 0) {
+      // 지도는 그대로, 데이터 없음
+      if (!mapRef.current) {
+        // 지역 기본 center (서울)
+        mapRef.current = new window.google.maps.Map(mapDivRef.current, {
+          center: { lat: 37.5665, lng: 126.978 },
+          zoom: 12,
+          disableDefaultUI: true,
+          zoomControl: true,
+          gestureHandling: 'greedy',
+        });
+      }
+      return;
+    }
+
+    const bounds = new window.google.maps.LatLngBounds();
+    allLatLng.forEach(p => bounds.extend(p));
+
+    if (!mapRef.current) {
+      mapRef.current = new window.google.maps.Map(mapDivRef.current, {
+        center: bounds.getCenter(),
+        zoom: 12,
+        disableDefaultUI: true,
+        zoomControl: true,
+        gestureHandling: 'greedy',
+      });
+    }
+    mapRef.current.fitBounds(bounds, 24);
+
+    // 기존 폴리라인 제거
+    polylinesRef.current.forEach(p => p.polyline.setMap(null));
+    polylinesRef.current = [];
+
+    // 이웃 폴리라인 추가
+    neighborRoutes.forEach((r, i) => {
+      const coords = r.route_data?.coordinates ?? [];
+      if (coords.length < 2) return;
+      const color = PALETTE[i % PALETTE.length];
+      const path = coords.map(([lng, lat]) => ({ lat, lng }));
+      const opacity = highlightUserId && highlightUserId !== r.user_id ? 0.15 : 0.85;
+      const polyline = new window.google.maps.Polyline({
+        path,
+        map: mapRef.current!,
+        strokeColor: color,
+        strokeOpacity: opacity,
+        strokeWeight: highlightUserId === r.user_id ? 6 : 4,
+      });
+      polylinesRef.current.push({ key: r.user_id, polyline });
+    });
+
+    // 본인 폴리라인 추가 (위에 그려져야 잘 보임 — 마지막에 추가)
+    myActivities.forEach((a, i) => {
+      const coords = a.route_data?.coordinates ?? [];
+      if (coords.length < 2) return;
+      const path = coords.map(([lng, lat]) => ({ lat, lng }));
+      const polyline = new window.google.maps.Polyline({
+        path,
+        map: mapRef.current!,
+        strokeColor: MY_COLOR,
+        strokeOpacity: highlightUserId ? 0.4 : 1.0,
+        strokeWeight: highlightUserId ? 4 : 6,
+      });
+      polylinesRef.current.push({ key: `me-${i}`, polyline });
+    });
+  }, [mapLoaded, myActivities, neighborRoutes, highlightUserId]);
+
+  // unmount 시 polyline 정리
+  useEffect(() => {
+    return () => {
+      polylinesRef.current.forEach(p => p.polyline.setMap(null));
+      polylinesRef.current = [];
+    };
+  }, []);
+
   const noRegion = !profile?.region_gu;
 
   return (
@@ -154,69 +221,28 @@ export default function NeighborhoodMapPage() {
             {/* 안내 */}
             <div className="rounded-2xl bg-gradient-to-br from-emerald-50/60 to-emerald-50/20 dark:from-emerald-950/30 dark:to-emerald-950/10 border border-emerald-200/50 dark:border-emerald-900/40 p-3">
               <p className="text-xs text-[var(--muted)] leading-relaxed">
-                <span className="font-extrabold text-emerald-700 dark:text-emerald-300">{profile?.region_gu}</span>에서 최근 {days}일 달린 러너들의 코스. 본인은 <span className="font-extrabold text-emerald-600">에메랄드</span>, 다른 러너는 색별로 구분돼요.
+                <span className="font-extrabold text-emerald-700 dark:text-emerald-300">{profile?.region_gu}</span>에서 최근 {days}일 달린 러너들의 코스. 본인은 <span className="font-extrabold" style={{ color: MY_COLOR }}>에메랄드</span>, 다른 러너는 색별로 구분돼요.
               </p>
             </div>
 
-            {/* 지도 SVG */}
-            <div className="rounded-2xl bg-gradient-to-br from-emerald-50/40 via-white to-teal-50/30 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-900 border-2 border-[var(--card-border)] overflow-hidden">
-              {loading ? (
-                <div className="h-72 animate-pulse bg-[var(--card-border)]/30" />
-              ) : !svgData ? (
-                <div className="h-72 flex flex-col items-center justify-center text-[var(--muted)] gap-2 px-6">
+            {/* Google Maps */}
+            <div className="rounded-2xl overflow-hidden border-2 border-[var(--card-border)]">
+              {mapError ? (
+                <div className="h-72 flex flex-col items-center justify-center text-[var(--muted)] gap-2 px-6 bg-[var(--card-border)]/20">
                   <MapPin size={32} className="opacity-30" />
-                  <p className="text-sm font-bold text-center">아직 동네에 GPS 활동이 없어요</p>
-                  <p className="text-xs text-center">달리고 동기화하면 여기 표시돼요</p>
+                  <p className="text-sm font-bold text-center">지도를 불러올 수 없어요</p>
+                  <p className="text-xs text-center text-rose-500">{mapError}</p>
                 </div>
-              ) : (
-                <svg viewBox={`0 0 ${VBW} ${VBH}`} preserveAspectRatio="xMidYMid meet" className="w-full" style={{ height: 320 }}>
-                  <defs>
-                    <pattern id="nb-grid" width="10" height="10" patternUnits="userSpaceOnUse">
-                      <path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(16,185,129,0.1)" strokeWidth="0.2" />
-                    </pattern>
-                  </defs>
-                  <rect width={VBW} height={VBH} fill="url(#nb-grid)" />
-
-                  {/* 이웃 러너 폴리라인 */}
-                  {neighborRoutes.map((r, i) => {
-                    const coords = r.route_data?.coordinates ?? [];
-                    if (coords.length < 2) return null;
-                    const color = PALETTE[i % PALETTE.length];
-                    const opacity = highlightUserId && highlightUserId !== r.user_id ? 0.15 : 0.85;
-                    return (
-                      <path
-                        key={r.user_id}
-                        d={toPath(coords)}
-                        fill="none"
-                        stroke={color}
-                        strokeWidth={highlightUserId === r.user_id ? 1.4 : 0.9}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        opacity={opacity}
-                      />
-                    );
-                  })}
-
-                  {/* 본인 폴리라인 (위) — 에메랄드 두꺼움 */}
-                  {myCoords.length >= 2 && myActivities.map((a, i) => {
-                    const raw = a.route_data?.coordinates ?? [];
-                    const coords: [number, number][] = raw.map(c => [c[0], c[1]]);
-                    if (coords.length < 2) return null;
-                    return (
-                      <path
-                        key={`me-${i}`}
-                        d={toPath(coords)}
-                        fill="none"
-                        stroke="#10b981"
-                        strokeWidth={highlightUserId ? 1.3 : 1.8}
-                        opacity={highlightUserId ? 0.4 : 1}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    );
-                  })}
-                </svg>
-              )}
+              ) : loading || !mapLoaded ? (
+                <div className="h-72 animate-pulse bg-[var(--card-border)]/30 flex items-center justify-center">
+                  <p className="text-xs text-[var(--muted)] font-bold">지도 로딩…</p>
+                </div>
+              ) : null}
+              <div
+                ref={mapDivRef}
+                style={{ height: 320, display: mapError ? 'none' : 'block' }}
+                className={mapLoaded && !loading ? '' : 'hidden'}
+              />
             </div>
 
             {/* 러너 list — 클릭 시 highlight */}
@@ -251,7 +277,6 @@ export default function NeighborhoodMapPage() {
                 </div>
               )}
 
-              {/* 이웃 러너 rows */}
               {loading ? (
                 [0,1,2].map(i => <div key={i} className="h-12 bg-[var(--card-border)]/30 animate-pulse rounded-xl" />)
               ) : neighborRoutes.length === 0 ? (
