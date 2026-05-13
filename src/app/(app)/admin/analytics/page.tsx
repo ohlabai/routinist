@@ -372,6 +372,7 @@ export default function AdminAnalyticsPage() {
                   <span className="text-[10px] text-[var(--muted)]">(지난주 {weekly.feedback.prev})</span>
                 </div>
               )}
+              <WeeklySendButtons />
             </Section>
           )}
 
@@ -455,6 +456,122 @@ export default function AdminAnalyticsPage() {
 
 function pct(n: number, d: number): number {
   return d > 0 ? Math.round((n / d) * 100) : 0;
+}
+
+function WeeklySendButtons() {
+  const [webhook, setWebhook] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const supabase = getSupabase();
+        const { data } = await supabase.rpc('admin_get_setting', { p_key: 'slack_webhook_url' });
+        if (typeof data === 'string') setWebhook(data);
+      } catch { /* ignore */ }
+    })();
+  }, []);
+
+  const showMsg = (t: string) => { setMsg(t); setTimeout(() => setMsg(null), 2500); };
+
+  const saveWebhook = async () => {
+    try {
+      const supabase = getSupabase();
+      const { error } = await supabase.rpc('admin_set_setting', {
+        p_key: 'slack_webhook_url',
+        p_value: webhook.trim(),
+        p_description: '위클리 리포트 발송용 슬랙 incoming webhook URL',
+      });
+      if (error) throw error;
+      setEditing(false);
+      showMsg('✨ 저장됨');
+    } catch (e) {
+      showMsg(e instanceof Error ? e.message : '저장 실패');
+    }
+  };
+
+  const sendSlack = async () => {
+    if (!webhook) { showMsg('webhook URL 먼저 설정하세요'); setEditing(true); return; }
+    setSending(true);
+    try {
+      const supabase = getSupabase();
+      const { data: text, error } = await supabase.rpc('admin_weekly_report_text');
+      if (error) throw error;
+      const r = await fetch(webhook, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      if (!r.ok) throw new Error(`Slack ${r.status}`);
+      showMsg('✅ 슬랙 발송 완료');
+    } catch (e) {
+      showMsg(e instanceof Error ? e.message : '발송 실패');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const copyText = async () => {
+    try {
+      const supabase = getSupabase();
+      const { data: text, error } = await supabase.rpc('admin_weekly_report_text');
+      if (error) throw error;
+      await navigator.clipboard.writeText(String(text));
+      showMsg('📋 텍스트 복사됨');
+    } catch (e) {
+      showMsg(e instanceof Error ? e.message : '실패');
+    }
+  };
+
+  return (
+    <div className="card p-3 mt-2 space-y-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          onClick={sendSlack}
+          disabled={sending}
+          className="flex-1 py-2.5 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white font-extrabold text-xs disabled:opacity-50 active:scale-95"
+        >
+          {sending ? '발송 중…' : '슬랙 발송'}
+        </button>
+        <button
+          onClick={copyText}
+          className="flex-1 py-2.5 rounded-xl bg-[var(--card-border)]/40 font-bold text-xs active:scale-95"
+        >
+          텍스트 복사
+        </button>
+        <button
+          onClick={() => setEditing(!editing)}
+          className="px-3 py-2.5 rounded-xl text-xs font-bold text-[var(--muted)] active:scale-95"
+        >
+          ⚙
+        </button>
+      </div>
+      {editing && (
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-bold text-[var(--muted)]">슬랙 Incoming Webhook URL</p>
+          <input
+            type="url"
+            value={webhook}
+            onChange={(e) => setWebhook(e.target.value)}
+            placeholder="https://hooks.slack.com/services/..."
+            className="w-full px-3 py-2 rounded-lg border-2 border-[var(--card-border)] bg-[var(--background)] text-xs font-mono focus:outline-none focus:border-violet-500"
+          />
+          <button
+            onClick={saveWebhook}
+            className="w-full py-2 rounded-lg bg-violet-500 text-white text-xs font-extrabold active:scale-95"
+          >
+            저장
+          </button>
+        </div>
+      )}
+      {msg && <p className="text-[11px] text-center font-bold text-emerald-600">{msg}</p>}
+      <p className="text-[10px] text-[var(--muted)] leading-snug">
+        자동 발송은 별도 pg_cron 또는 Vercel Cron 으로 매주 일요일 21:00 KST 에 admin_weekly_report_text() 결과를 webhook 에 POST 하면 됩니다.
+      </p>
+    </div>
+  );
 }
 
 function WeeklyCard({ label, this_, prev, unit }: { label: string; this_: number; prev: number; unit?: string }) {

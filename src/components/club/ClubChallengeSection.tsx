@@ -4,7 +4,7 @@
 // 클럽 상세 페이지에 마운트. owner/admin 만 새 코스 시작 가능, 멤버 모두의 km 자동 누적.
 
 import { useEffect, useState, useCallback } from 'react';
-import { Globe, Trophy, Plus, X, Users, Crown } from 'lucide-react';
+import { Globe, Trophy, Plus, X, Users, Crown, Download, Sparkles } from 'lucide-react';
 import {
   fetchClubCourses,
   fetchClubCourseLeaderboard,
@@ -25,6 +25,7 @@ export default function ClubChallengeSection({ clubId, canManage }: Props) {
   const [loading, setLoading] = useState(true);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [boardCourseId, setBoardCourseId] = useState<string | null>(null);
+  const [celebrate, setCelebrate] = useState<ClubCourse | null>(null);
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
 
   const showToast = (text: string, tone: 'ok' | 'warn' = 'ok') => {
@@ -36,6 +37,14 @@ export default function ClubChallengeSection({ clubId, canManage }: Props) {
     setLoading(true);
     try {
       const list = await fetchClubCourses(clubId);
+      // 신규 완주 감지 (localStorage 에 안 본 코스만) — 한 번만 셀러브레이션
+      const seenKey = `club_celebrated_${clubId}`;
+      const seen: string[] = JSON.parse(localStorage.getItem(seenKey) ?? '[]');
+      const justDone = list.find(c => c.completed_at && !seen.includes(c.course_id));
+      if (justDone) {
+        setCelebrate(justDone);
+        localStorage.setItem(seenKey, JSON.stringify([...seen, justDone.course_id]));
+      }
       setCourses(list);
     } catch (e) {
       console.warn('[club courses] load fail', e);
@@ -133,9 +142,170 @@ export default function ClubChallengeSection({ clubId, canManage }: Props) {
         />
       )}
 
+      {celebrate && (
+        <ClubCompletionCelebration
+          clubId={clubId}
+          course={celebrate}
+          onClose={() => setCelebrate(null)}
+        />
+      )}
+
       {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2000} />}
     </section>
   );
+}
+
+// ── 클럽 완주 셀러브레이션 모달 ─────────────────────────
+function ClubCompletionCelebration({ clubId, course, onClose }: {
+  clubId: string;
+  course: ClubCourse;
+  onClose: () => void;
+}) {
+  const [members, setMembers] = useState<ClubCourseLeaderRow[]>([]);
+
+  useEffect(() => {
+    fetchClubCourseLeaderboard(clubId, course.course_id).then(setMembers).catch(() => setMembers([]));
+  }, [clubId, course.course_id]);
+
+  const handleDownload = () => {
+    downloadClubCertificate(course, members);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[90] bg-black/80 flex items-center justify-center p-4 animate-[fadeIn_0.3s_ease-out]" onClick={onClose}>
+      <div className="w-full max-w-sm bg-gradient-to-br from-amber-50 via-white to-emerald-50 dark:from-amber-950/40 dark:via-zinc-900 dark:to-emerald-950/40 rounded-3xl p-6 shadow-2xl text-center" onClick={(e) => e.stopPropagation()}>
+        {/* 트로피 애니메이션 영역 */}
+        <div className="relative w-24 h-24 mx-auto mb-3">
+          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-amber-300 to-orange-500 blur-2xl opacity-50 animate-pulse" />
+          <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-2xl shadow-amber-500/40">
+            <Trophy size={48} className="text-white drop-shadow" />
+          </div>
+        </div>
+
+        <p className="text-xs font-extrabold text-amber-700 dark:text-amber-300 tracking-widest inline-flex items-center gap-1 justify-center">
+          <Sparkles size={12} /> 클럽 완주 <Sparkles size={12} />
+        </p>
+        <h2 className="text-2xl font-extrabold mt-1 break-keep">{course.name}</h2>
+        <p className="text-sm text-[var(--muted)] mt-1">
+          {course.country ?? '세계'} · {course.distance_km.toFixed(1)}km · 함께 해낸 {members.length}명
+        </p>
+
+        {/* 멤버 아바타 row */}
+        {members.length > 0 && (
+          <div className="mt-4 flex items-center justify-center -space-x-2">
+            {members.slice(0, 7).map(m => (
+              <div key={m.user_id} className="w-9 h-9 rounded-full bg-white dark:bg-zinc-900 border-2 border-amber-300 overflow-hidden">
+                {m.avatar_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={m.avatar_url} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-xs font-bold text-amber-700">{m.display_name.slice(0,1)}</div>
+                )}
+              </div>
+            ))}
+            {members.length > 7 && (
+              <div className="w-9 h-9 rounded-full bg-amber-500 text-white flex items-center justify-center font-extrabold text-[10px] border-2 border-amber-300">+{members.length - 7}</div>
+            )}
+          </div>
+        )}
+
+        <div className="mt-5 flex gap-2">
+          <button
+            onClick={handleDownload}
+            className="flex-1 py-3 rounded-xl bg-white dark:bg-zinc-800 border-2 border-amber-300/60 dark:border-amber-800/40 text-amber-700 dark:text-amber-300 font-extrabold text-sm active:scale-[0.98] inline-flex items-center justify-center gap-1.5"
+          >
+            <Download size={14} /> 인증서
+          </button>
+          <button
+            onClick={onClose}
+            className="flex-1 py-3 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white font-extrabold text-sm active:scale-[0.98] shadow-md shadow-amber-500/30"
+          >
+            축하해요!
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 클럽 완주 인증서 PDF — canvas 생성. CourseDetailSheet 패턴 재활용 + 멤버 합산.
+function downloadClubCertificate(course: ClubCourse, members: ClubCourseLeaderRow[]) {
+  const W = 1600;
+  const H = 1131;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#fefce8');
+  bg.addColorStop(1, '#f0fdf4');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+  ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 20;
+  ctx.strokeRect(40, 40, W - 80, H - 80);
+  ctx.strokeStyle = '#10b981'; ctx.lineWidth = 4;
+  ctx.strokeRect(70, 70, W - 140, H - 140);
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#10b981';
+  ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('ROUTINIST · CLUB MARATHON', W / 2, 160);
+
+  ctx.fillStyle = '#1f2937';
+  ctx.font = 'bold 92px Georgia, serif';
+  ctx.fillText('클럽 완주 인증서', W / 2, 300);
+
+  ctx.fillStyle = '#6b7280';
+  ctx.font = '32px Georgia, serif';
+  ctx.fillText('CLUB CERTIFICATE OF COMPLETION', W / 2, 350);
+
+  ctx.fillStyle = '#1f2937';
+  ctx.font = 'bold 80px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText(course.name, W / 2, 500);
+
+  ctx.fillStyle = '#f59e0b';
+  ctx.font = 'bold 56px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText(`${course.distance_km.toFixed(1)} km · ${course.country ?? '세계'}`, W / 2, 580);
+
+  ctx.fillStyle = '#374151';
+  ctx.font = '32px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText(`함께 해낸 ${members.length}명의 러너`, W / 2, 670);
+
+  // top 6 멤버 이름 row
+  ctx.fillStyle = '#10b981';
+  ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, sans-serif';
+  const names = members.slice(0, 6).map(m => `${m.display_name} (${Number(m.contributed_km).toFixed(0)}km)`).join('  ·  ');
+  ctx.fillText(names, W / 2, 740);
+
+  if (members.length > 6) {
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '22px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText(`+ ${members.length - 6}명 더`, W / 2, 780);
+  }
+
+  const dateStr = course.completed_at
+    ? new Date(course.completed_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
+    : new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+  ctx.fillStyle = '#6b7280';
+  ctx.font = '30px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText(`완주일: ${dateStr}`, W / 2, 920);
+
+  ctx.fillStyle = '#9ca3af';
+  ctx.font = '24px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('Run Your Routine Together.', W / 2, 1020);
+  ctx.fillStyle = '#10b981';
+  ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('routinist.kr', W / 2, 1060);
+
+  canvas.toBlob((blob) => {
+    if (!blob) return;
+    const link = document.createElement('a');
+    link.download = `Routinist_Club_${course.name.replace(/\s/g, '_')}.png`;
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  }, 'image/png');
 }
 
 function StartCoursePicker({ clubId, alreadyStartedIds, onClose, onStarted, onError }: {

@@ -5,16 +5,18 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Zap, Users, Check, Sparkles, ChevronRight, MapPin } from 'lucide-react';
+import { ArrowLeft, Zap, Users, Check, Sparkles, ChevronRight, MapPin, Calendar, Plus, X } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import {
   fetchPaceGroups,
   fetchPaceGroupMembers,
   joinPaceGroup,
   leavePaceGroup,
+  createPaceGroupContest,
   type PaceGroup,
   type PaceGroupMember,
 } from '@/lib/pace-group-data';
+import { todayStr } from '@/lib/kst';
 import { formatPace } from '@/lib/nearby-data';
 import AppLogo from '@/components/AppLogo';
 import AppToast from '@/components/AppToast';
@@ -30,6 +32,7 @@ export default function PaceGroupsPage() {
   const [openMembers, setOpenMembers] = useState<string | null>(null);
   const [members, setMembers] = useState<PaceGroupMember[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
+  const [contestModal, setContestModal] = useState<PaceGroup | null>(null);
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
 
   const showToast = (text: string, tone: 'ok' | 'warn' = 'ok') => {
@@ -150,8 +153,16 @@ export default function PaceGroupsPage() {
                   onClick={() => handleOpenMembers(g)}
                   className="flex-1 py-2.5 rounded-xl bg-[var(--card-border)]/30 font-bold text-xs active:scale-95 inline-flex items-center justify-center gap-1"
                 >
-                  <Users size={12} /> 멤버 보기
+                  <Users size={12} /> 멤버
                 </button>
+                {g.is_joined && (
+                  <button
+                    onClick={() => setContestModal(g)}
+                    className="flex-1 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 font-extrabold text-xs active:scale-95 inline-flex items-center justify-center gap-1 border border-amber-200/60 dark:border-amber-800/40"
+                  >
+                    <Calendar size={12} /> 친선런
+                  </button>
+                )}
                 <button
                   onClick={() => handleJoin(g)}
                   disabled={busy === g.group_id}
@@ -224,7 +235,113 @@ export default function PaceGroupsPage() {
         </div>
       )}
 
+      {/* 그룹 친선런 만들기 모달 */}
+      {contestModal && (
+        <PaceGroupContestModal
+          group={contestModal}
+          onClose={() => setContestModal(null)}
+          onCreated={(id) => {
+            setContestModal(null);
+            showToast('✨ 그룹 친선런 생성됨');
+            router.push(`/ranking?tab=contest&open=${id}`);
+          }}
+          onError={(m) => showToast(m, 'warn')}
+        />
+      )}
+
       {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2000} />}
+    </div>
+  );
+}
+
+function PaceGroupContestModal({ group, onClose, onCreated, onError }: {
+  group: PaceGroup;
+  onClose: () => void;
+  onCreated: (contestId: string) => void;
+  onError: (m: string) => void;
+}) {
+  const [title, setTitle] = useState(`${group.label} 친선런`);
+  const [contestDate, setContestDate] = useState(todayStr());
+  const [meetupTime, setMeetupTime] = useState('07:00');
+  const [meetupLocation, setMeetupLocation] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const handleSubmit = async () => {
+    if (title.trim().length < 2) { onError('제목이 너무 짧아요'); return; }
+    setBusy(true);
+    try {
+      const id = await createPaceGroupContest(group.group_id, title.trim(), contestDate, {
+        meetupLocation: meetupLocation.trim() || null,
+        meetupTime: meetupTime.trim() || null,
+      });
+      onCreated(id);
+    } catch (e) {
+      onError(e instanceof Error ? e.message : '생성 실패');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[80] bg-black/65 flex items-end sm:items-center justify-center sm:p-3" onClick={() => !busy && onClose()}>
+      <div className="w-full sm:max-w-md bg-[var(--background)] rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="sticky top-0 z-10 px-5 pt-4 pb-3 bg-[var(--background)] border-b border-[var(--card-border)] rounded-t-3xl">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
+                <Calendar size={18} className="text-white" />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold">그룹 친선런</h3>
+                <p className="text-[11px] text-[var(--muted)] mt-0.5">{group.emoji} {group.label} · {group.member_count}명 자동 초대</p>
+              </div>
+            </div>
+            <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90"><X size={18} /></button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+          <Field label="제목">
+            <input value={title} onChange={(e) => setTitle(e.target.value.slice(0, 80))} className={inputCls} />
+          </Field>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="날짜">
+              <input type="date" value={contestDate} onChange={(e) => setContestDate(e.target.value)} className={inputCls} />
+            </Field>
+            <Field label="시간">
+              <input type="time" value={meetupTime} onChange={(e) => setMeetupTime(e.target.value)} className={inputCls} />
+            </Field>
+          </div>
+          <Field label="만남 장소 (선택)">
+            <input value={meetupLocation} onChange={(e) => setMeetupLocation(e.target.value.slice(0, 80))} placeholder="예) 한강 잠실대교 북단" className={inputCls} />
+          </Field>
+          <div className="rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-900/40 p-3">
+            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1">
+              <Users size={11} /> 그룹 전원 {group.member_count}명이 자동으로 참가자에 추가돼요
+            </p>
+            <p className="text-[10px] text-[var(--muted)] mt-1">공개 모집판에도 노출됩니다.</p>
+          </div>
+        </div>
+        <div className="sticky bottom-0 px-5 py-4 bg-[var(--background)] border-t border-[var(--card-border)]/40" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
+          <button
+            onClick={handleSubmit}
+            disabled={busy || title.trim().length < 2}
+            className="w-full py-3.5 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-white font-extrabold text-sm disabled:opacity-50 active:scale-[0.98] inline-flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/30"
+          >
+            {busy ? '만드는 중…' : <><Plus size={16} /> 그룹 친선런 만들기</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const inputCls = 'w-full px-3.5 py-3 rounded-xl border-2 border-[var(--card-border)] bg-[var(--card)] text-[15px] focus:outline-none focus:border-amber-500';
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-xs font-bold text-[var(--muted)] mb-1">{label}</label>
+      {children}
     </div>
   );
 }

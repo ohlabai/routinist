@@ -60,3 +60,23 @@ export async function leavePaceGroup(): Promise<void> {
   const { error } = await supabase.rpc('leave_pace_group');
   if (error) throw error;
 }
+
+// 그룹 친선런 자동 생성 — 그룹 멤버 모두 자동 초대
+export async function createPaceGroupContest(
+  groupId: string,
+  title: string,
+  contestDate: string,
+  options?: { eventType?: 'distance' | 'duration' | 'pace'; meetupLocation?: string | null; meetupTime?: string | null }
+): Promise<string> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.rpc('create_pace_group_contest', {
+    p_group_id: groupId,
+    p_title: title,
+    p_contest_date: contestDate,
+    p_event_type: options?.eventType ?? 'distance',
+    p_meetup_location: options?.meetupLocation ?? null,
+    p_meetup_time: options?.meetupTime ?? null,
+  });
+  if (error) throw error;
+  return data as string;
+}
