@@ -159,8 +159,8 @@ export default function FeedbackPage() {
           <Link href="/profile" className="w-10 h-10 flex items-center justify-center rounded-full active:bg-[var(--card-border)]/30">
             <ArrowLeft size={20} />
           </Link>
-          <AppLogo size={24} />
-          <h1 className="text-lg font-extrabold tracking-tight">제안 / 버그 게시판</h1>
+          <AppLogo size={26} />
+          <h1 className="text-xl font-extrabold tracking-tight">제안 / 버그</h1>
         </div>
         <div className="px-4 pb-3 flex items-center gap-2 overflow-x-auto scrollbar-hide">
           {STATUS_FILTERS.map(f => (
@@ -194,15 +194,18 @@ export default function FeedbackPage() {
       </header>
 
       <div className="p-4 space-y-3">
-        {/* 안내 카드 */}
-        <div className="rounded-2xl bg-gradient-to-br from-emerald-50/80 via-white to-emerald-50/30 dark:from-emerald-950/30 dark:via-zinc-900 dark:to-emerald-950/10 border border-emerald-200/50 dark:border-emerald-900/40 p-4">
-          <p className="text-sm font-extrabold text-emerald-700 dark:text-emerald-300 mb-1">
-            서비스를 더 나아지게 도와주세요
-          </p>
-          <p className="text-xs text-[var(--muted)] leading-relaxed">
-            버그·기능·UI 어떤 제안이든 환영해요. 좋아요가 많이 모인 글은 우선 검토합니다.
-            <br />반영되면 운영자가 직접 답글로 알려드려요.
-          </p>
+        {/* 안내 카드 — 에메랄드 히어로 */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-500 via-emerald-500 to-teal-600 p-5 shadow-lg shadow-emerald-500/30">
+          <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/10 blur-2xl" />
+          <div className="relative">
+            <p className="text-base font-extrabold text-white mb-1.5">
+              서비스를 더 나아지게 도와주세요
+            </p>
+            <p className="text-xs text-white/90 leading-relaxed">
+              버그·기능·UI 어떤 제안이든 환영해요. 좋아요가 모이면 우선 검토하고,
+              운영자가 직접 답글로 진행 상황을 알려드려요.
+            </p>
+          </div>
         </div>
 
         {loading ? (
@@ -221,17 +224,17 @@ export default function FeedbackPage() {
             const isMine = user?.id === p.user_id;
             const isOpen = expanded.has(p.id);
             return (
-              <article key={p.id} className="card p-4">
-                <div className="flex items-start gap-2.5 mb-2">
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${CATEGORY_COLORS[p.category]}`}>
-                    <Icon size={16} />
+              <article key={p.id} className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] p-5">
+                <div className="flex items-start gap-3 mb-2.5">
+                  <div className={`w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 ${CATEGORY_COLORS[p.category]}`}>
+                    <Icon size={20} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[var(--card-border)]/40 text-[var(--muted)]">
+                      <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-[var(--card-border)]/40 text-[var(--muted)]">
                         {CATEGORY_LABEL[p.category]}
                       </span>
-                      <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${STATUS_COLOR[p.status]}`}>
+                      <span className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full ${STATUS_COLOR[p.status]}`}>
                         {STATUS_LABEL[p.status]}
                       </span>
                       {!p.is_public && (
@@ -240,54 +243,54 @@ export default function FeedbackPage() {
                         </span>
                       )}
                     </div>
-                    <p className="text-sm font-extrabold mt-1 text-[var(--foreground)] leading-snug">{p.title}</p>
-                    <p className="text-[11px] text-[var(--muted)] mt-0.5">
-                      {p.author_name} · {timeAgo(p.created_at)}
+                    <p className="text-[17px] font-extrabold mt-1.5 text-[var(--foreground)] leading-snug break-keep">{p.title}</p>
+                    <p className="text-xs text-[var(--muted)] mt-1 font-medium">
+                      {p.author_name} <span className="text-[var(--card-border)]">·</span> {timeAgo(p.created_at)}
                     </p>
                   </div>
                 </div>
 
-                <p className={`text-sm text-[var(--foreground)] leading-relaxed whitespace-pre-wrap break-keep ${isOpen ? '' : 'line-clamp-3'}`}>
+                <p className={`text-[15px] text-[var(--foreground)] leading-relaxed whitespace-pre-wrap break-keep ${isOpen ? '' : 'line-clamp-3'}`}>
                   {p.body}
                 </p>
                 {p.body.length > 100 && (
                   <button
                     onClick={() => toggleExpand(p.id)}
-                    className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-1"
+                    className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400 mt-1.5 active:scale-95"
                   >
-                    {isOpen ? '접기' : '더 보기'}
+                    {isOpen ? '접기 ↑' : '더 보기 ↓'}
                   </button>
                 )}
 
-                {/* 어드민 답글 */}
+                {/* 어드민 답글 — 에메랄드 톤 강화 */}
                 {p.admin_reply && (
-                  <div className="mt-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/40 p-3">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <div className="w-5 h-5 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center">
-                        <Check size={11} className="text-white" />
+                  <div className="mt-3.5 rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-50/50 dark:from-emerald-950/40 dark:to-emerald-950/20 border-2 border-emerald-200/60 dark:border-emerald-800/40 p-3.5">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-sm">
+                        <Check size={13} className="text-white" strokeWidth={3} />
                       </div>
-                      <span className="text-[11px] font-extrabold text-emerald-700 dark:text-emerald-300">운영자 답글</span>
+                      <span className="text-xs font-extrabold text-emerald-700 dark:text-emerald-300">운영자 답글</span>
                       {p.admin_replied_at && (
                         <span className="text-[10px] text-[var(--muted)]">· {timeAgo(p.admin_replied_at)}</span>
                       )}
                     </div>
-                    <p className="text-sm text-emerald-900 dark:text-emerald-100 leading-relaxed whitespace-pre-wrap break-keep">
+                    <p className="text-[14px] text-emerald-900 dark:text-emerald-100 leading-relaxed whitespace-pre-wrap break-keep">
                       {p.admin_reply}
                     </p>
                   </div>
                 )}
 
-                <div className="mt-3 flex items-center gap-1">
+                <div className="mt-3.5 flex items-center gap-1.5">
                   <button
                     onClick={() => handleUpvote(p)}
                     disabled={likeBusy === p.id}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold transition active:scale-95 disabled:opacity-50 ${
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-extrabold transition active:scale-95 disabled:opacity-50 ${
                       p.liked_by_me
-                        ? 'bg-emerald-500 text-white'
+                        ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/30'
                         : 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--muted)]'
                     }`}
                   >
-                    <ThumbsUp size={14} fill={p.liked_by_me ? '#ffffff' : 'transparent'} />
+                    <ThumbsUp size={15} fill={p.liked_by_me ? '#ffffff' : 'transparent'} strokeWidth={2.2} />
                     {p.upvote_count}
                   </button>
                   {isMine ? (
@@ -313,16 +316,16 @@ export default function FeedbackPage() {
         )}
       </div>
 
-      {/* FAB */}
+      {/* FAB — 큼직하고 또렷한 에메랄드 CTA */}
       <button
         onClick={() => {
           if (!user) { showToast('로그인이 필요해요', 'warn'); return; }
           setComposeOpen(true);
         }}
         aria-label="제안 쓰기"
-        className="fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+88px)] z-30 px-4 py-3 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold shadow-xl shadow-emerald-500/40 active:scale-95 inline-flex items-center gap-1.5"
+        className="fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+88px)] z-30 px-5 py-3.5 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base shadow-xl shadow-emerald-500/40 active:scale-95 inline-flex items-center gap-2 transition"
       >
-        <Plus size={18} /> 쓰기
+        <Plus size={20} strokeWidth={3} /> 제안 쓰기
       </button>
 
       {composeOpen && (
@@ -412,92 +415,159 @@ function ComposeModal({ onClose, onCreated, onError }: {
     }
   };
 
+  // 모바일 작성 최적화 — 큰 글씨 / 넓은 칸 / 에메랄드 일관 컬러 (사용자 피드백 2026-05-14).
   return (
     <div
-      className="fixed inset-0 z-[80] bg-black/65 flex items-end sm:items-center justify-center p-3 animate-[fadeIn_0.2s_ease-out]"
+      className="fixed inset-0 z-[80] bg-black/65 flex items-end sm:items-center justify-center sm:p-3 animate-[fadeIn_0.2s_ease-out]"
       onClick={() => !submitting && onClose()}
     >
-      <div className="w-full max-w-md bg-[var(--background)] rounded-3xl p-5 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start justify-between mb-3">
-          <h3 className="text-base font-extrabold inline-flex items-center gap-1.5">
-            <MessageSquare size={16} className="text-emerald-500" /> 제안 쓰기
-          </h3>
-          <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90">
-            <X size={16} />
+      <div
+        className="w-full sm:max-w-lg bg-[var(--background)] rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* 헤더 — sticky, 에메랄드 그라데이션 액센트 */}
+        <div className="sticky top-0 z-10 px-5 pt-4 pb-3 bg-[var(--background)] border-b border-emerald-100 dark:border-emerald-950/40 rounded-t-3xl">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-50 dark:from-emerald-900/40 dark:to-emerald-950/40 flex items-center justify-center">
+                <MessageSquare size={18} className="text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-extrabold tracking-tight">제안 쓰기</h3>
+                <p className="text-[11px] text-[var(--muted)]">의견을 들려주세요</p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90 transition"
+              aria-label="닫기"
+            >
+              <X size={20} />
+            </button>
+          </div>
+        </div>
+
+        {/* 본문 — scroll */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+          {/* 카테고리 — 2x2 grid, 큰 카드 */}
+          <div>
+            <label className="block text-sm font-extrabold text-[var(--foreground)] mb-2">카테고리</label>
+            <div className="grid grid-cols-2 gap-2">
+              {(['bug', 'feature', 'ui', 'other'] as FeedbackCategory[]).map(c => {
+                const Icon = CATEGORY_ICONS[c];
+                const active = category === c;
+                return (
+                  <button
+                    key={c}
+                    onClick={() => setCategory(c)}
+                    className={`flex items-center gap-2.5 py-3.5 px-4 rounded-2xl font-bold text-sm active:scale-95 transition border-2 ${
+                      active
+                        ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-transparent shadow-md shadow-emerald-500/30'
+                        : 'bg-[var(--card)] text-[var(--foreground)] border-[var(--card-border)]'
+                    }`}
+                  >
+                    <Icon size={18} className={active ? 'text-white' : 'text-emerald-500'} />
+                    {CATEGORY_LABEL[c]}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 제목 — 큰 input */}
+          <div>
+            <label className="block text-sm font-extrabold text-[var(--foreground)] mb-2">제목</label>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value.slice(0, 120))}
+              placeholder="한 줄로 요약해주세요"
+              className="w-full px-4 py-4 rounded-2xl border-2 border-[var(--card-border)] bg-[var(--card)] text-[17px] font-semibold focus:outline-none focus:border-emerald-500 focus:bg-emerald-50/40 dark:focus:bg-emerald-950/20 transition placeholder:text-[var(--muted)] placeholder:font-normal"
+            />
+            <p className="text-[11px] text-[var(--muted)] mt-1.5 px-1">{title.length}/120</p>
+          </div>
+
+          {/* 내용 — 큰 textarea */}
+          <div>
+            <label className="block text-sm font-extrabold text-[var(--foreground)] mb-2">내용</label>
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value.slice(0, 4000))}
+              rows={9}
+              placeholder={
+                category === 'bug'
+                  ? '어떤 화면에서\n어떻게 했을 때\n어떻게 됐는지\n\n구체적으로 알려주시면 빠르게 고칠 수 있어요'
+                  : category === 'feature'
+                  ? '어떤 기능이\n왜 필요한지\n어디서 쓰고 싶은지\n\n자유롭게 들려주세요'
+                  : category === 'ui'
+                  ? '어떤 화면의\n어떤 부분이\n어떻게 개선되면 좋을지'
+                  : '자유롭게 의견을 들려주세요'
+              }
+              className="w-full px-4 py-4 rounded-2xl border-2 border-[var(--card-border)] bg-[var(--card)] text-[17px] leading-relaxed focus:outline-none focus:border-emerald-500 focus:bg-emerald-50/40 dark:focus:bg-emerald-950/20 transition resize-none placeholder:text-[var(--muted)] placeholder:text-[15px] placeholder:leading-relaxed"
+            />
+            <div className="flex justify-between mt-1.5 px-1">
+              <span className="text-[11px] text-[var(--muted)]">{body.length}/4000</span>
+              {body.length >= 5 && (
+                <span className="text-[11px] text-emerald-600 font-bold inline-flex items-center gap-0.5">
+                  <Check size={11} /> 충분히 적었어요
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* 공개여부 — 큰 toggle 카드 */}
+          <button
+            type="button"
+            onClick={() => setIsPublic(!isPublic)}
+            className={`w-full flex items-start gap-3 p-4 rounded-2xl border-2 text-left active:scale-[0.99] transition ${
+              isPublic
+                ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-300/60 dark:border-emerald-800/40'
+                : 'bg-[var(--card)] border-[var(--card-border)]'
+            }`}
+          >
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+              isPublic
+                ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white'
+                : 'bg-[var(--card-border)]/40 text-[var(--muted)]'
+            }`}>
+              {isPublic ? <Globe size={18} /> : <Lock size={18} />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className={`text-sm font-extrabold ${isPublic ? 'text-emerald-700 dark:text-emerald-300' : 'text-[var(--foreground)]'}`}>
+                {isPublic ? '공개로 등록' : '비공개 (나·운영자만)'}
+              </p>
+              <p className="text-[12px] text-[var(--muted)] mt-0.5 leading-snug">
+                {isPublic
+                  ? '다른 러너가 좋아요를 누를 수 있어요. 같은 의견이 모이면 우선 반영됩니다.'
+                  : '공개 게시판에는 노출되지 않아요. 운영자만 볼 수 있어요.'}
+              </p>
+            </div>
+            <div className={`w-11 h-6 rounded-full flex-shrink-0 mt-1 transition relative ${
+              isPublic ? 'bg-gradient-to-r from-emerald-500 to-emerald-600' : 'bg-[var(--card-border)]'
+            }`}>
+              <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${
+                isPublic ? 'left-[22px]' : 'left-0.5'
+              }`} />
+            </div>
           </button>
         </div>
 
-        <label className="block text-xs font-bold text-[var(--muted)] mb-1">카테고리</label>
-        <div className="grid grid-cols-4 gap-1.5">
-          {(['bug', 'feature', 'ui', 'other'] as FeedbackCategory[]).map(c => {
-            const Icon = CATEGORY_ICONS[c];
-            const active = category === c;
-            return (
-              <button
-                key={c}
-                onClick={() => setCategory(c)}
-                className={`flex flex-col items-center gap-1 py-2.5 rounded-xl font-bold text-[11px] active:scale-95 transition ${
-                  active ? 'bg-emerald-500 text-white shadow' : 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--muted)]'
-                }`}
-              >
-                <Icon size={14} />
-                {CATEGORY_LABEL[c]}
-              </button>
-            );
-          })}
+        {/* CTA — sticky bottom, 안전영역 */}
+        <div className="sticky bottom-0 px-5 py-4 bg-[var(--background)] border-t border-[var(--card-border)]/40" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
+          <button
+            onClick={handleSubmit}
+            disabled={submitting || title.trim().length < 2 || body.trim().length < 5}
+            className="w-full py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base disabled:opacity-50 active:scale-[0.98] inline-flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/30 transition"
+          >
+            {submitting ? (
+              <>
+                <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                등록 중…
+              </>
+            ) : (
+              <><Check size={18} strokeWidth={3} /> 등록</>
+            )}
+          </button>
         </div>
-
-        <label className="block text-xs font-bold text-[var(--muted)] mt-3 mb-1">제목</label>
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value.slice(0, 120))}
-          placeholder="한 줄로 요약해주세요"
-          className="w-full px-3.5 py-2.5 rounded-xl border-2 border-[var(--card-border)] bg-[var(--background)] text-sm focus:outline-none focus:border-emerald-500"
-        />
-
-        <label className="block text-xs font-bold text-[var(--muted)] mt-3 mb-1">내용</label>
-        <textarea
-          value={body}
-          onChange={(e) => setBody(e.target.value.slice(0, 4000))}
-          rows={6}
-          placeholder={
-            category === 'bug'
-              ? '어떤 화면에서 / 어떻게 했을 때 / 어떻게 됐는지 알려주세요'
-              : category === 'feature'
-              ? '어떤 기능이 / 왜 / 어디서 필요한지 알려주세요'
-              : '자유롭게 의견을 들려주세요'
-          }
-          className="w-full px-3.5 py-3 rounded-xl border-2 border-[var(--card-border)] bg-[var(--background)] text-sm focus:outline-none focus:border-emerald-500 resize-none"
-        />
-        <div className="flex justify-between mt-1">
-          <span className="text-[10px] text-[var(--muted)]">{body.length}/4000</span>
-        </div>
-
-        <label className="flex items-start gap-2.5 mt-3 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={isPublic}
-            onChange={(e) => setIsPublic(e.target.checked)}
-            className="mt-0.5"
-          />
-          <div className="flex-1">
-            <p className="text-sm font-bold inline-flex items-center gap-1">
-              {isPublic ? <Globe size={13} className="text-emerald-500" /> : <Lock size={13} className="text-[var(--muted)]" />}
-              {isPublic ? '공개로 등록' : '비공개 (나와 운영자만)'}
-            </p>
-            <p className="text-[11px] text-[var(--muted)] mt-0.5 leading-snug">
-              공개로 등록하면 다른 러너가 좋아요를 누를 수 있어요. 같은 의견이 모이면 우선 반영됩니다.
-            </p>
-          </div>
-        </label>
-
-        <button
-          onClick={handleSubmit}
-          disabled={submitting || title.trim().length < 2 || body.trim().length < 5}
-          className="w-full mt-4 py-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-sm disabled:opacity-50 active:scale-[0.98] inline-flex items-center justify-center gap-1.5"
-        >
-          {submitting ? '등록 중…' : <><Check size={16} /> 등록</>}
-        </button>
       </div>
     </div>
   );
