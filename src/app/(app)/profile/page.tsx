@@ -158,6 +158,7 @@ export default function ProfilePage() {
   // build 106 메뉴 IA 재편 — 나의 명언/명언사전/러너의 에세이는 소셜 탭으로 이전.
   // 데이터 점검은 어드민 전용으로 이동.
   const settings: { href: string; label: string; Icon: typeof HelpCircle }[] = [
+    { href: '/feedback', label: '제안 / 버그 게시판', Icon: HelpCircle },
     { href: '/shop/orders', label: '내 주문 내역', Icon: HelpCircle },
     { href: '/shop/addresses', label: '배송지 관리', Icon: HelpCircle },
     ...(isAdmin ? [

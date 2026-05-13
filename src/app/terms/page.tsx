@@ -66,8 +66,9 @@ export default function TermsPage() {
               '본 약관에 관한 분쟁은 대한민국 법령을 따르며, 서울중앙지방법원을 1심 관할로 합니다.',
             ]},
             { title: '제10조 (문의)', items: [
-              '약관 관련 문의: hans@openhan.kr',
+              '약관 관련 문의: routinist@openhan.kr',
               '개인정보 관련 문의: 앱 내 "내 정보 → 개인정보처리방침" 참고',
+              '운영사: (주)오픈한',
             ]},
           ].map((section) => (
             <div key={section.title} className="card p-5">

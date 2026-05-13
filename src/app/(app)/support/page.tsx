@@ -1,6 +1,7 @@
 'use client';
 
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, MessageSquare, ChevronRight } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 export default function SupportPage() {
@@ -14,6 +15,25 @@ export default function SupportPage() {
         </button>
         <h1 className="text-xl font-bold text-[var(--foreground)]">고객 지원</h1>
       </div>
+
+      {/* 제안 / 버그 게시판 CTA — 1:1 이메일보다 빠른 응대 */}
+      <Link
+        href="/feedback"
+        className="block rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 p-5 shadow-lg shadow-emerald-500/30 active:scale-[0.99] transition"
+      >
+        <div className="flex items-start gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center flex-shrink-0">
+            <MessageSquare size={22} className="text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-base font-extrabold text-white">제안 / 버그 게시판</p>
+            <p className="text-xs text-white/85 mt-0.5 leading-relaxed">
+              버그·기능 요청을 남기면 좋아요 모인 순서대로 우선 반영해요. 공개 글에는 운영자가 답글로 진행 상황을 알려드려요.
+            </p>
+          </div>
+          <ChevronRight size={18} className="text-white flex-shrink-0 mt-2" />
+        </div>
+      </Link>
 
       <div className="card p-5 space-y-3">
         <h2 className="text-base font-bold text-[var(--foreground)]">앱 소개</h2>
@@ -32,7 +52,7 @@ export default function SupportPage() {
           <span className="text-2xl">&#9993;</span>
           <div>
             <p className="text-xs text-[var(--muted)]">이메일</p>
-            <a href="mailto:hans@openhan.kr" className="text-[var(--accent)] font-semibold">hans@openhan.kr</a>
+            <a href="mailto:routinist@openhan.kr" className="text-[var(--accent)] font-semibold">routinist@openhan.kr</a>
           </div>
         </div>
       </div>
@@ -72,7 +92,8 @@ export default function SupportPage() {
         <h2 className="text-base font-bold text-[var(--foreground)]">운영 정보</h2>
         <div className="text-sm text-[var(--muted)] space-y-1">
           <p>서비스명: Routinist</p>
-          <p>이메일: hans@openhan.kr</p>
+          <p>운영사: (주)오픈한</p>
+          <p>이메일: routinist@openhan.kr</p>
         </div>
       </div>
     </div>

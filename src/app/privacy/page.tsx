@@ -77,8 +77,8 @@ export default function PrivacyPage() {
               '계정 삭제 시 러닝 기록, 프로필, 쪽지 등 모든 데이터가 삭제됩니다',
             ]},
             { title: '9. 연락처', items: [
-              '개인정보 관련 문의: hans@openhan.kr',
-              '운영사: OPENHAN',
+              '개인정보 관련 문의: routinist@openhan.kr',
+              '운영사: (주)오픈한',
             ]},
           ].map(section => (
             <div key={section.title} className="card p-5 space-y-2">
