@@ -38,6 +38,7 @@ export interface VirtualCourse {
   real_path: RealLatLng[] | null;  // 실제 GPS 좌표 (Google Maps 통합용)
   entry_fee_p: number;
   continent: Continent | null;
+  series_id?: string | null;
   story: string | null;
   past_winners: PastWinner[] | null;
   youtube_url: string | null;
@@ -91,7 +92,7 @@ export interface MyCourse {
   has_medal: boolean;
 }
 
-const COURSE_FIELDS_LIST = 'id, name, distance_km, country, description, hero_image_url, preview_path, entry_fee_p, continent, sort_order';
+const COURSE_FIELDS_LIST = 'id, name, distance_km, country, description, hero_image_url, preview_path, entry_fee_p, continent, series_id, sort_order';
 const COURSE_FIELDS_FULL = 'id, name, distance_km, country, description, hero_image_url, preview_path, real_path, entry_fee_p, continent, story, past_winners, youtube_url, official_url, elevation_profile, landmarks, course_record';
 
 export async function fetchAvailableCourses(): Promise<VirtualCourse[]> {
@@ -199,6 +200,24 @@ export async function adminUpsertCourse(row: CourseUpsert): Promise<void> {
     sort_order: row.sort_order ?? 0,
   });
   if (error) throw error;
+}
+
+export interface CourseSeries {
+  series_id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  emoji: string | null;
+  course_count: number;
+  my_completed: number;
+  total_distance_km: number;
+}
+
+export async function fetchCourseSeries(): Promise<CourseSeries[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.rpc('fetch_course_series');
+  if (error) throw error;
+  return (data ?? []) as CourseSeries[];
 }
 
 export async function adminListAllCourses(): Promise<VirtualCourse[]> {

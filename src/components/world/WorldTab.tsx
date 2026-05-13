@@ -8,6 +8,7 @@ import { Globe, Trophy, Sparkles, Flag, MapPin } from 'lucide-react';
 import {
   fetchAvailableCourses,
   fetchMyCourses,
+  fetchCourseSeries,
   startCourse,
   CONTINENT_LABEL,
   CONTINENT_EMOJI,
@@ -15,6 +16,7 @@ import {
   type MyCourse,
   type PreviewPoint,
   type Continent,
+  type CourseSeries,
 } from '@/lib/world-data';
 import AppToast from '@/components/AppToast';
 import CourseDetailSheet from './CourseDetailSheet';
@@ -102,6 +104,8 @@ export default function WorldTab() {
   const [detailCourseId, setDetailCourseId] = useState<string | null>(null);
   const [confirmStart, setConfirmStart] = useState<VirtualCourse | null>(null);
   const [continentFilter, setContinentFilter] = useState<Continent | 'all'>('all');
+  const [seriesList, setSeriesList] = useState<CourseSeries[]>([]);
+  const [seriesFilter, setSeriesFilter] = useState<string | null>(null);
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
 
   const showToast = useCallback((text: string, tone: 'ok' | 'warn' = 'ok') => {
@@ -120,7 +124,9 @@ export default function WorldTab() {
       console.warn('[world] fetchAvailableCourses fail', e);
       return [] as VirtualCourse[];
     });
-    const [my, all] = await Promise.all([myPromise, allPromise]);
+    const seriesPromise = fetchCourseSeries().catch(() => [] as CourseSeries[]);
+    const [my, all, series] = await Promise.all([myPromise, allPromise, seriesPromise]);
+    setSeriesList(series);
 
     setMine(my);
     const startedIds = new Set(my.map(m => m.course_id));
@@ -187,6 +193,45 @@ export default function WorldTab() {
         </Section>
       )}
 
+      {/* 챌린지 시리즈 (build 128 — The Conqueror 풍) */}
+      {seriesList.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-extrabold inline-flex items-center gap-1.5">
+              <Trophy size={14} className="text-amber-500" /> 챌린지 시리즈
+            </h2>
+            {seriesFilter && (
+              <button onClick={() => setSeriesFilter(null)} className="text-[11px] font-bold text-emerald-600 active:scale-95">전체</button>
+            )}
+          </div>
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mx-1 px-1">
+            {seriesList.map(s => {
+              const active = seriesFilter === s.series_id;
+              const pct = s.course_count > 0 ? Math.round((s.my_completed / s.course_count) * 100) : 0;
+              return (
+                <button
+                  key={s.series_id}
+                  onClick={() => setSeriesFilter(active ? null : s.series_id)}
+                  className={`flex-shrink-0 w-48 rounded-2xl text-left p-3 border-2 active:scale-[0.98] transition ${
+                    active ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white border-transparent shadow-md shadow-amber-500/30' : 'bg-[var(--card)] border-[var(--card-border)]'
+                  }`}
+                >
+                  <div className="text-2xl mb-1">{s.emoji ?? '🏆'}</div>
+                  <p className={`text-sm font-extrabold ${active ? 'text-white' : 'text-[var(--foreground)]'}`}>{s.name}</p>
+                  <p className={`text-[10px] mt-0.5 line-clamp-2 ${active ? 'text-white/90' : 'text-[var(--muted)]'}`}>{s.description}</p>
+                  <div className="mt-2 flex items-center gap-2 text-[11px] font-extrabold">
+                    <span className={active ? 'text-white' : 'text-emerald-600'}>{s.my_completed}/{s.course_count}</span>
+                    <div className={`flex-1 h-1.5 rounded-full overflow-hidden ${active ? 'bg-white/30' : 'bg-[var(--card-border)]/30'}`}>
+                      <div className={`h-full ${active ? 'bg-white' : 'bg-emerald-500'}`} style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {/* 대륙 필터 칩 (build 122 — #17 카테고리) */}
       <section>
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pb-1 -mx-1 px-1">
@@ -220,7 +265,10 @@ export default function WorldTab() {
           </div>
         ) : (
           <div className="space-y-3">
-            {available.filter(c => continentFilter === 'all' || c.continent === continentFilter).map(c => (
+            {available
+              .filter(c => continentFilter === 'all' || c.continent === continentFilter)
+              .filter(c => !seriesFilter || c.series_id === seriesFilter)
+              .map(c => (
               <div key={c.id} className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] overflow-hidden">
                 {/* 지도 미리보기 + 클릭 시 상세 */}
                 <button onClick={() => setDetailCourseId(c.id)} className="w-full text-left active:opacity-90">
