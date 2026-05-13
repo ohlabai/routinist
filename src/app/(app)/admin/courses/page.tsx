@@ -94,6 +94,17 @@ export default function AdminCoursesPage() {
                 country: c.country ?? '',
                 description: c.description ?? '',
                 hero_image_url: c.hero_image_url ?? '',
+                continent: c.continent,
+                entry_fee_p: c.entry_fee_p,
+                story: c.story ?? '',
+                youtube_url: c.youtube_url ?? '',
+                official_url: c.official_url ?? '',
+                course_record: c.course_record ?? '',
+                past_winners: c.past_winners ?? null,
+                landmarks: c.landmarks ?? null,
+                real_path: c.real_path ?? null,
+                preview_path: c.preview_path ?? null,
+                elevation_profile: c.elevation_profile ?? null,
                 is_active: c.is_active ?? true,
                 sort_order: c.sort_order ?? 0,
               })}
@@ -103,7 +114,12 @@ export default function AdminCoursesPage() {
                 <span className="text-sm font-extrabold flex-1">{c.name}</span>
                 {!c.is_active && <span className="text-[10px] font-bold text-rose-500">비활성</span>}
               </div>
-              <p className="text-xs text-[var(--muted)] mt-0.5">{c.country ?? '—'} · {c.distance_km.toFixed(1)}km</p>
+              <p className="text-xs text-[var(--muted)] mt-0.5">
+                {c.country ?? '—'} · {c.distance_km.toFixed(1)}km · {c.entry_fee_p ?? 0}P
+                {c.real_path && <span className="ml-2 text-emerald-600">🗺</span>}
+                {c.story && <span className="ml-1">📖</span>}
+                {c.youtube_url && <span className="ml-1">▶</span>}
+              </p>
             </button>
           ))
         )}
@@ -133,6 +149,56 @@ export default function AdminCoursesPage() {
             <Field label="hero 이미지 URL (선택)">
               <input value={editing.hero_image_url ?? ''} onChange={(e) => setEditing({ ...editing, hero_image_url: e.target.value })} className={fieldCls} placeholder="https://..." />
             </Field>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="대륙">
+                <select
+                  value={editing.continent ?? ''}
+                  onChange={(e) => setEditing({ ...editing, continent: (e.target.value || null) as typeof editing.continent })}
+                  className={fieldCls}
+                >
+                  <option value="">미지정</option>
+                  <option value="asia">아시아</option>
+                  <option value="europe">유럽</option>
+                  <option value="americas">미주</option>
+                  <option value="oceania">오세아니아</option>
+                  <option value="africa">아프리카</option>
+                  <option value="global">글로벌</option>
+                </select>
+              </Field>
+              <Field label="참가비 (마일리지)">
+                <input
+                  type="number"
+                  step="100"
+                  value={editing.entry_fee_p ?? 0}
+                  onChange={(e) => setEditing({ ...editing, entry_fee_p: Math.max(0, Math.min(1000, Number(e.target.value))) })}
+                  className={fieldCls}
+                />
+              </Field>
+            </div>
+            <Field label="스토리텔링 (markdown 줄바꿈 허용)">
+              <textarea value={editing.story ?? ''} onChange={(e) => setEditing({ ...editing, story: e.target.value })} rows={5} className={`${fieldCls} resize-none`} placeholder="대회 역사·일화·매력" />
+            </Field>
+            <Field label="YouTube URL">
+              <input value={editing.youtube_url ?? ''} onChange={(e) => setEditing({ ...editing, youtube_url: e.target.value })} className={fieldCls} placeholder="https://www.youtube.com/watch?v=..." />
+            </Field>
+            <Field label="공식 사이트 URL">
+              <input value={editing.official_url ?? ''} onChange={(e) => setEditing({ ...editing, official_url: e.target.value })} className={fieldCls} placeholder="https://..." />
+            </Field>
+            <Field label="코스 기록 (1줄)">
+              <input value={editing.course_record ?? ''} onChange={(e) => setEditing({ ...editing, course_record: e.target.value })} className={fieldCls} placeholder="남자 2:00:35 · 여자 2:11:53" />
+            </Field>
+            <JsonField label="역대 우승자 JSON [{year,name,time,notes}]"
+              value={editing.past_winners}
+              onChange={(v) => setEditing({ ...editing, past_winners: v as typeof editing.past_winners })} />
+            <JsonField label="랜드마크 JSON [{km,name,description}]"
+              value={editing.landmarks}
+              onChange={(v) => setEditing({ ...editing, landmarks: v as typeof editing.landmarks })} />
+            <JsonField label="실제 GPS 좌표 JSON [{lat,lng}]"
+              value={editing.real_path}
+              onChange={(v) => setEditing({ ...editing, real_path: v as typeof editing.real_path })} />
+            <JsonField label="고도 프로파일 JSON [{km,m}]"
+              value={editing.elevation_profile}
+              onChange={(v) => setEditing({ ...editing, elevation_profile: v as typeof editing.elevation_profile })} />
             <Field label="정렬 순서">
               <input type="number" value={editing.sort_order ?? 0} onChange={(e) => setEditing({ ...editing, sort_order: Number(e.target.value) })} className={fieldCls} />
             </Field>
@@ -159,6 +225,40 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div className="mt-2">
       <label className="block text-xs font-bold text-[var(--muted)] mb-1">{label}</label>
       {children}
+    </div>
+  );
+}
+
+// JSON 텍스트 입력 — null 도 허용. 유효 JSON 일 때만 parent 에 반영.
+function JsonField({ label, value, onChange }: { label: string; value: unknown; onChange: (v: unknown) => void }) {
+  const [text, setText] = useState(value == null ? '' : JSON.stringify(value, null, 2));
+  const [err, setErr] = useState<string | null>(null);
+  return (
+    <div className="mt-2">
+      <label className="block text-xs font-bold text-[var(--muted)] mb-1">{label}</label>
+      <textarea
+        value={text}
+        onChange={(e) => {
+          const v = e.target.value;
+          setText(v);
+          if (v.trim() === '') {
+            setErr(null);
+            onChange(null);
+            return;
+          }
+          try {
+            const parsed = JSON.parse(v);
+            setErr(null);
+            onChange(parsed);
+          } catch (parseErr) {
+            setErr(parseErr instanceof Error ? parseErr.message : '유효한 JSON 아님');
+          }
+        }}
+        rows={4}
+        className={`${fieldCls} resize-none font-mono text-xs`}
+        placeholder='예) [{"km":0,"name":"시작"}]'
+      />
+      {err && <p className="text-[10px] text-rose-500 mt-1">{err}</p>}
     </div>
   );
 }

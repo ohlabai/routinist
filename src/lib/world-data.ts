@@ -176,6 +176,17 @@ export interface CourseUpsert {
   country?: string | null;
   description?: string | null;
   hero_image_url?: string | null;
+  continent?: Continent | null;
+  entry_fee_p?: number;
+  story?: string | null;
+  youtube_url?: string | null;
+  official_url?: string | null;
+  course_record?: string | null;
+  past_winners?: PastWinner[] | null;
+  landmarks?: Landmark[] | null;
+  real_path?: RealLatLng[] | null;
+  preview_path?: PreviewPoint[] | null;
+  elevation_profile?: ElevationPoint[] | null;
   is_active?: boolean;
   sort_order?: number;
 }
@@ -194,7 +205,7 @@ export async function adminListAllCourses(): Promise<VirtualCourse[]> {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('virtual_courses')
-    .select('id, name, distance_km, country, description, hero_image_url, is_active, sort_order')
+    .select('id, name, distance_km, country, description, hero_image_url, continent, entry_fee_p, story, youtube_url, official_url, course_record, past_winners, landmarks, real_path, preview_path, elevation_profile, is_active, sort_order')
     .order('sort_order', { ascending: true });
   if (error) throw error;
   return (data ?? []) as VirtualCourse[];
