@@ -22,6 +22,7 @@ import AppToast from '@/components/AppToast';
 import CourseDetailSheet from './CourseDetailSheet';
 import { Coins } from 'lucide-react';
 import { track } from '@/lib/analytics';
+import NextLink from 'next/link';
 
 // 코스 카드용 미리보기 SVG — preview_path (0~100) 정규화 폴리라인.
 // 시작점=에메랄드 원, 끝점=주황 원. 배경 그리드 + 폴리라인 그림자.
@@ -209,23 +210,29 @@ export default function WorldTab() {
               const active = seriesFilter === s.series_id;
               const pct = s.course_count > 0 ? Math.round((s.my_completed / s.course_count) * 100) : 0;
               return (
-                <button
+                <div
                   key={s.series_id}
-                  onClick={() => setSeriesFilter(active ? null : s.series_id)}
-                  className={`flex-shrink-0 w-48 rounded-2xl text-left p-3 border-2 active:scale-[0.98] transition ${
+                  className={`flex-shrink-0 w-48 rounded-2xl p-3 border-2 transition ${
                     active ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white border-transparent shadow-md shadow-amber-500/30' : 'bg-[var(--card)] border-[var(--card-border)]'
                   }`}
                 >
-                  <div className="text-2xl mb-1">{s.emoji ?? '🏆'}</div>
-                  <p className={`text-sm font-extrabold ${active ? 'text-white' : 'text-[var(--foreground)]'}`}>{s.name}</p>
-                  <p className={`text-[10px] mt-0.5 line-clamp-2 ${active ? 'text-white/90' : 'text-[var(--muted)]'}`}>{s.description}</p>
-                  <div className="mt-2 flex items-center gap-2 text-[11px] font-extrabold">
-                    <span className={active ? 'text-white' : 'text-emerald-600'}>{s.my_completed}/{s.course_count}</span>
-                    <div className={`flex-1 h-1.5 rounded-full overflow-hidden ${active ? 'bg-white/30' : 'bg-[var(--card-border)]/30'}`}>
-                      <div className={`h-full ${active ? 'bg-white' : 'bg-emerald-500'}`} style={{ width: `${pct}%` }} />
+                  <button onClick={() => setSeriesFilter(active ? null : s.series_id)} className="w-full text-left active:scale-[0.98] transition">
+                    <div className="text-2xl mb-1">{s.emoji ?? '🏆'}</div>
+                    <p className={`text-sm font-extrabold ${active ? 'text-white' : 'text-[var(--foreground)]'}`}>{s.name}</p>
+                    <p className={`text-[10px] mt-0.5 line-clamp-2 ${active ? 'text-white/90' : 'text-[var(--muted)]'}`}>{s.description}</p>
+                    <div className="mt-2 flex items-center gap-2 text-[11px] font-extrabold">
+                      <span className={active ? 'text-white' : 'text-emerald-600'}>{s.my_completed}/{s.course_count}</span>
+                      <div className={`flex-1 h-1.5 rounded-full overflow-hidden ${active ? 'bg-white/30' : 'bg-[var(--card-border)]/30'}`}>
+                        <div className={`h-full ${active ? 'bg-white' : 'bg-emerald-500'}`} style={{ width: `${pct}%` }} />
+                      </div>
                     </div>
-                  </div>
-                </button>
+                  </button>
+                  <NextLink href={`/world/series/${s.slug}`} className={`mt-2 block text-center py-1 rounded-lg text-[10px] font-extrabold ${
+                    active ? 'bg-white/25 text-white' : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300'
+                  }`}>
+                    자세히 →
+                  </NextLink>
+                </div>
               );
             })}
           </div>
