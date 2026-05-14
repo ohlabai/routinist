@@ -19,16 +19,25 @@ const PADDING = 8;
 
 // 최근 N 일 활동의 GPS 좌표를 모아 SVG 좌표계로 normalize.
 // 좌표 묶음을 polyline 으로, 각 활동은 다른 emerald shade 로 구분.
-// build 139: 1점뿐인 활동은 skip (polyline 못 그림). bbox 계산도 multi-point 활동만 기준.
+// build 141: GPS 점이 활동당 2000~10000개 (HealthKit 원본). SVG path d 가 거대해져
+// 브라우저 렌더 못 하거나 거의 안 보이는 진짜 회귀 — 활동당 max 120 점으로 down-sample.
+function downsample<T>(arr: readonly T[], max: number): T[] {
+  if (arr.length <= max) return [...arr];
+  const step = (arr.length - 1) / (max - 1);
+  const out: T[] = [];
+  for (let i = 0; i < max; i++) out.push(arr[Math.round(i * step)]);
+  return out;
+}
+
 function buildPaths(activities: Activity[]) {
   // 좌표 2개 이상인 활동만 사용 — 1점은 polyline 안 그려져 사용자에 "빈 지도" 인상.
-  const usable = activities.filter(a => (a.route_data?.coordinates?.length ?? 0) >= 2);
+  const usable = activities
+    .filter(a => (a.route_data?.coordinates?.length ?? 0) >= 2)
+    .map(a => ({ ...a, sampled: downsample(a.route_data!.coordinates, 120) }));
   if (usable.length === 0) return { paths: [], hasData: false };
 
   const all: { lng: number; lat: number }[] = [];
-  usable.forEach(a => {
-    (a.route_data?.coordinates ?? []).forEach(([lng, lat]) => all.push({ lng, lat }));
-  });
+  usable.forEach(a => a.sampled.forEach(([lng, lat]) => all.push({ lng, lat })));
 
   const lngs = all.map(c => c.lng);
   const lats = all.map(c => c.lat);
@@ -45,8 +54,7 @@ function buildPaths(activities: Activity[]) {
   const offY = PADDING + ((VIEWBOX_H - PADDING * 2) - spanLat * scale) / 2;
 
   const paths = usable.map((a, idx) => {
-    const coords = a.route_data?.coordinates ?? [];
-    const points = coords.map(([lng, lat]) => {
+    const points = a.sampled.map(([lng, lat]) => {
       const x = offX + (lng - minLng) * scale;
       const y = VIEWBOX_H - (offY + (lat - minLat) * scale);
       return `${x.toFixed(1)},${y.toFixed(1)}`;

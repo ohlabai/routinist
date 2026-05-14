@@ -393,10 +393,11 @@ function drawCard(
   // "이달 N회" 라벨 → 마지막 달린 막대 아래에 작은 숫자 N (사용자 피드백).
 
   // (1) 월간 일별 세로 막대 그래프
-  // build 137: 사용자 피드백 — 세로·가로 막대를 더 붙이고 둘 다 좀 더 아래로.
-  // chartTop 1230 → 1270 (40 아래), goalBarTop 1480 → 1440 (둘 사이 간격 축소).
+  // build 141: 사용자 재요청 — 두 막대 그래프 덩어리를 더 아래로 + 위 stats4 와 더 분리.
+  // chartTop 1270 → 1380 (위 stats=1160 과 gap 220 — 분리감), chartH 110 끝 1490.
+  // goalBarTop 1440 → 1530 (위 막대 끝 1490 과 gap 40 — 한 덩어리 느낌).
   if (dailyKm.size > 0) {
-    const chartTop = 1270;
+    const chartTop = 1380;
     const chartH = 110;
     const chartPadX = 100;
     const chartW = W - chartPadX * 2;
@@ -437,9 +438,9 @@ function drawCard(
     }
   }
 
-  // (2) 가로 progress bar — 위 막대(1270+110=1380) 끝과 약 60px 간격으로 더 붙임.
+  // (2) 가로 progress bar — 위 막대(1380+110=1490) 끝과 40px 간격으로 한 덩어리 인상.
   if (monthlyGoalKm && monthlyGoalKm > 0 && monthSum > 0) {
-    const goalBarTop = 1440;
+    const goalBarTop = 1530;
     const goalBarH = 14;
     const goalBarPadX = 100;
     const goalBarW = W - goalBarPadX * 2;
@@ -808,7 +809,8 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
     });
 
     // 카톡/인스타에서 링크 누르면 앱(또는 설치 페이지) 으로 — build 136 OG 라우트.
-    const shareLandingUrl = `https://routinist.kr/r/${activity.id}`;
+    // build 141 fix: routinist.kr 은 cafe24 mall — 앱 OG 도메인은 app.routinist.kr (Vercel Next 앱).
+    const shareLandingUrl = `https://app.routinist.kr/r/${activity.id}`;
 
     // 비디오 분기 — MediaRecorder 지원 + GPS 라인 있을 때만 의미 있음.
     const hasRoute = !!activity.route_data?.coordinates?.length;

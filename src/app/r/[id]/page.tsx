@@ -1,22 +1,26 @@
-// 공유 랜딩 페이지 (build 136 — 사용자 피드백 #10).
-// 카톡/인스타에 https://routinist.kr/r/{activity_id} 가 떨어지면 OG 카드 + 앱 진입 유도.
+// 공유 랜딩 페이지 (build 136 → 141 도메인 fix).
+// 카톡/인스타에 https://app.routinist.kr/r/{activity_id} 가 떨어지면 OG 카드 + 앱 진입 유도.
+// build 141: 도메인을 app.routinist.kr 로 (routinist.kr 는 cafe24 mall — 잘못된 도메인 회귀 fix).
+// build 141: force-dynamic 제거 → Next.js 16 의 기본 dynamic params SSR 로 (Vercel 404 회귀 fix).
 //
 // 흐름:
 //  1. Vercel SSR 에서 OG 메타 (title/description/image) 렌더 → Kakao 등 크롤러가 미리보기 카드 생성
-//  2. 사용자 탭 → 앱 deep link 시도 → 1.5s 안에 visibility 안 바뀌면 store URL 로 폴백
+//  2. 사용자 탭 → 앱 deep link 시도. 앱 미설치는 페이지 buttons UI 로
 //
 // 정적 export 모드(Capacitor) 에서는 [id] 동적 라우트가 불가하지만 — 이 페이지는 Vercel 웹 전용.
-// Capacitor 빌드는 production routinist.kr 도메인을 호출하지 않으므로 영향 없음.
+// build-ios.mjs 가 Capacitor 빌드 시 /r 디렉토리를 임시 격리.
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+const APP_DOMAIN = 'https://app.routinist.kr';
+
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  const url = `https://routinist.kr/r/${id}`;
+  const url = `${APP_DOMAIN}/r/${id}`;
   const title = '러닝 기록 공유 · Routinist';
   const description = '오늘의 한 줄 일기와 함께한 러닝. Routinist 에서 더 많은 러너의 기록을 만나보세요.';
-  const ogImage = 'https://routinist.kr/apple-touch-icon.png';
+  const ogImage = `${APP_DOMAIN}/apple-touch-icon.png`;
   return {
     title,
     description,
@@ -35,29 +39,29 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       description,
       images: [ogImage],
     },
-    metadataBase: new URL('https://routinist.kr'),
+    metadataBase: new URL(APP_DOMAIN),
   };
 }
 
-// 정적 export 빌드(Capacitor) 와 호환되도록 ID 별 페이지가 아닌 force-dynamic SSR. Vercel 만 동작.
-export const dynamic = 'force-dynamic';
+// build 141: force-dynamic 제거 — Vercel 빌드에서 /r/[id] 가 누락되는 회귀 회피.
+// dynamic params 만으로 Next.js 16 이 알아서 dynamic SSR (캐시 가능).
+export const dynamicParams = true;
 
 export default async function ShareLandingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const deepLink = `routinist://activity?id=${id}`;
   const webFallback = `/activity?id=${id}`;
   // 환경변수로 store URL 관리 — App Store 승인 후 실제 ID 로 갱신 (rebuild 없이 Vercel env 만 변경).
-  // build 137: fallback 을 메인 도메인으로 — 잘못된 store URL(검색 결과 등) 회피 (사용자 피드백 #6).
+  // build 141: fallback 을 app.routinist.kr 로 (이전 routinist.kr 은 cafe24 mall).
   const iosStoreUrl = process.env.NEXT_PUBLIC_IOS_APP_STORE_URL
-    || 'https://routinist.kr';
+    || APP_DOMAIN;
   const androidStoreUrl = process.env.NEXT_PUBLIC_ANDROID_PLAY_STORE_URL
-    || 'https://routinist.kr';
+    || APP_DOMAIN;
 
   return (
     <div style={{ minHeight: '100vh', background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      {/* build 137: 사용자 피드백 #6 — 자동 store redirect 제거. 사용자가 페이지에 머무르며
-          앱에서 열기 / 설치 버튼을 직접 누르도록. deep link 자동 시도만 유지: 앱 설치된 사용자는
-          여전히 매끄럽게 진입, 앱 미설치는 페이지 buttons UI 로. */}
+      {/* build 137: 자동 store redirect 제거. 사용자가 페이지에 머무르며 buttons 선택.
+          deep link 자동 시도만 유지: 앱 설치된 사용자는 매끄럽게 진입. */}
       <script
         dangerouslySetInnerHTML={{
           __html: `
@@ -66,7 +70,6 @@ export default async function ShareLandingPage({ params }: { params: Promise<{ i
               var isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
               var isAndroid = /Android/i.test(ua);
               if (!isIOS && !isAndroid) return;
-              // 카톡 inapp browser 등은 scheme handler 막혀있어 실패해도 무해.
               try { window.location.href = ${JSON.stringify(deepLink)}; } catch (e) {}
             })();
           `,
