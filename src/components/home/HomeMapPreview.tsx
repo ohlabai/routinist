@@ -2,14 +2,15 @@
 
 // 홈 캘린더 아래 미니맵 (build 100 — 지도 탭 흡수).
 // 최근 7일 GPS 경로를 SVG polyline 으로 가볍게 표시 (지도 타일 없음).
-// 카드 클릭 시 /map 으로 이동 → 풀 지도.
-// build 137: 동네 친구찾기 버튼을 분리된 행으로 강화 (사용자 피드백 #1A).
+// 카드 클릭 시 /map 으로 이동 → 풀 지도. 거기서 동네 러너 찾기 emerald CTA 로 진입.
+// build 139: build 137 의 풀폭 "이 지역 동네 러너" CTA 회수. 홈은 내 코스 표시에 집중,
+// 동네 친구 찾기는 /map 페이지에서 (사용자 결정: 흐름이 더 자연스러움).
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
 import { fetchRoutesForUser } from '@/lib/map-data';
-import { MapPin, ChevronRight, Users } from 'lucide-react';
+import { MapPin, ChevronRight } from 'lucide-react';
 import type { Activity } from '@/types';
 
 const VIEWBOX_W = 320;
@@ -18,13 +19,16 @@ const PADDING = 8;
 
 // 최근 N 일 활동의 GPS 좌표를 모아 SVG 좌표계로 normalize.
 // 좌표 묶음을 polyline 으로, 각 활동은 다른 emerald shade 로 구분.
+// build 139: 1점뿐인 활동은 skip (polyline 못 그림). bbox 계산도 multi-point 활동만 기준.
 function buildPaths(activities: Activity[]) {
-  const all: { lng: number; lat: number; idx: number }[] = [];
-  activities.forEach((a, idx) => {
-    const coords = a.route_data?.coordinates ?? [];
-    coords.forEach(([lng, lat]) => all.push({ lng, lat, idx }));
+  // 좌표 2개 이상인 활동만 사용 — 1점은 polyline 안 그려져 사용자에 "빈 지도" 인상.
+  const usable = activities.filter(a => (a.route_data?.coordinates?.length ?? 0) >= 2);
+  if (usable.length === 0) return { paths: [], hasData: false };
+
+  const all: { lng: number; lat: number }[] = [];
+  usable.forEach(a => {
+    (a.route_data?.coordinates ?? []).forEach(([lng, lat]) => all.push({ lng, lat }));
   });
-  if (all.length === 0) return { paths: [], hasData: false };
 
   const lngs = all.map(c => c.lng);
   const lats = all.map(c => c.lat);
@@ -40,32 +44,23 @@ function buildPaths(activities: Activity[]) {
   const offX = PADDING + ((VIEWBOX_W - PADDING * 2) - spanLng * scale) / 2;
   const offY = PADDING + ((VIEWBOX_H - PADDING * 2) - spanLat * scale) / 2;
 
-  // 각 activity 별로 path 분리
-  const byIdx = new Map<number, string[]>();
-  activities.forEach((a, idx) => {
+  const paths = usable.map((a, idx) => {
     const coords = a.route_data?.coordinates ?? [];
-    if (coords.length === 0) return;
     const points = coords.map(([lng, lat]) => {
       const x = offX + (lng - minLng) * scale;
-      // SVG y 는 위→아래라 lat 반전
       const y = VIEWBOX_H - (offY + (lat - minLat) * scale);
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     });
-    byIdx.set(idx, points);
+    return { idx, d: `M ${points.join(' L ')}` };
   });
-
-  const paths = Array.from(byIdx.entries()).map(([idx, points]) => ({
-    idx,
-    d: `M ${points.join(' L ')}`,
-  }));
   return { paths, hasData: true };
 }
 
 // 최근 → 옅음, 가장 최신 → 진함. emerald scale.
+// build 139: opacity 0.95→0.45 → 1.0→0.65 로 강화 (사용자 회귀: 폴리라인 안 보임).
 function strokeForIdx(idx: number, total: number) {
-  // idx 0 = 가장 최신. opacity 0.95 → 0.45.
   const t = total <= 1 ? 0 : idx / (total - 1);
-  const opacity = 0.95 - t * 0.5;
+  const opacity = 1.0 - t * 0.35;
   return { stroke: '#10b981', opacity };
 }
 
@@ -127,54 +122,44 @@ export default function HomeMapPreview() {
   const totalKm = activities.reduce((s, a) => s + Number(a.distance_km || 0), 0);
 
   return (
-    <div className="mx-4 card p-4">
-      <Link href="/map" className="block active:scale-[0.99] transition">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <MapPin size={16} className="text-emerald-600" />
-            <h3 className="text-sm font-bold text-[var(--foreground)]">최근 7일 러닝 경로</h3>
-          </div>
-          <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold inline-flex items-center gap-0.5">
-            지도 <ChevronRight size={12} />
-          </span>
+    <Link href="/map" className="mx-4 block card p-4 active:scale-[0.99] transition">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <MapPin size={16} className="text-emerald-600" />
+          <h3 className="text-sm font-bold text-[var(--foreground)]">최근 7일 러닝 경로</h3>
         </div>
+        <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold inline-flex items-center gap-0.5">
+          지도 <ChevronRight size={12} />
+        </span>
+      </div>
 
-        <div className="rounded-xl bg-gradient-to-br from-emerald-50/60 via-white to-emerald-50/30 dark:from-emerald-950/20 dark:via-zinc-900 dark:to-emerald-950/10 border border-emerald-200/30 dark:border-emerald-900/20 overflow-hidden">
-          <svg
-            viewBox={`0 0 ${VIEWBOX_W} ${VIEWBOX_H}`}
-            className="w-full h-[140px]"
-            preserveAspectRatio="xMidYMid meet"
-          >
-            {paths.map(({ idx, d }) => {
-              const { stroke, opacity } = strokeForIdx(idx, paths.length);
-              return (
-                <path
-                  key={idx}
-                  d={d}
-                  fill="none"
-                  stroke={stroke}
-                  strokeOpacity={opacity}
-                  strokeWidth={2.5}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              );
-            })}
-          </svg>
-        </div>
+      <div className="rounded-xl bg-gradient-to-br from-emerald-50/60 via-white to-emerald-50/30 dark:from-emerald-950/20 dark:via-zinc-900 dark:to-emerald-950/10 border border-emerald-200/30 dark:border-emerald-900/20 overflow-hidden">
+        <svg
+          viewBox={`0 0 ${VIEWBOX_W} ${VIEWBOX_H}`}
+          className="w-full h-[140px]"
+          preserveAspectRatio="xMidYMid meet"
+        >
+          {paths.map(({ idx, d }) => {
+            const { stroke, opacity } = strokeForIdx(idx, paths.length);
+            return (
+              <path
+                key={idx}
+                d={d}
+                fill="none"
+                stroke={stroke}
+                strokeOpacity={opacity}
+                strokeWidth={3.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            );
+          })}
+        </svg>
+      </div>
 
-        <p className="text-xs text-[var(--muted)] mt-2">
-          {activities.length}회 · 총 <span className="font-bold text-[var(--foreground)]">{totalKm.toFixed(1)}km</span>
-        </p>
-      </Link>
-
-      {/* build 137: 동네 친구찾기 인라인 버튼 (사용자 피드백 #1A) — 같은 GPS 영역의 다른 러너 보기 */}
-      <Link
-        href="/map/neighborhood"
-        className="mt-3 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-xs font-extrabold shadow-sm active:scale-[0.98] transition"
-      >
-        <Users size={14} /> 이 지역 동네 러너 찾기
-      </Link>
-    </div>
+      <p className="text-xs text-[var(--muted)] mt-2">
+        {activities.length}회 · 총 <span className="font-bold text-[var(--foreground)]">{totalKm.toFixed(1)}km</span>
+      </p>
+    </Link>
   );
 }
