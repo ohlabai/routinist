@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, ShoppingBag, Users, Package, AlertCircle, ChevronRight,
-  Beaker, Coins, TrendingUp, Sparkles, Settings, Stethoscope, Globe, MessageSquare, Award, BarChart3,
+  Beaker, Coins, TrendingUp, Sparkles, Settings, Stethoscope, Globe, MessageSquare, Award, BarChart3, Trophy,
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
@@ -280,6 +280,7 @@ export default function AdminDashboardPage() {
               <AdminLink href="/admin/feedback" icon={<MessageSquare size={20} />} label="제안 모더레이션" />
               <AdminLink href="/admin/medals" icon={<Award size={20} />} label="메달 신청" />
               <AdminLink href="/admin/courses" icon={<Globe size={20} />} label="가상 코스" />
+              <AdminLink href="/admin/series" icon={<Trophy size={20} />} label="챌린지 시리즈" />
               <AdminLink href="/admin/orders" icon={<ShoppingBag size={20} />} label="주문 관리" />
               <AdminLink href="/admin/products" icon={<Package size={20} />} label="상품 관리" />
               <AdminLink href="/admin/mileage" icon={<Coins size={20} />} label="마일리지 정책" />
