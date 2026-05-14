@@ -140,12 +140,19 @@ export default function FriendsLeaderboard() {
   if (!rows) return null;
 
   if (rows.length <= 1) {
+    // build 138: 카드를 /nearby 진입 Link 로 감싸 친구 추가 흐름 직결 (사용자 피드백 #1B).
     return (
-      <div className="mx-4 mt-3 rounded-2xl border border-dashed border-[var(--card-border)] p-4 text-center">
-        <Users size={22} className="mx-auto text-[var(--muted)] mb-1" />
-        <p className="text-sm font-medium text-[var(--foreground)]">친구와 함께 달려보세요</p>
-        <p className="text-xs text-[var(--muted)] mt-1">랭킹에서 친구를 추가하면 이번 주 비교가 여기에 나타나요</p>
-      </div>
+      <Link
+        href="/nearby"
+        className="mx-4 mt-3 block rounded-2xl border border-dashed border-emerald-300/60 dark:border-emerald-700/40 bg-emerald-50/30 dark:bg-emerald-950/15 p-4 text-center active:scale-[0.99] transition"
+      >
+        <Users size={22} className="mx-auto text-emerald-600 dark:text-emerald-400 mb-1" />
+        <p className="text-sm font-bold text-[var(--foreground)]">친구와 함께 달려보세요</p>
+        <p className="text-xs text-[var(--muted)] mt-1">동네·페이스 비슷한 러너 찾기</p>
+        <p className="mt-2 inline-flex items-center gap-0.5 text-[11px] font-extrabold text-emerald-600">
+          친구 찾기 <ChevronRight size={12} />
+        </p>
+      </Link>
     );
   }
 

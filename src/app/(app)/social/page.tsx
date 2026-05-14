@@ -176,11 +176,18 @@ function SocialPageInner() {
               </div>
             </div>
           ) : (
-            <div className="card p-5 text-center">
-              <UserIcon size={28} className="mx-auto text-[var(--muted)] mb-2" />
-              <p className="text-sm font-medium text-[var(--foreground)]">친구와 함께 달려보세요</p>
-              <p className="text-xs text-[var(--muted)] mt-1">아래에서 러너를 찾아 친구로 추가하면 이번 주 km 비교를 볼 수 있어요</p>
-            </div>
+            // build 138: empty state 를 /nearby 로 가는 Link 로 감쌈 (사용자 피드백 #1B).
+            <Link
+              href="/nearby"
+              className="block card p-5 text-center bg-emerald-50/30 dark:bg-emerald-950/15 border-emerald-200/50 dark:border-emerald-900/40 active:scale-[0.99] transition"
+            >
+              <UserIcon size={28} className="mx-auto text-emerald-600 dark:text-emerald-400 mb-2" />
+              <p className="text-sm font-bold text-[var(--foreground)]">친구와 함께 달려보세요</p>
+              <p className="text-xs text-[var(--muted)] mt-1">동네·페이스 비슷한 러너를 추가하면 이번 주 km 비교가 보여요</p>
+              <p className="mt-2 inline-flex items-center gap-0.5 text-[11px] font-extrabold text-emerald-600">
+                친구 찾기 →
+              </p>
+            </Link>
           )}
 
           {/* 동네 러너 진입점 (build 116 A) */}
