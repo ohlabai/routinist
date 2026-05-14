@@ -279,6 +279,7 @@ export default function AdminDashboardPage() {
               <AdminLink href="/admin/users" icon={<Users size={20} />} label="회원 관리" />
               <AdminLink href="/admin/feedback" icon={<MessageSquare size={20} />} label="제안 모더레이션" />
               <AdminLink href="/admin/medals" icon={<Award size={20} />} label="메달 신청" />
+              <AdminLink href="/admin/series-medals" icon={<Trophy size={20} />} label="시리즈 메달" />
               <AdminLink href="/admin/courses" icon={<Globe size={20} />} label="가상 코스" />
               <AdminLink href="/admin/series" icon={<Trophy size={20} />} label="챌린지 시리즈" />
               <AdminLink href="/admin/orders" icon={<ShoppingBag size={20} />} label="주문 관리" />
