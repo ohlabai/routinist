@@ -213,6 +213,37 @@ export interface CourseSeries {
   total_distance_km: number;
 }
 
+export interface SeriesMedalStatus {
+  series_id: string;
+  awarded_at: string | null;
+  requested_at: string | null;
+  request_status: 'none' | 'requested' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
+  shipping_name: string | null;
+  shipping_address: string | null;
+  payment_amount: number | null;
+}
+
+export async function fetchMySeriesMedalStatus(seriesId: string): Promise<SeriesMedalStatus | null> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.rpc('fetch_my_series_medal_status', { p_series_id: seriesId });
+  if (error) throw error;
+  const row = (data ?? [])[0];
+  return row ? (row as SeriesMedalStatus) : null;
+}
+
+export async function requestSeriesMedal(seriesId: string, form: MedalShippingForm): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase.rpc('request_series_medal', {
+    p_series_id: seriesId,
+    p_shipping_name: form.shipping_name,
+    p_shipping_phone: form.shipping_phone,
+    p_shipping_address: form.shipping_address,
+    p_shipping_zipcode: form.shipping_zipcode,
+    p_payment_amount: form.payment_amount ?? 50000,
+  });
+  if (error) throw error;
+}
+
 export async function fetchCourseSeries(): Promise<CourseSeries[]> {
   const supabase = getSupabase();
   const { data, error } = await supabase.rpc('fetch_course_series');
