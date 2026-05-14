@@ -188,6 +188,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let processing = false;
 
     const processCallbackUrl = async (url: string) => {
+      // build 136: 공유 링크로 들어온 routinist://activity?id=... → 활동 상세로 라우팅.
+      // 카톡/인스타에서 routinist.kr/r/{id} 클릭 → /r/{id} 페이지가 deep link 호출 → 앱이 열리면 이 핸들러.
+      try {
+        const parsed = new URL(url);
+        if (parsed.protocol === 'routinist:' && parsed.host === 'activity') {
+          const aid = parsed.searchParams.get('id');
+          if (aid) {
+            // 라우터 push 가능한 위치라면 사용, 아니면 location 으로.
+            window.location.replace(`/activity?id=${encodeURIComponent(aid)}`);
+            return;
+          }
+        }
+      } catch { /* 잘못된 URL — fallthrough */ }
+
       // 비밀번호 재설정 같은 deep link 만 처리. 일반 OAuth 콜백은 안 옴.
       if (!(url.includes('auth/callback') || url.includes('access_token') || url.includes('code='))) {
         return;

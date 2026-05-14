@@ -10,7 +10,7 @@ const ThemeContext = createContext<{
   mode: ThemeMode;
   setMode: (m: ThemeMode) => void;
   toggle: () => void;
-}>({ theme: 'light', mode: 'system', setMode: () => {}, toggle: () => {} });
+}>({ theme: 'light', mode: 'light', setMode: () => {}, toggle: () => {} });
 
 export function useTheme() {
   return useContext(ThemeContext);
@@ -22,7 +22,8 @@ function getSystemTheme(): Theme {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setModeState] = useState<ThemeMode>('system');
+  // 라이트 모드 기본 (build 136) — system/dark 가 의도와 다르게 적용되는 신고 다수.
+  const [mode, setModeState] = useState<ThemeMode>('light');
   const [theme, setTheme] = useState<Theme>('light');
   const [mounted, setMounted] = useState(false);
 
@@ -34,7 +35,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setMounted(true);
     const savedMode = localStorage.getItem('themeMode') as ThemeMode | null;
-    const m = savedMode || 'system';
+    const m = savedMode || 'light';
     setModeState(m);
     if (m === 'system') {
       applyTheme(getSystemTheme());
@@ -42,10 +43,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       applyTheme(m);
     }
 
-    // 시스템 테마 변경 감지
+    // 시스템 테마 변경 감지 — mode='system' 일 때만 반응
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = (e: MediaQueryListEvent) => {
-      const currentMode = localStorage.getItem('themeMode') || 'system';
+      const currentMode = localStorage.getItem('themeMode') || 'light';
       if (currentMode === 'system') applyTheme(e.matches ? 'dark' : 'light');
     };
     mq.addEventListener('change', handler);

@@ -43,7 +43,7 @@ export default function MyQuotesPage() {
   const handleSubmit = async () => {
     const trimmed = input.trim();
     if (trimmed.length < 3) {
-      showToast('명언이 너무 짧아요 (3자 이상)', 'warn');
+      showToast('한 줄 일기가 너무 짧아요 (3자 이상)', 'warn');
       return;
     }
     setSubmitting(true);
@@ -51,7 +51,7 @@ export default function MyQuotesPage() {
       await createUserQuote(trimmed);
       setInput('');
       await reload();
-      showToast('✨ 명언이 등록됐어요');
+      showToast('✨ 한 줄 일기가 등록됐어요');
     } catch (e) {
       showToast(e instanceof Error ? e.message : '등록 실패', 'warn');
     } finally {
@@ -60,7 +60,7 @@ export default function MyQuotesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('이 명언을 삭제할까요?')) return;
+    if (!confirm('이 한 줄 일기를 삭제할까요?')) return;
     setBusy(id);
     try {
       await deleteMyQuote(id);
@@ -82,7 +82,7 @@ export default function MyQuotesPage() {
           <button onClick={() => router.back()} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition">
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-xl font-extrabold tracking-tight">나의 명언</h1>
+          <h1 className="text-xl font-extrabold tracking-tight">나의 한 줄 일기</h1>
           <Link href="/quotes/ranking" className="ml-auto inline-flex items-center gap-1 text-xs font-bold text-emerald-600 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30 active:scale-95">
             <Trophy size={12} /> 랭킹
           </Link>
@@ -111,7 +111,7 @@ export default function MyQuotesPage() {
       <section className="px-4 mt-4">
         <div className="card p-4 space-y-2 bg-gradient-to-br from-emerald-50/30 to-transparent dark:from-emerald-950/15 border-emerald-200/40 dark:border-emerald-900/40">
           <h2 className="text-sm font-extrabold inline-flex items-center gap-1.5">
-            <PenLine size={14} className="text-emerald-500" /> 새 명언 쓰기
+            <PenLine size={14} className="text-emerald-500" /> 새 한 줄 일기 쓰기
           </h2>
           <textarea
             value={input}
@@ -133,9 +133,9 @@ export default function MyQuotesPage() {
         </div>
       </section>
 
-      {/* 내 명언 리스트 */}
+      {/* 내 한 줄 일기 리스트 */}
       <section className="px-4 mt-5 space-y-2.5">
-        <h2 className="text-sm font-extrabold mb-1">내가 쓴 명언</h2>
+        <h2 className="text-sm font-extrabold mb-1">내가 쓴 한 줄</h2>
         {loading ? (
           [0,1].map(i => (
             <div key={i} className="card p-4 animate-pulse space-y-2">
@@ -148,7 +148,7 @@ export default function MyQuotesPage() {
             <div className="w-20 h-20 rounded-full bg-emerald-50 dark:bg-emerald-950/30 mx-auto mb-3 flex items-center justify-center">
               <PenLine size={32} className="text-emerald-500" />
             </div>
-            <p className="text-sm text-[var(--muted)]">아직 쓴 명언이 없어요. 위에서 한 줄 시작해보세요</p>
+            <p className="text-sm text-[var(--muted)]">아직 쓴 한 줄 일기가 없어요. 위에서 한 줄 시작해보세요</p>
           </div>
         ) : (
           quotes.map(q => (

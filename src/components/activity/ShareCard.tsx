@@ -1,11 +1,13 @@
 'use client';
 
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { Share2, X, ImagePlus, Check, ThumbsUp, Dices, PenLine, Copy } from 'lucide-react';
+import { Share2, X, ImagePlus, Check, Dices, PenLine, Video, ImageIcon } from 'lucide-react';
 import { isNativeApp } from '@/lib/health-sync';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
-import { fetchRandomQuote, toggleQuoteLike, isFallbackQuote, type DailyQuote } from '@/lib/quotes-data';
+import { fetchRandomQuote, isFallbackQuote, type DailyQuote } from '@/lib/quotes-data';
+import { detectRegionLabel } from '@/lib/region-from-gps';
+import { captureCanvasAnimation } from '@/lib/canvas-to-video';
 import { createUserQuote } from '@/lib/user-quotes';
 import { getSupabase } from '@/lib/supabase';
 import { track } from '@/lib/analytics';
@@ -86,39 +88,8 @@ const THEMES: Theme[] = [
   },
 ];
 
-// Canvas 에 thumbs-up (👍) 그리기 — lucide ThumbsUp 24x24 viewBox 기반 SVG path.
-// 색상은 에메랄드 그린 (emerald-500 #10b981). filled 이면 채움 + 손목줄기 stroke.
-// 두 sub-path 를 분리해서 그려야 nonzero rule 로 모양 안 뭉개짐 (손=fill, 줄기=stroke).
-function drawThumbsUp(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number, filled: boolean, strokeColor: string) {
-  ctx.save();
-  const s = size / 24;
-  const x = cx - 12 * s;
-  const y = cy - 12 * s;
-  ctx.translate(x, y);
-  ctx.scale(s, s);
-  // lucide ThumbsUp 의 손 윤곽 (closed path)
-  const handPath = new Path2D('M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z');
-  // 손목 줄기 (open line)
-  const stemPath = new Path2D('M7 10v12');
-
-  ctx.lineJoin = 'round';
-  ctx.lineCap = 'round';
-  if (filled) {
-    ctx.fillStyle = '#10b981'; // emerald-500
-    ctx.fill(handPath);
-    // 채움 위에 줄기 구분선
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 1.5;
-    ctx.stroke(stemPath);
-  } else {
-    ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = 2.5;
-    ctx.stroke(handPath);
-    ctx.stroke(stemPath);
-  }
-  ctx.restore();
-}
-
+// build 136: drawCard 가 정적 + 애니메이션(MP4) 두 용도로 쓰임.
+// routeProgress (0~1) 가 1 미만이면 GPS 경로를 그 비율만큼만 그림 → 라인 그리기 애니메이션.
 function drawCard(
   canvas: HTMLCanvasElement,
   activity: Activity,
@@ -129,6 +100,8 @@ function drawCard(
   userIdLabel?: string,
   quote?: DailyQuote | null,
   monthlyGoalKm?: number,
+  regionLabel?: string,
+  routeProgress: number = 1,
 ) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -161,22 +134,21 @@ function drawCard(
     theme.bg(ctx, W, H);
   }
 
-  // 경로 — build 106 fix 후 사용자 추가 피드백 (build 110): 지도가 아래로 처져 보임.
-  // mapY 320 → 290 으로 위로 올려 상하 여백 균형감.
-  // 명언(quoteY=200, 1~2 줄) 끝 ~250 + 40 padding = 290. OK.
-  // 그림자/본체 두께는 유지 (배경사진 위 가독성 보장).
+  // 경로 — build 136 (사용자 피드백 #5-C): 지도와 7.19 사이 여백 확대.
+  // mapY 290 → 260 위로 + mapH 480 유지. 지역 라벨(regionLabel) 을 지도 위 표시.
+  // routeProgress < 1 일 때는 그 비율만큼만 그려 MP4 애니메이션의 한 프레임으로 사용.
   const hasRoute = activity.route_data?.coordinates?.length;
   if (hasRoute) {
-    const coords = activity.route_data!.coordinates;
-    const lats = coords.map(c => c[1]);
-    const lngs = coords.map(c => c[0]);
+    const coordsAll = activity.route_data!.coordinates;
+    const lats = coordsAll.map(c => c[1]);
+    const lngs = coordsAll.map(c => c[0]);
     const minLat = Math.min(...lats), maxLat = Math.max(...lats);
     const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
 
     const padding = 120;
     const mapW = W - padding * 2;
     const mapH = 480;
-    const mapY = 290;
+    const mapY = 260;
 
     const scaleX = mapW / (maxLng - minLng || 0.001);
     const scaleY = mapH / (maxLat - minLat || 0.001);
@@ -185,20 +157,24 @@ function drawCard(
     const offsetX = padding + (mapW - (maxLng - minLng) * scale) / 2;
     const offsetY = mapY + (mapH - (maxLat - minLat) * scale) / 2;
 
-    // 그림자 (배경사진 위에서도 또렷하게)
+    // 애니메이션: routeProgress 비율만큼 슬라이스 (최소 2개 필요).
+    const cutIdx = Math.max(2, Math.ceil(coordsAll.length * Math.min(1, Math.max(0, routeProgress))));
+    const coords = coordsAll.slice(0, cutIdx);
+
+    // 그림자 (배경사진 위에서도 또렷하게) — 전체 라인을 흐리게 깔아두면 미리보기가 안정됨.
     ctx.beginPath();
-    coords.forEach(([lng, lat], i) => {
+    coordsAll.forEach(([lng, lat], i) => {
       const x = offsetX + (lng - minLng) * scale;
       const y = offsetY + mapH - (lat - minLat) * scale;
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     });
-    ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+    ctx.strokeStyle = bgImage ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.35)';
     ctx.lineWidth = 16;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.stroke();
 
-    // 경로 본체
+    // 경로 본체 — routeProgress 비율만큼만
     ctx.beginPath();
     coords.forEach(([lng, lat], i) => {
       const x = offsetX + (lng - minLng) * scale;
@@ -209,17 +185,48 @@ function drawCard(
     ctx.lineWidth = 8;
     ctx.stroke();
 
-    // 시작/끝점 — 흰 테두리로 사진 배경에서도 또렷
-    const [sx, sy] = [offsetX + (coords[0][0] - minLng) * scale, offsetY + mapH - (coords[0][1] - minLat) * scale];
-    const last = coords[coords.length - 1];
-    const [ex, ey] = [offsetX + (last[0] - minLng) * scale, offsetY + mapH - (last[1] - minLat) * scale];
-
+    // 시작점 — 항상 표시
+    const [sx, sy] = [offsetX + (coordsAll[0][0] - minLng) * scale, offsetY + mapH - (coordsAll[0][1] - minLat) * scale];
     ctx.fillStyle = '#22C55E';
     ctx.beginPath(); ctx.arc(sx, sy, 14, 0, Math.PI * 2); ctx.fill();
     if (bgImage) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.stroke(); }
-    ctx.fillStyle = '#EF4444';
-    ctx.beginPath(); ctx.arc(ex, ey, 14, 0, Math.PI * 2); ctx.fill();
-    if (bgImage) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.stroke(); }
+
+    // 끝점 — 라인이 종착하는 위치 (애니메이션 중에는 현재 진행점이 보임)
+    const lastCoord = coords[coords.length - 1];
+    const [ex, ey] = [offsetX + (lastCoord[0] - minLng) * scale, offsetY + mapH - (lastCoord[1] - minLat) * scale];
+    if (routeProgress >= 1) {
+      ctx.fillStyle = '#EF4444';
+      ctx.beginPath(); ctx.arc(ex, ey, 14, 0, Math.PI * 2); ctx.fill();
+      if (bgImage) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.stroke(); }
+    } else {
+      // 애니메이션 진행 중 — 깜빡이는 진행점 (러닝 마커)
+      const pulse = 1 + 0.2 * Math.sin(routeProgress * Math.PI * 6);
+      ctx.fillStyle = '#22C55E';
+      ctx.beginPath(); ctx.arc(ex, ey, 12 * pulse, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+    }
+
+    // 지역 라벨 — 지도 상단 좌측 (build 136). "서울 강남" 또는 "중국 항저우" 형태.
+    if (regionLabel) {
+      ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      const labelText = `📍 ${regionLabel}`;
+      const padX = 18;
+      const textW = ctx.measureText(labelText).width;
+      const labelX = padding;
+      const labelY = mapY + 8;
+      // 반투명 알약 배경
+      ctx.fillStyle = bgImage ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.18)';
+      ctx.beginPath();
+      ctx.roundRect(labelX, labelY, textW + padX * 2, 44, 22);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(labelText, labelX + padX, labelY + 30);
+      ctx.textAlign = 'center';
+    }
   }
 
   const mainColor = bgImage ? '#ffffff' : theme.textMain;
@@ -260,8 +267,9 @@ function drawCard(
     });
   }
 
-  // 거리 (메인) — 사용자 피드백: 더 위로. mapY 280 → map 끝 760 → distY 위로.
-  const distY = hasRoute ? H * 0.48 : H * 0.36;
+  // 거리 (메인) — build 136: map 끝(260+480=740) 과 7.19 사이 여백 확보.
+  // distY 가 폰트의 baseline 이라 실제 위쪽은 distY-180. distY=950 → 폰트 시작 770 → map 끝 740 과 30px 여백.
+  const distY = hasRoute ? 950 : H * 0.36;
   ctx.font = 'bold 180px -apple-system, BlinkMacSystemFont, sans-serif';
   ctx.fillStyle = mainColor;
   ctx.fillText(activity.distance_km.toFixed(2), W / 2, distY);
@@ -367,60 +375,26 @@ function drawCard(
     const startY = quoteY - ((lines.length - 1) * lineH) / 2;
     lines.forEach((line, i) => ctx.fillText(line, W / 2, startY + i * lineH));
 
-    // author + 좋아요 — 인용문 아래 작게 별도 라인 (사용자 피드백).
-    // 'hans님은 강남구...' 처럼 길게 늘어지는 대신 짧은 dash 와 작은 폰트.
-    const authorLineY = startY + (lines.length - 1) * lineH + 56;
+    // author — build 136: 좋아요 아이콘 제거. 깔끔한 작은 라인.
     const author = quote.author ?? null;
-    const showLike = !isFallbackQuote(quote);
-
-    ctx.font = '500 30px -apple-system, BlinkMacSystemFont, sans-serif';
-    // dash 짧게 (사용자 피드백: em dash 너무 길어 보임)
-    const dashStr = '- ';
-    const authorStr = author ? `${dashStr}${author}` : '';
-    const authorW = author ? ctx.measureText(authorStr).width : 0;
-
-    let likeW = 0;
-    let likeCountText = '';
-    if (showLike) {
-      likeCountText = `${quote.like_count}`;
-      ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, sans-serif';
-      likeW = ctx.measureText(likeCountText).width;
-    }
-    const thumbSize = 26;
-    const gapAfterAuthor = author ? 24 : 0;
-    const gapAfterThumb = 8;
-    const totalW = authorW + (showLike ? (gapAfterAuthor + thumbSize + gapAfterThumb + likeW) : 0);
-    let cursorX = W / 2 - totalW / 2;
-
     if (author) {
+      const authorLineY = startY + (lines.length - 1) * lineH + 56;
       ctx.font = '500 30px -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.fillStyle = subColor;
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(authorStr, cursorX, authorLineY);
-      cursorX += authorW + gapAfterAuthor;
-    }
-    if (showLike) {
-      // 👍 emerald 좋아요 아이콘 + 카운트
-      drawThumbsUp(ctx, cursorX + thumbSize / 2, authorLineY, thumbSize, quote.liked_by_me, subColor);
-      cursorX += thumbSize + gapAfterThumb;
-      ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillStyle = quote.liked_by_me ? '#10b981' : subColor;
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(likeCountText, cursorX, authorLineY);
+      ctx.textAlign = 'center';
+      ctx.fillText(`- ${author}`, W / 2, authorLineY);
     }
     ctx.textBaseline = 'alphabetic';
     ctx.textAlign = 'center';
   }
 
-  // ★ 사용자 피드백: 세로↔가로 거리 띄움 + 라벨 정리 + 폰트 키움 + 위로.
-  // (1) 월간 일별 세로 막대 — 위. (2) 가로 progress bar — 아래 (더 띄움).
-  // "5월 목표" 라벨 제거. 5/11 + 88.2/200km 모두 progress bar **아래**에 같은 폰트(32px).
+  // ★ build 136 (사용자 피드백 #5-a): 기록(statsY≈1150) 과 막대 사이 여백 축소.
+  // chartTop 1320 → 1230. progress bar 도 함께 위로 (1560 → 1480).
+  // "이달 N회" 라벨 → 마지막 달린 막대 아래에 작은 숫자 N (사용자 피드백).
 
-  // (1) 월간 일별 세로 막대 그래프 — 위로 (사용자 피드백: 더 위로)
+  // (1) 월간 일별 세로 막대 그래프
   if (dailyKm.size > 0) {
-    const chartTop = 1320;  // 1380 → 1320 위로
+    const chartTop = 1230;
     const chartH = 110;
     const chartPadX = 100;
     const chartW = W - chartPadX * 2;
@@ -431,6 +405,12 @@ function drawCard(
     const barFillToday = onPhoto ? '#ffffff' : accentColor;
     const barFillOther = onPhoto ? 'rgba(255,255,255,0.55)' : accentColor + 'AA';
     const barFillEmpty = onPhoto ? 'rgba(255,255,255,0.15)' : subColor + '22';
+
+    // 마지막 달린 날 (todayDay 이전 + km>0 중 가장 큰 day) — 막대 위치 추적
+    let lastRunDay = 0;
+    for (let day = 1; day <= todayDay; day++) {
+      if ((dailyKm.get(day) ?? 0) > 0) lastRunDay = day;
+    }
 
     for (let day = 1; day <= daysInMonth; day++) {
       const km = dailyKm.get(day) ?? 0;
@@ -443,21 +423,21 @@ function drawCard(
       ctx.fillRect(x, barTop, barWidth, barH);
     }
 
-    // build 110: 그 달 총 러닝 횟수 — 막대그래프 아래 우측에 작게 라벨.
-    // "11회" 형태. 사용자 피드백 (2026-05-14).
-    if (monthRunCount > 0) {
-      const labelY = chartTop + chartH + 38;
-      ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
+    // build 136: "이달 N회" 라벨 대신 마지막 달린 막대 아래에 N 숫자만.
+    // 짧고 직관적 — 막대그래프 컨텍스트 안에서 즉시 이해.
+    if (monthRunCount > 0 && lastRunDay > 0) {
+      const x = chartPadX + (lastRunDay - 1) * (barWidth + 4) + barWidth / 2;
+      const labelY = chartTop + chartH + 32;
+      ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.fillStyle = bgImage ? 'rgba(255,255,255,0.95)' : mainColor;
-      ctx.textAlign = 'right';
-      ctx.fillText(`이달 ${monthRunCount}회`, chartPadX + chartW, labelY);
       ctx.textAlign = 'center';
+      ctx.fillText(`${monthRunCount}`, x, labelY);
     }
   }
 
-  // (2) 가로 progress bar — 아래. 위 막대 (1320+110=1430) 와 띄움. 라벨 정리.
+  // (2) 가로 progress bar — 위 막대(1230+110=1340) 와 자연스럽게 띄움.
   if (monthlyGoalKm && monthlyGoalKm > 0 && monthSum > 0) {
-    const goalBarTop = 1560;
+    const goalBarTop = 1480;
     const goalBarH = 14;
     const goalBarPadX = 100;
     const goalBarW = W - goalBarPadX * 2;
@@ -557,8 +537,26 @@ function formatPc(s: number): string {
   return `${m}'${String(sec).padStart(2, '0')}"`;
 }
 
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result as string);
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(blob);
+  });
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
 export default function ShareCard({ activity, displayName, onClose, hideRegister, onRegistered }: ShareCardProps) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { activities, goals } = useUserData();
   // 활동 월의 목표(km) — 가로 progress bar 에 사용. 없으면 undefined → bar 미표시.
   const monthlyGoalKm = (() => {
@@ -575,7 +573,15 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
   const [registering, setRegistering] = useState(false);
   const [registerToast, setRegisterToast] = useState<string | null>(null);
   const [quote, setQuote] = useState<DailyQuote | null>(null);
-  const [likeBusy, setLikeBusy] = useState(false);
+  // build 136: 동영상 공유 기본 + 정적 이미지 선택 옵션. MediaRecorder 미지원 기기는 자동으로 이미지.
+  const [shareAsVideo, setShareAsVideo] = useState(true);
+  const [renderingVideo, setRenderingVideo] = useState(false);
+
+  // GPS 첫 좌표 + profile region → 지역 라벨 (한국이면 "서울 강남", 해외면 "중국 항저우")
+  const regionLabel = (() => {
+    const first = activity.route_data?.coordinates?.[0] as [number, number] | undefined;
+    return detectRegionLabel(first ?? null, profile);
+  })();
   // 루틴포토 등록 — 디폴트 ON (체크 해제하면 캘린더만 저장).
   // 캘린더 저장은 항상 자동 (UI 표시 X — 사용자 의도).
   const [registerToGallery, setRegisterToGallery] = useState(true);
@@ -600,27 +606,6 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
     setQuote(next);
   }, [quote?.id]);
 
-  const handleToggleLike = useCallback(async () => {
-    if (!quote || likeBusy || isFallbackQuote(quote)) return;
-    setLikeBusy(true);
-    // optimistic
-    const prev = quote;
-    setQuote({
-      ...quote,
-      liked_by_me: !quote.liked_by_me,
-      like_count: quote.like_count + (quote.liked_by_me ? -1 : 1),
-    });
-    try {
-      const res = await toggleQuoteLike(quote.id);
-      setQuote(q => (q ? { ...q, liked_by_me: res.liked, like_count: res.like_count } : q));
-    } catch (err) {
-      console.warn('좋아요 실패:', err);
-      setQuote(prev); // 롤백
-    } finally {
-      setLikeBusy(false);
-    }
-  }, [quote, likeBusy]);
-
   // 사용자 ID label — 이름(한글) 노출 방지. 영문/숫자 prefix 추출, fallback email prefix.
   const userIdLabel = (() => {
     const m = displayName?.match(/^[a-zA-Z0-9_.]+/);
@@ -631,8 +616,8 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
 
   const generate = useCallback(() => {
     if (!canvasRef.current) return;
-    drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage, activities, userIdLabel, quote, monthlyGoalKm);
-  }, [activity, displayName, themeIdx, bgImage, activities, userIdLabel, quote, monthlyGoalKm]);
+    drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage, activities, userIdLabel, quote, monthlyGoalKm, regionLabel ?? undefined, 1);
+  }, [activity, displayName, themeIdx, bgImage, activities, userIdLabel, quote, monthlyGoalKm, regionLabel]);
 
   useEffect(() => { generate(); }, [generate]);
 
@@ -646,13 +631,13 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
 
   const clearPhoto = () => setBgImage(null);
 
-  const handleDownload = async () => {
-    if (!canvasRef.current) return;
-
+  // build 136: 정적 PNG 공유 (비디오 미지원 폴백). 네이티브 공유 시트 + 캡션.
+  const sharePngBlob = async (blob: Blob, urlForCaption: string) => {
+    const text = `${shareCaption}\n${urlForCaption}`;
     if (isNativeApp()) {
-      // iOS/Android: Capacitor Filesystem + Share
       try {
-        const base64 = canvasRef.current.toDataURL('image/png').split(',')[1];
+        const dataUrl = await blobToDataUrl(blob);
+        const base64 = dataUrl.split(',')[1];
         const { Filesystem, Directory } = await import('@capacitor/filesystem');
         const fileName = `routinist-${activity.activity_date}.png`;
         const result = await Filesystem.writeFile({
@@ -660,26 +645,58 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
           data: base64,
           directory: Directory.Cache,
         });
-        // 네이티브 공유 시트로 열기 — 명언 캡션 함께 전달
         const { Share } = await import('@capacitor/share');
         await Share.share({
           title: `${activity.distance_km.toFixed(2)}km 러닝`,
-          text: shareCaption,
+          text,
           url: result.uri,
         });
       } catch (err) {
-        console.warn('네이티브 저장 실패, 웹 폴백:', err);
-        // 웹 폴백
-        const link = document.createElement('a');
-        link.download = `routinist-${activity.activity_date}.png`;
-        link.href = canvasRef.current.toDataURL('image/png');
-        link.click();
+        console.warn('네이티브 PNG 공유 실패, 웹 폴백:', err);
+        downloadBlob(blob, `routinist-${activity.activity_date}.png`);
       }
+    } else if (navigator.share) {
+      try {
+        const file = new File([blob], `routinist-${activity.activity_date}.png`, { type: 'image/png' });
+        await navigator.share({ files: [file], title: `${activity.distance_km.toFixed(2)}km 러닝`, text });
+      } catch { /* user cancelled */ }
     } else {
-      const link = document.createElement('a');
-      link.download = `routinist-${activity.activity_date}.png`;
-      link.href = canvasRef.current.toDataURL('image/png');
-      link.click();
+      downloadBlob(blob, `routinist-${activity.activity_date}.png`);
+    }
+  };
+
+  // 비디오 (MP4/webm) 네이티브 공유. 카톡·인스타가 동영상으로 인식.
+  const shareVideoBlob = async (blob: Blob, extension: 'mp4' | 'webm', urlForCaption: string) => {
+    const text = `${shareCaption}\n${urlForCaption}`;
+    const fileName = `routinist-${activity.activity_date}.${extension}`;
+    if (isNativeApp()) {
+      try {
+        const dataUrl = await blobToDataUrl(blob);
+        const base64 = dataUrl.split(',')[1];
+        const { Filesystem, Directory } = await import('@capacitor/filesystem');
+        const result = await Filesystem.writeFile({
+          path: fileName,
+          data: base64,
+          directory: Directory.Cache,
+        });
+        const { Share } = await import('@capacitor/share');
+        await Share.share({
+          title: `${activity.distance_km.toFixed(2)}km 러닝`,
+          text,
+          url: result.uri,
+        });
+      } catch (err) {
+        console.warn('네이티브 비디오 공유 실패, 다운로드 폴백:', err);
+        downloadBlob(blob, fileName);
+      }
+    } else if (navigator.share) {
+      try {
+        const mime = extension === 'mp4' ? 'video/mp4' : 'video/webm';
+        const file = new File([blob], fileName, { type: mime });
+        await navigator.share({ files: [file], title: `${activity.distance_km.toFixed(2)}km 러닝`, text });
+      } catch { /* user cancelled */ }
+    } else {
+      downloadBlob(blob, fileName);
     }
   };
 
@@ -770,59 +787,65 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
     }
   };
 
-  // 인스타식 캡션 — 명언 + 거리. 공유 시 텍스트로 함께 전달, 사용자가 SNS 캡션에 그대로 활용.
+  // 캡션 — 한 줄 일기/명언 + 해시태그. 공유 시 OG 딥링크가 별도 줄로 첨부됨 (sharePngBlob/shareVideoBlob 내부).
   const shareCaption = quote
     ? `"${quote.text}"${quote.author ? ` — ${quote.author}` : ''}\n\n#Routinist #${activity.distance_km.toFixed(1)}km`
     : `오늘도 한 발 더. ${activity.distance_km.toFixed(2)}km #Routinist`;
 
-  // build 121 — X(트위터) / 카카오톡 / 인스타그램 (캡션 복사) intent
-  const shareToX = () => {
-    track('share_card_x', { activity_id: activity.id });
-    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareCaption)}`;
-    if (typeof window !== 'undefined') window.open(url, '_blank', 'noopener');
-  };
-  const shareToKakao = async () => {
-    // KakaoTalk 정식 SDK 없으므로 클립보드 복사 + 안내. (정식은 Kakao Share SDK 가 필요)
-    track('share_card_kakao', { activity_id: activity.id });
-    try {
-      await navigator.clipboard.writeText(shareCaption);
-      setRegisterToast('카카오톡에 붙여넣기 — 캡션 복사됨');
-      setTimeout(() => setRegisterToast(null), 2200);
-    } catch { /* ignore */ }
-  };
-  const shareToInstagram = async () => {
-    track('share_card_instagram', { activity_id: activity.id });
-    // 인스타그램은 URL intent 가 없음 — 캡션 복사 후 사용자에게 사진+캡션 인스타에 붙여넣기 유도.
-    try {
-      await navigator.clipboard.writeText(shareCaption);
-      setRegisterToast('인스타 캡션 복사됨. 사진과 함께 붙여넣기');
-      setTimeout(() => setRegisterToast(null), 2400);
-    } catch { /* ignore */ }
-  };
-
+  // build 136: 공유는 단일 CTA. 동영상 토글 ON 이면 라인 그리기 MP4, OFF 또는 미지원이면 PNG.
   const handleShare = async () => {
     if (!canvasRef.current) return;
-    track('share_card_share', { activity_id: activity.id, distance_km: activity.distance_km, has_quote: !!quote, native: isNativeApp() });
+    track('share_card_share', {
+      activity_id: activity.id,
+      distance_km: activity.distance_km,
+      has_quote: !!quote,
+      native: isNativeApp(),
+      as_video: shareAsVideo,
+    });
 
-    if (isNativeApp()) {
-      // 네이티브에서는 handleDownload가 공유까지 처리
-      await handleDownload();
+    // 카톡/인스타에서 링크 누르면 앱(또는 설치 페이지) 으로 — build 136 OG 라우트.
+    const shareLandingUrl = `https://routinist.kr/r/${activity.id}`;
+
+    // 비디오 분기 — MediaRecorder 지원 + GPS 라인 있을 때만 의미 있음.
+    const hasRoute = !!activity.route_data?.coordinates?.length;
+    if (shareAsVideo && hasRoute && typeof MediaRecorder !== 'undefined') {
+      setRenderingVideo(true);
+      try {
+        const result = await captureCanvasAnimation(
+          canvasRef.current,
+          (progress) => {
+            drawCard(
+              canvasRef.current!,
+              activity,
+              displayName,
+              THEMES[themeIdx],
+              bgImage,
+              activities,
+              userIdLabel,
+              quote,
+              monthlyGoalKm,
+              regionLabel ?? undefined,
+              progress,
+            );
+          },
+          { durationMs: 2500, holdMs: 1000, fps: 30, bitsPerSecond: 5_000_000 },
+        );
+        await shareVideoBlob(result.blob, result.extension, shareLandingUrl);
+      } catch (err) {
+        console.warn('비디오 생성 실패, PNG 폴백:', err);
+        const blob = await new Promise<Blob | null>(res => canvasRef.current!.toBlob(b => res(b), 'image/png'));
+        if (blob) await sharePngBlob(blob, shareLandingUrl);
+      } finally {
+        // 정적 카드로 복귀
+        generate();
+        setRenderingVideo(false);
+      }
       return;
     }
 
-    canvasRef.current.toBlob(async (blob) => {
-      if (!blob) return;
-      const file = new File([blob], `routinist-${activity.activity_date}.png`, { type: 'image/png' });
-      if (navigator.share) {
-        try {
-          await navigator.share({
-            files: [file],
-            title: `${activity.distance_km.toFixed(2)}km 러닝`,
-            text: shareCaption,
-          });
-        } catch { /* cancelled */ }
-      } else { await handleDownload(); }
-    }, 'image/png');
+    // 정적 이미지 공유
+    const blob = await new Promise<Blob | null>(res => canvasRef.current!.toBlob(b => res(b), 'image/png'));
+    if (blob) await sharePngBlob(blob, shareLandingUrl);
   };
 
   return (
@@ -841,26 +864,10 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
           </button>
         </div>
 
-        {/* 명언 컨트롤 — 👍 + 🎲 다른 명언 + ✍️ 나의 명언 (사용자 피드백 #8). */}
+        {/* 명언 컨트롤 — 🎲 다른 명언 + ✍️ 한 줄 일기 (build 136: 좋아요 제거, 명언 좋아요는 포토 랭킹에서 사진별로 누름).
+            한 줄 일기 안 쓰면 표시되는 명언이 그대로 카드에 들어감 (랜덤 fallback). */}
         {quote && (
           <div className="px-4 pb-2 flex items-center justify-center gap-1.5 flex-shrink-0 flex-wrap">
-            {!isFallbackQuote(quote) && (
-              <button
-                onClick={handleToggleLike}
-                disabled={likeBusy}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--card)] border border-[var(--card-border)] text-sm disabled:opacity-50"
-                aria-label={quote.liked_by_me ? '좋아요 취소' : '명언 좋아요'}
-              >
-                <ThumbsUp
-                  size={16}
-                  className={quote.liked_by_me ? 'text-emerald-500' : 'text-[var(--muted)]'}
-                  fill={quote.liked_by_me ? '#10b981' : 'transparent'}
-                />
-                <span className={quote.liked_by_me ? 'text-emerald-500 font-semibold' : 'text-[var(--muted)]'}>
-                  {quote.like_count}
-                </span>
-              </button>
-            )}
             <button
               onClick={rerollQuote}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--card)] border border-[var(--card-border)] text-sm text-[var(--muted)] active:scale-95"
@@ -872,10 +879,10 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
             <button
               onClick={() => { setMyQuoteText(''); setShowMyQuoteModal(true); }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border border-emerald-200/60 dark:border-emerald-900/40 text-sm text-emerald-700 dark:text-emerald-300 font-semibold active:scale-95"
-              aria-label="나의 명언 작성"
+              aria-label="한 줄 일기 작성"
             >
               <PenLine size={16} />
-              <span>나의 명언</span>
+              <span>한 줄 일기</span>
             </button>
           </div>
         )}
@@ -924,54 +931,48 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
             )}
           </div>
 
-          {/* 명언 캡션 — 인스타식 카드 아래 텍스트 (작업 3).
-              SNS 공유 시 함께 전달되는 캡션 + 갤러리에 텍스트로도 저장됨. */}
+          {/* 한 줄 일기 / 명언 미리보기 — 인스타식 카드 아래 텍스트 (build 136).
+              공유 시 캡션으로 함께 전달 + 갤러리에 텍스트로도 저장.
+              개별 SNS 버튼은 제거 (사용자 피드백) — 카톡/인스타 공유는 메인 [공유] 버튼 한 번으로 OG 링크 + 비디오. */}
           {quote && (
             <div className="px-1">
               <div className="rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-900/40 px-3 py-2.5">
-                <p className="text-sm text-emerald-900 dark:text-emerald-100 leading-snug">
+                <p className="text-sm text-emerald-900 dark:text-emerald-100 leading-snug break-keep">
                   &ldquo;{quote.text}&rdquo;
                   {quote.author && (
                     <span className="text-xs text-emerald-700 dark:text-emerald-300 font-semibold"> — {quote.author}</span>
                   )}
                 </p>
-                <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-                  <button
-                    onClick={async () => {
-                      const caption = `"${quote.text}"${quote.author ? ` — ${quote.author}` : ''}\n\n#Routinist #${activity.distance_km.toFixed(1)}km`;
-                      try {
-                        await navigator.clipboard.writeText(caption);
-                        setRegisterToast('✨ 캡션 복사됨');
-                        setTimeout(() => setRegisterToast(null), 1500);
-                      } catch { /* clipboard 거부 */ }
-                    }}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white/80 dark:bg-zinc-800/80 text-[11px] text-emerald-700 dark:text-emerald-300 font-bold active:scale-95"
-                  >
-                    <Copy size={10} /> 복사
-                  </button>
-                  <button
-                    onClick={shareToX}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-black text-white text-[11px] font-extrabold active:scale-95"
-                    aria-label="X에 공유"
-                  >
-                    𝕏
-                  </button>
-                  <button
-                    onClick={shareToKakao}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-400 text-zinc-900 text-[11px] font-extrabold active:scale-95"
-                    aria-label="카카오톡으로 공유"
-                  >
-                    카카오톡
-                  </button>
-                  <button
-                    onClick={shareToInstagram}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 text-white text-[11px] font-extrabold active:scale-95"
-                    aria-label="인스타그램 캡션 복사"
-                  >
-                    Insta
-                  </button>
-                </div>
               </div>
+            </div>
+          )}
+
+          {/* 동영상 / 이미지 토글 (build 136) — GPS 경로 있을 때만 표시.
+              동영상: 출발→도착 라인 그리기 2.5초 + 정지 1초. 카톡/인스타에서 단일 파일로 자동 재생. */}
+          {!!activity.route_data?.coordinates?.length && typeof MediaRecorder !== 'undefined' && (
+            <div className="grid grid-cols-2 gap-1.5 px-1">
+              <button
+                onClick={() => setShareAsVideo(true)}
+                className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition active:scale-95 ${
+                  shareAsVideo
+                    ? 'bg-emerald-500 text-white shadow-sm'
+                    : 'bg-[var(--card)] text-[var(--muted)] border border-[var(--card-border)]'
+                }`}
+              >
+                <Video size={14} />
+                동영상 (경로 그리기)
+              </button>
+              <button
+                onClick={() => setShareAsVideo(false)}
+                className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition active:scale-95 ${
+                  !shareAsVideo
+                    ? 'bg-emerald-500 text-white shadow-sm'
+                    : 'bg-[var(--card)] text-[var(--muted)] border border-[var(--card-border)]'
+                }`}
+              >
+                <ImageIcon size={14} />
+                정적 이미지
+              </button>
             </div>
           )}
 
@@ -994,17 +995,23 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
             </label>
           )}
 
-          {/* 공유 — 단일 CTA. 캘린더 자동 + 루틴포토(체크박스 ON 일 때) + 공유 시트 */}
+          {/* 공유 — 단일 CTA. 캘린더 자동 + 루틴포토(체크박스 ON 일 때) + 공유 시트.
+              build 136: 비디오 렌더링 중에는 별도 진행 상태 표시. */}
           <button
             onClick={async () => {
               if (!hideRegister) handleRegister(registerToGallery);
               await handleShare();
               setTimeout(() => onClose(), 1200);
             }}
-            disabled={registering}
+            disabled={registering || renderingVideo}
             className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[var(--accent)] text-white font-semibold text-base disabled:opacity-50 active:scale-[0.99] transition"
           >
-            {registering ? (
+            {renderingVideo ? (
+              <>
+                <span className="animate-spin w-4 h-4 border-2 border-white/70 border-t-transparent rounded-full" />
+                <span>동영상 만드는 중...</span>
+              </>
+            ) : registering ? (
               <>
                 <span className="animate-spin w-4 h-4 border-2 border-white/70 border-t-transparent rounded-full" />
                 <span>공유 중...</span>
@@ -1029,10 +1036,10 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
             <div className="flex items-start justify-between mb-3">
               <div>
                 <h3 className="text-base font-extrabold inline-flex items-center gap-1.5">
-                  <PenLine size={16} className="text-emerald-500" /> 나의 명언
+                  <PenLine size={16} className="text-emerald-500" /> 한 줄 일기
                 </h3>
                 <p className="text-xs text-[var(--muted)] mt-0.5">
-                  공유 카드 끝에 — {displayName} 닉네임으로 표시돼요
+                  공유 카드에 — {displayName} 닉네임으로 표시돼요
                 </p>
               </div>
               <button onClick={() => setShowMyQuoteModal(false)} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90">
@@ -1049,13 +1056,13 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
             />
             <div className="flex justify-between mt-1.5">
               <span className="text-[10px] text-[var(--muted)]">{myQuoteText.length}/300</span>
-              <span className="text-[10px] text-emerald-600 font-semibold">명언 사전에 등록 + 좋아요 받기</span>
+              <span className="text-[10px] text-emerald-600 font-semibold">공유 카드 + 갤러리 캡션</span>
             </div>
             <button
               onClick={async () => {
                 const trimmed = myQuoteText.trim();
                 if (trimmed.length < 3) {
-                  setRegisterToast('명언이 너무 짧아요 (3자 이상)');
+                  setRegisterToast('한 줄 일기가 너무 짧아요 (3자 이상)');
                   setTimeout(() => setRegisterToast(null), 2200);
                   return;
                 }
@@ -1072,7 +1079,7 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
                     like_count: 0,
                     liked_by_me: false,
                   });
-                  setRegisterToast('✨ 내 명언이 등록됐어요');
+                  setRegisterToast('✨ 한 줄 일기가 등록됐어요');
                   setShowMyQuoteModal(false);
                   setMyQuoteText('');
                   setTimeout(() => setRegisterToast(null), 2000);
@@ -1094,7 +1101,7 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
                 </>
               ) : (
                 <>
-                  <Check size={16} /> 명언 등록
+                  <Check size={16} /> 한 줄 일기 등록
                 </>
               )}
             </button>

@@ -83,7 +83,7 @@ export default function QuoteRankingPage() {
           <button onClick={() => router.back()} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition">
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-xl font-extrabold tracking-tight">명언 사전</h1>
+          <h1 className="text-xl font-extrabold tracking-tight">한 줄 일기 모음</h1>
         </div>
       </header>
 
@@ -114,7 +114,7 @@ export default function QuoteRankingPage() {
             <PenLine size={18} className="text-emerald-600" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-extrabold text-[var(--foreground)]">나의 명언 쓰기</p>
+            <p className="text-sm font-extrabold text-[var(--foreground)]">한 줄 일기 쓰기</p>
             <p className="text-[11px] text-[var(--muted)]">공유 카드에 닉네임과 함께 표시돼요</p>
           </div>
           <span className="text-emerald-600 text-xs font-bold">시작 →</span>

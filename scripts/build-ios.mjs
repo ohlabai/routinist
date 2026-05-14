@@ -19,8 +19,14 @@ import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
-const src = resolve(root, 'src/app/api');
-const dst = resolve(root, 'src/app/_api_disabled');
+
+// Capacitor static export 와 충돌하는 디렉토리(API routes / force-dynamic SSR pages).
+// 임시로 _disabled 접미사 붙여 next build 가 못 보게 한 뒤 마지막에 복원.
+const STATIC_EXPORT_INCOMPATIBLE = [
+  { active: 'src/app/api', parked: 'src/app/_api_disabled' },
+  // build 136: /r/[id] 공유 랜딩 — Vercel SSR 전용. Capacitor 정적 export 와 양립 불가.
+  { active: 'src/app/r', parked: 'src/app/_r_disabled' },
+];
 
 function run(cmd, args, env = {}) {
   const r = spawnSync(cmd, args, {
@@ -32,17 +38,21 @@ function run(cmd, args, env = {}) {
   return r.status ?? 0;
 }
 
-function moveApi(forward) {
-  const [from, to] = forward ? [src, dst] : [dst, src];
-  if (existsSync(from)) {
-    renameSync(from, to);
-    console.log(`📦 ${forward ? 'api → _api_disabled' : '_api_disabled → api'} (Capacitor 빌드 ${forward ? '시작' : '종료'})`);
+function moveIncompatible(forward) {
+  for (const entry of STATIC_EXPORT_INCOMPATIBLE) {
+    const [from, to] = forward
+      ? [resolve(root, entry.active), resolve(root, entry.parked)]
+      : [resolve(root, entry.parked), resolve(root, entry.active)];
+    if (existsSync(from)) {
+      renameSync(from, to);
+      console.log(`📦 ${forward ? entry.active + ' → ' + entry.parked : entry.parked + ' → ' + entry.active}`);
+    }
   }
 }
 
 let exitCode = 0;
 try {
-  moveApi(true);
+  moveIncompatible(true);
   exitCode = run('npx', ['next', 'build'], { BUILD_TARGET: 'capacitor' });
   if (exitCode !== 0) {
     console.error('❌ next build 실패');
@@ -51,6 +61,6 @@ try {
     if (exitCode !== 0) console.error('❌ cap sync 실패');
   }
 } finally {
-  moveApi(false);
+  moveIncompatible(false);
 }
 process.exit(exitCode);

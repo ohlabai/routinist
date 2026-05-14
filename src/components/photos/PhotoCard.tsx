@@ -157,16 +157,22 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
           </div>
         </button>
 
-        {/* 인스타식 캡션 — build 106: 사진 아래 작성자가 선택한 명언이 캡션으로 노출.
-            quote_text 우선, 없으면 legacy essay_body fallback. */}
+        {/* 인스타식 캡션 — build 136: 사진 아래 한 줄 일기/명언이 캡션으로 노출.
+            quote_text 우선, 없으면 legacy essay_body fallback. 본문 가독성 강화 (14→15px, line-clamp 3→5). */}
         {(photo.quote_text || photo.essay_body) && (
           <div className="px-3.5 py-3 bg-[var(--card)] border-t border-[var(--card-border)]/40">
-            <p className="text-[14px] italic text-[var(--foreground)] leading-relaxed line-clamp-3 break-keep">
+            <div className="flex items-baseline gap-1.5 mb-1.5">
+              <span className="text-[12px] font-extrabold text-emerald-700 dark:text-emerald-300">
+                @{photo.display_name}
+              </span>
+              <span className="text-[10px] text-[var(--muted)] font-semibold">한 줄 일기</span>
+            </div>
+            <p className="text-[15px] italic text-[var(--foreground)] leading-relaxed line-clamp-5 break-keep">
               &ldquo;{(photo.quote_text ?? photo.essay_body ?? '').replace(/\s+/g, ' ').trim()}&rdquo;
             </p>
-            <p className="text-[11px] text-[var(--muted)] mt-1.5 font-semibold">
-              — {photo.quote_author ?? `@${photo.display_name}`}
-            </p>
+            {photo.quote_author && photo.quote_author !== photo.display_name && (
+              <p className="text-[11px] text-[var(--muted)] mt-1.5 font-semibold">— {photo.quote_author}</p>
+            )}
           </div>
         )}
 

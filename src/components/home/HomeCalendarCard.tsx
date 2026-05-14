@@ -6,10 +6,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Share2 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
 import { getSupabase } from '@/lib/supabase';
+import ShareCard from '@/components/activity/ShareCard';
 
 function distanceColor(km: number, dateStr: string): string {
   if (km <= 0) {
@@ -27,7 +28,7 @@ function distanceColor(km: number, dateStr: string): string {
 }
 
 export default function HomeCalendarCard() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { activities } = useUserData();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
@@ -35,6 +36,8 @@ export default function HomeCalendarCard() {
 
   const [photos, setPhotos] = useState<Map<string, string>>(new Map());
   const [customPhotos, setCustomPhotos] = useState<Map<string, string>>(new Map());
+  // build 136: 캘린더 셀 탭 없이 바로 공유카드 만들기 — 최근 활동으로 진입.
+  const [shareCardOpen, setShareCardOpen] = useState(false);
 
   const monthlyActivities = useMemo(
     () =>
@@ -261,6 +264,26 @@ export default function HomeCalendarCard() {
         </div>
         <Link href="/calendar" className="text-[var(--accent)] font-semibold">사진 등록 →</Link>
       </div>
+
+      {/* 공유카드 만들기 — 캘린더 셀 탭 없이 바로 진입 (build 136 사용자 피드백 #2).
+          가장 최근 활동을 자동 선택. 활동이 없으면 버튼 비표시. */}
+      {activities.length > 0 && (
+        <button
+          onClick={() => setShareCardOpen(true)}
+          className="mt-3 w-full inline-flex items-center justify-center gap-2 py-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-sm shadow-sm active:scale-[0.98] transition"
+        >
+          <Share2 size={16} />
+          공유카드 만들기
+        </button>
+      )}
+
+      {shareCardOpen && activities.length > 0 && (
+        <ShareCard
+          activity={activities[0]}
+          displayName={profile?.display_name ?? '러너'}
+          onClose={() => setShareCardOpen(false)}
+        />
+      )}
     </div>
   );
 }

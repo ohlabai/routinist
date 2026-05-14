@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ChevronRight, HelpCircle, Shield, Heart, Award, LogOut, MapPin,
-  MessageCircle, Coins, Gift, Sun, Moon, Monitor, Stethoscope, Settings,
+  MessageCircle, Coins, Gift, Sun, Moon, Monitor, Settings,
   AlertTriangle, X, FileText, Bell, BellOff, PenLine,
 } from 'lucide-react';
 import { useEffect } from 'react';
@@ -155,8 +155,8 @@ export default function ProfilePage() {
     { href: '/mileage/gift', label: t('profile.actionMileageGift'), Icon: Gift, color: 'text-pink-500' },
   ];
 
-  // build 106 메뉴 IA 재편 — 나의 명언/명언사전/러너의 에세이는 소셜 탭으로 이전.
-  // 데이터 점검은 어드민 전용으로 이동.
+  // build 136 메뉴 IA 정리 — 데이터 점검(audit) 은 일반 메뉴에서 제거 (어드민 대시보드 안에만 노출).
+  // 명언 랭킹/러너 에세이/나의 명언은 이미 소셜 탭으로 이전됨.
   const settings: { href: string; label: string; Icon: typeof HelpCircle }[] = [
     { href: '/feedback', label: '제안 / 버그 게시판', Icon: HelpCircle },
     { href: '/profile/push-settings', label: '알림 설정', Icon: HelpCircle },
@@ -164,12 +164,6 @@ export default function ProfilePage() {
     { href: '/shop/addresses', label: '배송지 관리', Icon: HelpCircle },
     ...(isAdmin ? [
       { href: '/admin', label: '어드민 대시보드', Icon: Settings },
-      { href: '/profile/audit', label: t('profile.menuAudit'), Icon: Stethoscope },
-      { href: '/admin/mileage', label: t('profile.menuAdminMileage'), Icon: Settings },
-      { href: '/admin/orders', label: '주문 관리 (관리자)', Icon: Settings },
-      { href: '/admin/products', label: '상품 관리 (관리자)', Icon: Settings },
-      { href: '/admin/quotes', label: '명언 모더레이션 (관리자)', Icon: Settings },
-      { href: '/admin/experiments', label: 'A/B 실험 (관리자)', Icon: Settings },
     ] : []),
     { href: '/support', label: t('profile.menuSupport'), Icon: HelpCircle },
     { href: '/privacy', label: t('profile.menuPrivacy'), Icon: Shield },

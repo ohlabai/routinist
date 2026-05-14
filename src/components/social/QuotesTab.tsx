@@ -122,13 +122,13 @@ export default function QuotesTab() {
 
   const handleCompose = async () => {
     const trimmed = composeText.trim();
-    if (trimmed.length < 3) { showToast('명언이 너무 짧아요 (3자 이상)', 'warn'); return; }
+    if (trimmed.length < 3) { showToast('한 줄 일기가 너무 짧아요 (3자 이상)', 'warn'); return; }
     setComposing(true);
     try {
       await createUserQuote(trimmed);
       setComposeText('');
       setComposeOpen(false);
-      showToast('✨ 명언이 등록됐어요');
+      showToast('✨ 한 줄 일기가 등록됐어요');
       await load();
     } catch (e) {
       showToast(e instanceof Error ? e.message : '등록 실패', 'warn');
@@ -175,7 +175,7 @@ export default function QuotesTab() {
                 mode === m ? 'bg-emerald-500 text-white shadow' : 'text-[var(--muted)]'
               }`}
             >
-              {m === 'all' ? '전체' : '내 명언'}
+              {m === 'all' ? '전체' : '내 한 줄'}
             </button>
           ))}
         </div>
@@ -303,7 +303,7 @@ export default function QuotesTab() {
             <div className="flex items-start justify-between mb-3">
               <div>
                 <h3 className="text-base font-extrabold inline-flex items-center gap-1.5">
-                  <PenLine size={16} className="text-emerald-500" /> 나의 명언
+                  <PenLine size={16} className="text-emerald-500" /> 한 줄 일기
                 </h3>
                 <p className="text-xs text-[var(--muted)] mt-0.5">
                   {profile?.display_name ?? '러너'} 닉네임으로 표시돼요
