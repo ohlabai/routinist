@@ -24,6 +24,7 @@ import {
   type HourOfDayStat,
   type PaceTrend,
 } from '@/lib/stats-data';
+import { dataCache, onCacheInvalidated } from '@/lib/data-cache';
 import {
   BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   RadarChart, PolarGrid, PolarAngleAxis, Radar, Legend,
@@ -82,6 +83,8 @@ export default function DashboardPage() {
   const [dayStats, setDayStats] = useState<DayOfWeekStat[]>([]);
   const [hourStats, setHourStats] = useState<HourOfDayStat[]>([]);
   const [paceTrend, setPaceTrend] = useState<PaceTrend[]>([]);
+  // build 140: statsLoading 초기값을 false → 캐시 hit 시 첫 paint skeleton 회피.
+  // 캐시 miss + force=true 시에만 true (effect 내부에서 setStatsLoading(true)).
   const [statsLoading, setStatsLoading] = useState(true);
 
   // 상세 차트 상태
@@ -114,39 +117,87 @@ export default function DashboardPage() {
     }
   }, [profile]);
 
-  const loadStats = useCallback(async () => {
-    if (!user) return;
+  // build 140: 통계 6개 RPC bundle 을 dataCache 에 저장 → 다음 진입 시 즉시 paint.
+  // UserDataProvider 와 동일한 신문 모델. 사용자 PullToRefresh 시에만 force fetch.
+  // essential(메인 hero 3개) + optional(차트 3개) 차등 timeout — 느린 RPC 가 빠른 RPC 표시 안 막음.
+  const statsCacheKey = useMemo(() => user ? `home:stats:${user.id}:${year}` : null, [user, year]);
+
+  const loadStats = useCallback(async (opts?: { force?: boolean }) => {
+    if (!user || !statsCacheKey) return;
+
+    // 1. 캐시 우선 — 즉시 paint, fetch skip.
+    if (!opts?.force) {
+      const cached = dataCache.get<{
+        monthly: PeriodDistance[]; weekly: PeriodDistance[]; pb: PersonalBest | null;
+        day: DayOfWeekStat[]; hour: HourOfDayStat[]; pace: PaceTrend[];
+      }>(statsCacheKey);
+      if (cached) {
+        setMonthlyData(cached.value.monthly);
+        setWeeklyData(cached.value.weekly);
+        setPersonalBests(cached.value.pb);
+        setDayStats(cached.value.day);
+        setHourStats(cached.value.hour);
+        setPaceTrend(cached.value.pace);
+        setStatsLoading(false);
+        return;
+      }
+    }
+
     setStatsLoading(true);
     try {
       const withTimeout = <T,>(p: Promise<T>, ms: number, fallback: T): Promise<T> =>
         Promise.race([p, new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))]);
 
-      const results = await Promise.allSettled([
-        withTimeout(fetchDistanceByPeriod(user.id, 'monthly', year), 5000, []),
-        withTimeout(fetchDistanceByPeriod(user.id, 'weekly', year), 5000, []),
-        withTimeout(fetchPersonalBests(user.id), 5000, null),
-        withTimeout(fetchDayOfWeekStats(user.id), 5000, []),
-        withTimeout(fetchHourOfDayStats(user.id), 5000, []),
-        withTimeout(fetchPaceTrend(user.id), 5000, []),
+      // essential (메인 hero 3개) 우선 도착 → 먼저 setState. optional 은 백그라운드.
+      const essentialP = Promise.allSettled([
+        withTimeout(fetchDistanceByPeriod(user.id, 'monthly', year), 3000, []),
+        withTimeout(fetchDistanceByPeriod(user.id, 'weekly', year), 3000, []),
+        withTimeout(fetchPersonalBests(user.id), 3000, null),
+      ]);
+      const optionalP = Promise.allSettled([
+        withTimeout(fetchDayOfWeekStats(user.id), 4500, []),
+        withTimeout(fetchHourOfDayStats(user.id), 4500, []),
+        withTimeout(fetchPaceTrend(user.id), 4500, []),
       ]);
 
       const val = <T,>(r: PromiseSettledResult<T>, fallback: T): T =>
         r.status === 'fulfilled' ? r.value : fallback;
 
-      setMonthlyData(val(results[0], []));
-      setWeeklyData(val(results[1], []));
-      setPersonalBests(val(results[2], null));
-      setDayStats(val(results[3], []));
-      setHourStats(val(results[4], []));
-      setPaceTrend(val(results[5], []));
+      const eRes = await essentialP;
+      const monthly = val(eRes[0], [] as PeriodDistance[]);
+      const weekly = val(eRes[1], [] as PeriodDistance[]);
+      const pb = val(eRes[2], null as PersonalBest | null);
+      setMonthlyData(monthly);
+      setWeeklyData(weekly);
+      setPersonalBests(pb);
+      setStatsLoading(false);  // essential 도착 시점에 hero 영역 unlock
+
+      const oRes = await optionalP;
+      const day = val(oRes[0], [] as DayOfWeekStat[]);
+      const hour = val(oRes[1], [] as HourOfDayStat[]);
+      const pace = val(oRes[2], [] as PaceTrend[]);
+      setDayStats(day);
+      setHourStats(hour);
+      setPaceTrend(pace);
+
+      dataCache.set(statsCacheKey, { monthly, weekly, pb, day, hour, pace });
     } catch (err) {
       console.warn('[Home] 통계 로드 실패:', err);
-    } finally {
       setStatsLoading(false);
     }
-  }, [user, year]);
+  }, [user, year, statsCacheKey]);
 
   useEffect(() => { loadStats(); }, [loadStats]);
+
+  // 캐시 invalidate 이벤트 (PullToRefresh 등) → fresh fetch.
+  useEffect(() => {
+    if (!statsCacheKey) return;
+    return onCacheInvalidated((prefix) => {
+      if (statsCacheKey.startsWith(prefix) || prefix === '') {
+        void loadStats({ force: true });
+      }
+    });
+  }, [statsCacheKey, loadStats]);
 
   // 상세 차트 — 8초 안에 응답 없으면 빈 배열 fallback
   const loadDetail = useCallback(async () => {
@@ -410,6 +461,8 @@ export default function DashboardPage() {
       dataCache.invalidate(`hero:rank:${user.id}`);
       dataCache.invalidate(`hero:neighbors:${user.id}`);
       dataCache.invalidate('home:localtop:');
+      // build 140: 통계 6개 RPC bundle 도 같이 invalidate (PullToRefresh 시 fresh fetch).
+      dataCache.invalidate(`home:stats:${user.id}:`);
     }
     // 친구 추월 + 1위 등극 + 새 PB 푸시 enqueue (build 100) — fire-and-forget, RPC 내부 디바운스
     if (user) {
@@ -422,7 +475,7 @@ export default function DashboardPage() {
         ]);
       } catch {}
     }
-    await Promise.all([loadStats(), refresh()]);
+    await Promise.all([loadStats({ force: true }), refresh()]);
 
     if (user) {
       try {

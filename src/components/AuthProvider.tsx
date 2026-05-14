@@ -85,14 +85,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void initializeSocialLogin();
   }, []);
 
-  // 푸시 알림 초기화 — 로그인 후 1회만 (user 가 있어야 토큰 → DB 저장 가능)
+  // 푸시 알림 초기화 — 로그인 후 1회만 (user 가 있어야 토큰 → DB 저장 가능).
+  // build 140: 첫 paint 블로킹 회피 — requestIdleCallback / 1500ms delay.
+  // 푸시 init 은 native plugin 로드 + 토큰 요청 + DB upsert 라 200~500ms 비용. 홈 첫 paint 이후로 미룸.
   const pushInitedRef = useRef(false);
   useEffect(() => {
     if (!user || pushInitedRef.current) return;
     pushInitedRef.current = true;
-    import('@/lib/push-notifications').then(({ initPushNotifications }) => {
-      void initPushNotifications();
-    }).catch(() => {});
+    const run = () => {
+      import('@/lib/push-notifications').then(({ initPushNotifications }) => {
+        void initPushNotifications();
+      }).catch(() => {});
+    };
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout?: number }) => number };
+    if (typeof w.requestIdleCallback === 'function') {
+      w.requestIdleCallback(run, { timeout: 3000 });
+    } else {
+      setTimeout(run, 1500);
+    }
   }, [user]);
 
   useEffect(() => {
