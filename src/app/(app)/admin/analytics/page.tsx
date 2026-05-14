@@ -292,8 +292,8 @@ export default function AdminAnalyticsPage() {
               <div className="grid grid-cols-2 gap-2">
                 <Stat label="루틴포토 (전체)" value={overview.content.photos_total.toLocaleString()} />
                 <Stat label="포토 (7일)" value={`+${overview.content.photos_7d}`} tone="emerald" />
-                <Stat label="유저 명언" value={overview.content.user_quotes_total.toLocaleString()} />
-                <Stat label="명언 (7일)" value={`+${overview.content.user_quotes_7d}`} tone="emerald" />
+                <Stat label="러너 한 줄" value={overview.content.user_quotes_total.toLocaleString()} />
+                <Stat label="러너 한 줄 (7일)" value={`+${overview.content.user_quotes_7d}`} tone="emerald" />
                 <Stat label="친선런 누적" value={overview.content.contests_total.toLocaleString()} />
                 <Stat label="월드런 시작" value={overview.content.world_starts.toLocaleString()} />
                 <Stat label="월드런 완주" value={overview.content.world_completes.toLocaleString()} tone="amber" />
@@ -341,7 +341,7 @@ export default function AdminAnalyticsPage() {
           )}
 
           {topContent?.quotes && topContent.quotes.length > 0 && (
-            <Section title="좋아요 받은 명언 top 5" icon={<Heart size={14} className="text-rose-500" />}>
+            <Section title="좋아요 받은 러너 한 줄 top 5" icon={<Heart size={14} className="text-rose-500" />}>
               <div className="card p-3 space-y-2">
                 {topContent.quotes.map((q) => (
                   <div key={q.id} className="px-2 py-1.5 border-l-2 border-emerald-400 bg-emerald-50/30 dark:bg-emerald-950/20 rounded-r-lg">

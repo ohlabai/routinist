@@ -591,8 +591,9 @@ export default function DashboardPage() {
         {/* 9 월 캘린더 */}
         <div className="mx-4"><HomeCalendarCard /></div>
 
-        {/* 9.5 미니맵 (build 100) — 지도 탭 흡수. SVG polyline + LazyMount 로 가벼움 */}
-        <LazyMount minHeight={200} rootMargin="300px"><HomeMapPreview /></LazyMount>
+        {/* 9.5 미니맵 — build 137: LazyMount 제거 (사용자 피드백: "지도 안 보임"). 즉시 마운트.
+            SVG polyline 자체는 가볍고 fetchRoutesForUser 는 LIMIT 7 로 빠름. */}
+        <HomeMapPreview />
 
         {/* 10 지역 미설정 배너 (조건부) */}
         {profile && !profile.region_gu && !profile.country_code && (

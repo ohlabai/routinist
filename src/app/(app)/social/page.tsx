@@ -21,7 +21,7 @@ const SECTIONS = [
   { id: 'friends', label: '친구', Icon: UserIcon },
   { id: 'clubs', label: '클럽', Icon: Users },
   { id: 'photos', label: '포토', Icon: Camera },
-  { id: 'quotes', label: '명언', Icon: MessageSquare },
+  { id: 'quotes', label: '러너 한 줄', Icon: MessageSquare },
 ] as const;
 
 type SectionId = typeof SECTIONS[number]['id'];

@@ -206,7 +206,7 @@ export default function AdminUsersPage() {
               <h3 className="text-base font-bold text-center">정말 영구 삭제할까요?</h3>
               <p className="text-xs text-[var(--muted)] text-center leading-relaxed">
                 <b>{confirmDelete.display_name ?? confirmDelete.email}</b> 의 모든 데이터<br />
-                (활동·사진·명언·주문·마일리지 등) 가 즉시 사라지며 복구할 수 없어요.
+                (활동·사진·러너 한 줄·주문·마일리지 등) 가 즉시 사라지며 복구할 수 없어요.
               </p>
               <p className="text-[11px] text-[var(--muted)] mt-1">감춤만 하려면 <Eye size={10} className="inline" /> 눈 버튼을 쓰세요.</p>
             </div>

@@ -138,7 +138,7 @@ export default function QuotesTab() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('이 명언을 삭제할까요?')) return;
+    if (!confirm('이 한 줄을 삭제할까요?')) return;
     try {
       await deleteMyQuote(id);
       setItems(prev => prev.filter(x => x.id !== id));
@@ -182,7 +182,7 @@ export default function QuotesTab() {
         <button
           onClick={() => setComposeOpen(true)}
           className="px-3.5 py-2 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-bold text-sm shadow active:scale-95 inline-flex items-center gap-1"
-          aria-label="명언 쓰기"
+          aria-label="러너 한 줄 쓰기"
         >
           <PenLine size={14} /> 쓰기
         </button>
@@ -210,10 +210,10 @@ export default function QuotesTab() {
               <Sparkles size={28} className="text-emerald-500" />
             </div>
             <p className="text-base font-extrabold mb-1">
-              {mode === 'mine' ? '아직 쓴 명언이 없어요' : '아직 명언이 없어요'}
+              {mode === 'mine' ? '아직 쓴 한 줄이 없어요' : '아직 등록된 한 줄이 없어요'}
             </p>
             <p className="text-sm text-[var(--muted)]">
-              우측 상단 <span className="font-bold text-emerald-600">쓰기</span> 로 첫 명언을 남겨보세요
+              우측 상단 <span className="font-bold text-emerald-600">쓰기</span> 로 첫 한 줄을 남겨보세요
             </p>
           </div>
         ) : (
@@ -333,7 +333,7 @@ export default function QuotesTab() {
               {composing ? (
                 <><span className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" /> 등록 중…</>
               ) : (
-                <><Check size={16} /> 명언 등록</>
+                <><Check size={16} /> 러너 한 줄 등록</>
               )}
             </button>
           </div>
@@ -354,7 +354,7 @@ export default function QuotesTab() {
               <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center">
                 <Flag size={24} className="text-amber-600" />
               </div>
-              <h3 className="text-base font-bold">명언 신고</h3>
+              <h3 className="text-base font-bold">러너 한 줄 신고</h3>
               <p className="text-xs text-[var(--muted)] text-center">
                 신고 사유를 선택해주세요. 3회 누적 시 자동 숨김 처리.
               </p>

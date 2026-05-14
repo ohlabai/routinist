@@ -47,14 +47,17 @@ export default async function ShareLandingPage({ params }: { params: Promise<{ i
   const deepLink = `routinist://activity?id=${id}`;
   const webFallback = `/activity?id=${id}`;
   // 환경변수로 store URL 관리 — App Store 승인 후 실제 ID 로 갱신 (rebuild 없이 Vercel env 만 변경).
+  // build 137: fallback 을 메인 도메인으로 — 잘못된 store URL(검색 결과 등) 회피 (사용자 피드백 #6).
   const iosStoreUrl = process.env.NEXT_PUBLIC_IOS_APP_STORE_URL
-    || 'https://apps.apple.com/kr/app/routinist';
+    || 'https://routinist.kr';
   const androidStoreUrl = process.env.NEXT_PUBLIC_ANDROID_PLAY_STORE_URL
-    || 'https://play.google.com/store/apps/details?id=com.routinist.app';
+    || 'https://routinist.kr';
 
   return (
     <div style={{ minHeight: '100vh', background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      {/* 클라이언트 분기 — 페이지 진입 즉시 deep link 시도, 안 열리면 store. */}
+      {/* build 137: 사용자 피드백 #6 — 자동 store redirect 제거. 사용자가 페이지에 머무르며
+          앱에서 열기 / 설치 버튼을 직접 누르도록. deep link 자동 시도만 유지: 앱 설치된 사용자는
+          여전히 매끄럽게 진입, 앱 미설치는 페이지 buttons UI 로. */}
       <script
         dangerouslySetInnerHTML={{
           __html: `
@@ -63,16 +66,8 @@ export default async function ShareLandingPage({ params }: { params: Promise<{ i
               var isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
               var isAndroid = /Android/i.test(ua);
               if (!isIOS && !isAndroid) return;
-              var openedAt = Date.now();
-              var fallbackTimer = setTimeout(function () {
-                if (Date.now() - openedAt < 2500 && document.visibilityState === 'visible') {
-                  window.location.href = isIOS ? ${JSON.stringify(iosStoreUrl)} : ${JSON.stringify(androidStoreUrl)};
-                }
-              }, 1500);
-              document.addEventListener('visibilitychange', function () {
-                if (document.visibilityState === 'hidden') clearTimeout(fallbackTimer);
-              });
-              window.location.href = ${JSON.stringify(deepLink)};
+              // 카톡 inapp browser 등은 scheme handler 막혀있어 실패해도 무해.
+              try { window.location.href = ${JSON.stringify(deepLink)}; } catch (e) {}
             })();
           `,
         }}

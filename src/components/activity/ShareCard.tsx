@@ -393,8 +393,10 @@ function drawCard(
   // "이달 N회" 라벨 → 마지막 달린 막대 아래에 작은 숫자 N (사용자 피드백).
 
   // (1) 월간 일별 세로 막대 그래프
+  // build 137: 사용자 피드백 — 세로·가로 막대를 더 붙이고 둘 다 좀 더 아래로.
+  // chartTop 1230 → 1270 (40 아래), goalBarTop 1480 → 1440 (둘 사이 간격 축소).
   if (dailyKm.size > 0) {
-    const chartTop = 1230;
+    const chartTop = 1270;
     const chartH = 110;
     const chartPadX = 100;
     const chartW = W - chartPadX * 2;
@@ -435,9 +437,9 @@ function drawCard(
     }
   }
 
-  // (2) 가로 progress bar — 위 막대(1230+110=1340) 와 자연스럽게 띄움.
+  // (2) 가로 progress bar — 위 막대(1270+110=1380) 끝과 약 60px 간격으로 더 붙임.
   if (monthlyGoalKm && monthlyGoalKm > 0 && monthSum > 0) {
-    const goalBarTop = 1480;
+    const goalBarTop = 1440;
     const goalBarH = 14;
     const goalBarPadX = 100;
     const goalBarW = W - goalBarPadX * 2;
@@ -745,9 +747,10 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
         ),
       ];
       if (includeGallery) {
-        // 명언이 현재 표시 중이면 photo 와 함께 quote_id 저장 → 갤러리 카드 캡션으로 노출.
-        // fallback 명언(id 가 'fallback-...') 은 quotes 테이블 row 가 아니므로 제외.
+        // quote_id 는 quotes 테이블 row 일 때만(non-fallback). fallback(static)·네트워크 실패 케이스는 row 없음.
+        // build 137: caption 컬럼에 quote.text 직접 저장 → view join 실패해도 캡션 노출 보장 (회귀 fix).
         const quoteIdForCard = quote && !isFallbackQuote(quote) ? quote.id : null;
+        const captionForCard = quote ? quote.text : null;
         tasks.push(
           withTimeout(
             supabase.from('activity_photos').insert({
@@ -757,6 +760,7 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
               share_in_gallery: true,
               sort_order: 0,
               quote_id: quoteIdForCard,
+              caption: captionForCard,
             }),
             8000,
             'activity_photos insert',
@@ -871,10 +875,10 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
             <button
               onClick={rerollQuote}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--card)] border border-[var(--card-border)] text-sm text-[var(--muted)] active:scale-95"
-              aria-label="다른 명언"
+              aria-label="다른 한 줄"
             >
               <Dices size={16} />
-              <span>다른 명언</span>
+              <span>다른 한 줄</span>
             </button>
             <button
               onClick={() => { setMyQuoteText(''); setShowMyQuoteModal(true); }}

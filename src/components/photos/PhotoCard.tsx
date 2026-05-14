@@ -157,9 +157,9 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
           </div>
         </button>
 
-        {/* 인스타식 캡션 — build 136: 사진 아래 한 줄 일기/명언이 캡션으로 노출.
-            quote_text 우선, 없으면 legacy essay_body fallback. 본문 가독성 강화 (14→15px, line-clamp 3→5). */}
-        {(photo.quote_text || photo.essay_body) && (
+        {/* 인스타식 캡션 — build 137: quote_text(view join) → caption(직접 저장) → essay_body(legacy) 순.
+            build 136 회귀 fix: fallback 명언이라 quote_id=null 인 경우도 caption 컬럼에서 살림. */}
+        {(photo.quote_text || photo.caption || photo.essay_body) && (
           <div className="px-3.5 py-3 bg-[var(--card)] border-t border-[var(--card-border)]/40">
             <div className="flex items-baseline gap-1.5 mb-1.5">
               <span className="text-[12px] font-extrabold text-emerald-700 dark:text-emerald-300">
@@ -168,7 +168,7 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
               <span className="text-[10px] text-[var(--muted)] font-semibold">한 줄 일기</span>
             </div>
             <p className="text-[15px] italic text-[var(--foreground)] leading-relaxed line-clamp-5 break-keep">
-              &ldquo;{(photo.quote_text ?? photo.essay_body ?? '').replace(/\s+/g, ' ').trim()}&rdquo;
+              &ldquo;{(photo.quote_text ?? photo.caption ?? photo.essay_body ?? '').replace(/\s+/g, ' ').trim()}&rdquo;
             </p>
             {photo.quote_author && photo.quote_author !== photo.display_name && (
               <p className="text-[11px] text-[var(--muted)] mt-1.5 font-semibold">— {photo.quote_author}</p>
@@ -275,9 +275,9 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
             <X size={26} strokeWidth={2.5} className="text-white" />
           </button>
           <div className="absolute left-4 right-4 bottom-[calc(env(safe-area-inset-bottom)+24px)] space-y-3" onClick={(e) => e.stopPropagation()}>
-            {(photo.quote_text || photo.essay_body) && (
+            {(photo.quote_text || photo.caption || photo.essay_body) && (
               <div className="px-4 py-3 rounded-2xl bg-black/55 backdrop-blur-md text-white text-sm leading-relaxed max-h-40 overflow-y-auto">
-                <p className="italic whitespace-pre-wrap">&ldquo;{photo.quote_text ?? photo.essay_body}&rdquo;</p>
+                <p className="italic whitespace-pre-wrap">&ldquo;{photo.quote_text ?? photo.caption ?? photo.essay_body}&rdquo;</p>
                 <p className="mt-2 text-[11px] text-white/70">— {photo.quote_author ?? `@${photo.display_name}`}</p>
               </div>
             )}

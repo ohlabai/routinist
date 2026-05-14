@@ -3,13 +3,13 @@
 // 홈 캘린더 아래 미니맵 (build 100 — 지도 탭 흡수).
 // 최근 7일 GPS 경로를 SVG polyline 으로 가볍게 표시 (지도 타일 없음).
 // 카드 클릭 시 /map 으로 이동 → 풀 지도.
-// 첫 paint 영향 최소화: LazyMount 로 뷰포트 진입 시에만 마운트, GPS 데이터만 fetch.
+// build 137: 동네 친구찾기 버튼을 분리된 행으로 강화 (사용자 피드백 #1A).
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
 import { fetchRoutesForUser } from '@/lib/map-data';
-import { MapPin, ChevronRight } from 'lucide-react';
+import { MapPin, ChevronRight, Users } from 'lucide-react';
 import type { Activity } from '@/types';
 
 const VIEWBOX_W = 320;
@@ -127,55 +127,54 @@ export default function HomeMapPreview() {
   const totalKm = activities.reduce((s, a) => s + Number(a.distance_km || 0), 0);
 
   return (
-    <Link
-      href="/map"
-      className="mx-4 block card p-4 active:scale-[0.99] transition"
-    >
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <MapPin size={16} className="text-emerald-600" />
-          <h3 className="text-sm font-bold text-[var(--foreground)]">최근 7일 러닝 경로</h3>
-        </div>
-        <div className="flex items-center gap-2">
-          <span
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = '/map/neighborhood'; }}
-            className="text-[11px] text-emerald-700 dark:text-emerald-300 font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 active:scale-95 cursor-pointer"
-          >
-            동네 러너
-          </span>
+    <div className="mx-4 card p-4">
+      <Link href="/map" className="block active:scale-[0.99] transition">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <MapPin size={16} className="text-emerald-600" />
+            <h3 className="text-sm font-bold text-[var(--foreground)]">최근 7일 러닝 경로</h3>
+          </div>
           <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold inline-flex items-center gap-0.5">
             지도 <ChevronRight size={12} />
           </span>
         </div>
-      </div>
 
-      <div className="rounded-xl bg-gradient-to-br from-emerald-50/60 via-white to-emerald-50/30 dark:from-emerald-950/20 dark:via-zinc-900 dark:to-emerald-950/10 border border-emerald-200/30 dark:border-emerald-900/20 overflow-hidden">
-        <svg
-          viewBox={`0 0 ${VIEWBOX_W} ${VIEWBOX_H}`}
-          className="w-full h-[140px]"
-          preserveAspectRatio="xMidYMid meet"
-        >
-          {paths.map(({ idx, d }) => {
-            const { stroke, opacity } = strokeForIdx(idx, paths.length);
-            return (
-              <path
-                key={idx}
-                d={d}
-                fill="none"
-                stroke={stroke}
-                strokeOpacity={opacity}
-                strokeWidth={2.5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            );
-          })}
-        </svg>
-      </div>
+        <div className="rounded-xl bg-gradient-to-br from-emerald-50/60 via-white to-emerald-50/30 dark:from-emerald-950/20 dark:via-zinc-900 dark:to-emerald-950/10 border border-emerald-200/30 dark:border-emerald-900/20 overflow-hidden">
+          <svg
+            viewBox={`0 0 ${VIEWBOX_W} ${VIEWBOX_H}`}
+            className="w-full h-[140px]"
+            preserveAspectRatio="xMidYMid meet"
+          >
+            {paths.map(({ idx, d }) => {
+              const { stroke, opacity } = strokeForIdx(idx, paths.length);
+              return (
+                <path
+                  key={idx}
+                  d={d}
+                  fill="none"
+                  stroke={stroke}
+                  strokeOpacity={opacity}
+                  strokeWidth={2.5}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              );
+            })}
+          </svg>
+        </div>
 
-      <p className="text-xs text-[var(--muted)] mt-2">
-        {activities.length}회 · 총 <span className="font-bold text-[var(--foreground)]">{totalKm.toFixed(1)}km</span>
-      </p>
-    </Link>
+        <p className="text-xs text-[var(--muted)] mt-2">
+          {activities.length}회 · 총 <span className="font-bold text-[var(--foreground)]">{totalKm.toFixed(1)}km</span>
+        </p>
+      </Link>
+
+      {/* build 137: 동네 친구찾기 인라인 버튼 (사용자 피드백 #1A) — 같은 GPS 영역의 다른 러너 보기 */}
+      <Link
+        href="/map/neighborhood"
+        className="mt-3 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-xs font-extrabold shadow-sm active:scale-[0.98] transition"
+      >
+        <Users size={14} /> 이 지역 동네 러너 찾기
+      </Link>
+    </div>
   );
 }

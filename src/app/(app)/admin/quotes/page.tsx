@@ -79,7 +79,7 @@ export default function AdminQuotesPage() {
           <button onClick={() => router.back()} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition">
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-xl font-extrabold tracking-tight flex-1">명언 모더레이션</h1>
+          <h1 className="text-xl font-extrabold tracking-tight flex-1">러너 한 줄 모더레이션</h1>
           <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40">
             ADMIN
           </span>

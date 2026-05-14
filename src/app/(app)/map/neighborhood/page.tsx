@@ -225,23 +225,23 @@ export default function NeighborhoodMapPage() {
               </p>
             </div>
 
-            {/* Google Maps */}
-            <div className="rounded-2xl overflow-hidden border-2 border-[var(--card-border)]">
+            {/* Google Maps — build 137 fix: mapDiv 를 항상 visible 로 두고 placeholder 를 absolute overlay 로.
+                이전 코드는 placeholder 표시 중 mapDiv 가 display:none 되어 Google Maps init 이 0×0 영역에 적용 → 빈 지도 회귀. */}
+            <div className="rounded-2xl overflow-hidden border-2 border-[var(--card-border)] relative" style={{ height: 320 }}>
               {mapError ? (
-                <div className="h-72 flex flex-col items-center justify-center text-[var(--muted)] gap-2 px-6 bg-[var(--card-border)]/20">
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-[var(--muted)] gap-2 px-6 bg-[var(--card-border)]/20">
                   <MapPin size={32} className="opacity-30" />
                   <p className="text-sm font-bold text-center">지도를 불러올 수 없어요</p>
                   <p className="text-xs text-center text-rose-500">{mapError}</p>
                 </div>
-              ) : loading || !mapLoaded ? (
-                <div className="h-72 animate-pulse bg-[var(--card-border)]/30 flex items-center justify-center">
+              ) : (loading || !mapLoaded) ? (
+                <div className="absolute inset-0 z-10 animate-pulse bg-[var(--card-border)]/30 flex items-center justify-center pointer-events-none">
                   <p className="text-xs text-[var(--muted)] font-bold">지도 로딩…</p>
                 </div>
               ) : null}
               <div
                 ref={mapDivRef}
                 style={{ height: 320, display: mapError ? 'none' : 'block' }}
-                className={mapLoaded && !loading ? '' : 'hidden'}
               />
             </div>
 

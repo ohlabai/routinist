@@ -96,7 +96,7 @@ export default function QuoteRankingPage() {
               <Trophy size={11} className="text-white" />
               <span className="text-[10px] font-extrabold text-white tracking-widest">QUOTE RANKING</span>
             </div>
-            <h2 className="text-xl font-extrabold text-white mb-1">러너의 명언</h2>
+            <h2 className="text-xl font-extrabold text-white mb-1">러너 한 줄 모음</h2>
             <p className="text-xs text-white/90 leading-relaxed">
               나와 다른 러너들이 직접 쓴 한 줄. 좋아요로 응원해주세요.
             </p>
@@ -135,8 +135,8 @@ export default function QuoteRankingPage() {
             <div className="w-20 h-20 rounded-full bg-emerald-50 dark:bg-emerald-950/30 mx-auto mb-3 flex items-center justify-center">
               <Sparkles size={32} className="text-emerald-500" />
             </div>
-            <p className="text-base font-extrabold mb-1">아직 등록된 명언이 없어요</p>
-            <p className="text-sm text-[var(--muted)]">첫 번째 명언을 남겨주세요</p>
+            <p className="text-base font-extrabold mb-1">아직 등록된 한 줄이 없어요</p>
+            <p className="text-sm text-[var(--muted)]">첫 번째 한 줄을 남겨주세요</p>
           </div>
         ) : (
           quotes.map((q, i) => (
@@ -210,7 +210,7 @@ export default function QuoteRankingPage() {
               <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center">
                 <Flag size={24} className="text-amber-600" />
               </div>
-              <h3 className="text-base font-bold">명언 신고</h3>
+              <h3 className="text-base font-bold">러너 한 줄 신고</h3>
               <p className="text-xs text-[var(--muted)] text-center">
                 신고 사유를 선택해주세요. 3회 누적되면 자동 숨김 처리됩니다.
               </p>

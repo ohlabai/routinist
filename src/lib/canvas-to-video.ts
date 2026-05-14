@@ -25,8 +25,9 @@ export async function captureCanvasAnimation(
   drawFrame: (progress: number) => void,
   opts: { durationMs?: number; holdMs?: number; fps?: number; bitsPerSecond?: number } = {},
 ): Promise<VideoResult> {
-  const durationMs = opts.durationMs ?? 2500;
-  const holdMs = opts.holdMs ?? 1000;
+  // build 137: 사용자 피드백 — 더 느린 라인 그리기 + 더 긴 정지 (감상 시간 확보).
+  const durationMs = opts.durationMs ?? 4000;
+  const holdMs = opts.holdMs ?? 1500;
   const fps = opts.fps ?? 30;
   const bitsPerSecond = opts.bitsPerSecond ?? 5_000_000;
 
