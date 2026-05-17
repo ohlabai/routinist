@@ -64,26 +64,31 @@ export async function captureCanvasAnimation(
   drawFrame(0);
   recorder.start(200); // 200ms 마다 chunk
 
-  // 애니메이션 — requestAnimationFrame
-  const startTime = performance.now();
-  await new Promise<void>((resolve) => {
-    const tick = () => {
-      const elapsed = performance.now() - startTime;
-      const p = Math.min(1, elapsed / durationMs);
-      drawFrame(p);
-      if (p < 1) {
-        requestAnimationFrame(tick);
-      } else {
-        // 마지막 프레임 정지 holdMs
-        setTimeout(() => resolve(), holdMs);
-      }
-    };
-    requestAnimationFrame(tick);
-  });
+  try {
+    // 애니메이션 — requestAnimationFrame
+    const startTime = performance.now();
+    await new Promise<void>((resolve) => {
+      const tick = () => {
+        const elapsed = performance.now() - startTime;
+        const p = Math.min(1, elapsed / durationMs);
+        drawFrame(p);
+        if (p < 1) {
+          requestAnimationFrame(tick);
+        } else {
+          setTimeout(() => resolve(), holdMs);
+        }
+      };
+      requestAnimationFrame(tick);
+    });
 
-  recorder.stop();
-  await stopped;
+    recorder.stop();
+    await stopped;
 
-  const blob = new Blob(chunks, { type: mimeType });
-  return { blob, mimeType, extension };
+    const blob = new Blob(chunks, { type: mimeType });
+    return { blob, mimeType, extension };
+  } finally {
+    // build 142: 메모리 누수 fix — recorder 정리 후 stream track 도 명시적으로 stop.
+    // 미정리 시 canvas captureStream 의 video track 이 잔존, iOS WebView 에서 마이크/카메라 빨간점 잔류 우려.
+    try { stream.getTracks().forEach(t => t.stop()); } catch {}
+  }
 }

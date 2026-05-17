@@ -97,6 +97,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // 신문 모델 (build 57): 자동 sync 제거.
   // 첫 로그인 직후 1회만 환영 sync (localStorage flag), 이후엔 사용자가 직접 동기화 버튼을 눌러야 sync.
   // 이전엔 layout mount 마다 (=화면 이동마다) sync 가 발사 → SDK lock + 60s timeout 회귀의 근원.
+  // build 142: 첫 paint 블로킹 회피 — 2초 defer 후 background 실행. timeout 25s → 60s 로 늘리되
+  // 절대 화면 블로킹 안 함 (useEffect fire-and-forget).
   useEffect(() => {
     if (!user) return;
     if (!isNativeApp()) return;
@@ -106,24 +108,28 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     const alreadyDone = window.localStorage.getItem(flagKey);
     if (alreadyDone) return;
 
-    // 첫 진입 한 번만. fire-and-forget. 실패해도 사용자가 connect 페이지에서 수동 동기화 가능.
-    (async () => {
-      try {
-        const now = Date.now();
-        lastSyncRef.current = now;
-        const r = await Promise.race([
-          syncHealthData(user.id),
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('first-sync timeout 25s')), 25000)
-          ),
-        ]);
-        if (r.success) {
-          window.localStorage.setItem(flagKey, String(Date.now()));
+    // 첫 paint 이후로 defer (홈 hero 렌더 후 background 진입).
+    const deferTimer = setTimeout(() => {
+      (async () => {
+        try {
+          const now = Date.now();
+          lastSyncRef.current = now;
+          const r = await Promise.race([
+            syncHealthData(user.id),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('first-sync timeout 60s')), 60000)
+            ),
+          ]);
+          if (r.success) {
+            window.localStorage.setItem(flagKey, String(Date.now()));
+          }
+        } catch (e) {
+          console.warn('[layout] 첫 sync 예외 (재시도 가능):', e);
         }
-      } catch (e) {
-        console.warn('[layout] 첫 sync 예외 (재시도 가능):', e);
-      }
-    })();
+      })();
+    }, 2000);
+
+    return () => clearTimeout(deferTimer);
   }, [user]);
 
   if (loading) {

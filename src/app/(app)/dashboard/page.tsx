@@ -148,13 +148,14 @@ export default function DashboardPage() {
       const withTimeout = <T,>(p: Promise<T>, ms: number, fallback: T): Promise<T> =>
         Promise.race([p, new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))]);
 
-      // essential (메인 hero 3개) 우선 도착 → 먼저 setState. optional 은 백그라운드.
+      // build 142: essential 더 좁힘 — monthly/weekly 2개 (timeout 2.5s) 만 hero 차트 필수.
+      // pb 는 hero 우측 작은 stat 이라 optional 로 이동. 첫 paint 가 더 빨리 unlock.
       const essentialP = Promise.allSettled([
-        withTimeout(fetchDistanceByPeriod(user.id, 'monthly', year), 3000, []),
-        withTimeout(fetchDistanceByPeriod(user.id, 'weekly', year), 3000, []),
-        withTimeout(fetchPersonalBests(user.id), 3000, null),
+        withTimeout(fetchDistanceByPeriod(user.id, 'monthly', year), 2500, []),
+        withTimeout(fetchDistanceByPeriod(user.id, 'weekly', year), 2500, []),
       ]);
       const optionalP = Promise.allSettled([
+        withTimeout(fetchPersonalBests(user.id), 4000, null),
         withTimeout(fetchDayOfWeekStats(user.id), 4500, []),
         withTimeout(fetchHourOfDayStats(user.id), 4500, []),
         withTimeout(fetchPaceTrend(user.id), 4500, []),
@@ -166,16 +167,16 @@ export default function DashboardPage() {
       const eRes = await essentialP;
       const monthly = val(eRes[0], [] as PeriodDistance[]);
       const weekly = val(eRes[1], [] as PeriodDistance[]);
-      const pb = val(eRes[2], null as PersonalBest | null);
       setMonthlyData(monthly);
       setWeeklyData(weekly);
-      setPersonalBests(pb);
       setStatsLoading(false);  // essential 도착 시점에 hero 영역 unlock
 
       const oRes = await optionalP;
-      const day = val(oRes[0], [] as DayOfWeekStat[]);
-      const hour = val(oRes[1], [] as HourOfDayStat[]);
-      const pace = val(oRes[2], [] as PaceTrend[]);
+      const pb = val(oRes[0], null as PersonalBest | null);
+      const day = val(oRes[1], [] as DayOfWeekStat[]);
+      const hour = val(oRes[2], [] as HourOfDayStat[]);
+      const pace = val(oRes[3], [] as PaceTrend[]);
+      setPersonalBests(pb);
       setDayStats(day);
       setHourStats(hour);
       setPaceTrend(pace);

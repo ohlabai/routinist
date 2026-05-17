@@ -571,6 +571,9 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
   })();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // build 142: setTimeout cleanup — 모달 unmount 후 state 업데이트 경고 회피.
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); }, []);
   const [themeIdx, setThemeIdx] = useState(0);
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
   const [registering, setRegistering] = useState(false);
@@ -781,12 +784,15 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
       } else {
         throw new Error('등록 실패');
       }
-      setTimeout(() => { setRegisterToast(null); onRegistered?.(); onClose(); }, 1500);
+      // build 142: setTimeout cleanup — 모달 unmount 후 state 업데이트 회피.
+      const closeTimer = setTimeout(() => { setRegisterToast(null); onRegistered?.(); onClose(); }, 1500);
+      toastTimerRef.current = closeTimer;
     } catch (err) {
       const msg = err instanceof Error ? err.message : '알 수 없는 오류';
       console.warn('등록 실패:', err);
       setRegisterToast(`등록 실패: ${msg}`);
-      setTimeout(() => setRegisterToast(null), 3000);
+      const errTimer = setTimeout(() => setRegisterToast(null), 3000);
+      toastTimerRef.current = errTimer;
     } finally {
       setRegistering(false);
     }
@@ -834,7 +840,9 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
               progress,
             );
           },
-          { durationMs: 2500, holdMs: 1000, fps: 30, bitsPerSecond: 5_000_000 },
+          // build 142: durationMs/holdMs default 사용 (canvas-to-video 의 4000/1500ms).
+          // 이전 명시값 2500/1000 이 build 137 의 default 변경을 덮어쓰던 회귀 fix.
+          { fps: 30, bitsPerSecond: 5_000_000 },
         );
         await shareVideoBlob(result.blob, result.extension, shareLandingUrl);
       } catch (err) {
