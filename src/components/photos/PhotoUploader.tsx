@@ -1,7 +1,8 @@
 'use client';
 
-// 루틴포토 업로드 트리거 — 오늘 러닝 activity 가 있어야 등록 가능.
-// 버튼 클릭 → 오늘 activity 조회 → ShareCard 열어서 공유카드(코스+거리 오버레이) 생성 후 등록.
+// 루틴포토 업로드 트리거 — 가장 최근 러닝 활동으로 공유카드 생성.
+// build 143: 날짜 제한 제거 (사용자 피드백) — 오늘 활동이 없어도 가장 최근 활동으로 공유 가능.
+// 버튼 클릭 → 최근 activity 조회 → ShareCard 열어서 공유카드(코스+거리 오버레이) 생성 후 등록.
 // 일반 사진 업로드는 제거됨 (2026-04-21 피드백 #9, #13, #14).
 
 import { useState } from 'react';
@@ -10,7 +11,6 @@ import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import type { Activity } from '@/types';
 import ShareCard from '@/components/activity/ShareCard';
-import { todayStr } from '@/lib/kst';
 
 interface Props {
   children: React.ReactNode;
@@ -29,13 +29,12 @@ export default function PhotoUploader({ children, className, onUploaded }: Props
     setLoading(true);
     try {
       const supabase = getSupabase();
-      const today = todayStr();
-      // 6초 타임아웃 — 네트워크 지연 시 "확인 중..." 고정되는 문제 방지
+      // build 143: 날짜 무관, 가장 최근 활동 1개. 사용자가 다른 날짜 활동도 공유 가능.
       const queryPromise = supabase
         .from('activities')
         .select('*')
         .eq('user_id', user.id)
-        .eq('activity_date', today)
+        .order('activity_date', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(1);
       const timeoutPromise = new Promise<{ data: null }>((resolve) =>
@@ -45,7 +44,7 @@ export default function PhotoUploader({ children, className, onUploaded }: Props
 
       const act = (data?.[0] as Activity | undefined) ?? null;
       if (!act) {
-        setToast({ text: '오늘 러닝 기록이 있어야 등록할 수 있어요.', href: '/history' });
+        setToast({ text: '아직 러닝 기록이 없어요. 첫 러닝을 시작해보세요!', href: '/history' });
         setTimeout(() => setToast(null), 3200);
         return;
       }

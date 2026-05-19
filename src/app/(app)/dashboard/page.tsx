@@ -228,6 +228,14 @@ export default function DashboardPage() {
     import('@/lib/achievements-data').then(m => m.checkAndAwardAchievements()).catch(() => { /* silent */ });
   }, [user]);
 
+  // build 143: secondary 위젯 (챌린지·스토리·실시간) 300ms defer — 첫 paint 부담 감소.
+  // hero 영역(랭킹·캘린더·미니맵) 은 즉시 mount.
+  const [secondaryMounted, setSecondaryMounted] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setSecondaryMounted(true), 300);
+    return () => clearTimeout(t);
+  }, []);
+
   // ========== 요약 계산 ==========
   const todayActivities = useMemo(
     () => activities.filter(a => a.activity_date === todayStr),
@@ -630,17 +638,17 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* 6.5 이번 주 도전 (build 100) — 자동 챌린지 + 진행률 + 동기부여 멘트 */}
-        <HomeChallengeCard />
+        {/* 6.5 이번 주 도전 (build 100) — build 143: 300ms defer (secondary) */}
+        {secondaryMounted && <HomeChallengeCard />}
 
-        {/* 6.7 친구 활동 스토리 (build 100) — 친구가 없거나 사진이 없으면 자동 hidden */}
-        <HomeFriendStories />
+        {/* 6.7 친구 활동 스토리 — build 143: 300ms defer (secondary) */}
+        {secondaryMounted && <HomeFriendStories />}
 
-        {/* 7 랭킹 Hero — 활성화 핵심 */}
+        {/* 7 랭킹 Hero — 활성화 핵심 (eager) */}
         <HomeRankingHero />
 
-        {/* 8 실시간 러닝 */}
-        <LiveRunningIndicator />
+        {/* 8 실시간 러닝 — build 143: 300ms defer (secondary) */}
+        {secondaryMounted && <LiveRunningIndicator />}
 
         {/* 9 월 캘린더 */}
         <div className="mx-4"><HomeCalendarCard /></div>

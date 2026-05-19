@@ -637,7 +637,16 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
 
   const clearPhoto = () => setBgImage(null);
 
-  // build 136: 정적 PNG 공유 (비디오 미지원 폴백). 네이티브 공유 시트 + 캡션.
+  // build 143: 공유 실패 시 toast 로 에러 노출 (이전 silent fallback → 사용자 모름 회귀).
+  const showShareError = (label: string, err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[ShareCard] ${label} 실패:`, err);
+    setRegisterToast(`공유 실패 — ${msg.slice(0, 80)}`);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setRegisterToast(null), 3500);
+  };
+
+  // build 136: 정적 PNG 공유. 네이티브 공유 시트 (Capacitor Share) + 캡션.
   const sharePngBlob = async (blob: Blob, urlForCaption: string) => {
     const text = `${shareCaption}\n${urlForCaption}`;
     if (isNativeApp()) {
@@ -656,16 +665,19 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
           title: `${activity.distance_km.toFixed(2)}km 러닝`,
           text,
           url: result.uri,
+          dialogTitle: '러닝 기록 공유',
         });
       } catch (err) {
-        console.warn('네이티브 PNG 공유 실패, 웹 폴백:', err);
-        downloadBlob(blob, `routinist-${activity.activity_date}.png`);
+        showShareError('네이티브 PNG 공유', err);
       }
     } else if (navigator.share) {
       try {
         const file = new File([blob], `routinist-${activity.activity_date}.png`, { type: 'image/png' });
         await navigator.share({ files: [file], title: `${activity.distance_km.toFixed(2)}km 러닝`, text });
-      } catch { /* user cancelled */ }
+      } catch (err) {
+        // user cancelled 인지 진짜 에러인지 구분 — AbortError 는 무시.
+        if (err instanceof Error && err.name !== 'AbortError') showShareError('웹 공유', err);
+      }
     } else {
       downloadBlob(blob, `routinist-${activity.activity_date}.png`);
     }
@@ -690,17 +702,19 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
           title: `${activity.distance_km.toFixed(2)}km 러닝`,
           text,
           url: result.uri,
+          dialogTitle: '러닝 기록 공유',
         });
       } catch (err) {
-        console.warn('네이티브 비디오 공유 실패, 다운로드 폴백:', err);
-        downloadBlob(blob, fileName);
+        showShareError('네이티브 비디오 공유', err);
       }
     } else if (navigator.share) {
       try {
         const mime = extension === 'mp4' ? 'video/mp4' : 'video/webm';
         const file = new File([blob], fileName, { type: mime });
         await navigator.share({ files: [file], title: `${activity.distance_km.toFixed(2)}km 러닝`, text });
-      } catch { /* user cancelled */ }
+      } catch (err) {
+        if (err instanceof Error && err.name !== 'AbortError') showShareError('웹 비디오 공유', err);
+      }
     } else {
       downloadBlob(blob, fileName);
     }
