@@ -15,14 +15,14 @@ import { Trophy, Coins, Users, Globe } from 'lucide-react';
 import ContestTab from '@/components/contest/ContestTab';
 import WorldTab from '@/components/world/WorldTab';
 
+// build 143: 친선런 메뉴 숨김 (사용량 0건, 사용자 결정). 코드/ContestTab/DB 는 유지 — 필요 시 복원.
 type SubTab = 'me' | 'mileage' | 'contest' | 'world';
 type TimeAxis = 'today' | 'month' | 'year';
 
 const SUB_TABS: { id: SubTab; label: string; Icon: typeof Trophy }[] = [
   { id: 'me', label: '내 랭킹', Icon: Trophy },
   { id: 'mileage', label: '마일리지', Icon: Coins },
-  { id: 'world', label: '월드런', Icon: Globe },
-  { id: 'contest', label: '친선런', Icon: Users },
+  { id: 'world', label: '월드마라톤', Icon: Globe },
 ];
 
 function RankingInner() {
@@ -30,7 +30,7 @@ function RankingInner() {
   const searchParams = useSearchParams();
   const initialTab = (searchParams.get('tab') as SubTab) ?? 'me';
   const [activeSub, setActiveSub] = useState<SubTab>(
-    ['me', 'mileage', 'contest', 'world'].includes(initialTab) ? initialTab : 'me'
+    ['me', 'mileage', 'world'].includes(initialTab) ? initialTab : 'me'
   );
   const [axis, setAxis] = useState<TimeAxis>('month');
 

@@ -691,7 +691,7 @@ function FriendCoursesCard({ userId }: { userId: string }) {
       <div className="flex items-center justify-between mb-2.5">
         <div className="flex items-center gap-1.5">
           <span className="text-base">🌍</span>
-          <h3 className="text-sm font-extrabold">월드런 도전</h3>
+          <h3 className="text-sm font-extrabold">월드마라톤 도전</h3>
         </div>
         <span className="text-xs font-bold text-emerald-600 tabular-nums">완주 {completed} / {list.length}</span>
       </div>

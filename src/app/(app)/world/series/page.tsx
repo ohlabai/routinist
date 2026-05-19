@@ -98,7 +98,7 @@ function SeriesInner() {
         {!slug ? (
           <Link href="/ranking?tab=world" className="block card p-5 text-center">
             <p className="text-sm font-bold">시리즈를 선택해주세요</p>
-            <p className="text-xs text-emerald-600 mt-1">월드런 탭으로 →</p>
+            <p className="text-xs text-emerald-600 mt-1">월드마라톤 탭으로 →</p>
           </Link>
         ) : loading ? (
           <>
