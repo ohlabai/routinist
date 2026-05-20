@@ -129,7 +129,9 @@ export interface UserMonthlyGoal {
 
 export interface GeoJSONLineString {
   type: 'LineString';
-  coordinates: [number, number, number?][]; // [lng, lat, elevation?]
+  // [lng, lat, elevation?, unix_seconds?] — build 151: 4번째 슬롯에 timestamp (재동기화 후 부터).
+  // MP4 공유 시 timestamp 있으면 실제 페이스로 라인 그리기 속도 조절.
+  coordinates: [number, number, number?, number?][];
 }
 
 export interface LegacyMemberLink {

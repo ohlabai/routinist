@@ -157,32 +157,44 @@ function drawCard(
     const offsetY = mapY + (mapH - (maxLat - minLat) * scale) / 2;
 
     // 애니메이션: routeProgress 비율만큼 슬라이스 (최소 2개 필요).
-    // build 150: 좌표 개수 기준이면 정지/저속 구간(샘플 밀집)에서 동영상이 늘어짐 →
-    // 좌표 간 누적 거리로 progress 잘라서 실제 이동 비율과 매칭. timestamp 가 없으므로
-    // 실시간 페이스 반영은 아니지만, 정지·저속 구간이 길게 늘어지는 회귀를 해소.
+    // build 151: 좌표에 timestamp(4번째 슬롯)가 있으면 **시간 기반** progress —
+    //  → 빨리 달린 구간은 영상에서 빠르게 지나가고, 느린 구간은 그 자리에 좀 머무름.
+    // build 150 폴백: timestamp 없으면 누적 거리 기반 (이전 회귀 fix 유지).
+    // 어느 쪽이든 좌표 개수 단순 비례보다 실제 이동에 더 충실.
     const progress01 = Math.min(1, Math.max(0, routeProgress));
-    const cumDist: number[] = new Array(coordsAll.length);
-    cumDist[0] = 0;
-    for (let i = 1; i < coordsAll.length; i++) {
-      const [lng1, lat1] = coordsAll[i - 1];
-      const [lng2, lat2] = coordsAll[i];
-      const meanLat = (lat1 + lat2) / 2 * Math.PI / 180;
-      const dx = (lng2 - lng1) * Math.cos(meanLat);
-      const dy = lat2 - lat1;
-      cumDist[i] = cumDist[i - 1] + Math.hypot(dx, dy);
+    const firstTs = coordsAll[0][3];
+    const lastTs = coordsAll[coordsAll.length - 1][3];
+    const hasTimestamps = typeof firstTs === 'number' && typeof lastTs === 'number' && lastTs > firstTs;
+
+    const cum: number[] = new Array(coordsAll.length);
+    cum[0] = 0;
+    if (hasTimestamps) {
+      const t0 = firstTs as number;
+      for (let i = 1; i < coordsAll.length; i++) {
+        cum[i] = (coordsAll[i][3] as number) - t0;
+      }
+    } else {
+      for (let i = 1; i < coordsAll.length; i++) {
+        const [lng1, lat1] = coordsAll[i - 1];
+        const [lng2, lat2] = coordsAll[i];
+        const meanLat = (lat1 + lat2) / 2 * Math.PI / 180;
+        const dx = (lng2 - lng1) * Math.cos(meanLat);
+        const dy = lat2 - lat1;
+        cum[i] = cum[i - 1] + Math.hypot(dx, dy);
+      }
     }
-    const totalD = cumDist[cumDist.length - 1] || 1;
-    const targetD = totalD * progress01;
+    const totalM = cum[cum.length - 1] || 1;
+    const targetM = totalM * progress01;
     let cutIdx = coordsAll.length;
-    for (let i = 0; i < cumDist.length; i++) {
-      if (cumDist[i] >= targetD) { cutIdx = Math.max(2, i + 1); break; }
+    for (let i = 0; i < cum.length; i++) {
+      if (cum[i] >= targetM) { cutIdx = Math.max(2, i + 1); break; }
     }
-    const coords: [number, number, number?][] = coordsAll.slice(0, cutIdx);
+    const coords: [number, number, number?, number?][] = coordsAll.slice(0, cutIdx);
     // 마지막 점 보간 — 진행이 부드럽게 끊기도록
     if (progress01 < 1 && cutIdx < coordsAll.length && cutIdx > 0) {
-      const prevD = cumDist[cutIdx - 1];
-      const segD = cumDist[cutIdx] - prevD;
-      const ratio = segD > 0 ? Math.min(1, Math.max(0, (targetD - prevD) / segD)) : 0;
+      const prevM = cum[cutIdx - 1];
+      const segM = cum[cutIdx] - prevM;
+      const ratio = segM > 0 ? Math.min(1, Math.max(0, (targetM - prevM) / segM)) : 0;
       const [lng1, lat1] = coordsAll[cutIdx - 1];
       const [lng2, lat2] = coordsAll[cutIdx];
       coords[coords.length - 1] = [

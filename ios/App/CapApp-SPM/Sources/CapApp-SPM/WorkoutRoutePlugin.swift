@@ -180,11 +180,13 @@ public class WorkoutRoutePlugin: CAPPlugin, CAPBridgedPlugin {
 
                 if let locations = locations {
                     for location in locations {
-                        // GeoJSON 형식: [lng, lat, elevation]
+                        // build 151: timestamp 4번째 슬롯 추가 — MP4 공유 시 실제 페이스로 라인 그리기.
+                        // 형식: [lng, lat, elevation, unix_seconds]
                         allLocations.append([
                             location.coordinate.longitude,
                             location.coordinate.latitude,
-                            location.altitude
+                            location.altitude,
+                            location.timestamp.timeIntervalSince1970
                         ])
                     }
                 }
