@@ -252,17 +252,14 @@ export default function HomeCalendarCard() {
         })}
       </div>
 
-      {/* 범례 + 풀 페이지 링크 */}
-      <div className="flex items-center justify-between mt-3 text-[10px] text-[var(--muted)]">
-        <div className="flex items-center gap-1">
-          <span className="w-2.5 h-2.5 rounded bg-green-200" />
-          <span className="w-2.5 h-2.5 rounded bg-green-400" />
-          <span className="w-2.5 h-2.5 rounded bg-green-500" />
-          <span className="w-2.5 h-2.5 rounded bg-green-600" />
-          <span className="w-2.5 h-2.5 rounded bg-green-800" />
-          <span className="ml-1">3 · 7 · 10 · 15+</span>
-        </div>
-        <Link href="/calendar" className="text-[var(--accent)] font-semibold">사진 등록 →</Link>
+      {/* 범례 — build 152: "사진 등록 →" 링크 제거 (사용자 피드백, 별도 페이지에서 돌아오는 메뉴 없음). */}
+      <div className="flex items-center gap-1 mt-3 text-[10px] text-[var(--muted)]">
+        <span className="w-2.5 h-2.5 rounded bg-green-200" />
+        <span className="w-2.5 h-2.5 rounded bg-green-400" />
+        <span className="w-2.5 h-2.5 rounded bg-green-500" />
+        <span className="w-2.5 h-2.5 rounded bg-green-600" />
+        <span className="w-2.5 h-2.5 rounded bg-green-800" />
+        <span className="ml-1">3 · 7 · 10 · 15+</span>
       </div>
 
       {/* 공유카드 만들기 — 캘린더 셀 탭 없이 바로 진입 (build 136 사용자 피드백 #2).

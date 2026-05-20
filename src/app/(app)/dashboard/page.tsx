@@ -80,8 +80,9 @@ export default function DashboardPage() {
   const [weeklyData, setWeeklyData] = useState<PeriodDistance[]>([]);
   const [personalBests, setPersonalBests] = useState<PersonalBest | null>(null);
   const [pbScope, setPbScope] = useState<'all' | 'year'>('year');
-  const [dayStats, setDayStats] = useState<DayOfWeekStat[]>([]);
-  const [hourStats, setHourStats] = useState<HourOfDayStat[]>([]);
+  // build 152: 요일별/시간대별 — 2026/누적 토글. dayStats/hourStats 는 activities 에서 derive (useMemo 아래).
+  const [dayScope, setDayScope] = useState<'all' | 'year'>('year');
+  const [hourScope, setHourScope] = useState<'all' | 'year'>('year');
   const [paceTrend, setPaceTrend] = useState<PaceTrend[]>([]);
   // build 140: statsLoading 초기값을 false → 캐시 hit 시 첫 paint skeleton 회피.
   // 캐시 miss + force=true 시에만 true (effect 내부에서 setStatsLoading(true)).
@@ -129,14 +130,12 @@ export default function DashboardPage() {
     if (!opts?.force) {
       const cached = dataCache.get<{
         monthly: PeriodDistance[]; weekly: PeriodDistance[]; pb: PersonalBest | null;
-        day: DayOfWeekStat[]; hour: HourOfDayStat[]; pace: PaceTrend[];
+        pace: PaceTrend[];
       }>(statsCacheKey);
       if (cached) {
         setMonthlyData(cached.value.monthly);
         setWeeklyData(cached.value.weekly);
         setPersonalBests(cached.value.pb);
-        setDayStats(cached.value.day);
-        setHourStats(cached.value.hour);
         setPaceTrend(cached.value.pace);
         setStatsLoading(false);
         return;
@@ -149,15 +148,13 @@ export default function DashboardPage() {
         Promise.race([p, new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))]);
 
       // build 142: essential 더 좁힘 — monthly/weekly 2개 (timeout 2.5s) 만 hero 차트 필수.
-      // pb 는 hero 우측 작은 stat 이라 optional 로 이동. 첫 paint 가 더 빨리 unlock.
+      // build 152: dayStats/hourStats 는 activities 기반 useMemo 로 이동 → RPC 제거 (토글 시 즉시 derive).
       const essentialP = Promise.allSettled([
         withTimeout(fetchDistanceByPeriod(user.id, 'monthly', year), 2500, []),
         withTimeout(fetchDistanceByPeriod(user.id, 'weekly', year), 2500, []),
       ]);
       const optionalP = Promise.allSettled([
         withTimeout(fetchPersonalBests(user.id), 4000, null),
-        withTimeout(fetchDayOfWeekStats(user.id), 4500, []),
-        withTimeout(fetchHourOfDayStats(user.id), 4500, []),
         withTimeout(fetchPaceTrend(user.id), 4500, []),
       ]);
 
@@ -173,15 +170,11 @@ export default function DashboardPage() {
 
       const oRes = await optionalP;
       const pb = val(oRes[0], null as PersonalBest | null);
-      const day = val(oRes[1], [] as DayOfWeekStat[]);
-      const hour = val(oRes[2], [] as HourOfDayStat[]);
-      const pace = val(oRes[3], [] as PaceTrend[]);
+      const pace = val(oRes[1], [] as PaceTrend[]);
       setPersonalBests(pb);
-      setDayStats(day);
-      setHourStats(hour);
       setPaceTrend(pace);
 
-      dataCache.set(statsCacheKey, { monthly, weekly, pb, day, hour, pace });
+      dataCache.set(statsCacheKey, { monthly, weekly, pb, pace });
     } catch (err) {
       console.warn('[Home] 통계 로드 실패:', err);
       setStatsLoading(false);
@@ -387,6 +380,39 @@ export default function DashboardPage() {
   }, [activities]);
   const daily30Total = dailyData.reduce((s, d) => s + d.distance, 0);
 
+  // build 152: dayStats/hourStats 를 activities 기반 useMemo 로 derive — 토글 변경 시 즉시 갱신.
+  // 이전엔 fetchDayOfWeekStats RPC 호출 + 1000건 제한이라 누적 정확도 떨어짐.
+  const dayStats = useMemo<DayOfWeekStat[]>(() => {
+    const days = ['일','월','화','수','목','금','토'];
+    const stats: DayOfWeekStat[] = days.map((day, i) => ({ day, dayIndex: i, runCount: 0, totalDistance: 0, avgDistance: 0 }));
+    const filtered = dayScope === 'year'
+      ? activities.filter(a => new Date(a.activity_date).getFullYear() === year)
+      : activities;
+    filtered.forEach(a => {
+      const di = new Date(a.activity_date).getDay();
+      stats[di].runCount++;
+      stats[di].totalDistance += Number(a.distance_km);
+    });
+    stats.forEach(s => { s.avgDistance = s.runCount > 0 ? Math.round(s.totalDistance / s.runCount * 10) / 10 : 0; });
+    return stats;
+  }, [activities, dayScope, year]);
+
+  const hourStats = useMemo<HourOfDayStat[]>(() => {
+    const hours: HourOfDayStat[] = [];
+    for (let h = 0; h < 24; h++) {
+      hours.push({ hour: h, label: `${h}시`, runCount: 0 });
+    }
+    const filtered = hourScope === 'year'
+      ? activities.filter(a => a.started_at && new Date(a.started_at).getFullYear() === year)
+      : activities.filter(a => a.started_at);
+    filtered.forEach(a => {
+      if (!a.started_at) return;
+      const hour = new Date(a.started_at).getHours();
+      hours[hour].runCount++;
+    });
+    return hours;
+  }, [activities, hourScope, year]);
+
   const hourGroups = [
     { label: '새벽 (0~6시)', count: hourStats.slice(0, 6).reduce((s, h) => s + h.runCount, 0) },
     { label: '오전 (6~12시)', count: hourStats.slice(6, 12).reduce((s, h) => s + h.runCount, 0) },
@@ -414,14 +440,12 @@ export default function DashboardPage() {
   const detailSliced = periodMode === 'yearly'
     ? detailData.slice(detailData.length - 1)
     : detailData.slice(0, ytdSliceCount);
-  const detailTotal = (periodMode === 'yearly')
-    ? (detailData[detailData.length - 1]?.distance ?? 0)
-    : detailSliced.reduce((s, d) => s + d.distance, 0);
-  const detailPrevTotal = (periodMode === 'yearly')
-    ? (detailData[detailData.length - 1]?.prevDistance ?? 0)
-    : detailSliced.reduce((s, d) => s + (d.prevDistance || 0), 0);
-  const hasDetailPrev = detailSliced.some((d) => d.prevDistance !== undefined && d.prevDistance > 0)
-    || (periodMode === 'yearly' && (detailData[detailData.length - 1]?.prevDistance ?? 0) > 0);
+  // build 152: 큰 숫자 표시는 "현재 기간만" — 주간이면 이번 주, 월간이면 이번 달, 분기/반기/연간도 동일.
+  // 이전엔 월간일 때 1월~현재월 누적(=연간) 이 표시되어 사용자 혼란.
+  const detailLast = detailSliced.length > 0 ? detailSliced[detailSliced.length - 1] : null;
+  const detailTotal = detailLast?.distance ?? 0;
+  const detailPrevTotal = detailLast?.prevDistance ?? 0;
+  const hasDetailPrev = (detailLast?.prevDistance ?? 0) > 0;
 
   const weekActivities = getWeeklyActivities(activities);
   const weekKm = weekActivities.reduce((s, a) => s + Number(a.distance_km), 0);
@@ -923,13 +947,25 @@ export default function DashboardPage() {
         </LazyMount>
       )}
 
-      {/* 21 요일별 패턴 */}
+      {/* 21 요일별 패턴 — build 152: 2026/누적 토글 추가 */}
       {dayStats.length > 0 && dayStats.some(d => d.runCount > 0) && (
         <LazyMount minHeight={360}>
         <div className="card p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Calendar size={16} className="text-blue-500" />
-            <h3 className="text-base font-semibold text-[var(--foreground)]">요일별 러닝 패턴</h3>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Calendar size={16} className="text-blue-500" />
+              <h3 className="text-base font-semibold text-[var(--foreground)]">요일별 러닝 패턴</h3>
+            </div>
+            <div className="flex items-center gap-1 bg-[var(--card-border)]/30 rounded-lg p-0.5">
+              <button
+                onClick={() => setDayScope('year')}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${dayScope === 'year' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)]'}`}
+              >{year}</button>
+              <button
+                onClick={() => setDayScope('all')}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${dayScope === 'all' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)]'}`}
+              >누적</button>
+            </div>
           </div>
           <p className="text-xs text-[var(--muted)] mb-3">
             주로 <span className="font-semibold text-[var(--accent)]">{maxDay.day}요일</span>에 달려요 ({maxDay.runCount}회)
@@ -954,13 +990,25 @@ export default function DashboardPage() {
         </LazyMount>
       )}
 
-      {/* 22 시간대별 분포 */}
+      {/* 22 시간대별 분포 — build 152: 2026/누적 토글 추가 */}
       {hourStats.some(h => h.runCount > 0) && (
         <LazyMount minHeight={220}>
         <div className="card p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Clock size={16} className="text-orange-500" />
-            <h3 className="text-base font-semibold text-[var(--foreground)]">시간대별 러닝 분포</h3>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Clock size={16} className="text-orange-500" />
+              <h3 className="text-base font-semibold text-[var(--foreground)]">시간대별 러닝 분포</h3>
+            </div>
+            <div className="flex items-center gap-1 bg-[var(--card-border)]/30 rounded-lg p-0.5">
+              <button
+                onClick={() => setHourScope('year')}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${hourScope === 'year' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)]'}`}
+              >{year}</button>
+              <button
+                onClick={() => setHourScope('all')}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${hourScope === 'all' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)]'}`}
+              >누적</button>
+            </div>
           </div>
           <p className="text-xs text-[var(--muted)] mb-3">
             주로 <span className="font-semibold text-[var(--accent)]">{maxHourGroup.label}</span>에 달려요
