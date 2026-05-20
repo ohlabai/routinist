@@ -21,6 +21,13 @@ function CallbackHandler() {
     const fromEmail = url.searchParams.get('from') === 'email'
       || url.searchParams.get('type') === 'signup'
       || url.hash.includes('type=signup');
+    // Supabase verify endpoint 실패 시엔 ?error=... 또는 #error=... 로 옴 (token 만료/이미 사용 등).
+    const verifyError = url.searchParams.get('error')
+      || url.hash.match(/error=([^&]+)/)?.[1]
+      || null;
+    const verifyErrorDesc = url.searchParams.get('error_description')
+      || url.hash.match(/error_description=([^&]+)/)?.[1]
+      || null;
 
     const goToDashboard = () => {
       window.location.replace('/dashboard');
@@ -31,7 +38,31 @@ function CallbackHandler() {
     };
 
     const handleAuth = async () => {
-      // handleOAuthCallback 가 폴링·재시도 책임 보유. 여기서는 단발 시도 + 단발 폴백.
+      // 이메일 인증 경로: Supabase 의 verify 엔드포인트가 이미 email_confirmed_at 을
+      // 채워준 상태로 redirect 됨 (linkabd... /auth/v1/verify → app.routinist.kr).
+      // 사용자는 보통 PC 브라우저에서 메일을 여는데, PKCE code verifier 는 가입할 때
+      // 사용한 모바일 앱에만 있으므로 exchangeCode 는 PC 에서 항상 실패함.
+      // 하지만 **인증 자체는 이미 완료**되어 있으므로 성공 화면을 보여주면 됨.
+      if (fromEmail) {
+        if (verifyError) {
+          // 진짜 verify 실패 (토큰 만료/이미 사용 등) — 사용자에게 재발송 안내.
+          setReason(verifyErrorDesc ? decodeURIComponent(verifyErrorDesc).replace(/\+/g, ' ') : verifyError);
+          setPhase('email-failed');
+          return;
+        }
+        // 혹시 같은 브라우저에서 가입했다면 세션이 만들어질 수도 — 있으면 정리.
+        // (PC 브라우저 세션은 모바일 앱과 무관하므로 정리해서 혼동 방지)
+        try {
+          const { data: { session: existing } } = await getSupabase().auth.getSession();
+          if (existing) {
+            await getSupabase().auth.signOut({ scope: 'local' }).catch(() => {});
+          }
+        } catch {}
+        setPhase('email-success');
+        return;
+      }
+
+      // OAuth 등 일반 콜백: 기존 동작 (자동 redirect)
       let session = null;
       try {
         session = await handleOAuthCallback(window.location.href);
@@ -39,28 +70,10 @@ function CallbackHandler() {
         console.error('[Auth Callback] 처리 실패:', err);
         if (err instanceof Error) setReason(err.message);
       }
-
       if (!session) {
-        // exchangeCode 실패해도 세션이 이미 저장됐을 수 있음 (web flow 의 detectSessionInUrl).
-        const supabase = getSupabase();
-        const { data: { session: existing } } = await supabase.auth.getSession();
+        const { data: { session: existing } } = await getSupabase().auth.getSession();
         session = existing;
       }
-
-      // 이메일 인증 경로: 성공/실패 화면 표시 (자동 redirect X)
-      if (fromEmail) {
-        if (session) {
-          // 인증 직후 세션이 PC 브라우저에 만들어졌어도, 모바일 앱에는 없음.
-          // 모바일 앱에서 다시 로그인해야 하므로 PC 세션은 정리.
-          await getSupabase().auth.signOut({ scope: 'local' }).catch(() => {});
-          setPhase('email-success');
-        } else {
-          setPhase('email-failed');
-        }
-        return;
-      }
-
-      // OAuth 등 일반 콜백: 기존 동작 (자동 redirect)
       if (session) {
         await new Promise((r) => setTimeout(r, 400));
         goToDashboard();

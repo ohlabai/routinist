@@ -380,11 +380,25 @@ export async function signUpWithEmail(email: string, password: string, displayNa
 export async function signInWithEmail(email: string, password: string) {
   const supabase = getSupabase();
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) throw error;
+  if (error) {
+    // Supabase raw 영어 에러 → 친근한 한국어로 변환.
+    const msg = error.message || '';
+    const code = (error as { code?: string }).code || '';
+    if (code === 'email_not_confirmed' || /email not confirmed/i.test(msg)) {
+      throw new Error('아직 이메일 인증이 완료되지 않았어요.\n가입 시 받으신 메일에서 인증 링크를 눌러주세요.');
+    }
+    if (code === 'invalid_credentials' || /invalid login credentials/i.test(msg)) {
+      throw new Error('이메일 또는 비밀번호가 일치하지 않아요.');
+    }
+    if (/too many requests|rate.?limit/i.test(msg)) {
+      throw new Error('잠시 후 다시 시도해주세요. 너무 자주 시도하셨어요.');
+    }
+    throw error;
+  }
   if (data.user && !data.user.email_confirmed_at) {
     // 이메일 확인 안 된 계정 — 즉시 로그아웃 + 명확한 안내.
     await supabase.auth.signOut().catch(() => {});
-    throw new Error('이메일 인증이 완료되지 않았어요. 가입 시 보낸 메일에서 링크를 눌러주세요.');
+    throw new Error('아직 이메일 인증이 완료되지 않았어요.\n가입 시 받으신 메일에서 인증 링크를 눌러주세요.');
   }
   return data;
 }

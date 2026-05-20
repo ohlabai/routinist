@@ -12,10 +12,11 @@ import AppToast from '@/components/AppToast';
 
 type CategoryKey = 'friend_overtake' | 'milestone' | 'contest' | 'club_course' | 'feedback_reply' | 'weekly_recap' | 'marketing';
 
+// 친선런(contest) 은 메뉴 숨김 (build 144) 과 동일하게 알림 설정에서도 표시 안 함.
+// DB 의 contest 키는 그대로 유지 — 추후 부활 시 1줄로 복구.
 const CATEGORIES: { key: CategoryKey; label: string; description: string; Icon: typeof Bell }[] = [
   { key: 'friend_overtake', label: '친구 추월', description: '친구가 내 km 를 추월하거나 내가 추월했을 때', Icon: Users },
   { key: 'milestone', label: '나의 기록', description: '1위 등극, 최장 거리 갱신 등', Icon: TrendingUp },
-  { key: 'contest', label: '친선런', description: '친선런 마감, 사진 업로드 안내', Icon: Trophy },
   { key: 'club_course', label: '클럽 마라톤', description: '클럽 코스 시작·완주 알림', Icon: Flag },
   { key: 'feedback_reply', label: '제안 답글', description: '운영자가 내 제안에 답글을 달았을 때', Icon: MessageSquare },
   { key: 'weekly_recap', label: '주간 회고', description: '매주 내 러닝 요약', Icon: Award },
