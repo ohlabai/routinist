@@ -6,6 +6,8 @@ import { updateProfile } from '@/lib/auth';
 import AppLogo from '@/components/AppLogo';
 import { Target, MapPin, ChevronRight } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
+import { useDisplayNameCheck } from '@/lib/useDisplayNameCheck';
+import DisplayNameStatusHint from '@/components/DisplayNameStatusHint';
 
 interface OnboardingProps {
   onComplete: () => void;
@@ -20,6 +22,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   const [goalKm, setGoalKm] = useState(30);
   const [regionGu, setRegionGu] = useState('');
   const [saving, setSaving] = useState(false);
+  // 본인 row 는 trigger 로 이미 만들어져있음 → 본인 id 제외해서 검증
+  const displayNameCheck = useDisplayNameCheck(displayName, user?.id);
 
   const handleFinish = async () => {
     if (!user) return;
@@ -75,11 +79,14 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
         onChange={(e) => setDisplayName(e.target.value)}
         maxLength={20}
         placeholder="닉네임"
-        className="w-full px-4 py-3 rounded-xl bg-[var(--card)] border border-[var(--card-border)] text-[var(--foreground)] text-base mb-6 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+        className="w-full px-4 py-3 rounded-xl bg-[var(--card)] border border-[var(--card-border)] text-[var(--foreground)] text-base focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
       />
+      <div className="mb-6">
+        <DisplayNameStatusHint check={displayNameCheck} />
+      </div>
       <button
         onClick={() => setStep(2)}
-        disabled={!displayName.trim()}
+        disabled={!displayName.trim() || !displayNameCheck.isValid}
         className="w-full py-3.5 rounded-xl bg-[var(--accent)] text-white font-semibold text-base disabled:opacity-50 flex items-center justify-center gap-2"
       >
         다음 <ChevronRight size={18} />

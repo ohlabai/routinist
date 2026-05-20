@@ -10,6 +10,8 @@ import AppLogo from '@/components/AppLogo';
 import { COUNTRIES, KR_REGIONS, KR_SIDO_LIST } from '@/lib/regions';
 import { detectRegion } from '@/lib/geo';
 import ImageCropModal from '@/components/ImageCropModal';
+import { useDisplayNameCheck } from '@/lib/useDisplayNameCheck';
+import DisplayNameStatusHint from '@/components/DisplayNameStatusHint';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const BIRTH_YEARS = Array.from({ length: 80 }, (_, i) => CURRENT_YEAR - 14 - i);
@@ -21,6 +23,8 @@ export default function ProfileEditPage() {
 
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
   const [bio, setBio] = useState(profile?.bio ?? '');
+  // 본인 row 제외 + 기존 닉네임이면 unchanged (RPC 호출 스킵)
+  const displayNameCheck = useDisplayNameCheck(displayName, user?.id, profile?.display_name);
 
   const [country, setCountry] = useState<string>(profile?.country_code || 'KR');
   const [sido, setSido] = useState<string>(profile?.region_si ?? '');
@@ -96,6 +100,10 @@ export default function ProfileEditPage() {
 
   const handleSave = async () => {
     if (!user || !displayName.trim()) return;
+    if (!displayNameCheck.isValid) {
+      setMessage(displayNameCheck.message || '닉네임을 다시 확인해주세요');
+      return;
+    }
     setSaving(true);
     setMessage('');
 
@@ -233,7 +241,10 @@ export default function ProfileEditPage() {
             maxLength={20}
             className="w-full px-4 py-3 rounded-xl bg-[var(--card)] border border-[var(--card-border)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
           />
-          <p className="text-xs text-[var(--muted)] mt-1">{displayName.length}/20</p>
+          <div className="flex items-center justify-between mt-1">
+            <DisplayNameStatusHint check={displayNameCheck} />
+            <p className="text-xs text-[var(--muted)]">{displayName.length}/20</p>
+          </div>
         </div>
 
         <div>
@@ -391,7 +402,7 @@ export default function ProfileEditPage() {
         <div className="max-w-lg mx-auto">
           <button
             onClick={handleSave}
-            disabled={saving || !displayName.trim()}
+            disabled={saving || !displayName.trim() || !displayNameCheck.isValid}
             className="w-full py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base disabled:opacity-50 active:scale-[0.98] shadow-md shadow-emerald-500/30"
           >
             {saving ? '저장 중…' : '저장'}

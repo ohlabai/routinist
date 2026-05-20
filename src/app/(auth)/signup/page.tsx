@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { updateProfile, uploadAvatar } from '@/lib/auth';
 import { useEffect } from 'react';
+import { useDisplayNameCheck } from '@/lib/useDisplayNameCheck';
+import DisplayNameStatusHint from '@/components/DisplayNameStatusHint';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -15,6 +17,8 @@ export default function SignupPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // OAuth 가입 직후엔 profile 이 '러너' 기본값으로 자동 생성됨 → 본인 row 제외 위해 user.id 전달
+  const displayNameCheck = useDisplayNameCheck(displayName, user?.id);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -44,6 +48,10 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !displayName.trim()) return;
+    if (!displayNameCheck.isValid) {
+      setError(displayNameCheck.message || '닉네임을 다시 확인해주세요');
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -130,7 +138,10 @@ export default function SignupPage() {
             maxLength={20}
             className="w-full px-4 py-3 rounded-xl border border-[var(--card-border)] bg-[var(--background)] text-[var(--foreground)] text-base focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
           />
-          <p className="text-xs text-[var(--muted)] mt-1">{displayName.length}/20</p>
+          <div className="flex items-center justify-between mt-1">
+            <DisplayNameStatusHint check={displayNameCheck} />
+            <p className="text-xs text-[var(--muted)]">{displayName.length}/20</p>
+          </div>
         </div>
 
         {error && (
@@ -139,7 +150,7 @@ export default function SignupPage() {
 
         <button
           type="submit"
-          disabled={saving || !displayName.trim()}
+          disabled={saving || !displayName.trim() || !displayNameCheck.isValid}
           className="w-full bg-[var(--accent)] hover:opacity-90 text-white font-semibold py-3.5 rounded-xl transition-all text-base disabled:opacity-50"
         >
           {saving ? '저장 중...' : '시작하기'}

@@ -6,6 +6,8 @@ import { useAuth } from '@/components/AuthProvider';
 import type { Provider } from '@supabase/supabase-js';
 import AppLogo from '@/components/AppLogo';
 import Link from 'next/link';
+import { useDisplayNameCheck } from '@/lib/useDisplayNameCheck';
+import DisplayNameStatusHint from '@/components/DisplayNameStatusHint';
 
 // 로그인 화면은 브랜드 톤(라이트) 고정 — 다크모드 시스템 설정과 무관하게 일관된 온보딩 경험
 type Mode = 'social' | 'email-login' | 'email-signup' | 'email-sent';
@@ -24,6 +26,8 @@ export default function LoginPage() {
   const [displayName, setDisplayName] = useState('');
   const [sentEmail, setSentEmail] = useState('');
   const [resentAt, setResentAt] = useState<number | null>(null);
+  // 이메일 가입에서만 닉네임 입력 — 빈 문자열일 땐 hook 이 idle 반환, 입력 시작하면 검증.
+  const displayNameCheck = useDisplayNameCheck(displayName);
   const [showDebug, setShowDebug] = useState(false);
   const [debugLog, setDebugLog] = useState('');
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -101,6 +105,12 @@ export default function LoginPage() {
       if (mode === 'email-login') {
         await signInWithEmail(email.trim(), password);
       } else {
+        // 닉네임을 입력했는데 검증 실패면 차단 (빈 값은 통과 — 가입 후 기본값 '러너')
+        if (displayName.trim() && !displayNameCheck.isValid) {
+          setError(displayNameCheck.message || '닉네임을 다시 확인해주세요');
+          setLoadingProvider(null);
+          return;
+        }
         await signUpWithEmail(email.trim(), password, displayName.trim() || undefined);
         // 가입 후엔 "메일 확인" 전체 화면으로 전환 — 폼/안내 작은 텍스트 대신 명확한 다음 단계.
         setSentEmail(email.trim());
@@ -291,13 +301,17 @@ export default function LoginPage() {
               {mode === 'email-login' ? '이메일 로그인' : '이메일 회원가입'}
             </h2>
             {mode === 'email-signup' && (
-              <input
-                type="text"
-                placeholder="닉네임 (선택)"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white text-base"
-              />
+              <div>
+                <input
+                  type="text"
+                  placeholder="닉네임 (선택)"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  maxLength={20}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white text-base"
+                />
+                <DisplayNameStatusHint check={displayNameCheck} />
+              </div>
             )}
             <input
               type="email"
