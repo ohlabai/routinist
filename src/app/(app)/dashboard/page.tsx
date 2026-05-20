@@ -265,8 +265,25 @@ export default function DashboardPage() {
     };
   }, [todayPaceSec, activities]);
 
-  const monthlyDistance = useMemo(() => getMonthlyDistance(activities, year, month), [activities, year, month]);
+  // build 156: profile.this_month_* 캐시 우선 (activities 도착 전 즉시 표시).
+  //  - cache 의 updated_at month 가 현재 month 와 일치할 때만 사용 (stale 방어)
+  //  - activities 도착 후엔 정확한 값으로 자동 overwrite
+  const profileMonthCacheValid = (() => {
+    const u = profile?.this_month_updated_at;
+    if (!u) return false;
+    const d = new Date(u);
+    return d.getFullYear() === year && d.getMonth() + 1 === month;
+  })();
+  const monthlyDistance = useMemo(() => {
+    if (activities.length === 0 && profileMonthCacheValid && profile?.this_month_distance_km !== undefined) {
+      return Number(profile.this_month_distance_km);
+    }
+    return getMonthlyDistance(activities, year, month);
+  }, [activities, year, month, profileMonthCacheValid, profile?.this_month_distance_km]);
   const monthlyRunDays = useMemo(() => {
+    if (activities.length === 0 && profileMonthCacheValid && profile?.this_month_runs !== undefined) {
+      return Number(profile.this_month_runs);
+    }
     const daySet = new Set(
       activities
         .filter(a => {
@@ -276,7 +293,7 @@ export default function DashboardPage() {
         .map(a => a.activity_date)
     );
     return daySet.size;
-  }, [activities, year, month]);
+  }, [activities, year, month, profileMonthCacheValid, profile?.this_month_runs]);
 
   const goalState = useMemo(() => {
     const currentGoal = goals.find(g => g.year === year && g.month === month);
@@ -608,7 +625,7 @@ export default function DashboardPage() {
               </p>
             </div>
             <div>
-              {userDataLoading && activities.length === 0 ? (
+              {userDataLoading && activities.length === 0 && !profileMonthCacheValid ? (
                 <p className="text-2xl font-extrabold text-green-600 opacity-30">···</p>
               ) : (
                 <p className="text-2xl font-extrabold text-green-600">{monthlyDistance.toFixed(1)}</p>
@@ -616,7 +633,7 @@ export default function DashboardPage() {
               <p className="text-xs text-[var(--muted)] mt-0.5">이달 km</p>
             </div>
             <div>
-              {userDataLoading && activities.length === 0 ? (
+              {userDataLoading && activities.length === 0 && !profileMonthCacheValid ? (
                 <p className="text-2xl font-extrabold text-lime-600 dark:text-lime-500 opacity-30">···</p>
               ) : (
                 <p className="text-2xl font-extrabold text-lime-600 dark:text-lime-500">{monthlyRunDays}</p>
@@ -1291,7 +1308,7 @@ export default function DashboardPage() {
       )}
       </div>
 
-      {/* 루틴포토 카루셀 제거 — 소셜 탭 포토 갤러리(인스타 스타일)와 중복 (build 100). */}
+      {/* 러닝사진 카루셀 제거 — 소셜 탭 포토 갤러리(인스타 스타일)와 중복 (build 100). */}
 
       {/* build 155: 지역 자동 등록 안내 모달 — health-sync 가 GPS 로 채운 직후 1회만 */}
       {regionAutoNotice && (

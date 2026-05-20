@@ -477,7 +477,7 @@ export default function CalendarPage() {
         );
       })()}
 
-      {/* 업로드 후 옵션 모달 — 캘린더 배경 + 루틴포토 등록 체크박스 통합 */}
+      {/* 업로드 후 옵션 모달 — 캘린더 배경 + 러닝사진 등록 체크박스 통합 */}
       {pendingUpload && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm">
           <div className="w-full max-w-lg bg-[var(--card-bg)] rounded-t-3xl p-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] space-y-4 animate-slide-up">
@@ -510,7 +510,7 @@ export default function CalendarPage() {
               </div>
             </label>
 
-            {/* 체크박스 2: 루틴포토 등록 (러닝 있는 날만 활성) */}
+            {/* 체크박스 2: 러닝사진 등록 (러닝 있는 날만 활성) */}
             <label className={`flex items-start gap-3 p-4 rounded-2xl bg-emerald-50 cursor-pointer active:scale-[0.99] transition ${!pendingUpload.activityId ? 'opacity-50 cursor-not-allowed' : ''}`}>
               <input
                 type="checkbox"
@@ -520,7 +520,7 @@ export default function CalendarPage() {
                 className="mt-0.5 w-5 h-5 rounded accent-emerald-500"
               />
               <div className="flex-1">
-                <p className="text-base font-bold text-[var(--foreground)]">📸 루틴포토에 등록하기</p>
+                <p className="text-base font-bold text-[var(--foreground)]">📸 러닝사진에 등록하기</p>
                 <p className="text-sm text-[var(--muted)] mt-0.5">
                   {pendingUpload.activityId
                     ? '다른 러너들과 공유되고 좋아요 받을 수 있어요'

@@ -10,5 +10,9 @@
 	<true/>
 	<key>aps-environment</key>
 	<string>production</string>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:app.routinist.kr</string>
+	</array>
 </dict>
 </plist>

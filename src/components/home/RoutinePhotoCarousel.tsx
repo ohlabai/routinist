@@ -1,6 +1,6 @@
 'use client';
 
-// 메인 하단 루틴포토 가로 슬라이딩 캐러셀.
+// 메인 하단 러닝사진 가로 슬라이딩 캐러셀.
 // 빈 상태에서 "사진 올리기" 누르면 파일 선택 + 등록 모달이 홈에서 바로 뜸 (캘린더 페이지 이동 X).
 
 import { useCallback, useEffect, useState } from 'react';
@@ -44,7 +44,7 @@ export default function RoutinePhotoCarousel() {
             <Camera size={24} className="text-emerald-600" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-base font-bold text-[var(--foreground)]">첫 번째 루틴포토가 되어보세요!</p>
+            <p className="text-base font-bold text-[var(--foreground)]">첫 번째 러닝사진가 되어보세요!</p>
             <p className="text-sm text-[var(--muted)] mt-0.5">오늘 러닝 사진을 공유하면 여기에 떠요</p>
           </div>
         </div>
@@ -64,7 +64,7 @@ export default function RoutinePhotoCarousel() {
       <div className="flex items-center justify-between mx-4 mb-2">
         <h3 className="text-lg font-bold text-[var(--foreground)] flex items-center gap-1.5">
           <Flame size={20} className="text-emerald-600" />
-          이번 주 인기 루틴포토
+          이번 주 인기 러닝사진
         </h3>
         <div className="flex items-center gap-2">
           <PhotoUploader

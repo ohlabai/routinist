@@ -36,7 +36,7 @@ export default function TermsPage() {
             { title: '제3조 (서비스 내용)', items: [
               'Apple Health/Health Connect 연동을 통한 러닝 기록 자동 수집',
               'GPS 트래킹, 통계·분석, 지역·연령 기반 랭킹',
-              '친구/클럽/쪽지 등 소셜 기능, 루틴포토 공유',
+              '친구/클럽/쪽지 등 소셜 기능, 러닝사진 공유',
               '마일리지 적립 및 외부 쇼핑(routinist.kr) 연동',
             ]},
             { title: '제4조 (사용자의 의무)', items: [

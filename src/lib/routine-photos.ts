@@ -1,4 +1,4 @@
-// 루틴포토 (Routinist Photos) — 데이터 접근 레이어
+// 러닝사진 (Routinist Photos) — 데이터 접근 레이어
 // 2026-04-21 컨셉 피벗: opt-out 기본, 좋아요, 친구/동네 가중치 트렌딩
 
 import { getSupabase } from './supabase';
@@ -114,7 +114,7 @@ export async function fetchMyLikedPhotos(opts: PageOptions = {}): Promise<Routin
   return offset > 0 ? rows.slice(offset) : rows;
 }
 
-// 본인이 등록한 루틴포토 삭제 (build 71). RLS 가 user_id = auth.uid() 일 때만 delete 허용.
+// 본인이 등록한 러닝사진 삭제 (build 71). RLS 가 user_id = auth.uid() 일 때만 delete 허용.
 // activity_photos 와 storage 객체 둘 다 삭제. storage 실패는 무시 (orphan 청소는 별도 cron).
 export async function deleteMyPhoto(photoId: string, photoUrl: string): Promise<void> {
   const supabase = getSupabase();

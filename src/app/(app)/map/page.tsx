@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { fetchRoutesForUser } from '@/lib/map-data';
 import { loadGoogleMaps, API_KEY } from '@/lib/google-maps';
@@ -206,9 +206,15 @@ function navigateToFallback(map: google.maps.Map, profile: Profile | null) {
   // geolocation 도 거부되면 서울 중심 유지 (지도 init 시 기본값)
 }
 
-export default function MapPage() {
+// build 156: ?userId= 받으면 친구 경로 모드 (자체 sync skip, 읽기 전용)
+function MapPageInner() {
   const router = useRouter();
   const { user, profile } = useAuth();
+  const searchParams = useSearchParams();
+  const viewUserId = searchParams.get('userId');
+  // 친구 모드 여부 — viewUserId 가 본인 외 id 일 때
+  const isFriendMode = !!viewUserId && viewUserId !== user?.id;
+  const effectiveUserId = viewUserId || user?.id || null;
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<google.maps.Map | null>(null);
   const polylinesRef = useRef<google.maps.Polyline[]>([]);
@@ -246,14 +252,14 @@ export default function MapPage() {
   }, []);
 
   // 경로 데이터 로드 — 필터 모드에 따라 서버에서 범위 제한 (이전엔 전체 200건만 받아서 옛날 경로 잘림)
-  // 10s race 가드 — 토큰 stale 시 hang 방지.
+  // build 156: effectiveUserId — 본인 또는 친구(?userId=)
   const loadRoutes = useCallback(async () => {
-    if (!user) return;
+    if (!effectiveUserId) return;
     setLoading(true);
     try {
       const daysBack = filterMode === 'all' ? undefined : parseInt(filterMode);
       const data = await Promise.race([
-        fetchRoutesForUser(user.id, { daysBack }),
+        fetchRoutesForUser(effectiveUserId, { daysBack }),
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('routes fetch 10s timeout')), 10000)
         ),
@@ -265,15 +271,16 @@ export default function MapPage() {
     } finally {
       setLoading(false);
     }
-  }, [user, filterMode]);
+  }, [effectiveUserId, filterMode]);
 
   useEffect(() => { loadRoutes(); }, [loadRoutes]);
 
   // 회귀 fix (2026-05-07): syncRouteData 가 dashboard sync 백그라운드에서만 돌고 있어
   // 결과가 invisible. Map 진입 시 명시적으로 트리거 + 진행 상태 표시 + 끝나면 자동 reload.
   // 5분 throttle 로 과도 호출 방지.
+  // build 156: 친구 모드일 땐 sync skip — 본인 데이터만 sync.
   useEffect(() => {
-    if (!user || !isNativeApp()) return;
+    if (!user || !isNativeApp() || isFriendMode) return;
 
     let cancelled = false;
     (async () => {
@@ -599,5 +606,13 @@ export default function MapPage() {
       </div>
     </div>
     </PullToRefresh>
+  );
+}
+
+export default function MapPage() {
+  return (
+    <Suspense fallback={<div className="p-8 flex justify-center"><div className="animate-spin w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full" /></div>}>
+      <MapPageInner />
+    </Suspense>
   );
 }

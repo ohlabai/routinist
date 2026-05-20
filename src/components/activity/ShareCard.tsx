@@ -17,7 +17,7 @@ interface ShareCardProps {
   activity: Activity;
   displayName: string;
   onClose: () => void;
-  /** true 면 루틴포토 등록 버튼을 숨김 (캘린더처럼 바깥에서 직접 등록 모달을 띄우는 경우) */
+  /** true 면 러닝사진 등록 버튼을 숨김 (캘린더처럼 바깥에서 직접 등록 모달을 띄우는 경우) */
   hideRegister?: boolean;
   /** 등록 성공 시 호출 — 리스트 새로고침용 */
   onRegistered?: () => void;
@@ -630,7 +630,7 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
     const first = activity.route_data?.coordinates?.[0] as [number, number] | undefined;
     return detectRegionLabel(first ?? null, profile);
   })();
-  // 루틴포토 등록 — 디폴트 ON (체크 해제하면 캘린더만 저장).
+  // 러닝사진 등록 — 디폴트 ON (체크 해제하면 캘린더만 저장).
   // 캘린더 저장은 항상 자동 (UI 표시 X — 사용자 의도).
   const [registerToGallery, setRegisterToGallery] = useState(true);
   // build 150: 한 줄 메시지 직접 입력. 비어있으면 명언(placeholder) 사용, 입력 있으면 카드에 그 텍스트.
@@ -791,7 +791,7 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
 
   // 캔버스 → blob → storage 업로드 → calendar_photos 자동 + activity_photos 옵션
   // build 56: 모든 supabase 호출에 withTimeout 보호.
-  // 사용자 결정: 캘린더는 항상 자동, 루틴포토는 사용자 선택 (체크박스).
+  // 사용자 결정: 캘린더는 항상 자동, 러닝사진는 사용자 선택 (체크박스).
   const handleRegister = async (includeGallery: boolean) => {
     if (!canvasRef.current || !user) return;
     setRegistering(true);
@@ -821,7 +821,7 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
       const { data: urlData } = supabase.storage.from('activity-photos').getPublicUrl(path);
       const photoUrl = urlData.publicUrl;
 
-      // 캘린더(항상) + 루틴포토(옵션). 동시 실행, 각 8s.
+      // 캘린더(항상) + 러닝사진(옵션). 동시 실행, 각 8s.
       const tasks: Promise<unknown>[] = [
         withTimeout(
           supabase.from('calendar_photos').upsert({
@@ -1019,7 +1019,7 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
 
         {/* 액션 영역 (UI 세련화):
             1) 배경 사진 추가/변경 — 사진 있으면 우측 inline X 로 제거
-            2) 루틴포토 등록 체크박스 (디폴트 ON) — 캘린더는 항상 자동
+            2) 러닝사진 등록 체크박스 (디폴트 ON) — 캘린더는 항상 자동
             3) 공유 — 단일 CTA. "사진으로 저장만" 제거 */}
         <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
         <div className="flex flex-col gap-3 px-4 pb-4 pt-2 flex-shrink-0">
@@ -1072,7 +1072,7 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
             </div>
           )}
 
-          {/* 루틴포토 체크박스 — 디폴트 ON (사용자 결정). 캘린더는 항상 자동 (UI 표시 X) */}
+          {/* 러닝사진 체크박스 — 디폴트 ON (사용자 결정). 캘린더는 항상 자동 (UI 표시 X) */}
           {!hideRegister && (
             <label className="flex items-center gap-2.5 px-1 cursor-pointer select-none">
               <span className="relative flex items-center justify-center">
@@ -1087,11 +1087,11 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
                   <Check size={14} className="absolute text-white pointer-events-none" strokeWidth={3} />
                 )}
               </span>
-              <span className="text-sm text-[var(--foreground)]">루틴포토에 등록</span>
+              <span className="text-sm text-[var(--foreground)]">러닝사진에 등록</span>
             </label>
           )}
 
-          {/* 공유 — 단일 CTA. 캘린더 자동 + 루틴포토(체크박스 ON 일 때) + 공유 시트.
+          {/* 공유 — 단일 CTA. 캘린더 자동 + 러닝사진(체크박스 ON 일 때) + 공유 시트.
               build 136: 비디오 렌더링 중에는 별도 진행 상태 표시. */}
           <button
             onClick={async () => {

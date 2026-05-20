@@ -94,6 +94,10 @@ export interface Profile {
   privacy_zone_radius_m: number;
   created_at: string;
   updated_at: string;
+  // build 156: 이달 캐시 — activities 도착 전 즉시 표시. activity trigger 가 자동 갱신.
+  this_month_distance_km?: number;
+  this_month_runs?: number;
+  this_month_updated_at?: string | null;
 }
 
 export interface Activity {

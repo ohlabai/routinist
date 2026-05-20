@@ -290,7 +290,7 @@ export default function AdminAnalyticsPage() {
           {overview && (
             <Section title="콘텐츠" icon={<Camera size={14} className="text-emerald-500" />}>
               <div className="grid grid-cols-2 gap-2">
-                <Stat label="루틴포토 (전체)" value={overview.content.photos_total.toLocaleString()} />
+                <Stat label="러닝사진 (전체)" value={overview.content.photos_total.toLocaleString()} />
                 <Stat label="포토 (7일)" value={`+${overview.content.photos_7d}`} tone="emerald" />
                 <Stat label="러너 한 줄" value={overview.content.user_quotes_total.toLocaleString()} />
                 <Stat label="러너 한 줄 (7일)" value={`+${overview.content.user_quotes_7d}`} tone="emerald" />

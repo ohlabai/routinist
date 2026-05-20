@@ -399,10 +399,9 @@ function UserProfileContent() {
       {/* 친구 30일 활동 막대그래프 (build 124) */}
       <FriendActivityChart userId={profile.id} />
 
-      {/* 친구 30일 컬러 캘린더 (build 126) */}
-      <FriendCalendarCard userId={profile.id} />
+      {/* build 156: 30일 캘린더 제거 — 아래 달력보기와 중복 (사용자 피드백) */}
 
-      {/* 친구 최근 7일 GPS 미니맵 (build 125) */}
+      {/* 친구 최근 7일 GPS 미니맵 (build 125) — 누르면 친구 지도 페이지 */}
       <FriendMiniMap userId={profile.id} />
 
       {/* 배지 */}
@@ -833,14 +832,19 @@ function FriendMiniMap({ userId }: { userId: string }) {
   const offX = PAD + ((W - PAD * 2) - spanLng * scale) / 2;
   const offY = PAD + ((H - PAD * 2) - spanLat * scale) / 2;
 
+  // build 156: 미니맵 클릭 시 친구의 구글 지도 페이지로 이동
   return (
+    <Link href={`/map?userId=${userId}`} className="block active:scale-[0.99] transition">
     <div className="card p-4">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
           <MapPin size={14} className="text-emerald-500" />
           <h3 className="text-sm font-extrabold">최근 7일 러닝 경로</h3>
         </div>
-        <span className="text-xs font-bold text-emerald-600 tabular-nums">{withRoute.length}회</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-bold text-emerald-600 tabular-nums">{withRoute.length}회</span>
+          <span className="text-[10px] text-[var(--muted)]">지도 크게 보기 →</span>
+        </div>
       </div>
       <div className="rounded-xl bg-gradient-to-br from-emerald-50/60 via-white to-emerald-50/30 dark:from-emerald-950/20 dark:via-zinc-900 dark:to-emerald-950/10 border border-emerald-200/30 dark:border-emerald-900/20 overflow-hidden">
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 140 }} preserveAspectRatio="xMidYMid meet">
@@ -858,6 +862,7 @@ function FriendMiniMap({ userId }: { userId: string }) {
         </svg>
       </div>
     </div>
+    </Link>
   );
 }
 

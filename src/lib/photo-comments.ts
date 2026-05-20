@@ -1,4 +1,4 @@
-// 루틴포토 댓글 (build 100 후속).
+// 러닝사진 댓글 (build 100 후속).
 // photo_comments 테이블: RLS SELECT public, INSERT own, DELETE own+admin.
 // 자동 필터 (is_clean_text trigger) — 욕설/스팸 reject.
 

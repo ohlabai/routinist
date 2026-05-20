@@ -1,6 +1,6 @@
 'use client';
 
-// 루틴포토 댓글 bottom-sheet (build 100 후속).
+// 러닝사진 댓글 bottom-sheet (build 100 후속).
 // PhotoCard 의 댓글 버튼 클릭 시 열림. 리스트 + 입력 + 본인 댓글 삭제.
 // 자동 필터 (욕설/스팸) 는 DB trigger 에서 처리 — 실패 시 에러 메시지 표시.
 

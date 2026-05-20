@@ -1,0 +1,15 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "EHQP3GVR66.com.routinist.app",
+        "paths": [
+          "/r/*",
+          "/activity",
+          "/photos*"
+        ]
+      }
+    ]
+  }
+}

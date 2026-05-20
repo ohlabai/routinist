@@ -1,6 +1,15 @@
 {
   "rewrites": [
-    { "source": "/((?!_next|api|privacy|support).*)", "destination": "/index.html" }
+    { "source": "/((?!_next|api|privacy|support|\\.well-known).*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/.well-known/apple-app-site-association",
+      "headers": [
+        { "key": "Content-Type", "value": "application/json" },
+        { "key": "Cache-Control", "value": "public, max-age=3600" }
+      ]
+    }
   ],
   "crons": [
     { "path": "/api/push/send", "schedule": "* * * * *" },

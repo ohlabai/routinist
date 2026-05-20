@@ -1,6 +1,6 @@
 'use client';
 
-// 루틴포토 단일 카드 — 썸네일 + 좋아요 + 러닝 기록 오버레이.
+// 러닝사진 단일 카드 — 썸네일 + 좋아요 + 러닝 기록 오버레이.
 // 친근·귀여운 컨셉: 둥근 카드, 더블탭 하트 애니메이션, soft shadow.
 
 import { useState, useEffect, useRef } from 'react';
