@@ -29,6 +29,7 @@ import {
 } from 'recharts';
 import Onboarding from '@/components/Onboarding';
 import LazyMount from '@/components/LazyMount';
+import { useI18n } from '@/lib/i18n';
 import AppLogo from '@/components/AppLogo';
 import HomeRankingHero from '@/components/home/HomeRankingHero';
 import StreakWarningCard from '@/components/home/StreakWarningCard';
@@ -69,6 +70,7 @@ const PERIOD_OPTIONS: { id: PeriodMode; label: string }[] = [
 ];
 
 export default function DashboardPage() {
+  const { t } = useI18n();
   const { user, profile } = useAuth();
   const { activities, goals, loading: userDataLoading, refresh, lastUpdated } = useUserData();
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -610,7 +612,7 @@ export default function DashboardPage() {
               ) : (
                 <p className="text-2xl font-extrabold text-[var(--accent)]">{todayKm.toFixed(1)}</p>
               )}
-              <p className="text-xs text-[var(--muted)] mt-0.5">오늘 km</p>
+              <p className="text-xs text-[var(--muted)] mt-0.5">{t('home.todayKm')}</p>
             </div>
             <div>
               {userDataLoading && activities.length === 0 ? (
@@ -621,7 +623,7 @@ export default function DashboardPage() {
                 </p>
               )}
               <p className="text-xs text-[var(--muted)] mt-0.5">
-                {todayPaceSec ? '오늘 페이스' : recentPace ? '최근 페이스' : '오늘 페이스'}
+                {todayPaceSec ? t('home.todayPace') : recentPace ? t('home.recentPace') : t('home.todayPace')}
               </p>
             </div>
             <div>
@@ -630,7 +632,7 @@ export default function DashboardPage() {
               ) : (
                 <p className="text-2xl font-extrabold text-green-600">{monthlyDistance.toFixed(1)}</p>
               )}
-              <p className="text-xs text-[var(--muted)] mt-0.5">이달 km</p>
+              <p className="text-xs text-[var(--muted)] mt-0.5">{t('home.monthKm')}</p>
             </div>
             <div>
               {userDataLoading && activities.length === 0 && !profileMonthCacheValid ? (
@@ -638,7 +640,7 @@ export default function DashboardPage() {
               ) : (
                 <p className="text-2xl font-extrabold text-lime-600 dark:text-lime-500">{monthlyRunDays}</p>
               )}
-              <p className="text-xs text-[var(--muted)] mt-0.5">이달 일수</p>
+              <p className="text-xs text-[var(--muted)] mt-0.5">{t('home.monthDays')}</p>
             </div>
           </div>
         </div>

@@ -96,6 +96,41 @@ export default function CourseDetailSheet({ courseId, onClose }: Props) {
             <p className="text-center text-sm text-[var(--muted)] py-12">코스를 찾을 수 없어요</p>
           ) : (
             <>
+              {/* build 157: hero 이미지 — 코스를 시각적으로 첫 인상 (Conqueror 앱 패턴) */}
+              {course.hero_image_url && (
+                <div className="relative w-full h-48 -mt-1 rounded-2xl overflow-hidden shadow-md">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={course.hero_image_url} alt={course.name} className="w-full h-full object-cover" />
+                  <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/65 via-black/30 to-transparent" />
+                  <div className="absolute left-4 right-4 bottom-3 flex items-end justify-between">
+                    <div>
+                      <p className="text-white text-xl font-extrabold drop-shadow-lg leading-tight">{course.name}</p>
+                      <p className="text-white/90 text-xs font-bold mt-0.5">
+                        {course.distance_km.toFixed(1)}km · {course.country}
+                      </p>
+                    </div>
+                    {runners.length > 0 && (
+                      <div className="flex items-center gap-1">
+                        <div className="flex -space-x-2">
+                          {runners.slice(0, 4).map((r, i) => (
+                            <div key={r.user_id + i} className="w-7 h-7 rounded-full border-2 border-white bg-zinc-300 overflow-hidden">
+                              {r.avatar_url
+                                ? // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={r.avatar_url} alt="" className="w-full h-full object-cover" />
+                                : <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-zinc-600">{r.display_name?.[0] ?? '러'}</div>
+                              }
+                            </div>
+                          ))}
+                        </div>
+                        {runners.length > 4 && (
+                          <span className="text-white/90 text-xs font-bold drop-shadow ml-0.5">+{runners.length - 4}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* 큰 지도 + 라이브 트래커 — real_path 있으면 Google Maps, 없으면 SVG fallback */}
               {course.real_path && course.real_path.length >= 2 ? (
                 <GoogleLiveTracker

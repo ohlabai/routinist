@@ -20,6 +20,7 @@ import {
 } from '@/lib/world-data';
 import AppToast from '@/components/AppToast';
 import CourseDetailSheet from './CourseDetailSheet';
+import { useI18n } from '@/lib/i18n';
 import { Coins } from 'lucide-react';
 import { track } from '@/lib/analytics';
 import NextLink from 'next/link';
@@ -97,6 +98,7 @@ function CoursePreview({ path, progress }: { path: PreviewPoint[] | null; progre
 }
 
 export default function WorldTab() {
+  const { t } = useI18n();
   const [mine, setMine] = useState<MyCourse[]>([]);
   const [available, setAvailable] = useState<VirtualCourse[]>([]);
   const [pathMap, setPathMap] = useState<Map<string, PreviewPoint[] | null>>(new Map());
@@ -152,6 +154,8 @@ export default function WorldTab() {
       showToast('✨ 코스를 시작했어요');
       setConfirmStart(null);
       await load();
+      // build 157: 결제(시작) 직후 곧바로 코스 상세 시트로 진입 — Conqueror 앱처럼 가상 대회 참가한 느낌.
+      setDetailCourseId(courseId);
     } catch (e) {
       showToast(e instanceof Error ? e.message : '시작 실패', 'warn');
     } finally {
@@ -166,7 +170,7 @@ export default function WorldTab() {
     <div className="space-y-5">
       {/* 진행 중 */}
       {inProgress.length > 0 && (
-        <Section title="진행 중" icon={<Flag size={14} className="text-emerald-500" />}>
+        <Section title={t('world.inProgress')} icon={<Flag size={14} className="text-emerald-500" />}>
           <div className="space-y-2.5">
             {inProgress.map(c => (
               <button key={c.course_id} onClick={() => setDetailCourseId(c.course_id)} className="block w-full text-left active:scale-[0.99] transition">
@@ -179,7 +183,7 @@ export default function WorldTab() {
 
       {/* 완주 메달 진열 */}
       {completed.length > 0 && (
-        <Section title="완주 메달" icon={<Trophy size={14} className="text-amber-500" />}>
+        <Section title={t('world.medals')} icon={<Trophy size={14} className="text-amber-500" />}>
           <div className="grid grid-cols-3 gap-2.5">
             {completed.map(c => (
               <div key={c.course_id} className="card p-3 text-center">

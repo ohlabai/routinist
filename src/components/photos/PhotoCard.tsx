@@ -143,48 +143,42 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
             loading="lazy"
           />
 
-          {/* 하단 오버레이 — 거리만 (사용자 피드백: 에세이는 사진 외부 카드 하단에 표시) */}
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent p-3 pointer-events-none">
-            <div className="flex items-center gap-2 text-[11px] text-white/90">
-              <span className="font-semibold">{Number(photo.distance_km).toFixed(1)}km</span>
+          {/* build 156: 사진 위 어두운 그라데이션 + ID/거리 오버레이 제거.
+              인스타 스타일 — 사진 깨끗 / 정보는 사진 외부 footer 에 정렬. */}
+        </button>
+
+        {/* 인스타식 footer — 사용자 ID + 거리 + 캡션 (사진 외부 흰 배경, 가독성 ↑) */}
+        <div className="px-3.5 py-3 bg-[var(--card)] border-t border-[var(--card-border)]/40 space-y-1.5">
+          {/* row 1: @username + 거리/지역 */}
+          <div className="flex items-center justify-between gap-2">
+            <Link
+              href={`/social/user?id=${photo.user_id}`}
+              className="inline-flex items-center gap-1 text-[13px] font-extrabold text-[var(--foreground)] active:scale-95"
+              aria-label={`${photo.display_name} 프로필 보기`}
+            >
+              <span className="truncate max-w-[160px]">@{photo.display_name}</span>
+              <GenderBadge gender={photo.gender} show={photo.show_gender} size={11} />
+            </Link>
+            <div className="flex items-center gap-1.5 text-[11px] text-[var(--muted)] font-semibold flex-shrink-0">
+              <span>{Number(photo.distance_km).toFixed(1)}km</span>
               {photo.region_gu && (
-                <span className="flex items-center gap-0.5">
+                <span className="inline-flex items-center gap-0.5">
                   <MapPin size={10} />
                   {photo.region_gu}
                 </span>
               )}
             </div>
           </div>
-        </button>
-
-        {/* 인스타식 캡션 — build 137: quote_text(view join) → caption(직접 저장) → essay_body(legacy) 순.
-            build 136 회귀 fix: fallback 명언이라 quote_id=null 인 경우도 caption 컬럼에서 살림. */}
-        {(photo.quote_text || photo.caption || photo.essay_body) && (
-          <div className="px-3.5 py-3 bg-[var(--card)] border-t border-[var(--card-border)]/40">
-            <div className="flex items-baseline gap-1.5 mb-1.5">
-              <span className="text-[12px] font-extrabold text-emerald-700 dark:text-emerald-300">
-                @{photo.display_name}
-              </span>
-              <span className="text-[10px] text-[var(--muted)] font-semibold">한 줄 일기</span>
-            </div>
-            <p className="text-[15px] italic text-[var(--foreground)] leading-relaxed line-clamp-5 break-keep">
+          {/* row 2: 한 줄 일기 (있을 때만) — build 137: quote_text → caption → essay_body */}
+          {(photo.quote_text || photo.caption || photo.essay_body) && (
+            <p className="text-[14px] italic text-[var(--foreground)] leading-relaxed line-clamp-5 break-keep">
               &ldquo;{(photo.quote_text ?? photo.caption ?? photo.essay_body ?? '').replace(/\s+/g, ' ').trim()}&rdquo;
+              {photo.quote_author && photo.quote_author !== photo.display_name && (
+                <span className="text-[11px] text-[var(--muted)] ml-1.5 font-semibold">— {photo.quote_author}</span>
+              )}
             </p>
-            {photo.quote_author && photo.quote_author !== photo.display_name && (
-              <p className="text-[11px] text-[var(--muted)] mt-1.5 font-semibold">— {photo.quote_author}</p>
-            )}
-          </div>
-        )}
-
-        {/* 사용자 ID — 별도 클릭 영역. 사진 위 left-2 bottom-2 (오버레이 위에 z-index). */}
-        <Link
-          href={`/social/user?id=${photo.user_id}`}
-          className="absolute left-2 bottom-2 z-10 flex items-center gap-1 px-2 py-1 rounded-full bg-white/90 backdrop-blur text-[11px] font-bold text-gray-800 shadow-sm active:scale-95 transition"
-          aria-label={`${photo.display_name} 프로필 보기`}
-        >
-          <span className="truncate max-w-[120px]">@{photo.display_name}</span>
-          <GenderBadge gender={photo.gender} show={photo.show_gender} size={11} />
-        </Link>
+          )}
+        </div>
 
         {/* 좋아요 하트 */}
         <button

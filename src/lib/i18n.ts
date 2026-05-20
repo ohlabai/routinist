@@ -67,7 +67,47 @@ export type TranslationKey =
   | 'profile.themeSystem'
   | 'profile.signOut'
   | 'profile.totalSummary'
-  | 'settings.language';
+  | 'settings.language'
+  // build 157: 핵심 화면 영어 확장
+  | 'home.todayKm'
+  | 'home.todayPace'
+  | 'home.recentPace'
+  | 'home.monthKm'
+  | 'home.monthDays'
+  | 'home.monthGoal'
+  | 'home.monthGoalEmpty'
+  | 'home.monthGoalSet'
+  | 'home.weekChallenge'
+  | 'home.weekChallengeRun'
+  | 'home.weekRunCta'
+  | 'home.sync'
+  | 'home.synced'
+  | 'home.tabToday'
+  | 'home.tabMonth'
+  | 'home.tabYear'
+  | 'ranking.title'
+  | 'ranking.mine'
+  | 'ranking.mileage'
+  | 'ranking.world'
+  | 'ranking.today'
+  | 'ranking.week'
+  | 'ranking.month'
+  | 'ranking.year'
+  | 'ranking.rank'
+  | 'ranking.of'
+  | 'ranking.champion'
+  | 'ranking.keepIt'
+  | 'world.inProgress'
+  | 'world.medals'
+  | 'world.series'
+  | 'world.newCourses'
+  | 'world.start'
+  | 'world.continue'
+  | 'world.entryFee'
+  | 'world.confirmStart'
+  | 'world.completedAt'
+  | 'world.distance'
+  | 'world.participantsHeader';
 
 const DICT: Record<Locale, Record<TranslationKey, string>> = {
   ko: {
@@ -123,6 +163,45 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'profile.signOut': '로그아웃',
     'profile.totalSummary': '통산 {km}km · {runs}회 러닝',
     'settings.language': '언어',
+    'home.todayKm': '오늘 km',
+    'home.todayPace': '오늘 페이스',
+    'home.recentPace': '최근 페이스',
+    'home.monthKm': '이달 km',
+    'home.monthDays': '이달 일수',
+    'home.monthGoal': '내 {month}월 목표',
+    'home.monthGoalEmpty': '아직 이번 달 목표가 없습니다',
+    'home.monthGoalSet': '목표 설정하기 →',
+    'home.weekChallenge': '이번 주 도전',
+    'home.weekChallengeRun': '이번 주도 한 번 달려볼까요?',
+    'home.weekRunCta': '시작',
+    'home.sync': '동기화',
+    'home.synced': '{ago} 동기화',
+    'home.tabToday': '오늘',
+    'home.tabMonth': '이달',
+    'home.tabYear': '올해',
+    'ranking.title': '랭킹',
+    'ranking.mine': '내 랭킹',
+    'ranking.mileage': '마일리지',
+    'ranking.world': '월드마라톤',
+    'ranking.today': '🔥 오늘',
+    'ranking.week': '📆 이번주',
+    'ranking.month': '📅 이달',
+    'ranking.year': '🏆 올해',
+    'ranking.rank': '위',
+    'ranking.of': '명',
+    'ranking.champion': '챔피언!',
+    'ranking.keepIt': '자리를 지켜요',
+    'world.inProgress': '진행 중',
+    'world.medals': '완주 메달',
+    'world.series': '챌린지 시리즈',
+    'world.newCourses': '새 코스',
+    'world.start': '도전 시작',
+    'world.continue': '계속하기',
+    'world.entryFee': '참가비',
+    'world.confirmStart': '이 코스를 시작할까요?',
+    'world.completedAt': '완주: {date}',
+    'world.distance': '{km}km',
+    'world.participantsHeader': '같은 코스 도전 중',
   },
   en: {
     'common.loading': 'Loading...',
@@ -177,6 +256,45 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'profile.signOut': 'Sign out',
     'profile.totalSummary': 'Total {km}km · {runs} runs',
     'settings.language': 'Language',
+    'home.todayKm': 'Today km',
+    'home.todayPace': 'Today pace',
+    'home.recentPace': 'Recent pace',
+    'home.monthKm': 'Month km',
+    'home.monthDays': 'Month days',
+    'home.monthGoal': 'My {month} goal',
+    'home.monthGoalEmpty': "No goal for this month yet",
+    'home.monthGoalSet': 'Set a goal →',
+    'home.weekChallenge': 'Weekly challenge',
+    'home.weekChallengeRun': 'Ready for a run this week?',
+    'home.weekRunCta': 'Start',
+    'home.sync': 'Sync',
+    'home.synced': 'Synced {ago}',
+    'home.tabToday': 'Today',
+    'home.tabMonth': 'Month',
+    'home.tabYear': 'Year',
+    'ranking.title': 'Ranking',
+    'ranking.mine': 'My ranking',
+    'ranking.mileage': 'Mileage',
+    'ranking.world': 'World marathon',
+    'ranking.today': '🔥 Today',
+    'ranking.week': '📆 Week',
+    'ranking.month': '📅 Month',
+    'ranking.year': '🏆 Year',
+    'ranking.rank': 'th',
+    'ranking.of': 'people',
+    'ranking.champion': 'Champion!',
+    'ranking.keepIt': 'Hold your spot',
+    'world.inProgress': 'In progress',
+    'world.medals': 'Medals',
+    'world.series': 'Challenge series',
+    'world.newCourses': 'New courses',
+    'world.start': 'Start course',
+    'world.continue': 'Continue',
+    'world.entryFee': 'Entry fee',
+    'world.confirmStart': 'Start this course?',
+    'world.completedAt': 'Completed: {date}',
+    'world.distance': '{km}km',
+    'world.participantsHeader': 'Same course runners',
   },
   ja: {
     'common.loading': '読み込み中...',
@@ -231,6 +349,45 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'profile.signOut': 'ログアウト',
     'profile.totalSummary': '通算 {km}km · {runs}回',
     'settings.language': '言語',
+    'home.todayKm': '本日km',
+    'home.todayPace': '本日ペース',
+    'home.recentPace': '最近のペース',
+    'home.monthKm': '今月km',
+    'home.monthDays': '今月の日数',
+    'home.monthGoal': '{month}月の目標',
+    'home.monthGoalEmpty': '今月の目標がまだありません',
+    'home.monthGoalSet': '目標を設定 →',
+    'home.weekChallenge': '今週のチャレンジ',
+    'home.weekChallengeRun': '今週も走ってみましょうか?',
+    'home.weekRunCta': '開始',
+    'home.sync': '同期',
+    'home.synced': '{ago} 同期',
+    'home.tabToday': '今日',
+    'home.tabMonth': '今月',
+    'home.tabYear': '今年',
+    'ranking.title': 'ランキング',
+    'ranking.mine': '私のランキング',
+    'ranking.mileage': 'マイレージ',
+    'ranking.world': 'ワールドマラソン',
+    'ranking.today': '🔥 今日',
+    'ranking.week': '📆 今週',
+    'ranking.month': '📅 今月',
+    'ranking.year': '🏆 今年',
+    'ranking.rank': '位',
+    'ranking.of': '人',
+    'ranking.champion': 'チャンピオン!',
+    'ranking.keepIt': '位置をキープ',
+    'world.inProgress': '進行中',
+    'world.medals': '完走メダル',
+    'world.series': 'チャレンジシリーズ',
+    'world.newCourses': '新しいコース',
+    'world.start': 'チャレンジ開始',
+    'world.continue': '続ける',
+    'world.entryFee': '参加費',
+    'world.confirmStart': 'このコースを始めますか?',
+    'world.completedAt': '完走: {date}',
+    'world.distance': '{km}km',
+    'world.participantsHeader': '同じコースのランナー',
   },
   zh: {
     'common.loading': '加载中...',
@@ -285,6 +442,45 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'profile.signOut': '退出',
     'profile.totalSummary': '累计 {km}km · {runs}次',
     'settings.language': '语言',
+    'home.todayKm': '今日km',
+    'home.todayPace': '今日配速',
+    'home.recentPace': '最近配速',
+    'home.monthKm': '本月km',
+    'home.monthDays': '本月天数',
+    'home.monthGoal': '{month}月目标',
+    'home.monthGoalEmpty': '本月还没有目标',
+    'home.monthGoalSet': '设置目标 →',
+    'home.weekChallenge': '本周挑战',
+    'home.weekChallengeRun': '本周再跑一次吧?',
+    'home.weekRunCta': '开始',
+    'home.sync': '同步',
+    'home.synced': '{ago} 同步',
+    'home.tabToday': '今天',
+    'home.tabMonth': '本月',
+    'home.tabYear': '今年',
+    'ranking.title': '排行',
+    'ranking.mine': '我的排名',
+    'ranking.mileage': '里程',
+    'ranking.world': '世界马拉松',
+    'ranking.today': '🔥 今天',
+    'ranking.week': '📆 本周',
+    'ranking.month': '📅 本月',
+    'ranking.year': '🏆 今年',
+    'ranking.rank': '名',
+    'ranking.of': '人',
+    'ranking.champion': '冠军!',
+    'ranking.keepIt': '保持位置',
+    'world.inProgress': '进行中',
+    'world.medals': '完赛奖牌',
+    'world.series': '挑战系列',
+    'world.newCourses': '新课程',
+    'world.start': '开始挑战',
+    'world.continue': '继续',
+    'world.entryFee': '参赛费',
+    'world.confirmStart': '开始这个课程吗?',
+    'world.completedAt': '完成: {date}',
+    'world.distance': '{km}km',
+    'world.participantsHeader': '同课程跑者',
   },
   es: {
     'common.loading': 'Cargando...',
@@ -339,6 +535,45 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'profile.signOut': 'Cerrar sesión',
     'profile.totalSummary': 'Total {km}km · {runs} carreras',
     'settings.language': 'Idioma',
+    'home.todayKm': 'Km hoy',
+    'home.todayPace': 'Ritmo hoy',
+    'home.recentPace': 'Ritmo reciente',
+    'home.monthKm': 'Km del mes',
+    'home.monthDays': 'Días este mes',
+    'home.monthGoal': 'Meta de {month}',
+    'home.monthGoalEmpty': 'Sin meta este mes',
+    'home.monthGoalSet': 'Establecer meta →',
+    'home.weekChallenge': 'Reto semanal',
+    'home.weekChallengeRun': '¿Listo para correr esta semana?',
+    'home.weekRunCta': 'Empezar',
+    'home.sync': 'Sincronizar',
+    'home.synced': 'Sincronizado {ago}',
+    'home.tabToday': 'Hoy',
+    'home.tabMonth': 'Mes',
+    'home.tabYear': 'Año',
+    'ranking.title': 'Ranking',
+    'ranking.mine': 'Mi ranking',
+    'ranking.mileage': 'Mileage',
+    'ranking.world': 'Maratón mundial',
+    'ranking.today': '🔥 Hoy',
+    'ranking.week': '📆 Semana',
+    'ranking.month': '📅 Mes',
+    'ranking.year': '🏆 Año',
+    'ranking.rank': 'º',
+    'ranking.of': 'corredores',
+    'ranking.champion': '¡Campeón!',
+    'ranking.keepIt': 'Mantén tu lugar',
+    'world.inProgress': 'En curso',
+    'world.medals': 'Medallas',
+    'world.series': 'Series de retos',
+    'world.newCourses': 'Nuevos cursos',
+    'world.start': 'Empezar curso',
+    'world.continue': 'Continuar',
+    'world.entryFee': 'Cuota de entrada',
+    'world.confirmStart': '¿Empezar este curso?',
+    'world.completedAt': 'Completado: {date}',
+    'world.distance': '{km}km',
+    'world.participantsHeader': 'Mismos cursos',
   },
 };
 
