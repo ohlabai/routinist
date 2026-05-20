@@ -1,14 +1,13 @@
 'use client';
 
-import { useRef, useState, useCallback, useEffect } from 'react';
-import { Share2, X, ImagePlus, Check, Dices, PenLine, Video, ImageIcon } from 'lucide-react';
+import { useRef, useState, useCallback, useEffect, useMemo } from 'react';
+import { Share2, X, ImagePlus, Check, Shuffle, Video, ImageIcon } from 'lucide-react';
 import { isNativeApp } from '@/lib/health-sync';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
 import { fetchRandomQuote, isFallbackQuote, type DailyQuote } from '@/lib/quotes-data';
 import { detectRegionLabel } from '@/lib/region-from-gps';
 import { captureCanvasAnimation } from '@/lib/canvas-to-video';
-import { createUserQuote } from '@/lib/user-quotes';
 import { getSupabase } from '@/lib/supabase';
 import { track } from '@/lib/analytics';
 import AppToast from '@/components/AppToast';
@@ -158,8 +157,39 @@ function drawCard(
     const offsetY = mapY + (mapH - (maxLat - minLat) * scale) / 2;
 
     // 애니메이션: routeProgress 비율만큼 슬라이스 (최소 2개 필요).
-    const cutIdx = Math.max(2, Math.ceil(coordsAll.length * Math.min(1, Math.max(0, routeProgress))));
-    const coords = coordsAll.slice(0, cutIdx);
+    // build 150: 좌표 개수 기준이면 정지/저속 구간(샘플 밀집)에서 동영상이 늘어짐 →
+    // 좌표 간 누적 거리로 progress 잘라서 실제 이동 비율과 매칭. timestamp 가 없으므로
+    // 실시간 페이스 반영은 아니지만, 정지·저속 구간이 길게 늘어지는 회귀를 해소.
+    const progress01 = Math.min(1, Math.max(0, routeProgress));
+    const cumDist: number[] = new Array(coordsAll.length);
+    cumDist[0] = 0;
+    for (let i = 1; i < coordsAll.length; i++) {
+      const [lng1, lat1] = coordsAll[i - 1];
+      const [lng2, lat2] = coordsAll[i];
+      const meanLat = (lat1 + lat2) / 2 * Math.PI / 180;
+      const dx = (lng2 - lng1) * Math.cos(meanLat);
+      const dy = lat2 - lat1;
+      cumDist[i] = cumDist[i - 1] + Math.hypot(dx, dy);
+    }
+    const totalD = cumDist[cumDist.length - 1] || 1;
+    const targetD = totalD * progress01;
+    let cutIdx = coordsAll.length;
+    for (let i = 0; i < cumDist.length; i++) {
+      if (cumDist[i] >= targetD) { cutIdx = Math.max(2, i + 1); break; }
+    }
+    const coords: [number, number, number?][] = coordsAll.slice(0, cutIdx);
+    // 마지막 점 보간 — 진행이 부드럽게 끊기도록
+    if (progress01 < 1 && cutIdx < coordsAll.length && cutIdx > 0) {
+      const prevD = cumDist[cutIdx - 1];
+      const segD = cumDist[cutIdx] - prevD;
+      const ratio = segD > 0 ? Math.min(1, Math.max(0, (targetD - prevD) / segD)) : 0;
+      const [lng1, lat1] = coordsAll[cutIdx - 1];
+      const [lng2, lat2] = coordsAll[cutIdx];
+      coords[coords.length - 1] = [
+        lng1 + (lng2 - lng1) * ratio,
+        lat1 + (lat2 - lat1) * ratio,
+      ];
+    }
 
     // 그림자 (배경사진 위에서도 또렷하게) — 전체 라인을 흐리게 깔아두면 미리보기가 안정됨.
     ctx.beginPath();
@@ -393,9 +423,9 @@ function drawCard(
   // "이달 N회" 라벨 → 마지막 달린 막대 아래에 작은 숫자 N (사용자 피드백).
 
   // (1) 월간 일별 세로 막대 그래프
-  // build 141: 사용자 재요청 — 두 막대 그래프 덩어리를 더 아래로 + 위 stats4 와 더 분리.
-  // chartTop 1270 → 1380 (위 stats=1160 과 gap 220 — 분리감), chartH 110 끝 1490.
-  // goalBarTop 1440 → 1530 (위 막대 끝 1490 과 gap 40 — 한 덩어리 느낌).
+  // build 141: 두 막대 덩어리를 더 아래로 + 위 stats4 와 분리.
+  // build 150: 사용자 피드백 — 세로/가로 막대가 너무 붙어 있음. goalBarTop 1530 → 1580 (gap 90).
+  // chartTop=1380, chartH=110, 끝 1490. goalBarTop=1580 → 두 막대 사이 90px 여유.
   if (dailyKm.size > 0) {
     const chartTop = 1380;
     const chartH = 110;
@@ -438,9 +468,9 @@ function drawCard(
     }
   }
 
-  // (2) 가로 progress bar — 위 막대(1380+110=1490) 끝과 40px 간격으로 한 덩어리 인상.
+  // (2) 가로 progress bar — 위 막대(1380+110=1490) 끝과 90px 여유 (build 150 피드백).
   if (monthlyGoalKm && monthlyGoalKm > 0 && monthSum > 0) {
-    const goalBarTop = 1530;
+    const goalBarTop = 1580;
     const goalBarH = 14;
     const goalBarPadX = 100;
     const goalBarW = W - goalBarPadX * 2;
@@ -591,10 +621,9 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
   // 루틴포토 등록 — 디폴트 ON (체크 해제하면 캘린더만 저장).
   // 캘린더 저장은 항상 자동 (UI 표시 X — 사용자 의도).
   const [registerToGallery, setRegisterToGallery] = useState(true);
-  // 나의 명언 작성. 모달 형태로 띄움.
-  const [showMyQuoteModal, setShowMyQuoteModal] = useState(false);
-  const [myQuoteText, setMyQuoteText] = useState('');
-  const [submittingMyQuote, setSubmittingMyQuote] = useState(false);
+  // build 150: 한 줄 메시지 직접 입력. 비어있으면 명언(placeholder) 사용, 입력 있으면 카드에 그 텍스트.
+  // 별도 모달 폐기 (UI 복잡도 줄임). 영구 저장 원하면 /quotes/mine 페이지에서.
+  const [customText, setCustomText] = useState('');
 
   // 공유카드 열 때마다 random 명언 + 🎲 버튼으로 새로 굴릴 수 있음.
   // SNS 도배 회피 + 사용자가 마음에 들 때까지 새로 받음.
@@ -612,6 +641,23 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
     setQuote(next);
   }, [quote?.id]);
 
+  // 카드/캡션에 실제로 들어가는 quote — customText 있으면 그것, 없으면 fetched quote.
+  const effectiveQuote = useMemo<DailyQuote | null>(() => {
+    const t = customText.trim();
+    if (t) {
+      return {
+        id: `custom-${activity.id}`,
+        lang: 'ko_self',
+        category: 'user',
+        text: t,
+        author: displayName,
+        like_count: 0,
+        liked_by_me: false,
+      };
+    }
+    return quote;
+  }, [customText, quote, displayName, activity.id]);
+
   // 사용자 ID label — 이름(한글) 노출 방지. 영문/숫자 prefix 추출, fallback email prefix.
   const userIdLabel = (() => {
     const m = displayName?.match(/^[a-zA-Z0-9_.]+/);
@@ -622,8 +668,8 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
 
   const generate = useCallback(() => {
     if (!canvasRef.current) return;
-    drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage, activities, userIdLabel, quote, monthlyGoalKm, regionLabel ?? undefined, 1);
-  }, [activity, displayName, themeIdx, bgImage, activities, userIdLabel, quote, monthlyGoalKm, regionLabel]);
+    drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel ?? undefined, 1);
+  }, [activity, displayName, themeIdx, bgImage, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel]);
 
   useEffect(() => { generate(); }, [generate]);
 
@@ -637,13 +683,16 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
 
   const clearPhoto = () => setBgImage(null);
 
+  // build 150: 공유 실패 시 모달 자동 닫기 차단 — 사용자가 에러 toast 를 읽을 수 있게.
+  const shareErrorRef = useRef(false);
   // build 143: 공유 실패 시 toast 로 에러 노출 (이전 silent fallback → 사용자 모름 회귀).
   const showShareError = (label: string, err: unknown) => {
     const msg = err instanceof Error ? err.message : String(err);
     console.warn(`[ShareCard] ${label} 실패:`, err);
+    shareErrorRef.current = true;
     setRegisterToast(`공유 실패 — ${msg.slice(0, 80)}`);
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => setRegisterToast(null), 3500);
+    toastTimerRef.current = setTimeout(() => setRegisterToast(null), 4500);
   };
 
   // build 136: 정적 PNG 공유. 네이티브 공유 시트 (Capacitor Share) + 캡션.
@@ -765,10 +814,12 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
         ),
       ];
       if (includeGallery) {
-        // quote_id 는 quotes 테이블 row 일 때만(non-fallback). fallback(static)·네트워크 실패 케이스는 row 없음.
-        // build 137: caption 컬럼에 quote.text 직접 저장 → view join 실패해도 캡션 노출 보장 (회귀 fix).
-        const quoteIdForCard = quote && !isFallbackQuote(quote) ? quote.id : null;
-        const captionForCard = quote ? quote.text : null;
+        // quote_id 는 quotes 테이블 row 일 때만 (non-fallback, 또한 user 직접 입력은 X — id 가 'custom-' 접두로 시작).
+        // build 137: caption 컬럼에 quote.text 직접 저장 → view join 실패해도 캡션 노출 보장.
+        // build 150: 사용자가 직접 입력한 텍스트는 quote_id 없이 caption 만 저장 (영구 명언 등록은 /quotes/mine).
+        const isCustom = effectiveQuote?.id?.toString().startsWith('custom-') ?? false;
+        const quoteIdForCard = effectiveQuote && !isCustom && !isFallbackQuote(effectiveQuote) ? effectiveQuote.id : null;
+        const captionForCard = effectiveQuote ? effectiveQuote.text : null;
         tasks.push(
           withTimeout(
             supabase.from('activity_photos').insert({
@@ -812,9 +863,9 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
     }
   };
 
-  // 캡션 — 한 줄 일기/명언 + 해시태그. 공유 시 OG 딥링크가 별도 줄로 첨부됨 (sharePngBlob/shareVideoBlob 내부).
-  const shareCaption = quote
-    ? `"${quote.text}"${quote.author ? ` — ${quote.author}` : ''}\n\n#Routinist #${activity.distance_km.toFixed(1)}km`
+  // 캡션 — 직접 입력 텍스트 또는 명언 + 해시태그. 공유 시 OG 딥링크가 별도 줄로 첨부됨.
+  const shareCaption = effectiveQuote
+    ? `"${effectiveQuote.text}"${effectiveQuote.author && effectiveQuote.category !== 'user' ? ` — ${effectiveQuote.author}` : ''}\n\n#Routinist #${activity.distance_km.toFixed(1)}km`
     : `오늘도 한 발 더. ${activity.distance_km.toFixed(2)}km #Routinist`;
 
   // build 136: 공유는 단일 CTA. 동영상 토글 ON 이면 라인 그리기 MP4, OFF 또는 미지원이면 PNG.
@@ -823,7 +874,8 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
     track('share_card_share', {
       activity_id: activity.id,
       distance_km: activity.distance_km,
-      has_quote: !!quote,
+      has_quote: !!effectiveQuote,
+      custom_text: !!customText.trim(),
       native: isNativeApp(),
       as_video: shareAsVideo,
     });
@@ -848,7 +900,7 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
               bgImage,
               activities,
               userIdLabel,
-              quote,
+              effectiveQuote,
               monthlyGoalKm,
               regionLabel ?? undefined,
               progress,
@@ -892,28 +944,39 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
           </button>
         </div>
 
-        {/* 명언 컨트롤 — 🎲 다른 명언 + ✍️ 한 줄 일기 (build 136: 좋아요 제거, 명언 좋아요는 포토 랭킹에서 사진별로 누름).
-            한 줄 일기 안 쓰면 표시되는 명언이 그대로 카드에 들어감 (랜덤 fallback). */}
-        {quote && (
-          <div className="px-4 pb-2 flex items-center justify-center gap-1.5 flex-shrink-0 flex-wrap">
-            <button
-              onClick={rerollQuote}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--card)] border border-[var(--card-border)] text-sm text-[var(--muted)] active:scale-95"
-              aria-label="다른 한 줄"
-            >
-              <Dices size={16} />
-              <span>다른 한 줄</span>
-            </button>
-            <button
-              onClick={() => { setMyQuoteText(''); setShowMyQuoteModal(true); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border border-emerald-200/60 dark:border-emerald-900/40 text-sm text-emerald-700 dark:text-emerald-300 font-semibold active:scale-95"
-              aria-label="한 줄 일기 작성"
-            >
-              <PenLine size={16} />
-              <span>한 줄 일기</span>
-            </button>
+        {/* build 150: 한 줄 메시지 — 통합 인라인 input.
+            - placeholder: 현재 명언 (회색). 클릭해도 사라지지 않음 (Apple Notes 패턴).
+            - 사용자 타이핑 → 카드 안 명언이 실시간 동기화 (effectiveQuote).
+            - 오른쪽 아이콘: 빈 상태 → 🔀 셔플(다음 명언), 입력 있음 → ✕ 지우기. */}
+        <div className="px-4 pb-2 flex-shrink-0">
+          <div className="flex items-center gap-2 bg-[var(--card)] border border-[var(--card-border)] rounded-xl px-3 py-2.5">
+            <input
+              type="text"
+              value={customText}
+              onChange={(e) => setCustomText(e.target.value.slice(0, 100))}
+              placeholder={quote ? `"${quote.text}"` : '한 줄 메시지를 입력해보세요'}
+              maxLength={100}
+              className="flex-1 bg-transparent text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none min-w-0"
+            />
+            {customText.trim() ? (
+              <button
+                onClick={() => setCustomText('')}
+                aria-label="입력 지우기"
+                className="w-7 h-7 rounded-full flex items-center justify-center text-[var(--muted)] hover:bg-[var(--card-border)]/40 active:scale-90 flex-shrink-0"
+              >
+                <X size={16} />
+              </button>
+            ) : (
+              <button
+                onClick={rerollQuote}
+                aria-label="다른 명언"
+                className="w-7 h-7 rounded-full flex items-center justify-center text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 flex-shrink-0"
+              >
+                <Shuffle size={16} />
+              </button>
+            )}
           </div>
-        )}
+        </div>
 
         {/* 테마 선택 — 5개 한 줄 grid (사용자 피드백 #9). 화살표 제거. */}
         <div className="px-4 pb-2 flex-shrink-0">
@@ -959,24 +1022,9 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
             )}
           </div>
 
-          {/* 한 줄 일기 / 명언 미리보기 — 인스타식 카드 아래 텍스트 (build 136).
-              공유 시 캡션으로 함께 전달 + 갤러리에 텍스트로도 저장.
-              개별 SNS 버튼은 제거 (사용자 피드백) — 카톡/인스타 공유는 메인 [공유] 버튼 한 번으로 OG 링크 + 비디오. */}
-          {quote && (
-            <div className="px-1">
-              <div className="rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-900/40 px-3 py-2.5">
-                <p className="text-sm text-emerald-900 dark:text-emerald-100 leading-snug break-keep">
-                  &ldquo;{quote.text}&rdquo;
-                  {quote.author && (
-                    <span className="text-xs text-emerald-700 dark:text-emerald-300 font-semibold"> — {quote.author}</span>
-                  )}
-                </p>
-              </div>
-            </div>
-          )}
-
           {/* 동영상 / 이미지 토글 (build 136) — GPS 경로 있을 때만 표시.
-              동영상: 출발→도착 라인 그리기 2.5초 + 정지 1초. 카톡/인스타에서 단일 파일로 자동 재생. */}
+              build 150: 라벨 간명화 ("동영상 (경로 그리기)" → "동영상", "정적 이미지" → "이미지").
+              동영상: 출발→도착 라인 그리기 + 정지. 카톡/인스타에서 단일 파일로 자동 재생. */}
           {!!activity.route_data?.coordinates?.length && typeof MediaRecorder !== 'undefined' && (
             <div className="grid grid-cols-2 gap-1.5 px-1">
               <button
@@ -988,7 +1036,7 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
                 }`}
               >
                 <Video size={14} />
-                동영상 (경로 그리기)
+                동영상
               </button>
               <button
                 onClick={() => setShareAsVideo(false)}
@@ -999,7 +1047,7 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
                 }`}
               >
                 <ImageIcon size={14} />
-                정적 이미지
+                이미지
               </button>
             </div>
           )}
@@ -1027,9 +1075,13 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
               build 136: 비디오 렌더링 중에는 별도 진행 상태 표시. */}
           <button
             onClick={async () => {
+              shareErrorRef.current = false;
               if (!hideRegister) handleRegister(registerToGallery);
               await handleShare();
-              setTimeout(() => onClose(), 1200);
+              // build 150: 공유 실패 시엔 모달 자동 닫지 않음 → 에러 toast 노출 보장.
+              if (!shareErrorRef.current) {
+                setTimeout(() => onClose(), 800);
+              }
             }}
             disabled={registering || renderingVideo}
             className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[var(--accent)] text-white font-semibold text-base disabled:opacity-50 active:scale-[0.99] transition"
@@ -1050,92 +1102,6 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
           </button>
         </div>
       </div>
-
-      {/* 나의 명언 작성 모달 (사용자 피드백 #8) */}
-      {showMyQuoteModal && (
-        <div
-          className="fixed inset-0 z-[80] bg-black/65 flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]"
-          onClick={() => !submittingMyQuote && setShowMyQuoteModal(false)}
-        >
-          <div
-            className="w-full max-w-sm bg-[var(--background)] rounded-3xl p-5 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between mb-3">
-              <div>
-                <h3 className="text-base font-extrabold inline-flex items-center gap-1.5">
-                  <PenLine size={16} className="text-emerald-500" /> 한 줄 일기
-                </h3>
-                <p className="text-xs text-[var(--muted)] mt-0.5">
-                  공유 카드에 — {displayName} 닉네임으로 표시돼요
-                </p>
-              </div>
-              <button onClick={() => setShowMyQuoteModal(false)} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90">
-                <X size={16} />
-              </button>
-            </div>
-            <textarea
-              value={myQuoteText}
-              onChange={(e) => setMyQuoteText(e.target.value.slice(0, 300))}
-              placeholder='예) "오늘도 한 발 더, 어제의 나를 이겼다."'
-              rows={4}
-              autoFocus
-              className="w-full px-3.5 py-3 rounded-2xl border-2 border-[var(--card-border)] bg-[var(--background)] text-sm focus:outline-none focus:border-emerald-500 resize-none"
-            />
-            <div className="flex justify-between mt-1.5">
-              <span className="text-[10px] text-[var(--muted)]">{myQuoteText.length}/300</span>
-              <span className="text-[10px] text-emerald-600 font-semibold">공유 카드 + 갤러리 캡션</span>
-            </div>
-            <button
-              onClick={async () => {
-                const trimmed = myQuoteText.trim();
-                if (trimmed.length < 3) {
-                  setRegisterToast('한 줄 일기가 너무 짧아요 (3자 이상)');
-                  setTimeout(() => setRegisterToast(null), 2200);
-                  return;
-                }
-                setSubmittingMyQuote(true);
-                try {
-                  const id = await createUserQuote(trimmed);
-                  // 즉시 카드에 반영
-                  setQuote({
-                    id,
-                    lang: 'ko_self',
-                    category: 'user',
-                    text: trimmed,
-                    author: displayName,
-                    like_count: 0,
-                    liked_by_me: false,
-                  });
-                  setRegisterToast('✨ 한 줄 일기가 등록됐어요');
-                  setShowMyQuoteModal(false);
-                  setMyQuoteText('');
-                  setTimeout(() => setRegisterToast(null), 2000);
-                } catch (err) {
-                  const msg = err instanceof Error ? err.message : '등록 실패';
-                  setRegisterToast(msg);
-                  setTimeout(() => setRegisterToast(null), 3000);
-                } finally {
-                  setSubmittingMyQuote(false);
-                }
-              }}
-              disabled={submittingMyQuote || myQuoteText.trim().length < 3}
-              className="w-full mt-3 py-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-sm disabled:opacity-50 active:scale-[0.98] inline-flex items-center justify-center gap-1.5"
-            >
-              {submittingMyQuote ? (
-                <>
-                  <span className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" />
-                  등록 중…
-                </>
-              ) : (
-                <>
-                  <Check size={16} /> 한 줄 일기 등록
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* 성공 시 큰 ✓ overlay (build 63) — 자동 닫기 전 시각 피드백 */}
       {registerToast && registerToast.startsWith('✨') && (
