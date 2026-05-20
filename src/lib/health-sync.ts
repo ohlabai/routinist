@@ -698,7 +698,10 @@ export async function syncHealthData(userId: string, options?: SyncOptions): Pro
     if (!result.authDenied) {
       options?.onProgress?.({ stage: 'route', percent: 95, label: 'GPS 경로 백그라운드 동기화...' });
       void updateProfileTotals(userId).catch((e) => console.warn('[health-sync] updateProfileTotals 백그라운드 실패', e));
-      void syncRouteData(userId).catch((e) => console.warn('[health-sync] syncRouteData 백그라운드 실패', e));
+      // syncRouteData 가 끝난 후에 region 자동 등록 — route_data 가 채워진 활동이 필요.
+      void syncRouteData(userId)
+        .then(() => import('./profile-region-auto').then(m => m.autoDetectAndSetRegion(userId)).catch(() => null))
+        .catch((e) => console.warn('[health-sync] syncRouteData / region 백그라운드 실패', e));
     }
 
     options?.onProgress?.({ stage: 'done', percent: 100, label: '완료' });

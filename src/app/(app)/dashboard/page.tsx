@@ -116,6 +116,16 @@ export default function DashboardPage() {
     }
   }, [profile]);
 
+  // build 155: 지역 자동 등록 알림 — health-sync 가 자동으로 채운 직후 1회 표시.
+  const [regionAutoNotice, setRegionAutoNotice] = useState<{ display: string; country_code: string } | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    import('@/lib/profile-region-auto').then(m => {
+      const n = m.consumeRegionAutoNotice();
+      if (n) setRegionAutoNotice(n);
+    }).catch(() => {});
+  }, [user]);
+
   // build 140: 통계 6개 RPC bundle 을 dataCache 에 저장 → 다음 진입 시 즉시 paint.
   // UserDataProvider 와 동일한 신문 모델. 사용자 PullToRefresh 시에만 force fetch.
   // essential(메인 hero 3개) + optional(차트 3개) 차등 timeout — 느린 RPC 가 빠른 RPC 표시 안 막음.
@@ -1282,6 +1292,35 @@ export default function DashboardPage() {
       </div>
 
       {/* 루틴포토 카루셀 제거 — 소셜 탭 포토 갤러리(인스타 스타일)와 중복 (build 100). */}
+
+      {/* build 155: 지역 자동 등록 안내 모달 — health-sync 가 GPS 로 채운 직후 1회만 */}
+      {regionAutoNotice && (
+        <div
+          className="fixed inset-0 z-[80] bg-black/55 flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]"
+          onClick={() => setRegionAutoNotice(null)}
+        >
+          <div className="w-full max-w-sm bg-[var(--background)] rounded-3xl p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="text-center space-y-3">
+              <div className="mx-auto w-16 h-16 rounded-full bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center text-3xl">📍</div>
+              <h3 className="text-lg font-extrabold text-[var(--foreground)]">지역을 자동 등록했어요</h3>
+              <p className="text-sm text-[var(--muted)] leading-relaxed">
+                러닝 GPS 정보로 추정한 지역이에요.
+                <br />
+                <span className="text-emerald-600 dark:text-emerald-400 font-bold">{regionAutoNotice.display}</span>
+              </p>
+              <p className="text-xs text-[var(--muted)] leading-relaxed">
+                정확하지 않다면 <Link href="/profile/edit" className="text-emerald-600 underline font-semibold" onClick={() => setRegionAutoNotice(null)}>내 정보</Link> 에서 직접 수정할 수 있어요.
+              </p>
+            </div>
+            <button
+              onClick={() => setRegionAutoNotice(null)}
+              className="mt-5 w-full py-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-sm active:scale-[0.98]"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
     </div>
     </PullToRefresh>
   );

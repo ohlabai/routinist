@@ -81,8 +81,16 @@ function mapNominatimToKorGu(si: string, raw: string | undefined): string | null
 
 export async function detectRegion(): Promise<DetectedRegion> {
   const { lat, lng } = await getCoords();
+  return detectRegionFromCoord(lat, lng);
+}
 
-  // OpenStreetMap Nominatim 역지오코딩 (무료, 키 없음. 한국어 이름 우선)
+/**
+ * 임의 lat/lng 좌표로 역지오코딩 (build 155).
+ * - activity 의 첫 GPS 좌표로 profile 자동 등록
+ * - admin 백필 일괄 처리
+ * Nominatim 공공 rate limit 1req/sec — 일괄 처리 시 호출자가 throttle 책임.
+ */
+export async function detectRegionFromCoord(lat: number, lng: number): Promise<DetectedRegion> {
   const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=ko&zoom=12`;
   const resp = await fetch(url, {
     headers: { 'Accept': 'application/json' },

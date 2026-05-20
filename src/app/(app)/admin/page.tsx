@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, ShoppingBag, Users, Package, AlertCircle, ChevronRight,
-  Beaker, Coins, TrendingUp, Sparkles, Settings, Stethoscope, Globe, MessageSquare, Award, BarChart3, Trophy,
+  Beaker, Coins, TrendingUp, Sparkles, Settings, Stethoscope, Globe, MessageSquare, Award, BarChart3, Trophy, MapPin,
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
@@ -289,9 +289,74 @@ export default function AdminDashboardPage() {
               <AdminLink href="/profile/audit" icon={<Stethoscope size={20} />} label="데이터 점검" />
             </div>
           </Section>
-        </>
-      )}
+
+          <RegionBackfillSection />
+          </>
+          )}
     </div>
+  );
+}
+
+// build 155: 지역 미입력 사용자 GPS 일괄 백필 (admin only). Nominatim rate limit 으로 N초 걸림.
+function RegionBackfillSection() {
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<{ processed: number; applied: number; skipped: number; errors: string[] } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleRun = async () => {
+    if (running) return;
+    if (!confirm('지역 미입력 사용자 전체를 일괄 처리합니다. 사용자당 ~1초 소요. 진행할까요?')) return;
+    setRunning(true);
+    setError(null);
+    setResult(null);
+    try {
+      const supabase = getSupabase();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('로그인이 필요해요');
+      const resp = await fetch('/api/admin/region-backfill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: '{}',
+      });
+      const json = await resp.json();
+      if (!resp.ok) throw new Error(json.error || json.detail || 'fail');
+      setResult(json);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <Section title="지역 백필" icon={<MapPin size={16} className="text-emerald-500" />}>
+      <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4 space-y-3">
+        <p className="text-xs text-[var(--muted)] leading-relaxed">
+          country_code · region_si · region_gu 가 모두 NULL 인 사용자의 최근 GPS 활동 좌표로 일괄 등록.
+          <br />
+          Nominatim 공공 API rate limit (1req/s) 으로 사용자당 ~1초 소요.
+        </p>
+        <button
+          onClick={handleRun}
+          disabled={running}
+          className="w-full py-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-sm disabled:opacity-50 active:scale-[0.98]"
+        >
+          {running ? '처리 중… (잠시 기다려주세요)' : '지역 백필 실행'}
+        </button>
+        {error && <p className="text-xs text-rose-500">{error}</p>}
+        {result && (
+          <div className="text-xs text-[var(--foreground)] space-y-1">
+            <p>대상 {result.processed}명 / 적용 <span className="text-emerald-600 font-bold">{result.applied}</span> · 스킵 {result.skipped}</p>
+            {result.errors.length > 0 && (
+              <details className="text-[10px] text-rose-500">
+                <summary>오류 {result.errors.length}건</summary>
+                <pre className="whitespace-pre-wrap mt-1">{result.errors.join('\n')}</pre>
+              </details>
+            )}
+          </div>
+        )}
+      </div>
+    </Section>
   );
 }
 
