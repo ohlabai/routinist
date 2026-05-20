@@ -12,7 +12,7 @@ import { getSupabase } from '@/lib/supabase';
 import { Globe, MapPin, Cake, Sparkles, Trophy, ChevronRight, Users, Star } from 'lucide-react';
 import CohortLeaderboardInline from './CohortLeaderboardInline';
 
-type TimeAxis = 'today' | 'month' | 'year';
+type TimeAxis = 'today' | 'week' | 'month' | 'year';
 
 interface RankBreakdown {
   scope_type: 'nation' | 'region' | 'decade' | 'starter';
@@ -199,7 +199,7 @@ export default function RankingBreakdown({ axis }: Props) {
       <div className="card p-6 text-center">
         <Trophy size={32} className="mx-auto text-[var(--muted)] opacity-50 mb-2" />
         <p className="text-sm font-semibold text-[var(--foreground)]">
-          {axis === 'today' ? '오늘' : axis === 'month' ? '이달' : '올해'} 아직 기록이 없어요
+          {axis === 'today' ? '오늘' : axis === 'week' ? '이번 주' : axis === 'month' ? '이달' : '올해'} 아직 기록이 없어요
         </p>
         <p className="text-xs text-[var(--muted)] mt-1">한 번 달리고 랭킹에 들어가봐요!</p>
       </div>
@@ -225,22 +225,22 @@ export default function RankingBreakdown({ axis }: Props) {
       <div className="rounded-3xl bg-gradient-to-br from-emerald-100/80 via-white to-emerald-50/40 dark:from-emerald-950/30 dark:via-zinc-900 dark:to-emerald-950/20 border border-emerald-300/50 dark:border-emerald-800/40 p-5 shadow-sm relative overflow-hidden">
         <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-72 h-72 rounded-full bg-gradient-to-br from-emerald-300/40 via-emerald-100/30 to-transparent blur-3xl pointer-events-none" />
 
-        {/* 칩 토글 — 별 누르면 필터 OFF/ON */}
+        {/* 칩 토글 — 별 누르면 필터 OFF/ON. build 154: 크기 키움 + 안내. */}
         {chips.length > 0 && (
-          <div className="relative flex flex-wrap gap-1.5 mb-3 justify-center">
+          <div className="relative flex flex-wrap gap-2 mb-3 justify-center">
             {chips.map(c => {
               const active = filters[c.key];
               return (
                 <button
                   key={c.key}
                   onClick={() => toggleFilter(c.key)}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition active:scale-95 ${
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-bold transition active:scale-95 ${
                     active
                       ? 'bg-emerald-500 text-white shadow-sm'
-                      : 'bg-white/70 dark:bg-zinc-800/60 text-[var(--muted)] border border-[var(--card-border)]'
+                      : 'bg-white/80 dark:bg-zinc-800/60 text-[var(--muted)] border border-[var(--card-border)]'
                   }`}
                 >
-                  <Star size={11} fill={active ? 'white' : 'none'} strokeWidth={active ? 0 : 2} />
+                  <Star size={14} fill={active ? 'white' : 'none'} strokeWidth={active ? 0 : 2} />
                   {c.label}
                 </button>
               );
@@ -285,8 +285,10 @@ export default function RankingBreakdown({ axis }: Props) {
               <span className="text-sm font-bold text-[var(--foreground)]">{heroMot.text}</span>
             </div>
 
-            <p className="mt-2 text-[10px] text-[var(--muted)] leading-snug">
-              별을 눌러서 필터를 풀면 더 넓은 범위 랭킹이 보여요
+            <p className="mt-2 text-[11px] text-[var(--muted)] leading-relaxed px-2">
+              별을 눌러 필터를 풀면 더 넓은 코호트에서의 내 순위가 보여요.
+              <br />
+              <span className="text-[10px] opacity-80">예: 같은 동네에선 1위라도, 전 세계 기준에서는 순위가 달라질 수 있어요.</span>
             </p>
           </div>
         )}

@@ -574,27 +574,43 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* 5 오늘/이달 4칩 */}
+        {/* 5 오늘/이달 4칩. build 154: activities 로딩 중엔 "0.0" 대신 dim 점 표시. */}
         <div className="mx-4 card p-5">
           <div className="grid grid-cols-4 gap-3 text-center">
             <div>
-              <p className="text-2xl font-extrabold text-[var(--accent)]">{todayKm.toFixed(1)}</p>
+              {userDataLoading && activities.length === 0 ? (
+                <p className="text-2xl font-extrabold text-[var(--accent)] opacity-30">···</p>
+              ) : (
+                <p className="text-2xl font-extrabold text-[var(--accent)]">{todayKm.toFixed(1)}</p>
+              )}
               <p className="text-xs text-[var(--muted)] mt-0.5">오늘 km</p>
             </div>
             <div>
-              <p className="text-2xl font-extrabold text-[var(--foreground)]">
-                {todayPaceSec ? formatPace(todayPaceSec) : recentPace ? formatPace(recentPace.pace) : '-'}
-              </p>
+              {userDataLoading && activities.length === 0 ? (
+                <p className="text-2xl font-extrabold text-[var(--foreground)] opacity-30">···</p>
+              ) : (
+                <p className="text-2xl font-extrabold text-[var(--foreground)]">
+                  {todayPaceSec ? formatPace(todayPaceSec) : recentPace ? formatPace(recentPace.pace) : '-'}
+                </p>
+              )}
               <p className="text-xs text-[var(--muted)] mt-0.5">
                 {todayPaceSec ? '오늘 페이스' : recentPace ? '최근 페이스' : '오늘 페이스'}
               </p>
             </div>
             <div>
-              <p className="text-2xl font-extrabold text-green-600">{monthlyDistance.toFixed(1)}</p>
+              {userDataLoading && activities.length === 0 ? (
+                <p className="text-2xl font-extrabold text-green-600 opacity-30">···</p>
+              ) : (
+                <p className="text-2xl font-extrabold text-green-600">{monthlyDistance.toFixed(1)}</p>
+              )}
               <p className="text-xs text-[var(--muted)] mt-0.5">이달 km</p>
             </div>
             <div>
-              <p className="text-2xl font-extrabold text-lime-600 dark:text-lime-500">{monthlyRunDays}</p>
+              {userDataLoading && activities.length === 0 ? (
+                <p className="text-2xl font-extrabold text-lime-600 dark:text-lime-500 opacity-30">···</p>
+              ) : (
+                <p className="text-2xl font-extrabold text-lime-600 dark:text-lime-500">{monthlyRunDays}</p>
+              )}
               <p className="text-xs text-[var(--muted)] mt-0.5">이달 일수</p>
             </div>
           </div>

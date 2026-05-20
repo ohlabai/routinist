@@ -1096,13 +1096,19 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
           <button
             onClick={async () => {
               shareErrorRef.current = false;
+              // build 154: 동영상은 시트 먼저, 등록 나중 — ✨ overlay 가 시트를 가리는 회귀 차단.
+              // 이미지는 시트 호출이 즉시(blob 변환만)라 동시 실행 OK.
+              if (shareAsVideo) {
+                await handleShare();
+                if (!hideRegister && !shareErrorRef.current) {
+                  await handleRegister(registerToGallery);
+                }
+                // 동영상은 자동 닫기 X — 사용자가 X 로 닫음.
+                return;
+              }
               if (!hideRegister) handleRegister(registerToGallery);
               await handleShare();
-              // build 150: 공유 실패 시엔 모달 자동 닫지 않음 → 에러 toast 노출 보장.
-              // build 153: 동영상 경로는 자동 닫기 자체를 skip — 사용자가 카톡/공유 시트에서
-              // 액션 선택할 시간을 줘야 함. 모달이 자동으로 닫히면 시트도 같이 사라지는 회귀.
-              // 사용자가 X 버튼으로 직접 닫음.
-              if (!shareErrorRef.current && !shareAsVideo) {
+              if (!shareErrorRef.current) {
                 setTimeout(() => onClose(), 800);
               }
             }}

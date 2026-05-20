@@ -17,7 +17,8 @@ import WorldTab from '@/components/world/WorldTab';
 
 // build 143: 친선런 메뉴 숨김 (사용량 0건, 사용자 결정). 코드/ContestTab/DB 는 유지 — 필요 시 복원.
 type SubTab = 'me' | 'mileage' | 'contest' | 'world';
-type TimeAxis = 'today' | 'month' | 'year';
+// build 154: 시간축 4개 (이번주 추가)
+type TimeAxis = 'today' | 'week' | 'month' | 'year';
 
 const SUB_TABS: { id: SubTab; label: string; Icon: typeof Trophy }[] = [
   { id: 'me', label: '내 랭킹', Icon: Trophy },
@@ -66,18 +67,18 @@ function RankingInner() {
 
       {activeSub === 'me' && (
         <div className="space-y-4">
-          <div className="flex gap-2">
-            {(['today', 'month', 'year'] as TimeAxis[]).map(a => (
+          <div className="flex gap-1.5">
+            {(['today', 'week', 'month', 'year'] as TimeAxis[]).map(a => (
               <button
                 key={a}
                 onClick={() => setAxis(a)}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${
                   axis === a
                     ? 'bg-emerald-500 text-white shadow-sm'
                     : 'bg-[var(--card-bg)] text-[var(--muted)] border border-[var(--card-border)]'
                 }`}
               >
-                {a === 'today' ? '🔥 오늘' : a === 'month' ? '📅 이달' : '🏆 올해'}
+                {a === 'today' ? '🔥 오늘' : a === 'week' ? '📆 이번주' : a === 'month' ? '📅 이달' : '🏆 올해'}
               </button>
             ))}
           </div>

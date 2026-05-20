@@ -12,7 +12,7 @@ import { getSupabase } from '@/lib/supabase';
 import { ChevronRight, UserCircle2, type LucideIcon } from 'lucide-react';
 
 type CohortScope = 'region' | 'decade' | 'gender' | 'starter';
-type TimeAxis = 'today' | 'month' | 'year';
+type TimeAxis = 'today' | 'week' | 'month' | 'year';
 
 interface CohortRow {
   user_id: string;
