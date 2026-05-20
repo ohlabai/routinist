@@ -361,7 +361,23 @@ export async function signUpWithEmail(email: string, password: string, displayNa
       emailRedirectTo: EMAIL_CONFIRM_REDIRECT,
     },
   });
-  if (error) throw error;
+  if (error) {
+    const msg = error.message || '';
+    const code = (error as { code?: string }).code || '';
+    if (code === 'over_email_send_rate_limit' || /email rate limit|rate limit exceeded|too many requests/i.test(msg)) {
+      throw new Error('인증 메일을 너무 자주 보내셨어요.\n약 1시간 후 다시 시도해주세요.');
+    }
+    if (/password should be at least|password.*weak/i.test(msg)) {
+      throw new Error('비밀번호는 6자 이상으로 설정해주세요.');
+    }
+    if (/signups not allowed|signup.*disabled/i.test(msg)) {
+      throw new Error('현재 회원가입이 일시 중단되었어요. 잠시 후 다시 시도해주세요.');
+    }
+    if (/unable to validate email|invalid email/i.test(msg)) {
+      throw new Error('이메일 형식이 올바르지 않아요. 다시 확인해주세요.');
+    }
+    throw error;
+  }
   // Supabase 보안 동작 (email enumeration 방지): 이미 가입된 이메일이어도
   // error 없이 fake user 반환. identities 배열이 비어있으면 이미 가입된 계정.
   // 사용자가 가입 메일을 기다리는 일이 없도록 명시적으로 throw.
@@ -411,7 +427,14 @@ export async function resendEmailConfirmation(email: string) {
     email,
     options: { emailRedirectTo: EMAIL_CONFIRM_REDIRECT },
   });
-  if (error) throw error;
+  if (error) {
+    const msg = error.message || '';
+    const code = (error as { code?: string }).code || '';
+    if (code === 'over_email_send_rate_limit' || /email rate limit|rate limit exceeded|too many requests/i.test(msg)) {
+      throw new Error('인증 메일을 너무 자주 보내셨어요.\n약 1시간 후 다시 시도해주세요.');
+    }
+    throw error;
+  }
 }
 
 // 비밀번호 재설정 메일
