@@ -749,17 +749,13 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
     const text = `${shareCaption}\n${urlForCaption}`;
     const fileName = `routinist-${activity.activity_date}.${extension}`;
     if (isNativeApp()) {
-      // build 152: iOS WKWebView 의 MediaRecorder 는 대부분 webm 만 출력 →
-      // iOS Share 시트가 webm 을 인식 못해 silent fail (시트 안 뜸). mp4 가 만들어진 경우만 native 공유.
-      if (extension === 'webm') {
-        showShareError(
-          '동영상 공유',
-          new Error('iOS 는 webm 동영상 공유가 어려워요. 위에서 "이미지" 를 선택해서 공유해주세요.'),
-        );
-        return;
-      }
+      // build 153: webm 차단(152) 제거 — 이전 빌드에서 webm 도 정상 공유됐다는 사용자 보고.
+      // 진단 로그는 화면 toast 로 노출(temp) — 정확한 회귀 지점 추적용.
       try {
-        console.log('[ShareCard] shareVideoBlob native', { extension, size: blob.size, mimeType: blob.type });
+        const diag = (label: string) => {
+          console.log(`[ShareCard] ${label}`);
+        };
+        diag(`shareVideoBlob native ext=${extension} size=${blob.size} mime=${blob.type}`);
         const dataUrl = await blobToDataUrl(blob);
         const base64 = dataUrl.split(',')[1];
         const { Filesystem, Directory } = await import('@capacitor/filesystem');
@@ -768,15 +764,15 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
           data: base64,
           directory: Directory.Cache,
         });
-        console.log('[ShareCard] file written', result.uri);
+        diag(`file written uri=${result.uri}`);
         const { Share } = await import('@capacitor/share');
-        await Share.share({
+        const shareResult = await Share.share({
           title: `${activity.distance_km.toFixed(2)}km 러닝`,
           text,
           url: result.uri,
           dialogTitle: '러닝 기록 공유',
         });
-        console.log('[ShareCard] Share.share resolved');
+        diag(`Share.share resolved activityType=${shareResult?.activityType ?? 'unknown'}`);
       } catch (err) {
         showShareError('네이티브 비디오 공유', err);
       }
@@ -1103,7 +1099,10 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
               if (!hideRegister) handleRegister(registerToGallery);
               await handleShare();
               // build 150: 공유 실패 시엔 모달 자동 닫지 않음 → 에러 toast 노출 보장.
-              if (!shareErrorRef.current) {
+              // build 153: 동영상 경로는 자동 닫기 자체를 skip — 사용자가 카톡/공유 시트에서
+              // 액션 선택할 시간을 줘야 함. 모달이 자동으로 닫히면 시트도 같이 사라지는 회귀.
+              // 사용자가 X 버튼으로 직접 닫음.
+              if (!shareErrorRef.current && !shareAsVideo) {
                 setTimeout(() => onClose(), 800);
               }
             }}
