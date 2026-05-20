@@ -119,7 +119,7 @@ export default function LoginPage() {
       // 이미 가입된 이메일로 회원가입 시도
       if (mode === 'email-signup' && /already registered|already exists|user already/i.test(msg)) {
         setMode('email-login');
-        setInfo('이미 가입된 이메일이에요. 비밀번호로 로그인해주세요.');
+        setInfo('이미 가입된 이메일이에요.\n비밀번호로 로그인하거나, 비밀번호를 잊으셨다면 아래 "비밀번호를 잊으셨나요?"를 눌러주세요.');
         setLoadingProvider(null);
         return;
       }

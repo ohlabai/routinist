@@ -362,6 +362,12 @@ export async function signUpWithEmail(email: string, password: string, displayNa
     },
   });
   if (error) throw error;
+  // Supabase 보안 동작 (email enumeration 방지): 이미 가입된 이메일이어도
+  // error 없이 fake user 반환. identities 배열이 비어있으면 이미 가입된 계정.
+  // 사용자가 가입 메일을 기다리는 일이 없도록 명시적으로 throw.
+  if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+    throw new Error('User already registered');
+  }
   // Supabase 설정/플로우에 따라 가입 직후 session 이 발급될 수 있음.
   // 이메일 인증 전에는 절대 로그인 상태가 되면 안 되므로 즉시 signOut.
   if (data.session) {
