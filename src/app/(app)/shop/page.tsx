@@ -18,6 +18,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { signOut } from '@/lib/auth';
 import BusinessFooter from '@/components/shop/BusinessFooter';
 import type { Product } from '@/types';
+import { useI18n, type TranslationKey } from '@/lib/i18n';
 
 // 표시 카테고리 (고정 4개) + cafe24 raw 카테고리 → 표시 카테고리 매핑
 // 사용자 결정: 의류 / 모자 / 악세사리 / 굿즈 4개. 조끼→의류, 장갑→악세사리, 다이어리→굿즈.
@@ -44,6 +45,7 @@ function ShopContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user } = useAuth();
+  const { t } = useI18n();
   const category = searchParams.get('category') ?? '';
   const search = searchParams.get('q') ?? '';
 
@@ -74,7 +76,7 @@ function ShopContent() {
     });
     try {
       await toggleWishlist(productId, wasLiked);
-      showToast(wasLiked ? '찜 해제했어요' : '찜했어요 ❤️');
+      showToast(wasLiked ? t('shop.unliked') : t('shop.liked'));
     } catch {
       // revert
       setWishlistIds(prev => {
@@ -82,7 +84,7 @@ function ShopContent() {
         if (wasLiked) n.add(productId); else n.delete(productId);
         return n;
       });
-      showToast('잠시 후 다시 시도해주세요', 'warn');
+      showToast(t('shop.retryLater'), 'warn');
     }
   };
 
@@ -166,21 +168,21 @@ function ShopContent() {
           {/* 좌측: 다른 탭과 동일 [R심볼 + 메뉴명] 패턴 (build 100 통일) */}
           <div className="flex items-center gap-2">
             <AppLogo size={28} />
-            <h1 className="text-xl font-extrabold tracking-tight text-[var(--foreground)]">쇼핑</h1>
+            <h1 className="text-xl font-extrabold tracking-tight text-[var(--foreground)]">{t('shop.title')}</h1>
           </div>
           {/* 우측: 검색 / 카트 / 메뉴 — 햄버거는 좌측에서 우측으로 이동 (사용자 피드백) */}
           <div className="flex items-center gap-1">
             <button
               onClick={() => setSearchOpen(true)}
               className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition"
-              aria-label="검색"
+              aria-label={t('shop.search')}
             >
               <Search size={20} className="text-[var(--foreground)]" />
             </button>
             <Link
               href="/shop/cart"
               className="relative w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition"
-              aria-label="장바구니"
+              aria-label={t('shop.cart')}
             >
               <ShoppingCart size={20} className="text-[var(--foreground)]" />
               {cartCount > 0 && (
@@ -192,7 +194,7 @@ function ShopContent() {
             <button
               onClick={() => setMenuOpen(true)}
               className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition"
-              aria-label="메뉴"
+              aria-label={t('shop.menu')}
             >
               <Menu size={20} className="text-[var(--foreground)]" />
             </button>
@@ -210,7 +212,7 @@ function ShopContent() {
                     type="search"
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
-                    placeholder="찾으시는 상품을 입력하세요"
+                    placeholder={t('shop.searchPlaceholder')}
                     autoFocus
                     className="w-full pl-11 pr-4 py-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-200 dark:border-emerald-900/40 text-sm font-medium text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-emerald-500"
                   />
@@ -220,7 +222,7 @@ function ShopContent() {
                   onClick={() => { setSearchOpen(false); setSearchInput(search); }}
                   className="text-sm font-semibold text-[var(--muted)] active:scale-95"
                 >
-                  취소
+                  {t('shop.cancel')}
                 </button>
               </form>
               {/* 최근 검색어 + 추천 (카테고리) */}
@@ -250,20 +252,20 @@ function ShopContent() {
             <div className="relative">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm mb-3">
                 <Sparkles size={12} className="text-white" />
-                <span className="text-[11px] font-bold text-white tracking-wide">RUNNERS PICK</span>
+                <span className="text-[11px] font-bold text-white tracking-wide">{t('shop.heroBadge')}</span>
               </div>
               <h2 className="text-2xl font-extrabold text-white leading-tight mb-1">
-                러닝을 더 즐겁게<br />
-                <span className="text-emerald-100">루티니스트 컬렉션</span>
+                {t('shop.heroTitle1')}<br />
+                <span className="text-emerald-100">{t('shop.heroTitle2')}</span>
               </h2>
               <p className="text-sm text-white/90 mt-2 mb-4">
-                매일 달리는 사람을 위한 큐레이션
+                {t('shop.heroSub')}
               </p>
               <Link
                 href="/mileage"
                 className="inline-flex items-center gap-1 px-4 py-2 rounded-full bg-white text-emerald-700 text-xs font-bold shadow-md active:scale-95 transition"
               >
-                마일리지로 결제하기 <ChevronRight size={12} />
+                {t('shop.heroCta')} <ChevronRight size={12} />
               </Link>
             </div>
           </div>
@@ -274,13 +276,13 @@ function ShopContent() {
       {!search && (
         <section className="px-4 mb-6">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-base font-extrabold text-[var(--foreground)]">카테고리</h3>
+            <h3 className="text-base font-extrabold text-[var(--foreground)]">{t('shop.categories')}</h3>
             {category && (
               <button
                 onClick={() => handleCategory('')}
                 className="text-xs text-emerald-600 font-bold inline-flex items-center gap-0.5 active:scale-95"
               >
-                전체 보기 <ChevronRight size={12} />
+                {t('shop.seeAll')} <ChevronRight size={12} />
               </button>
             )}
           </div>
@@ -294,22 +296,25 @@ function ShopContent() {
               }`}
             >
               <span className="text-2xl">🛍️</span>
-              <span className="text-xs font-bold">전체</span>
+              <span className="text-xs font-bold">{t('shop.all')}</span>
             </button>
-            {DISPLAY_CATEGORIES.map(cat => (
-              <button
-                key={cat}
-                onClick={() => handleCategory(cat)}
-                className={`flex flex-col items-center gap-1.5 py-3 rounded-2xl transition active:scale-95 ${
-                  category === cat
-                    ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30'
-                    : 'bg-[var(--card)] hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
-                }`}
-              >
-                <span className="text-2xl">{CATEGORY_EMOJI[cat]}</span>
-                <span className="text-xs font-bold truncate w-full px-1 text-center">{cat}</span>
-              </button>
-            ))}
+            {DISPLAY_CATEGORIES.map(cat => {
+              const labelKey: TranslationKey = cat === '의류' ? 'shop.catClothes' : cat === '모자' ? 'shop.catHats' : cat === '악세사리' ? 'shop.catAccessories' : 'shop.catGoods';
+              return (
+                <button
+                  key={cat}
+                  onClick={() => handleCategory(cat)}
+                  className={`flex flex-col items-center gap-1.5 py-3 rounded-2xl transition active:scale-95 ${
+                    category === cat
+                      ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30'
+                      : 'bg-[var(--card)] hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
+                  }`}
+                >
+                  <span className="text-2xl">{CATEGORY_EMOJI[cat]}</span>
+                  <span className="text-xs font-bold truncate w-full px-1 text-center">{t(labelKey)}</span>
+                </button>
+              );
+            })}
           </div>
         </section>
       )}
@@ -336,14 +341,14 @@ function ShopContent() {
             {search ? `"${search}"` : category}
           </p>
           <p className="text-sm text-[var(--muted)]">
-            {search ? '검색 결과가 없어요' : category ? '준비 중인 카테고리예요' : '곧 상품이 올라올 예정이에요'}
+            {search ? t('shop.searchNoResult') : category ? t('shop.categoryPreparing') : t('shop.comingSoon')}
           </p>
           {(search || category) && (
             <Link
               href="/shop"
               className="inline-flex mt-5 px-5 py-2.5 rounded-full bg-emerald-500 text-white text-sm font-bold active:scale-95"
             >
-              전체 상품 보기
+              {t('shop.viewAllProducts')}
             </Link>
           )}
         </div>
@@ -355,9 +360,9 @@ function ShopContent() {
               <div className="flex items-center justify-between px-4 mb-3">
                 <h3 className="text-base font-extrabold text-[var(--foreground)] inline-flex items-center gap-1.5">
                   <Sparkles size={16} className="text-emerald-500" />
-                  지금 핫한 상품
+                  {t('shop.hotProducts')}
                 </h3>
-                <span className="text-xs text-[var(--muted)]">{featured.length}개</span>
+                <span className="text-xs text-[var(--muted)]">{t('shop.itemUnit').replace('{n}', String(featured.length))}</span>
               </div>
               <div
                 className="flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory scrollbar-hide"
@@ -389,7 +394,7 @@ function ShopContent() {
                         <button
                           onClick={(e) => handleHeartClick(e, p.id)}
                           className="absolute top-2.5 right-2.5 w-7 h-7 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow-sm active:scale-90 transition"
-                          aria-label="찜"
+                          aria-label={t('shop.like')}
                         >
                           <Heart
                             size={14}
@@ -444,7 +449,7 @@ function ShopContent() {
                 ) : (
                   <>
                     <TrendingUp size={16} className="text-emerald-500" />
-                    전체 상품
+                    {t('shop.allProducts')}
                   </>
                 )}
               </h3>
@@ -476,7 +481,7 @@ function ShopContent() {
                       <button
                         onClick={(e) => handleHeartClick(e, p.id)}
                         className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow-sm active:scale-90 transition"
-                        aria-label="찜"
+                        aria-label={t('shop.like')}
                       >
                         <Heart
                           size={13}
@@ -525,10 +530,10 @@ function ShopContent() {
         <Link
           href="/shop/cart"
           className="fixed bottom-24 right-5 z-20 inline-flex items-center gap-2 pl-4 pr-5 py-3.5 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-bold shadow-lg shadow-emerald-500/40 active:scale-95 transition"
-          aria-label="장바구니 보기"
+          aria-label={t('shop.cart')}
         >
           <ShoppingCart size={18} />
-          <span className="text-sm">장바구니 {cartCount}</span>
+          <span className="text-sm">{t('shop.fabCart').replace('{n}', String(cartCount))}</span>
         </Link>
       )}
 
@@ -546,11 +551,11 @@ function ShopContent() {
           >
             <div className="px-4 py-4 border-b border-[var(--card-border)]/30 flex items-center gap-2">
               <AppLogo size={28} />
-              <span className="text-base font-extrabold tracking-tight">Routinist 쇼핑</span>
+              <span className="text-base font-extrabold tracking-tight">Routinist {t('shop.title')}</span>
               <button
                 onClick={() => setMenuOpen(false)}
                 className="ml-auto w-8 h-8 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90"
-                aria-label="닫기"
+                aria-label={t('shop.menuClose')}
               >
                 <X size={18} />
               </button>
@@ -558,14 +563,14 @@ function ShopContent() {
 
             <div className="flex-1 py-2">
               {[
-                { href: '/shop/wishlist', icon: Heart, label: '찜한 상품' },
-                { href: '/shop/orders', icon: ShoppingBag, label: '주문 내역' },
-                { href: '/shop/addresses', icon: MapPin, label: '배송지 관리' },
-                { href: '/mileage', icon: Receipt, label: '마일리지' },
-                { href: '/support', icon: HelpCircle, label: '고객센터' },
-                { href: '/shop/info', icon: Info, label: '사업자 정보' },
-                { href: '/shop/terms', icon: FileText, label: '이용약관' },
-                { href: '/shop/refund', icon: FileText, label: '청약·환불' },
+                { href: '/shop/wishlist', icon: Heart, label: t('shop.menuWishlist') },
+                { href: '/shop/orders', icon: ShoppingBag, label: t('shop.menuOrders') },
+                { href: '/shop/addresses', icon: MapPin, label: t('shop.menuAddresses') },
+                { href: '/mileage', icon: Receipt, label: t('shop.menuMileage') },
+                { href: '/support', icon: HelpCircle, label: t('shop.menuSupport') },
+                { href: '/shop/info', icon: Info, label: t('shop.menuBusinessInfo') },
+                { href: '/shop/terms', icon: FileText, label: t('shop.menuTerms') },
+                { href: '/shop/refund', icon: FileText, label: t('shop.menuRefund') },
               ].map(item => (
                 <Link
                   key={item.href}
@@ -591,7 +596,7 @@ function ShopContent() {
                   className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl active:scale-[0.99]"
                 >
                   <LogOut size={18} />
-                  로그아웃
+                  {t('shop.menuSignOut')}
                 </button>
               </div>
             )}
@@ -622,6 +627,7 @@ function ShopContent() {
 }
 
 function SearchSuggestions({ value, onPick }: { value: string; onPick: (q: string) => void }) {
+  const { t } = useI18n();
   const SUGGESTED = ['러닝화', '러닝 조끼', '비니', '장갑', '다이어리'];
   const [recent, setRecent] = useState<string[]>([]);
 
@@ -645,8 +651,8 @@ function SearchSuggestions({ value, onPick }: { value: string; onPick: (q: strin
       {recent.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] font-bold text-[var(--muted)]">최근 검색</span>
-            <button onClick={clearRecent} className="text-[10px] text-[var(--muted)] active:scale-95">전체 삭제</button>
+            <span className="text-[11px] font-bold text-[var(--muted)]">{t('shop.recentSearch')}</span>
+            <button onClick={clearRecent} className="text-[10px] text-[var(--muted)] active:scale-95">{t('shop.clearAll')}</button>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {recent.map(q => (
@@ -662,7 +668,7 @@ function SearchSuggestions({ value, onPick }: { value: string; onPick: (q: strin
         </div>
       )}
       <div>
-        <span className="text-[11px] font-bold text-[var(--muted)]">추천 검색어</span>
+        <span className="text-[11px] font-bold text-[var(--muted)]">{t('shop.suggested')}</span>
         <div className="flex flex-wrap gap-1.5 mt-1.5">
           {SUGGESTED.map(q => (
             <button

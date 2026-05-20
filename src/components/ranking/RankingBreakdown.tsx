@@ -11,6 +11,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import { Globe, MapPin, Cake, Sparkles, Trophy, ChevronRight, Users, Star } from 'lucide-react';
 import CohortLeaderboardInline from './CohortLeaderboardInline';
+import { useI18n, type TranslationKey } from '@/lib/i18n';
 
 type TimeAxis = 'today' | 'week' | 'month' | 'year';
 
@@ -79,16 +80,23 @@ const SCOPE_META: Record<RankBreakdown['scope_type'], {
   },
 };
 
-function motivationText(rank: number, kmToNext: number, kmToTop10: number, target: number): { emoji: string; text: string } {
-  if (rank === 1) return { emoji: '👑', text: '챔피언! 자리를 지켜요' };
-  if (rank <= 3) return { emoji: '🥇', text: `${target}위까지 ${Number(kmToNext).toFixed(1)}km` };
-  if (rank <= 10) return { emoji: '⭐', text: `${target}위까지 ${Number(kmToNext).toFixed(1)}km` };
-  if (Number(kmToTop10) > 0) return { emoji: '🚀', text: `TOP 10 까지 ${Number(kmToTop10).toFixed(1)}km` };
-  return { emoji: '💪', text: '한 발 더, 어제의 나를 이겨요' };
+function motivationText(
+  rank: number,
+  kmToNext: number,
+  kmToTop10: number,
+  target: number,
+  t: (key: TranslationKey) => string,
+): { emoji: string; text: string } {
+  if (rank === 1) return { emoji: '👑', text: t('rankingHero.champion') };
+  if (rank <= 3) return { emoji: '🥇', text: t('rankingHero.toRank').replace('{target}', String(target)).replace('{km}', Number(kmToNext).toFixed(1)) };
+  if (rank <= 10) return { emoji: '⭐', text: t('rankingHero.toRank').replace('{target}', String(target)).replace('{km}', Number(kmToNext).toFixed(1)) };
+  if (Number(kmToTop10) > 0) return { emoji: '🚀', text: t('rankingHero.toTop10').replace('{km}', Number(kmToTop10).toFixed(1)) };
+  return { emoji: '💪', text: t('rankingHero.oneStep') };
 }
 
 export default function RankingBreakdown({ axis }: Props) {
   const { user } = useAuth();
+  const { t } = useI18n();
   const [rows, setRows] = useState<RankBreakdown[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -195,13 +203,14 @@ export default function RankingBreakdown({ axis }: Props) {
   }
 
   if (rows.length === 0 && (!combined || combined.rank_position === 0)) {
+    const axisLabel = axis === 'today' ? t('ranking.today') : axis === 'week' ? t('ranking.week') : axis === 'month' ? t('ranking.month') : t('ranking.year');
     return (
       <div className="card p-6 text-center">
         <Trophy size={32} className="mx-auto text-[var(--muted)] opacity-50 mb-2" />
         <p className="text-sm font-semibold text-[var(--foreground)]">
-          {axis === 'today' ? '오늘' : axis === 'week' ? '이번 주' : axis === 'month' ? '이달' : '올해'} 아직 기록이 없어요
+          {axisLabel} {t('rankingHero.noRecord')}
         </p>
-        <p className="text-xs text-[var(--muted)] mt-1">한 번 달리고 랭킹에 들어가봐요!</p>
+        <p className="text-xs text-[var(--muted)] mt-1">{t('rankingHero.runOnceCta')}</p>
       </div>
     );
   }
@@ -213,8 +222,8 @@ export default function RankingBreakdown({ axis }: Props) {
   const isTop = combined ? combined.rank_position === 1 : false;
   const isTop10 = combined ? combined.rank_position <= 10 : false;
   const heroMot = combined
-    ? motivationText(combined.rank_position, Number(combined.km_to_next), Number(combined.km_to_top10), combined.target_rank)
-    : { emoji: '💪', text: '한 발 더' };
+    ? motivationText(combined.rank_position, Number(combined.km_to_next), Number(combined.km_to_top10), combined.target_rank, t)
+    : { emoji: '💪', text: t('rankingHero.oneStep') };
   const heroProgressPct = combined && !isTop && Number(combined.km_to_top10) > 0 && combined.rank_position > 10
     ? Math.min(95, Math.max(15, (Number(combined.my_km) / (Number(combined.my_km) + Number(combined.km_to_top10))) * 100))
     : isTop10 ? 100 : 0;
@@ -257,18 +266,18 @@ export default function RankingBreakdown({ axis }: Props) {
               <span className="text-6xl font-extrabold leading-none tabular-nums tracking-tight text-emerald-600 dark:text-emerald-400">
                 {combined.rank_position}
               </span>
-              <span className="text-2xl font-extrabold text-[var(--foreground)]">위</span>
+              <span className="text-2xl font-extrabold text-[var(--foreground)]">{t('ranking.rank')}</span>
             </div>
             <p className="text-xs text-[var(--muted)] font-bold mb-2">
-              / {combined.total_in_scope.toLocaleString()}명 · {Number(combined.my_km).toFixed(1)}km
+              {t('rankingHero.peopleSlash').replace('{n}', combined.total_in_scope.toLocaleString())} · {Number(combined.my_km).toFixed(1)}km
             </p>
 
             {!isTop && Number(combined.km_to_top10) > 0 && combined.rank_position > 10 && (
               <div className="mt-3">
                 <div className="flex items-center justify-between mb-1 text-[11px]">
-                  <span className="font-semibold text-[var(--muted)]">{combined.rank_position}위</span>
+                  <span className="font-semibold text-[var(--muted)]">{combined.rank_position}{t('ranking.rank')}</span>
                   <span className="font-extrabold text-emerald-700 dark:text-emerald-400">
-                    TOP 10 까지 {Number(combined.km_to_top10).toFixed(1)}km
+                    {t('rankingHero.toTop10').replace('{km}', Number(combined.km_to_top10).toFixed(1))}
                   </span>
                 </div>
                 <div className="h-2 bg-white/60 dark:bg-zinc-800/60 rounded-full overflow-hidden">
@@ -286,9 +295,9 @@ export default function RankingBreakdown({ axis }: Props) {
             </div>
 
             <p className="mt-2 text-[11px] text-[var(--muted)] leading-relaxed px-2">
-              별을 눌러 필터를 풀면 더 넓은 코호트에서의 내 순위가 보여요.
+              {t('rankingHero.starHint')}
               <br />
-              <span className="text-[10px] opacity-80">예: 같은 동네에선 1위라도, 전 세계 기준에서는 순위가 달라질 수 있어요.</span>
+              <span className="text-[10px] opacity-80">{t('rankingHero.starExample')}</span>
             </p>
           </div>
         )}
@@ -299,7 +308,7 @@ export default function RankingBreakdown({ axis }: Props) {
         <div className="grid grid-cols-2 gap-3">
           {others.map(r => {
             const meta = SCOPE_META[r.scope_type];
-            const mot = motivationText(r.rank_position, Number(r.km_to_next), Number(r.km_to_top10), r.target_rank);
+            const mot = motivationText(r.rank_position, Number(r.km_to_next), Number(r.km_to_top10), r.target_rank, t);
             const progressTo10 = r.rank_position > 10 && Number(r.km_to_top10) > 0
               ? Math.min(95, Math.max(10, (Number(r.my_km) / (Number(r.my_km) + Number(r.km_to_top10))) * 100))
               : r.rank_position <= 10 ? 100 : 0;
@@ -318,7 +327,7 @@ export default function RankingBreakdown({ axis }: Props) {
                   <span className={`text-3xl font-extrabold leading-none tabular-nums ${isTopHere ? meta.iconColor : 'text-[var(--foreground)]'}`}>
                     {r.rank_position}
                   </span>
-                  <span className="text-base font-bold text-[var(--foreground)]">위</span>
+                  <span className="text-base font-bold text-[var(--foreground)]">{t('ranking.rank')}</span>
                   <span className="ml-auto text-[10px] text-[var(--muted)] font-bold">
                     / {r.total_in_scope.toLocaleString()}
                   </span>
@@ -334,7 +343,7 @@ export default function RankingBreakdown({ axis }: Props) {
                   <span className="text-[var(--muted)]">{mot.text}</span>
                 </p>
                 <p className="mt-1 text-[9px] text-[var(--muted)] inline-flex items-center gap-0.5">
-                  전체 보기 <ChevronRight size={9} />
+                  {t('rankingHero.viewAll')} <ChevronRight size={9} />
                 </p>
               </Link>
             );
@@ -343,10 +352,10 @@ export default function RankingBreakdown({ axis }: Props) {
       )}
 
       {/* 4축 코호트 인라인 (TOP 10 / 내 위치 토글) */}
-      <CohortLeaderboardInline scope="region" axis={axis} title="우리 동네 TOP 10" subtitle="같은 구 러너끼리" Icon={MapPin} />
-      <CohortLeaderboardInline scope="decade" axis={axis} title="내 또래 TOP 10" subtitle="같은 연령대·성별 전국" Icon={Cake} />
-      <CohortLeaderboardInline scope="gender" axis={axis} title="같은 성별 TOP 10" subtitle="성별 기준 전국" Icon={Users} />
-      <CohortLeaderboardInline scope="starter" axis={axis} title="동기 러너 TOP 10" subtitle="비슷한 시기에 가입한 러너" Icon={Sparkles} />
+      <CohortLeaderboardInline scope="region" axis={axis} title={t('rankingHero.regionTitle')} subtitle={t('rankingHero.regionSub')} Icon={MapPin} />
+      <CohortLeaderboardInline scope="decade" axis={axis} title={t('rankingHero.decadeTitle')} subtitle={t('rankingHero.decadeSub')} Icon={Cake} />
+      <CohortLeaderboardInline scope="gender" axis={axis} title={t('rankingHero.genderTitle')} subtitle={t('rankingHero.genderSub')} Icon={Users} />
+      <CohortLeaderboardInline scope="starter" axis={axis} title={t('rankingHero.starterTitle')} subtitle={t('rankingHero.starterSub')} Icon={Sparkles} />
     </div>
   );
 }

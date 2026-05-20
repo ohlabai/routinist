@@ -11,6 +11,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import { logClientInfo, logClientWarn } from '@/lib/error-logger';
 import { dataCache, CACHE_KEYS, onCacheInvalidated } from '@/lib/data-cache';
+import { useI18n, type TranslationKey } from '@/lib/i18n';
 
 type TimeAxis = 'today' | 'month' | 'year';
 
@@ -25,19 +26,19 @@ interface HeroRank {
   time_axis_out: TimeAxis;
 }
 
-const AXIS_OPTIONS: { id: TimeAxis; label: string }[] = [
-  { id: 'today', label: '오늘' },
-  { id: 'month', label: '이달' },
-  { id: 'year', label: '올해' },
+const AXIS_OPTIONS: { id: TimeAxis; tKey: TranslationKey }[] = [
+  { id: 'today', tKey: 'home.tabToday' },
+  { id: 'month', tKey: 'home.tabMonth' },
+  { id: 'year', tKey: 'home.tabYear' },
 ];
 
 // build 101: 모든 순위에 동일한 에메랄드 단색. tier label/아이콘만 순위에 따라 분기.
-function getRankTier(rank: number): { icon: string; label: string } {
-  if (rank === 1) return { icon: '👑', label: '챔피언' };
-  if (rank === 2) return { icon: '🥈', label: '준우승권' };
-  if (rank === 3) return { icon: '🥉', label: '메달권' };
-  if (rank <= 10) return { icon: '⭐', label: 'TOP 10' };
-  return { icon: '🏃', label: '도전 중' };
+function getRankTier(rank: number, t: (k: TranslationKey) => string): { icon: string; label: string } {
+  if (rank === 1) return { icon: '👑', label: t('homeHero.tierChamp') };
+  if (rank === 2) return { icon: '🥈', label: t('homeHero.tierRunnerUp') };
+  if (rank === 3) return { icon: '🥉', label: t('homeHero.tierMedal') };
+  if (rank <= 10) return { icon: '⭐', label: t('homeHero.tierTop10') };
+  return { icon: '🏃', label: t('homeHero.tierChallenging') };
 }
 
 const UNIFIED_STYLE = {
@@ -53,6 +54,7 @@ const UNIFIED_STYLE = {
 
 export default function HomeRankingHero() {
   const { user, profile } = useAuth();
+  const { t, locale } = useI18n();
   const router = useRouter();
   const [axis, setAxis] = useState<TimeAxis>('month');
   const [rank, setRank] = useState<HeroRank | null>(null);
@@ -139,17 +141,17 @@ export default function HomeRankingHero() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-base font-semibold text-slate-700 dark:text-slate-300 leading-tight">
-              랭킹 준비 중...
+              {t('homeHero.rankingPrepping')}
             </p>
             <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
-              네트워크가 안정되면 자동으로 표시돼요
+              {t('homeHero.rankingPreppingSub')}
             </p>
           </div>
           <button
             onClick={() => setRetryKey(k => k + 1)}
             className="text-xs font-bold text-slate-600 dark:text-slate-400 px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 active:scale-95 transition"
           >
-            다시
+            {t('homeHero.retry')}
           </button>
         </div>
       </div>
@@ -168,10 +170,10 @@ export default function HomeRankingHero() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-lg font-bold text-[var(--foreground)] leading-tight">
-              내 랭킹 보러가기 🏃‍♂️
+              {t('homeHero.seeMyRanking')}
             </p>
             <p className="text-sm text-[var(--muted)] mt-1 leading-5">
-              지역·성별·출생년도를 입력하면<br/>비슷한 러너들 중 내 순위를 알려드려요
+              {t('homeHero.seeMyRankingSub')}
             </p>
           </div>
           <ChevronRight size={20} className="text-emerald-600 flex-shrink-0" />
@@ -181,11 +183,13 @@ export default function HomeRankingHero() {
   }
 
   if (!rank) {
+    const birthLabel = profile?.birth_year ? (locale === 'en' ? `Born ${profile.birth_year}` : `${profile.birth_year}년생`) : null;
+    const genderLabel = profile?.gender === 'male' ? t('profile.male') : profile?.gender === 'female' ? t('profile.female') : null;
     const conditionLabel = [
       profile?.region_si,
       profile?.region_gu,
-      profile?.birth_year ? `${profile.birth_year}년생` : null,
-      profile?.gender === 'male' ? '남성' : profile?.gender === 'female' ? '여성' : null,
+      birthLabel,
+      genderLabel,
     ].filter(Boolean).join(' · ');
 
     return (
@@ -195,31 +199,31 @@ export default function HomeRankingHero() {
             <Trophy size={22} className="text-emerald-600" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-base font-bold text-[var(--foreground)]">내 랭킹 조건</p>
+            <p className="text-base font-bold text-[var(--foreground)]">{t('homeHero.myRankingCondition')}</p>
             <p className="text-sm text-emerald-700 dark:text-emerald-400 font-semibold mt-0.5 truncate">
-              {conditionLabel || '조건 입력 완료'}
+              {conditionLabel || t('homeHero.conditionDone')}
             </p>
           </div>
           <Link
             href="/profile/edit"
             className="text-xs font-bold text-emerald-700 dark:text-emerald-300 px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-emerald-200 dark:border-emerald-800 active:scale-95 transition flex-shrink-0"
           >
-            수정
+            {t('homeHero.edit')}
           </Link>
         </div>
         <p className="text-sm text-[var(--muted)] leading-snug">
-          같은 조건의 다른 러너가 모이면 순위가 표시됩니다. 친구를 초대해보세요!
+          {t('homeHero.waitingForOthers')}
         </p>
       </div>
     );
   }
 
   const style = UNIFIED_STYLE;
-  const tier = getRankTier(rank.rank_position);
+  const tier = getRankTier(rank.rank_position, t);
   const isTopRank = rank.rank_position === 1;
   const isTop3 = rank.rank_position <= 3;
-  const periodLabel = axis === 'today' ? '오늘' : axis === 'month' ? '이달' : '올해';
-  const name = profile?.display_name ?? '러너';
+  const periodLabel = axis === 'today' ? t('home.tabToday') : axis === 'month' ? t('home.tabMonth') : t('home.tabYear');
+  const name = profile?.display_name ?? t('homeHero.runner');
   const kmToNext = Math.max(0, Number(rank.km_to_next) || 0);
   const myKm = Number(rank.my_km) || 0;
 
@@ -245,7 +249,7 @@ export default function HomeRankingHero() {
                 : 'text-[var(--muted)]'
             }`}
           >
-            {opt.label}
+            {t(opt.tKey)}
           </button>
         ))}
       </div>
@@ -280,11 +284,11 @@ export default function HomeRankingHero() {
             >
               {rank.rank_position}
             </span>
-            <span className="text-3xl font-extrabold text-[var(--foreground)] ml-1">위</span>
+            <span className="text-3xl font-extrabold text-[var(--foreground)] ml-1">{t('ranking.rank')}</span>
           </div>
         </div>
         <p className="mt-1 text-xs text-[var(--muted)] font-bold">
-          / {rank.total_in_scope.toLocaleString()}명
+          {t('rankingHero.peopleSlash').replace('{n}', rank.total_in_scope.toLocaleString())}
         </p>
         <p className="mt-2 text-base">
           <span className={`font-bold ${style.accent}`}>{name}</span>
@@ -295,9 +299,9 @@ export default function HomeRankingHero() {
         {!isTopRank && kmToNext > 0 && (
           <div className="mt-4">
             <div className="flex items-center justify-between mb-1.5 text-[11px]">
-              <span className="font-semibold text-[var(--muted)]">{rank.rank_position}위</span>
+              <span className="font-semibold text-[var(--muted)]">{rank.rank_position}{t('ranking.rank')}</span>
               <span className={`font-extrabold ${style.accent}`}>
-                <span className="font-black">{kmToNext.toFixed(1)}km</span> 더 → {rank.target_rank}위
+                <span className="font-black">{t('homeHero.kmMore').replace('{km}', kmToNext.toFixed(1))}</span> {t('homeHero.toRankAbbr').replace('{rank}', String(rank.target_rank))}
               </span>
             </div>
             <div className="h-2 rounded-full bg-white/60 dark:bg-zinc-800/60 overflow-hidden shadow-inner">
@@ -312,14 +316,14 @@ export default function HomeRankingHero() {
         {isTopRank && (
           <div className="mt-4 mx-auto max-w-[280px] px-3 py-2.5 rounded-xl bg-white/70 dark:bg-zinc-900/60 backdrop-blur-sm flex items-center justify-center gap-2 text-sm shadow-sm">
             <Crown size={16} className="text-emerald-600 flex-shrink-0" />
-            <span className={`font-extrabold ${style.accent}`}>자리를 지키고 있어요</span>
+            <span className={`font-extrabold ${style.accent}`}>{t('homeHero.holdSpot')}</span>
             <Sparkles size={14} className="text-emerald-500" />
           </div>
         )}
 
         {!isTopRank && (
           <div className="mt-3 flex items-center justify-center gap-1 text-xs font-bold text-[var(--muted)]">
-            <span>전체 랭킹 보기</span>
+            <span>{t('homeHero.viewFullRanking')}</span>
             <ChevronRight size={12} />
           </div>
         )}

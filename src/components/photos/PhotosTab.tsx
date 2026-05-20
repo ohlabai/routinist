@@ -18,19 +18,21 @@ import {
 } from '@/lib/routine-photos';
 import { fetchFollowing } from '@/lib/social-data';
 import { useAuth } from '@/components/AuthProvider';
+import { useI18n, type TranslationKey } from '@/lib/i18n';
 
 type Sub = 'trending' | 'friends' | 'region' | 'recent' | 'liked';
 
-const SUBS: { id: Sub; label: string; Icon: typeof Flame }[] = [
-  { id: 'trending', label: '인기', Icon: Flame },
-  { id: 'friends', label: '친구', Icon: Users },
-  { id: 'region', label: '동네', Icon: MapPin },
-  { id: 'recent', label: '최신', Icon: Clock },
-  { id: 'liked', label: '좋아요', Icon: Heart },
+const SUBS: { id: Sub; tKey: TranslationKey; Icon: typeof Flame }[] = [
+  { id: 'trending', tKey: 'photos.subTrending', Icon: Flame },
+  { id: 'friends', tKey: 'photos.subFriends', Icon: Users },
+  { id: 'region', tKey: 'photos.subRegion', Icon: MapPin },
+  { id: 'recent', tKey: 'photos.subRecent', Icon: Clock },
+  { id: 'liked', tKey: 'photos.subLiked', Icon: Heart },
 ];
 
 export default function PhotosTab() {
   const { user, profile } = useAuth();
+  const { t } = useI18n();
   const [sub, setSub] = useState<Sub>('trending');
   const [photos, setPhotos] = useState<RoutinePhoto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,7 +88,7 @@ export default function PhotosTab() {
         onUploaded={() => setReloadKey(k => k + 1)}
       >
         <Camera size={20} />
-        <span>오늘 러닝 사진 올리기</span>
+        <span>{t('photos.uploadCta')}</span>
       </PhotoUploader>
 
       {/* Sub 탭 — 가로 스크롤 pill */}
@@ -102,7 +104,7 @@ export default function PhotosTab() {
             }`}
           >
             <s.Icon size={15} />
-            {s.label}
+            {t(s.tKey)}
           </button>
         ))}
       </div>
@@ -112,14 +114,14 @@ export default function PhotosTab() {
         loading={loading}
         emptyText={
           sub === 'friends'
-            ? '친구가 올린 사진이 없어요. 친구 탭에서 러너를 친구로 추가해보세요!'
+            ? t('photos.emptyFriends')
             : sub === 'region' && !profile?.region_gu
-            ? '지역을 설정하면 내 동네 사진이 여기 보여요'
+            ? t('photos.emptyRegionNoLoc')
             : sub === 'region'
-            ? `${profile?.region_gu} 에서 올린 사진이 아직 없어요`
+            ? t('photos.emptyRegion').replace('{region}', profile?.region_gu ?? '')
             : sub === 'liked'
-            ? '아직 좋아요한 사진이 없어요'
-            : '오늘 러닝 기록이 있다면 위 버튼으로 공유카드를 만들어 첫 번째 러닝사진가 되어보세요!'
+            ? t('photos.emptyLiked')
+            : t('photos.emptyDefault')
         }
       />
     </div>

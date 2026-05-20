@@ -5,14 +5,12 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode, createElement } from 'react';
 
-export type Locale = 'ko' | 'en' | 'ja' | 'zh' | 'es';
+// build 158: ja/zh/es 제거 — 한국어/영어 2개만 지원. 사용자 결정.
+export type Locale = 'ko' | 'en';
 
 export const SUPPORTED_LOCALES: { code: Locale; native: string }[] = [
   { code: 'ko', native: '한국어' },
   { code: 'en', native: 'English' },
-  { code: 'ja', native: '日本語' },
-  { code: 'zh', native: '中文' },
-  { code: 'es', native: 'Español' },
 ];
 
 export type TranslationKey =
@@ -107,7 +105,170 @@ export type TranslationKey =
   | 'world.confirmStart'
   | 'world.completedAt'
   | 'world.distance'
-  | 'world.participantsHeader';
+  | 'world.participantsHeader'
+  // build 158: social / shop / activity / ranking hero
+  | 'social.title'
+  | 'social.tabFriends'
+  | 'social.tabClubs'
+  | 'social.tabPhotos'
+  | 'social.tabQuotes'
+  | 'social.weekCompare'
+  | 'social.weekMondayBase'
+  | 'social.me'
+  | 'social.emptyFriendsTitle'
+  | 'social.emptyFriendsSub'
+  | 'social.findFriendsCta'
+  | 'social.nearbyTitle'
+  | 'social.nearbySub'
+  | 'social.findRunners'
+  | 'social.searchPlaceholder'
+  | 'social.noMatchRunner'
+  | 'social.noPublicRunner'
+  | 'social.searchHintMatch'
+  | 'social.searchHintPublic'
+  | 'social.myClubs'
+  | 'social.createClub'
+  | 'social.noClub'
+  | 'social.browseClubs'
+  | 'social.memberCount'
+  | 'social.allClubs'
+  | 'social.allClubsSub'
+  | 'shop.title'
+  | 'shop.search'
+  | 'shop.cart'
+  | 'shop.menu'
+  | 'shop.searchPlaceholder'
+  | 'shop.cancel'
+  | 'shop.recentSearch'
+  | 'shop.clearAll'
+  | 'shop.suggested'
+  | 'shop.heroBadge'
+  | 'shop.heroTitle1'
+  | 'shop.heroTitle2'
+  | 'shop.heroSub'
+  | 'shop.heroCta'
+  | 'shop.categories'
+  | 'shop.seeAll'
+  | 'shop.all'
+  | 'shop.catClothes'
+  | 'shop.catHats'
+  | 'shop.catAccessories'
+  | 'shop.catGoods'
+  | 'shop.searchNoResult'
+  | 'shop.categoryPreparing'
+  | 'shop.comingSoon'
+  | 'shop.viewAllProducts'
+  | 'shop.hotProducts'
+  | 'shop.itemUnit'
+  | 'shop.allProducts'
+  | 'shop.like'
+  | 'shop.liked'
+  | 'shop.unliked'
+  | 'shop.retryLater'
+  | 'shop.fabCart'
+  | 'shop.menuWishlist'
+  | 'shop.menuOrders'
+  | 'shop.menuAddresses'
+  | 'shop.menuMileage'
+  | 'shop.menuSupport'
+  | 'shop.menuBusinessInfo'
+  | 'shop.menuTerms'
+  | 'shop.menuRefund'
+  | 'shop.menuSignOut'
+  | 'shop.menuClose'
+  | 'activity.title'
+  | 'activity.notFound'
+  | 'activity.duration'
+  | 'activity.pacePerKm'
+  | 'activity.kcal'
+  | 'activity.heartRateAvg'
+  | 'activity.heartRateMax'
+  | 'activity.exerciseType'
+  | 'activity.walking'
+  | 'activity.running'
+  | 'activity.date'
+  | 'activity.source'
+  | 'activity.sourceManual'
+  | 'activity.sourceGps'
+  | 'activity.memo'
+  | 'activity.commentsTitle'
+  | 'activity.createShareCard'
+  | 'rankingHero.starHint'
+  | 'rankingHero.starExample'
+  | 'rankingHero.toTop10'
+  | 'rankingHero.peopleSlash'
+  | 'rankingHero.viewAll'
+  | 'rankingHero.regionTitle'
+  | 'rankingHero.regionSub'
+  | 'rankingHero.decadeTitle'
+  | 'rankingHero.decadeSub'
+  | 'rankingHero.genderTitle'
+  | 'rankingHero.genderSub'
+  | 'rankingHero.starterTitle'
+  | 'rankingHero.starterSub'
+  | 'rankingHero.noRecord'
+  | 'rankingHero.runOnceCta'
+  | 'rankingHero.champion'
+  | 'rankingHero.toRank'
+  | 'rankingHero.oneStep'
+  | 'quotes.tabAll'
+  | 'quotes.tabMine'
+  | 'quotes.write'
+  | 'quotes.emptyMine'
+  | 'quotes.emptyAll'
+  | 'quotes.emptyHint'
+  | 'quotes.anonymous'
+  | 'quotes.tagRunner'
+  | 'quotes.tagClassic'
+  | 'quotes.delete'
+  | 'quotes.report'
+  | 'quotes.composeTitle'
+  | 'quotes.composeSub'
+  | 'quotes.composePlaceholder'
+  | 'quotes.composeFooter'
+  | 'quotes.composeSubmit'
+  | 'quotes.composing'
+  | 'quotes.reportTitle'
+  | 'quotes.reportSub'
+  | 'quotes.reportR1'
+  | 'quotes.reportR2'
+  | 'quotes.reportR3'
+  | 'quotes.reportR4'
+  | 'quotes.reportR5'
+  | 'quotes.reportSubmitted'
+  | 'quotes.deleteConfirm'
+  | 'quotes.deleted'
+  | 'quotes.submitted'
+  | 'photos.subTrending'
+  | 'photos.subFriends'
+  | 'photos.subRegion'
+  | 'photos.subRecent'
+  | 'photos.subLiked'
+  | 'photos.uploadCta'
+  | 'photos.emptyFriends'
+  | 'photos.emptyRegionNoLoc'
+  | 'photos.emptyRegion'
+  | 'photos.emptyLiked'
+  | 'photos.emptyDefault'
+  | 'homeHero.rankingPrepping'
+  | 'homeHero.rankingPreppingSub'
+  | 'homeHero.retry'
+  | 'homeHero.seeMyRanking'
+  | 'homeHero.seeMyRankingSub'
+  | 'homeHero.myRankingCondition'
+  | 'homeHero.conditionDone'
+  | 'homeHero.edit'
+  | 'homeHero.waitingForOthers'
+  | 'homeHero.holdSpot'
+  | 'homeHero.viewFullRanking'
+  | 'homeHero.tierChamp'
+  | 'homeHero.tierRunnerUp'
+  | 'homeHero.tierMedal'
+  | 'homeHero.tierTop10'
+  | 'homeHero.tierChallenging'
+  | 'homeHero.runner'
+  | 'homeHero.kmMore'
+  | 'homeHero.toRankAbbr';
 
 const DICT: Record<Locale, Record<TranslationKey, string>> = {
   ko: {
@@ -202,6 +363,168 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'world.completedAt': '완주: {date}',
     'world.distance': '{km}km',
     'world.participantsHeader': '같은 코스 도전 중',
+    'social.title': '소셜',
+    'social.tabFriends': '친구',
+    'social.tabClubs': '클럽',
+    'social.tabPhotos': '포토',
+    'social.tabQuotes': '러너 한 줄',
+    'social.weekCompare': '이번 주 친구 비교',
+    'social.weekMondayBase': '월요일 기준',
+    'social.me': '나',
+    'social.emptyFriendsTitle': '친구와 함께 달려보세요',
+    'social.emptyFriendsSub': '동네·페이스 비슷한 러너를 추가하면 이번 주 km 비교가 보여요',
+    'social.findFriendsCta': '친구 찾기 →',
+    'social.nearbyTitle': '동네 러너 찾기',
+    'social.nearbySub': '같은 동·구·시 러너와 친구 맺고 함께 달려요',
+    'social.findRunners': '러너 찾기',
+    'social.searchPlaceholder': '닉네임으로 검색',
+    'social.noMatchRunner': '해당 닉네임의 러너가 없어요',
+    'social.noPublicRunner': '아직 공개된 러너가 없어요',
+    'social.searchHintMatch': '다른 닉네임으로 검색해보거나, 친구를 Routinist 에 초대해보세요',
+    'social.searchHintPublic': '친구가 Routinist 에 가입하면 여기 나타납니다',
+    'social.myClubs': '내 클럽',
+    'social.createClub': '클럽 만들기',
+    'social.noClub': '아직 가입한 클럽이 없습니다',
+    'social.browseClubs': '클럽 둘러보기 →',
+    'social.memberCount': '멤버 {count}명',
+    'social.allClubs': '모든 클럽 둘러보기',
+    'social.allClubsSub': '인기 클럽 · 가입하기',
+    'shop.title': '쇼핑',
+    'shop.search': '검색',
+    'shop.cart': '장바구니',
+    'shop.menu': '메뉴',
+    'shop.searchPlaceholder': '찾으시는 상품을 입력하세요',
+    'shop.cancel': '취소',
+    'shop.recentSearch': '최근 검색',
+    'shop.clearAll': '전체 삭제',
+    'shop.suggested': '추천 검색어',
+    'shop.heroBadge': 'RUNNERS PICK',
+    'shop.heroTitle1': '러닝을 더 즐겁게',
+    'shop.heroTitle2': '루티니스트 컬렉션',
+    'shop.heroSub': '매일 달리는 사람을 위한 큐레이션',
+    'shop.heroCta': '마일리지로 결제하기',
+    'shop.categories': '카테고리',
+    'shop.seeAll': '전체 보기',
+    'shop.all': '전체',
+    'shop.catClothes': '의류',
+    'shop.catHats': '모자',
+    'shop.catAccessories': '악세사리',
+    'shop.catGoods': '굿즈',
+    'shop.searchNoResult': '검색 결과가 없어요',
+    'shop.categoryPreparing': '준비 중인 카테고리예요',
+    'shop.comingSoon': '곧 상품이 올라올 예정이에요',
+    'shop.viewAllProducts': '전체 상품 보기',
+    'shop.hotProducts': '지금 핫한 상품',
+    'shop.itemUnit': '{n}개',
+    'shop.allProducts': '전체 상품',
+    'shop.like': '찜',
+    'shop.liked': '찜했어요 ❤️',
+    'shop.unliked': '찜 해제했어요',
+    'shop.retryLater': '잠시 후 다시 시도해주세요',
+    'shop.fabCart': '장바구니 {n}',
+    'shop.menuWishlist': '찜한 상품',
+    'shop.menuOrders': '주문 내역',
+    'shop.menuAddresses': '배송지 관리',
+    'shop.menuMileage': '마일리지',
+    'shop.menuSupport': '고객센터',
+    'shop.menuBusinessInfo': '사업자 정보',
+    'shop.menuTerms': '이용약관',
+    'shop.menuRefund': '청약·환불',
+    'shop.menuSignOut': '로그아웃',
+    'shop.menuClose': '닫기',
+    'activity.title': '활동 상세',
+    'activity.notFound': '활동을 찾을 수 없습니다.',
+    'activity.duration': '시간',
+    'activity.pacePerKm': '페이스/km',
+    'activity.kcal': 'kcal',
+    'activity.heartRateAvg': '평균 심박수',
+    'activity.heartRateMax': '최대 심박수',
+    'activity.exerciseType': '운동 종류',
+    'activity.walking': '걷기 🚶',
+    'activity.running': '러닝 🏃',
+    'activity.date': '날짜',
+    'activity.source': '기록 방식',
+    'activity.sourceManual': '수동 입력',
+    'activity.sourceGps': 'GPS 트래킹',
+    'activity.memo': '메모',
+    'activity.commentsTitle': '응원 & 댓글',
+    'activity.createShareCard': '공유카드 만들기',
+    'rankingHero.starHint': '별을 눌러 필터를 풀면 더 넓은 코호트에서의 내 순위가 보여요.',
+    'rankingHero.starExample': '예: 같은 동네에선 1위라도, 전 세계 기준에서는 순위가 달라질 수 있어요.',
+    'rankingHero.toTop10': 'TOP 10 까지 {km}km',
+    'rankingHero.peopleSlash': '/ {n}명',
+    'rankingHero.viewAll': '전체 보기',
+    'rankingHero.regionTitle': '우리 동네 TOP 10',
+    'rankingHero.regionSub': '같은 구 러너끼리',
+    'rankingHero.decadeTitle': '내 또래 TOP 10',
+    'rankingHero.decadeSub': '같은 연령대·성별 전국',
+    'rankingHero.genderTitle': '같은 성별 TOP 10',
+    'rankingHero.genderSub': '성별 기준 전국',
+    'rankingHero.starterTitle': '동기 러너 TOP 10',
+    'rankingHero.starterSub': '비슷한 시기에 가입한 러너',
+    'rankingHero.noRecord': '아직 기록이 없어요',
+    'rankingHero.runOnceCta': '한 번 달리고 랭킹에 들어가봐요!',
+    'rankingHero.champion': '챔피언! 자리를 지켜요',
+    'rankingHero.toRank': '{target}위까지 {km}km',
+    'rankingHero.oneStep': '한 발 더, 어제의 나를 이겨요',
+    'quotes.tabAll': '전체',
+    'quotes.tabMine': '내 한 줄',
+    'quotes.write': '쓰기',
+    'quotes.emptyMine': '아직 쓴 한 줄이 없어요',
+    'quotes.emptyAll': '아직 등록된 한 줄이 없어요',
+    'quotes.emptyHint': '우측 상단 쓰기로 첫 한 줄을 남겨보세요',
+    'quotes.anonymous': '익명',
+    'quotes.tagRunner': '러너',
+    'quotes.tagClassic': '고전',
+    'quotes.delete': '삭제',
+    'quotes.report': '신고',
+    'quotes.composeTitle': '한 줄 일기',
+    'quotes.composeSub': '{name} 닉네임으로 표시돼요',
+    'quotes.composePlaceholder': '예) "오늘도 한 발 더, 어제의 나를 이겼다."',
+    'quotes.composeFooter': '좋아요 받기 + 공유 카드 캡션',
+    'quotes.composeSubmit': '러너 한 줄 등록',
+    'quotes.composing': '등록 중…',
+    'quotes.reportTitle': '러너 한 줄 신고',
+    'quotes.reportSub': '신고 사유를 선택해주세요. 3회 누적 시 자동 숨김 처리.',
+    'quotes.reportR1': '부적절한 콘텐츠',
+    'quotes.reportR2': '스팸/광고',
+    'quotes.reportR3': '괴롭힘/혐오',
+    'quotes.reportR4': '저작권 위반',
+    'quotes.reportR5': '기타',
+    'quotes.reportSubmitted': '신고 접수됨',
+    'quotes.deleteConfirm': '이 한 줄을 삭제할까요?',
+    'quotes.deleted': '삭제했어요',
+    'quotes.submitted': '✨ 한 줄 일기가 등록됐어요',
+    'photos.subTrending': '인기',
+    'photos.subFriends': '친구',
+    'photos.subRegion': '동네',
+    'photos.subRecent': '최신',
+    'photos.subLiked': '좋아요',
+    'photos.uploadCta': '오늘 러닝 사진 올리기',
+    'photos.emptyFriends': '친구가 올린 사진이 없어요. 친구 탭에서 러너를 친구로 추가해보세요!',
+    'photos.emptyRegionNoLoc': '지역을 설정하면 내 동네 사진이 여기 보여요',
+    'photos.emptyRegion': '{region} 에서 올린 사진이 아직 없어요',
+    'photos.emptyLiked': '아직 좋아요한 사진이 없어요',
+    'photos.emptyDefault': '오늘 러닝 기록이 있다면 위 버튼으로 공유카드를 만들어 첫 번째 러닝사진가 되어보세요!',
+    'homeHero.rankingPrepping': '랭킹 준비 중...',
+    'homeHero.rankingPreppingSub': '네트워크가 안정되면 자동으로 표시돼요',
+    'homeHero.retry': '다시',
+    'homeHero.seeMyRanking': '내 랭킹 보러가기 🏃‍♂️',
+    'homeHero.seeMyRankingSub': '지역·성별·출생년도를 입력하면 비슷한 러너들 중 내 순위를 알려드려요',
+    'homeHero.myRankingCondition': '내 랭킹 조건',
+    'homeHero.conditionDone': '조건 입력 완료',
+    'homeHero.edit': '수정',
+    'homeHero.waitingForOthers': '같은 조건의 다른 러너가 모이면 순위가 표시됩니다. 친구를 초대해보세요!',
+    'homeHero.holdSpot': '자리를 지키고 있어요',
+    'homeHero.viewFullRanking': '전체 랭킹 보기',
+    'homeHero.tierChamp': '챔피언',
+    'homeHero.tierRunnerUp': '준우승권',
+    'homeHero.tierMedal': '메달권',
+    'homeHero.tierTop10': 'TOP 10',
+    'homeHero.tierChallenging': '도전 중',
+    'homeHero.runner': '러너',
+    'homeHero.kmMore': '{km}km 더',
+    'homeHero.toRankAbbr': '→ {rank}위',
   },
   en: {
     'common.loading': 'Loading...',
@@ -295,285 +618,168 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'world.completedAt': 'Completed: {date}',
     'world.distance': '{km}km',
     'world.participantsHeader': 'Same course runners',
-  },
-  ja: {
-    'common.loading': '読み込み中...',
-    'common.save': '保存',
-    'common.cancel': 'キャンセル',
-    'common.retry': '再試行',
-    'common.back': '戻る',
-    'nav.home': 'ホーム',
-    'nav.map': 'マップ',
-    'nav.ranking': 'ランキング',
-    'nav.social': 'ソーシャル',
-    'nav.shop': 'ショップ',
-    'nav.profile': 'プロフィール',
-    'home.matchedRank.cta': 'ランキングを見る',
-    'home.matchedRank.ctaSub': '地域・年齢・性別を入力すると似たランナーとの順位が表示されます',
-    'home.todayTop': '本日のTOP',
-    'home.friendsWeek': '今週の友達比較',
-    'home.gallery': 'Routinist ギャラリー',
-    'home.gallery.empty': 'ランニング写真を共有するとここに表示されます',
-    'profile.editTitle': 'プロフィール編集',
-    'profile.nickname': 'ニックネーム',
-    'profile.region': '地域',
-    'profile.detectRegion': '現在地から自動選択',
-    'profile.detecting': '検出中...',
-    'profile.birthYear': '生年',
-    'profile.gender': '性別',
-    'profile.male': '男性',
-    'profile.female': '女性',
-    'profile.other': 'その他',
-    'profile.runningSince': 'ランニング開始時期',
-    'profile.rankingInfoNote': '似た条件のランナーと比較して順位を表示します',
-    'profile.edit': '編集',
-    'profile.runner': 'ランナー',
-    'profile.totalKm': '総km',
-    'profile.totalRuns': '総ランニング',
-    'profile.streakDays': '連続日 🔥',
-    'profile.badges': 'バッジ',
-    'profile.actionConnect': 'ヘルス連携',
-    'profile.actionMessages': 'メッセージ',
-    'profile.actionMileage': 'マイレージ履歴',
-    'profile.actionMileageGift': 'マイレージギフト',
-    'profile.menuAudit': 'データ点検',
-    'profile.menuAdminMileage': 'マイレージ報酬 (管理者)',
-    'profile.menuSupport': 'サポート',
-    'profile.menuPrivacy': 'プライバシーポリシー',
-    'profile.menuTerms': '利用規約',
-    'profile.deleteAccount': 'アカウント削除',
-    'profile.themeTitle': '画面モード',
-    'profile.themeLight': 'ライト',
-    'profile.themeDark': 'ダーク',
-    'profile.themeSystem': 'システム',
-    'profile.signOut': 'ログアウト',
-    'profile.totalSummary': '通算 {km}km · {runs}回',
-    'settings.language': '言語',
-    'home.todayKm': '本日km',
-    'home.todayPace': '本日ペース',
-    'home.recentPace': '最近のペース',
-    'home.monthKm': '今月km',
-    'home.monthDays': '今月の日数',
-    'home.monthGoal': '{month}月の目標',
-    'home.monthGoalEmpty': '今月の目標がまだありません',
-    'home.monthGoalSet': '目標を設定 →',
-    'home.weekChallenge': '今週のチャレンジ',
-    'home.weekChallengeRun': '今週も走ってみましょうか?',
-    'home.weekRunCta': '開始',
-    'home.sync': '同期',
-    'home.synced': '{ago} 同期',
-    'home.tabToday': '今日',
-    'home.tabMonth': '今月',
-    'home.tabYear': '今年',
-    'ranking.title': 'ランキング',
-    'ranking.mine': '私のランキング',
-    'ranking.mileage': 'マイレージ',
-    'ranking.world': 'ワールドマラソン',
-    'ranking.today': '🔥 今日',
-    'ranking.week': '📆 今週',
-    'ranking.month': '📅 今月',
-    'ranking.year': '🏆 今年',
-    'ranking.rank': '位',
-    'ranking.of': '人',
-    'ranking.champion': 'チャンピオン!',
-    'ranking.keepIt': '位置をキープ',
-    'world.inProgress': '進行中',
-    'world.medals': '完走メダル',
-    'world.series': 'チャレンジシリーズ',
-    'world.newCourses': '新しいコース',
-    'world.start': 'チャレンジ開始',
-    'world.continue': '続ける',
-    'world.entryFee': '参加費',
-    'world.confirmStart': 'このコースを始めますか?',
-    'world.completedAt': '完走: {date}',
-    'world.distance': '{km}km',
-    'world.participantsHeader': '同じコースのランナー',
-  },
-  zh: {
-    'common.loading': '加载中...',
-    'common.save': '保存',
-    'common.cancel': '取消',
-    'common.retry': '重试',
-    'common.back': '返回',
-    'nav.home': '主页',
-    'nav.map': '地图',
-    'nav.ranking': '排行',
-    'nav.social': '社交',
-    'nav.shop': '商店',
-    'nav.profile': '我的',
-    'home.matchedRank.cta': '查看我的排名',
-    'home.matchedRank.ctaSub': '输入地区、年龄、性别即可看到与相似跑者的排名对比',
-    'home.todayTop': '今日TOP',
-    'home.friendsWeek': '本周好友对比',
-    'home.gallery': 'Routinist 画廊',
-    'home.gallery.empty': '分享跑步照片,它们会显示在这里',
-    'profile.editTitle': '编辑资料',
-    'profile.nickname': '昵称',
-    'profile.region': '地区',
-    'profile.detectRegion': '根据当前位置自动选择',
-    'profile.detecting': '检测中...',
-    'profile.birthYear': '出生年份',
-    'profile.gender': '性别',
-    'profile.male': '男',
-    'profile.female': '女',
-    'profile.other': '其他',
-    'profile.runningSince': '开始跑步时间',
-    'profile.rankingInfoNote': '我们会把你和条件相似的跑者对比',
-    'profile.edit': '编辑',
-    'profile.runner': '跑者',
-    'profile.totalKm': '总公里',
-    'profile.totalRuns': '总跑步',
-    'profile.streakDays': '连续天 🔥',
-    'profile.badges': '徽章',
-    'profile.actionConnect': '健康连接',
-    'profile.actionMessages': '消息',
-    'profile.actionMileage': '里程明细',
-    'profile.actionMileageGift': '里程礼物',
-    'profile.menuAudit': '数据检查',
-    'profile.menuAdminMileage': '里程奖励 (管理员)',
-    'profile.menuSupport': '客服',
-    'profile.menuPrivacy': '隐私政策',
-    'profile.menuTerms': '使用条款',
-    'profile.deleteAccount': '注销账号',
-    'profile.themeTitle': '主题',
-    'profile.themeLight': '浅色',
-    'profile.themeDark': '深色',
-    'profile.themeSystem': '系统',
-    'profile.signOut': '退出',
-    'profile.totalSummary': '累计 {km}km · {runs}次',
-    'settings.language': '语言',
-    'home.todayKm': '今日km',
-    'home.todayPace': '今日配速',
-    'home.recentPace': '最近配速',
-    'home.monthKm': '本月km',
-    'home.monthDays': '本月天数',
-    'home.monthGoal': '{month}月目标',
-    'home.monthGoalEmpty': '本月还没有目标',
-    'home.monthGoalSet': '设置目标 →',
-    'home.weekChallenge': '本周挑战',
-    'home.weekChallengeRun': '本周再跑一次吧?',
-    'home.weekRunCta': '开始',
-    'home.sync': '同步',
-    'home.synced': '{ago} 同步',
-    'home.tabToday': '今天',
-    'home.tabMonth': '本月',
-    'home.tabYear': '今年',
-    'ranking.title': '排行',
-    'ranking.mine': '我的排名',
-    'ranking.mileage': '里程',
-    'ranking.world': '世界马拉松',
-    'ranking.today': '🔥 今天',
-    'ranking.week': '📆 本周',
-    'ranking.month': '📅 本月',
-    'ranking.year': '🏆 今年',
-    'ranking.rank': '名',
-    'ranking.of': '人',
-    'ranking.champion': '冠军!',
-    'ranking.keepIt': '保持位置',
-    'world.inProgress': '进行中',
-    'world.medals': '完赛奖牌',
-    'world.series': '挑战系列',
-    'world.newCourses': '新课程',
-    'world.start': '开始挑战',
-    'world.continue': '继续',
-    'world.entryFee': '参赛费',
-    'world.confirmStart': '开始这个课程吗?',
-    'world.completedAt': '完成: {date}',
-    'world.distance': '{km}km',
-    'world.participantsHeader': '同课程跑者',
-  },
-  es: {
-    'common.loading': 'Cargando...',
-    'common.save': 'Guardar',
-    'common.cancel': 'Cancelar',
-    'common.retry': 'Reintentar',
-    'common.back': 'Atrás',
-    'nav.home': 'Inicio',
-    'nav.map': 'Mapa',
-    'nav.ranking': 'Ranking',
-    'nav.social': 'Social',
-    'nav.shop': 'Tienda',
-    'nav.profile': 'Mi perfil',
-    'home.matchedRank.cta': 'Ver mi ranking',
-    'home.matchedRank.ctaSub': 'Añade tu región, edad y género para ver tu posición entre corredores similares',
-    'home.todayTop': 'TOP de hoy',
-    'home.friendsWeek': 'Amigos esta semana',
-    'home.gallery': 'Galería Routinist',
-    'home.gallery.empty': 'Comparte fotos de tus carreras y aparecerán aquí',
-    'profile.editTitle': 'Editar perfil',
-    'profile.nickname': 'Apodo',
-    'profile.region': 'Región',
-    'profile.detectRegion': 'Detectar ubicación actual',
-    'profile.detecting': 'Detectando...',
-    'profile.birthYear': 'Año de nacimiento',
-    'profile.gender': 'Género',
-    'profile.male': 'Hombre',
-    'profile.female': 'Mujer',
-    'profile.other': 'Otro',
-    'profile.runningSince': 'Corriendo desde',
-    'profile.rankingInfoNote': 'Te comparamos con corredores de perfil similar para clasificaciones divertidas',
-    'profile.edit': 'Editar',
-    'profile.runner': 'Corredor',
-    'profile.totalKm': 'Total km',
-    'profile.totalRuns': 'Total carreras',
-    'profile.streakDays': 'Racha 🔥',
-    'profile.badges': 'Insignias',
-    'profile.actionConnect': 'Conectar salud',
-    'profile.actionMessages': 'Mensajes',
-    'profile.actionMileage': 'Historial mileage',
-    'profile.actionMileageGift': 'Regalar mileage',
-    'profile.menuAudit': 'Revisión de datos',
-    'profile.menuAdminMileage': 'Configuración mileage (admin)',
-    'profile.menuSupport': 'Soporte',
-    'profile.menuPrivacy': 'Política de privacidad',
-    'profile.menuTerms': 'Términos del servicio',
-    'profile.deleteAccount': 'Eliminar cuenta',
-    'profile.themeTitle': 'Modo',
-    'profile.themeLight': 'Claro',
-    'profile.themeDark': 'Oscuro',
-    'profile.themeSystem': 'Sistema',
-    'profile.signOut': 'Cerrar sesión',
-    'profile.totalSummary': 'Total {km}km · {runs} carreras',
-    'settings.language': 'Idioma',
-    'home.todayKm': 'Km hoy',
-    'home.todayPace': 'Ritmo hoy',
-    'home.recentPace': 'Ritmo reciente',
-    'home.monthKm': 'Km del mes',
-    'home.monthDays': 'Días este mes',
-    'home.monthGoal': 'Meta de {month}',
-    'home.monthGoalEmpty': 'Sin meta este mes',
-    'home.monthGoalSet': 'Establecer meta →',
-    'home.weekChallenge': 'Reto semanal',
-    'home.weekChallengeRun': '¿Listo para correr esta semana?',
-    'home.weekRunCta': 'Empezar',
-    'home.sync': 'Sincronizar',
-    'home.synced': 'Sincronizado {ago}',
-    'home.tabToday': 'Hoy',
-    'home.tabMonth': 'Mes',
-    'home.tabYear': 'Año',
-    'ranking.title': 'Ranking',
-    'ranking.mine': 'Mi ranking',
-    'ranking.mileage': 'Mileage',
-    'ranking.world': 'Maratón mundial',
-    'ranking.today': '🔥 Hoy',
-    'ranking.week': '📆 Semana',
-    'ranking.month': '📅 Mes',
-    'ranking.year': '🏆 Año',
-    'ranking.rank': 'º',
-    'ranking.of': 'corredores',
-    'ranking.champion': '¡Campeón!',
-    'ranking.keepIt': 'Mantén tu lugar',
-    'world.inProgress': 'En curso',
-    'world.medals': 'Medallas',
-    'world.series': 'Series de retos',
-    'world.newCourses': 'Nuevos cursos',
-    'world.start': 'Empezar curso',
-    'world.continue': 'Continuar',
-    'world.entryFee': 'Cuota de entrada',
-    'world.confirmStart': '¿Empezar este curso?',
-    'world.completedAt': 'Completado: {date}',
-    'world.distance': '{km}km',
-    'world.participantsHeader': 'Mismos cursos',
+    'social.title': 'Social',
+    'social.tabFriends': 'Friends',
+    'social.tabClubs': 'Clubs',
+    'social.tabPhotos': 'Photos',
+    'social.tabQuotes': 'Quotes',
+    'social.weekCompare': 'This week with friends',
+    'social.weekMondayBase': 'Starts Monday',
+    'social.me': 'me',
+    'social.emptyFriendsTitle': 'Run with friends',
+    'social.emptyFriendsSub': 'Add runners nearby and at similar paces to compare your weekly km',
+    'social.findFriendsCta': 'Find friends →',
+    'social.nearbyTitle': 'Find runners nearby',
+    'social.nearbySub': 'Connect with runners in your neighborhood and run together',
+    'social.findRunners': 'Find runners',
+    'social.searchPlaceholder': 'Search by nickname',
+    'social.noMatchRunner': 'No runner with that nickname',
+    'social.noPublicRunner': 'No public runners yet',
+    'social.searchHintMatch': 'Try a different nickname, or invite friends to Routinist',
+    'social.searchHintPublic': 'Your friends will show here when they join Routinist',
+    'social.myClubs': 'My clubs',
+    'social.createClub': 'Create club',
+    'social.noClub': 'You have not joined any club yet',
+    'social.browseClubs': 'Browse clubs →',
+    'social.memberCount': '{count} members',
+    'social.allClubs': 'Browse all clubs',
+    'social.allClubsSub': 'Popular clubs · Join now',
+    'shop.title': 'Shop',
+    'shop.search': 'Search',
+    'shop.cart': 'Cart',
+    'shop.menu': 'Menu',
+    'shop.searchPlaceholder': 'Search for products',
+    'shop.cancel': 'Cancel',
+    'shop.recentSearch': 'Recent',
+    'shop.clearAll': 'Clear all',
+    'shop.suggested': 'Suggested',
+    'shop.heroBadge': 'RUNNERS PICK',
+    'shop.heroTitle1': 'Make running more fun',
+    'shop.heroTitle2': 'Routinist Collection',
+    'shop.heroSub': 'Curated for daily runners',
+    'shop.heroCta': 'Pay with mileage',
+    'shop.categories': 'Categories',
+    'shop.seeAll': 'See all',
+    'shop.all': 'All',
+    'shop.catClothes': 'Apparel',
+    'shop.catHats': 'Hats',
+    'shop.catAccessories': 'Accessories',
+    'shop.catGoods': 'Goods',
+    'shop.searchNoResult': 'No results found',
+    'shop.categoryPreparing': 'Coming soon',
+    'shop.comingSoon': 'New products coming soon',
+    'shop.viewAllProducts': 'View all products',
+    'shop.hotProducts': 'Trending now',
+    'shop.itemUnit': '{n} items',
+    'shop.allProducts': 'All products',
+    'shop.like': 'Like',
+    'shop.liked': 'Added to wishlist ❤️',
+    'shop.unliked': 'Removed from wishlist',
+    'shop.retryLater': 'Please try again later',
+    'shop.fabCart': 'Cart {n}',
+    'shop.menuWishlist': 'Wishlist',
+    'shop.menuOrders': 'Orders',
+    'shop.menuAddresses': 'Addresses',
+    'shop.menuMileage': 'Mileage',
+    'shop.menuSupport': 'Support',
+    'shop.menuBusinessInfo': 'Business info',
+    'shop.menuTerms': 'Terms',
+    'shop.menuRefund': 'Refunds',
+    'shop.menuSignOut': 'Sign out',
+    'shop.menuClose': 'Close',
+    'activity.title': 'Activity detail',
+    'activity.notFound': 'Activity not found.',
+    'activity.duration': 'Duration',
+    'activity.pacePerKm': 'Pace/km',
+    'activity.kcal': 'kcal',
+    'activity.heartRateAvg': 'Avg HR',
+    'activity.heartRateMax': 'Max HR',
+    'activity.exerciseType': 'Type',
+    'activity.walking': 'Walking 🚶',
+    'activity.running': 'Running 🏃',
+    'activity.date': 'Date',
+    'activity.source': 'Source',
+    'activity.sourceManual': 'Manual',
+    'activity.sourceGps': 'GPS tracking',
+    'activity.memo': 'Notes',
+    'activity.commentsTitle': 'Cheers & comments',
+    'activity.createShareCard': 'Create share card',
+    'rankingHero.starHint': 'Tap a star to drop that filter and see your rank in a wider cohort.',
+    'rankingHero.starExample': 'e.g. You might be #1 in your neighborhood but ranked differently worldwide.',
+    'rankingHero.toTop10': '{km}km to TOP 10',
+    'rankingHero.peopleSlash': '/ {n} people',
+    'rankingHero.viewAll': 'View all',
+    'rankingHero.regionTitle': 'My area TOP 10',
+    'rankingHero.regionSub': 'Same district',
+    'rankingHero.decadeTitle': 'My age group TOP 10',
+    'rankingHero.decadeSub': 'Same age & gender nationwide',
+    'rankingHero.genderTitle': 'Same gender TOP 10',
+    'rankingHero.genderSub': 'By gender, nationwide',
+    'rankingHero.starterTitle': 'Joined together TOP 10',
+    'rankingHero.starterSub': 'Runners who joined around the same time',
+    'rankingHero.noRecord': 'No records yet',
+    'rankingHero.runOnceCta': 'Run once to get on the ranking!',
+    'rankingHero.champion': 'Champion! Hold your spot',
+    'rankingHero.toRank': '{km}km to #{target}',
+    'rankingHero.oneStep': 'One more step — beat yesterday',
+    'quotes.tabAll': 'All',
+    'quotes.tabMine': 'Mine',
+    'quotes.write': 'Write',
+    'quotes.emptyMine': 'No notes yet',
+    'quotes.emptyAll': 'No notes yet',
+    'quotes.emptyHint': 'Tap Write at the top right to share your first note',
+    'quotes.anonymous': 'Anonymous',
+    'quotes.tagRunner': 'Runner',
+    'quotes.tagClassic': 'Classic',
+    'quotes.delete': 'Delete',
+    'quotes.report': 'Report',
+    'quotes.composeTitle': 'Today\'s note',
+    'quotes.composeSub': 'Posted as {name}',
+    'quotes.composePlaceholder': 'e.g. "One more step today — beat yesterday."',
+    'quotes.composeFooter': 'Likes + share card caption',
+    'quotes.composeSubmit': 'Post note',
+    'quotes.composing': 'Posting…',
+    'quotes.reportTitle': 'Report note',
+    'quotes.reportSub': 'Pick a reason. Auto-hidden after 3 reports.',
+    'quotes.reportR1': 'Inappropriate content',
+    'quotes.reportR2': 'Spam / ads',
+    'quotes.reportR3': 'Harassment / hate',
+    'quotes.reportR4': 'Copyright',
+    'quotes.reportR5': 'Other',
+    'quotes.reportSubmitted': 'Reported',
+    'quotes.deleteConfirm': 'Delete this note?',
+    'quotes.deleted': 'Deleted',
+    'quotes.submitted': '✨ Your note was posted',
+    'photos.subTrending': 'Trending',
+    'photos.subFriends': 'Friends',
+    'photos.subRegion': 'Area',
+    'photos.subRecent': 'Recent',
+    'photos.subLiked': 'Liked',
+    'photos.uploadCta': 'Upload today\'s run photo',
+    'photos.emptyFriends': 'No photos from friends yet. Add runners as friends in the Friends tab!',
+    'photos.emptyRegionNoLoc': 'Set your region to see local photos here',
+    'photos.emptyRegion': 'No photos shared from {region} yet',
+    'photos.emptyLiked': 'No liked photos yet',
+    'photos.emptyDefault': 'If you ran today, tap the button above to create a share card and be the first runner photo!',
+    'homeHero.rankingPrepping': 'Ranking is loading...',
+    'homeHero.rankingPreppingSub': 'It will appear once the network is stable',
+    'homeHero.retry': 'Retry',
+    'homeHero.seeMyRanking': 'See my ranking 🏃‍♂️',
+    'homeHero.seeMyRankingSub': 'Add region, gender, and birth year to see your rank among similar runners',
+    'homeHero.myRankingCondition': 'My ranking profile',
+    'homeHero.conditionDone': 'Profile complete',
+    'homeHero.edit': 'Edit',
+    'homeHero.waitingForOthers': 'When more runners share your profile, ranks will show. Invite friends!',
+    'homeHero.holdSpot': 'Holding the top spot',
+    'homeHero.viewFullRanking': 'View full ranking',
+    'homeHero.tierChamp': 'Champion',
+    'homeHero.tierRunnerUp': 'Runner-up',
+    'homeHero.tierMedal': 'Medalist',
+    'homeHero.tierTop10': 'TOP 10',
+    'homeHero.tierChallenging': 'Chasing',
+    'homeHero.runner': 'Runner',
+    'homeHero.kmMore': '{km}km more',
+    'homeHero.toRankAbbr': '→ #{rank}',
   },
 };
 
@@ -587,9 +793,6 @@ function detectInitialLocale(): Locale {
   } catch {}
   const nav = (typeof navigator !== 'undefined' ? navigator.language : '').toLowerCase();
   if (nav.startsWith('en')) return 'en';
-  if (nav.startsWith('ja')) return 'ja';
-  if (nav.startsWith('zh')) return 'zh';
-  if (nav.startsWith('es')) return 'es';
   return 'ko';
 }
 

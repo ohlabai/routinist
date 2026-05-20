@@ -16,12 +16,13 @@ import { User as UserIcon, Users, Search, Plus, MapPin, Camera, Trophy, MessageS
 import { startOfWeekStr } from '@/lib/kst';
 import type { Profile, Club } from '@/types';
 import AppLogo from '@/components/AppLogo';
+import { useI18n } from '@/lib/i18n';
 
 const SECTIONS = [
-  { id: 'friends', label: '친구', Icon: UserIcon },
-  { id: 'clubs', label: '클럽', Icon: Users },
-  { id: 'photos', label: '포토', Icon: Camera },
-  { id: 'quotes', label: '러너 한 줄', Icon: MessageSquare },
+  { id: 'friends', tKey: 'social.tabFriends', Icon: UserIcon },
+  { id: 'clubs', tKey: 'social.tabClubs', Icon: Users },
+  { id: 'photos', tKey: 'social.tabPhotos', Icon: Camera },
+  { id: 'quotes', tKey: 'social.tabQuotes', Icon: MessageSquare },
 ] as const;
 
 type SectionId = typeof SECTIONS[number]['id'];
@@ -32,6 +33,7 @@ function startOfWeek(): string {
 
 function SocialPageInner() {
   const { user, profile } = useAuth();
+  const { t } = useI18n();
   const searchParams = useSearchParams();
   const initialTab = (searchParams.get('tab') as SectionId) ?? 'friends';
   const [activeSection, setActiveSection] = useState<SectionId>(
@@ -70,7 +72,7 @@ function SocialPageInner() {
       const kmMap = new Map<string, number>();
       (acts ?? []).forEach(a => kmMap.set(a.user_id, (kmMap.get(a.user_id) ?? 0) + Number(a.distance_km)));
       const rows = [
-        { id: user.id, name: profile?.display_name ?? '나', avatar: profile?.avatar_url ?? null, km: kmMap.get(user.id) ?? 0, isMe: true },
+        { id: user.id, name: profile?.display_name ?? t('social.me'), avatar: profile?.avatar_url ?? null, km: kmMap.get(user.id) ?? 0, isMe: true },
         ...following.map(f => ({ id: f.id, name: f.display_name, avatar: f.avatar_url, km: kmMap.get(f.id) ?? 0, isMe: false })),
       ].sort((a, b) => b.km - a.km);
       setFriendsCompare(rows);
@@ -79,7 +81,7 @@ function SocialPageInner() {
     } finally {
       setLoading(false);
     }
-  }, [user, profile]);
+  }, [user, profile, t]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -94,7 +96,7 @@ function SocialPageInner() {
     setUsers(results.filter((u) => u.id !== user?.id));
   };
 
-  const name = profile?.display_name ?? '러너';
+  const name = profile?.display_name ?? t('profile.runner');
 
   return (
     <div className="max-w-lg mx-auto pb-12 bg-[var(--background)] min-h-screen">
@@ -102,7 +104,7 @@ function SocialPageInner() {
       <header className="sticky top-0 z-30 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
         <div className="px-4 py-3 flex items-center gap-2">
           <AppLogo size={28} />
-          <h1 className="text-xl font-extrabold tracking-tight">소셜</h1>
+          <h1 className="text-xl font-extrabold tracking-tight">{t('social.title')}</h1>
         </div>
       </header>
 
@@ -120,7 +122,7 @@ function SocialPageInner() {
             }`}
           >
             <section.Icon size={14} />
-            {section.label}
+            {t(section.tKey)}
           </button>
         ))}
       </div>
@@ -133,8 +135,8 @@ function SocialPageInner() {
           {friendsCompare.length > 1 ? (
             <div className="card p-4">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-bold text-[var(--foreground)]">이번 주 친구 비교</h3>
-                <span className="text-[10px] text-[var(--muted)]">월요일 기준</span>
+                <h3 className="text-sm font-bold text-[var(--foreground)]">{t('social.weekCompare')}</h3>
+                <span className="text-[10px] text-[var(--muted)]">{t('social.weekMondayBase')}</span>
               </div>
               <div className="space-y-2">
                 {(() => {
@@ -159,7 +161,7 @@ function SocialPageInner() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-baseline justify-between">
                           <span className={`text-sm truncate ${r.isMe ? 'font-bold text-emerald-600' : 'font-medium text-[var(--foreground)]'}`}>
-                            {r.name}{r.isMe ? ' (나)' : ''}
+                            {r.name}{r.isMe ? ` (${t('social.me')})` : ''}
                           </span>
                           <span className="text-xs text-[var(--muted)] ml-2">{r.km.toFixed(1)}km</span>
                         </div>
@@ -182,10 +184,10 @@ function SocialPageInner() {
               className="block card p-5 text-center bg-emerald-50/30 dark:bg-emerald-950/15 border-emerald-200/50 dark:border-emerald-900/40 active:scale-[0.99] transition"
             >
               <UserIcon size={28} className="mx-auto text-emerald-600 dark:text-emerald-400 mb-2" />
-              <p className="text-sm font-bold text-[var(--foreground)]">친구와 함께 달려보세요</p>
-              <p className="text-xs text-[var(--muted)] mt-1">동네·페이스 비슷한 러너를 추가하면 이번 주 km 비교가 보여요</p>
+              <p className="text-sm font-bold text-[var(--foreground)]">{t('social.emptyFriendsTitle')}</p>
+              <p className="text-xs text-[var(--muted)] mt-1">{t('social.emptyFriendsSub')}</p>
               <p className="mt-2 inline-flex items-center gap-0.5 text-[11px] font-extrabold text-emerald-600">
-                친구 찾기 →
+                {t('social.findFriendsCta')}
               </p>
             </Link>
           )}
@@ -200,8 +202,8 @@ function SocialPageInner() {
                 <MapPin size={20} className="text-white" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-extrabold text-white">동네 러너 찾기</p>
-                <p className="text-xs text-white/85 mt-0.5">같은 동·구·시 러너와 친구 맺고 함께 달려요</p>
+                <p className="text-sm font-extrabold text-white">{t('social.nearbyTitle')}</p>
+                <p className="text-xs text-white/85 mt-0.5">{t('social.nearbySub')}</p>
               </div>
               <span className="text-white text-base font-bold">→</span>
             </div>
@@ -209,12 +211,12 @@ function SocialPageInner() {
 
           {/* 러너 찾기 */}
           <div>
-            <h2 className="text-base font-bold text-[var(--foreground)] mb-3">러너 찾기</h2>
+            <h2 className="text-base font-bold text-[var(--foreground)] mb-3">{t('social.findRunners')}</h2>
             <div className="relative mb-3">
               <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" />
               <input
                 type="text"
-                placeholder="닉네임으로 검색"
+                placeholder={t('social.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[var(--card)] border border-[var(--card-border)] text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
@@ -226,11 +228,11 @@ function SocialPageInner() {
               </div>
             ) : users.length === 0 ? (
               <div className="card p-5 text-center">
-                <p className="text-sm font-medium text-[var(--foreground)]">{searchQuery ? '해당 닉네임의 러너가 없어요' : '아직 공개된 러너가 없어요'}</p>
+                <p className="text-sm font-medium text-[var(--foreground)]">{searchQuery ? t('social.noMatchRunner') : t('social.noPublicRunner')}</p>
                 <p className="text-xs text-[var(--muted)] mt-1">
                   {searchQuery
-                    ? '다른 닉네임으로 검색해보거나, 친구를 Routinist 에 초대해보세요'
-                    : '친구가 Routinist 에 가입하면 여기 나타납니다'}
+                    ? t('social.searchHintMatch')
+                    : t('social.searchHintPublic')}
                 </p>
               </div>
             ) : (
@@ -261,17 +263,17 @@ function SocialPageInner() {
         <div className="space-y-6">
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-semibold text-[var(--foreground)]">내 클럽</h2>
+              <h2 className="text-base font-semibold text-[var(--foreground)]">{t('social.myClubs')}</h2>
               <Link href="/social/clubs/create" className="flex items-center gap-1 text-sm text-emerald-600 font-semibold">
-                <Plus size={14} /> 클럽 만들기
+                <Plus size={14} /> {t('social.createClub')}
               </Link>
             </div>
             {myClubs.length === 0 ? (
               <div className="card p-6 text-center space-y-2">
                 <div><AppLogo size={40} /></div>
-                <p className="text-sm font-medium text-[var(--foreground)]">아직 가입한 클럽이 없습니다</p>
+                <p className="text-sm font-medium text-[var(--foreground)]">{t('social.noClub')}</p>
                 <Link href="/social/clubs" className="text-sm text-emerald-600 font-semibold inline-block">
-                  클럽 둘러보기 →
+                  {t('social.browseClubs')}
                 </Link>
               </div>
             ) : (
@@ -288,7 +290,7 @@ function SocialPageInner() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-[var(--foreground)] truncate">{club.name}</p>
-                      <p className="text-xs text-[var(--muted)]">멤버 {club.member_count}명</p>
+                      <p className="text-xs text-[var(--muted)]">{t('social.memberCount').replace('{count}', String(club.member_count))}</p>
                     </div>
                   </Link>
                 ))}
@@ -302,8 +304,8 @@ function SocialPageInner() {
                 <Trophy size={18} className="text-emerald-500" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-[var(--foreground)]">모든 클럽 둘러보기</p>
-                <p className="text-xs text-[var(--muted)]">인기 클럽 · 가입하기</p>
+                <p className="text-sm font-semibold text-[var(--foreground)]">{t('social.allClubs')}</p>
+                <p className="text-xs text-[var(--muted)]">{t('social.allClubsSub')}</p>
               </div>
             </div>
             <span className="text-[var(--muted)]">→</span>

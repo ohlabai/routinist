@@ -18,6 +18,7 @@ import {
 import { toggleQuoteLike } from '@/lib/quotes-data';
 import { useAuth } from '@/components/AuthProvider';
 import AppToast from '@/components/AppToast';
+import { useI18n } from '@/lib/i18n';
 
 type FilterMode = 'all' | 'mine';
 
@@ -43,6 +44,7 @@ function timeAgo(iso: string): string {
 
 export default function QuotesTab() {
   const { user, profile } = useAuth();
+  const { t } = useI18n();
   const [mode, setMode] = useState<FilterMode>('all');
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -114,7 +116,7 @@ export default function QuotesTab() {
         liked_by_me: wasLiked,
         like_count: x.like_count + (wasLiked ? 1 : -1),
       } : x));
-      showToast('잠시 후 다시 시도해주세요', 'warn');
+      showToast(t('shop.retryLater'), 'warn');
     } finally {
       setLikeBusy(null);
     }
@@ -122,13 +124,13 @@ export default function QuotesTab() {
 
   const handleCompose = async () => {
     const trimmed = composeText.trim();
-    if (trimmed.length < 3) { showToast('한 줄 일기가 너무 짧아요 (3자 이상)', 'warn'); return; }
+    if (trimmed.length < 3) { showToast(t('quotes.composeTitle'), 'warn'); return; }
     setComposing(true);
     try {
       await createUserQuote(trimmed);
       setComposeText('');
       setComposeOpen(false);
-      showToast('✨ 한 줄 일기가 등록됐어요');
+      showToast(t('quotes.submitted'));
       await load();
     } catch (e) {
       showToast(e instanceof Error ? e.message : '등록 실패', 'warn');
@@ -138,11 +140,11 @@ export default function QuotesTab() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('이 한 줄을 삭제할까요?')) return;
+    if (!confirm(t('quotes.deleteConfirm'))) return;
     try {
       await deleteMyQuote(id);
       setItems(prev => prev.filter(x => x.id !== id));
-      showToast('삭제했어요');
+      showToast(t('quotes.deleted'));
     } catch (e) {
       showToast(e instanceof Error ? e.message : '삭제 실패', 'warn');
     }
@@ -153,7 +155,7 @@ export default function QuotesTab() {
     setReporting(true);
     try {
       await reportQuote(reportTarget.id, reason);
-      showToast('신고 접수됨');
+      showToast(t('quotes.reportSubmitted'));
     } catch (e) {
       showToast(e instanceof Error ? e.message : '신고 실패', 'warn');
     } finally {
@@ -175,16 +177,16 @@ export default function QuotesTab() {
                 mode === m ? 'bg-emerald-500 text-white shadow' : 'text-[var(--muted)]'
               }`}
             >
-              {m === 'all' ? '전체' : '내 한 줄'}
+              {m === 'all' ? t('quotes.tabAll') : t('quotes.tabMine')}
             </button>
           ))}
         </div>
         <button
           onClick={() => setComposeOpen(true)}
           className="px-3.5 py-2 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-bold text-sm shadow active:scale-95 inline-flex items-center gap-1"
-          aria-label="러너 한 줄 쓰기"
+          aria-label={t('quotes.write')}
         >
-          <PenLine size={14} /> 쓰기
+          <PenLine size={14} /> {t('quotes.write')}
         </button>
       </div>
 
@@ -210,10 +212,10 @@ export default function QuotesTab() {
               <Sparkles size={28} className="text-emerald-500" />
             </div>
             <p className="text-base font-extrabold mb-1">
-              {mode === 'mine' ? '아직 쓴 한 줄이 없어요' : '아직 등록된 한 줄이 없어요'}
+              {mode === 'mine' ? t('quotes.emptyMine') : t('quotes.emptyAll')}
             </p>
             <p className="text-sm text-[var(--muted)]">
-              우측 상단 <span className="font-bold text-emerald-600">쓰기</span> 로 첫 한 줄을 남겨보세요
+              {t('quotes.emptyHint')}
             </p>
           </div>
         ) : (
@@ -227,16 +229,16 @@ export default function QuotesTab() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 text-sm">
                     <span className="font-bold text-[var(--foreground)] truncate">
-                      {q.author ?? '익명'}
+                      {q.author ?? t('quotes.anonymous')}
                     </span>
                     {q.is_user_quote && (
                       <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex-shrink-0">
-                        러너
+                        {t('quotes.tagRunner')}
                       </span>
                     )}
                     {!q.is_user_quote && (
                       <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex-shrink-0">
-                        고전
+                        {t('quotes.tagClassic')}
                       </span>
                     )}
                     <span className="text-xs text-[var(--muted)] flex-shrink-0">· {timeAgo(q.created_at)}</span>
@@ -250,7 +252,7 @@ export default function QuotesTab() {
                         onClick={() => handleLike(q)}
                         disabled={likeBusy === q.id}
                         className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition disabled:opacity-50 active:scale-95"
-                        aria-label="좋아요"
+                        aria-label={t('shop.like')}
                       >
                         <ThumbsUp
                           size={15}
@@ -272,14 +274,14 @@ export default function QuotesTab() {
                         onClick={() => handleDelete(q.id)}
                         className="ml-auto inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs text-rose-600 dark:text-rose-400 active:scale-95"
                       >
-                        <Trash2 size={12} /> 삭제
+                        <Trash2 size={12} /> {t('quotes.delete')}
                       </button>
                     ) : q.is_user_quote && user ? (
                       <button
                         onClick={() => setReportTarget(q)}
                         className="ml-auto inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs text-[var(--muted)] active:scale-95"
                       >
-                        <Flag size={12} /> 신고
+                        <Flag size={12} /> {t('quotes.report')}
                       </button>
                     ) : null}
                   </div>
@@ -303,10 +305,10 @@ export default function QuotesTab() {
             <div className="flex items-start justify-between mb-3">
               <div>
                 <h3 className="text-base font-extrabold inline-flex items-center gap-1.5">
-                  <PenLine size={16} className="text-emerald-500" /> 한 줄 일기
+                  <PenLine size={16} className="text-emerald-500" /> {t('quotes.composeTitle')}
                 </h3>
                 <p className="text-xs text-[var(--muted)] mt-0.5">
-                  {profile?.display_name ?? '러너'} 닉네임으로 표시돼요
+                  {t('quotes.composeSub').replace('{name}', profile?.display_name ?? t('profile.runner'))}
                 </p>
               </div>
               <button onClick={() => setComposeOpen(false)} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90">
@@ -316,14 +318,14 @@ export default function QuotesTab() {
             <textarea
               value={composeText}
               onChange={(e) => setComposeText(e.target.value.slice(0, 300))}
-              placeholder='예) "오늘도 한 발 더, 어제의 나를 이겼다."'
+              placeholder={t('quotes.composePlaceholder')}
               rows={4}
               autoFocus
               className="w-full px-3.5 py-3 rounded-2xl border-2 border-[var(--card-border)] bg-[var(--background)] text-[15px] focus:outline-none focus:border-emerald-500 resize-none"
             />
             <div className="flex justify-between mt-1.5">
               <span className="text-[10px] text-[var(--muted)]">{composeText.length}/300</span>
-              <span className="text-[10px] text-emerald-600 font-semibold">좋아요 받기 + 공유 카드 캡션</span>
+              <span className="text-[10px] text-emerald-600 font-semibold">{t('quotes.composeFooter')}</span>
             </div>
             <button
               onClick={handleCompose}
@@ -331,9 +333,9 @@ export default function QuotesTab() {
               className="w-full mt-3 py-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-sm disabled:opacity-50 active:scale-[0.98] inline-flex items-center justify-center gap-1.5"
             >
               {composing ? (
-                <><span className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" /> 등록 중…</>
+                <><span className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" /> {t('quotes.composing')}</>
               ) : (
-                <><Check size={16} /> 러너 한 줄 등록</>
+                <><Check size={16} /> {t('quotes.composeSubmit')}</>
               )}
             </button>
           </div>
@@ -354,18 +356,18 @@ export default function QuotesTab() {
               <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center">
                 <Flag size={24} className="text-amber-600" />
               </div>
-              <h3 className="text-base font-bold">러너 한 줄 신고</h3>
+              <h3 className="text-base font-bold">{t('quotes.reportTitle')}</h3>
               <p className="text-xs text-[var(--muted)] text-center">
-                신고 사유를 선택해주세요. 3회 누적 시 자동 숨김 처리.
+                {t('quotes.reportSub')}
               </p>
             </div>
             <div className="space-y-1.5">
               {([
-                { id: 'inappropriate' as const, label: '부적절한 콘텐츠' },
-                { id: 'spam' as const, label: '스팸/광고' },
-                { id: 'harassment' as const, label: '괴롭힘/혐오' },
-                { id: 'copyright' as const, label: '저작권 위반' },
-                { id: 'other' as const, label: '기타' },
+                { id: 'inappropriate' as const, label: t('quotes.reportR1') },
+                { id: 'spam' as const, label: t('quotes.reportR2') },
+                { id: 'harassment' as const, label: t('quotes.reportR3') },
+                { id: 'copyright' as const, label: t('quotes.reportR4') },
+                { id: 'other' as const, label: t('quotes.reportR5') },
               ]).map(opt => (
                 <button
                   key={opt.id}
@@ -382,7 +384,7 @@ export default function QuotesTab() {
               disabled={reporting}
               className="w-full mt-3 py-2.5 text-sm text-[var(--muted)] disabled:opacity-50"
             >
-              취소
+              {t('common.cancel')}
             </button>
           </div>
         </div>
