@@ -15,8 +15,6 @@ import {
 import {
   fetchDistanceByPeriod,
   fetchPersonalBests,
-  fetchDayOfWeekStats,
-  fetchHourOfDayStats,
   fetchPaceTrend,
   type PeriodDistance,
   type PersonalBest,

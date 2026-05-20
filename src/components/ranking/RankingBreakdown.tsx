@@ -179,7 +179,9 @@ export default function RankingBreakdown({ axis }: Props) {
     setFilters(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  if (loading || combinedLoading) {
+  // build 152 fix: 최초 로딩만 전체 skeleton — 칩 토글 시엔 hero 만 dim (다른 카드는 유지).
+  const isInitialLoad = loading && rows.length === 0 && !combined;
+  if (isInitialLoad) {
     return (
       <div className="space-y-3">
         <div className="h-44 rounded-3xl bg-[var(--card-border)]/30 animate-pulse" />
