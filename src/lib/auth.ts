@@ -14,6 +14,9 @@ type CapacitorWindow = Window & {
 
 const APP_URL_SCHEME = 'routinist://auth/callback';
 const WEB_CALLBACK_PATH = '/auth/callback';
+// 이메일은 보통 PC 브라우저에서 열림 → 메일 confirm 링크의 redirect 는 항상 web URL 로 고정.
+// web callback 페이지가 native deep link 시도 + 성공 화면 처리.
+const EMAIL_CONFIRM_REDIRECT = 'https://app.routinist.kr/auth/callback?from=email';
 
 // Google iOS Client IDs (Supabase 에 등록된 두 개 중 iOS / Web)
 const GOOGLE_IOS_CLIENT_ID =
@@ -350,18 +353,20 @@ export async function handleOAuthCallback(url: string): Promise<Session | null> 
 // emailRedirectTo: 메일의 confirm 링크 클릭 후 돌아올 곳 (네이티브는 딥링크).
 export async function signUpWithEmail(email: string, password: string, displayName?: string) {
   const supabase = getSupabase();
-  const emailRedirectTo = isNativeApp()
-    ? APP_URL_SCHEME
-    : `${typeof window !== 'undefined' ? window.location.origin : 'https://app.routinist.kr'}${WEB_CALLBACK_PATH}`;
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: displayName ? { display_name: displayName } : undefined,
-      emailRedirectTo,
+      emailRedirectTo: EMAIL_CONFIRM_REDIRECT,
     },
   });
   if (error) throw error;
+  // Supabase 설정/플로우에 따라 가입 직후 session 이 발급될 수 있음.
+  // 이메일 인증 전에는 절대 로그인 상태가 되면 안 되므로 즉시 signOut.
+  if (data.session) {
+    await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+  }
   return data;
 }
 
@@ -381,13 +386,10 @@ export async function signInWithEmail(email: string, password: string) {
 // 인증 메일 재전송
 export async function resendEmailConfirmation(email: string) {
   const supabase = getSupabase();
-  const emailRedirectTo = isNativeApp()
-    ? APP_URL_SCHEME
-    : `${typeof window !== 'undefined' ? window.location.origin : 'https://app.routinist.kr'}${WEB_CALLBACK_PATH}`;
   const { error } = await supabase.auth.resend({
     type: 'signup',
     email,
-    options: { emailRedirectTo },
+    options: { emailRedirectTo: EMAIL_CONFIRM_REDIRECT },
   });
   if (error) throw error;
 }

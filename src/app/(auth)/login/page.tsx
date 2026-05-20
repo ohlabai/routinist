@@ -8,7 +8,7 @@ import AppLogo from '@/components/AppLogo';
 import Link from 'next/link';
 
 // 로그인 화면은 브랜드 톤(라이트) 고정 — 다크모드 시스템 설정과 무관하게 일관된 온보딩 경험
-type Mode = 'social' | 'email-login' | 'email-signup';
+type Mode = 'social' | 'email-login' | 'email-signup' | 'email-sent';
 type CapacitorWindow = Window & {
   Capacitor?: unknown;
 };
@@ -22,6 +22,8 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [sentEmail, setSentEmail] = useState('');
+  const [resentAt, setResentAt] = useState<number | null>(null);
   const [showDebug, setShowDebug] = useState(false);
   const [debugLog, setDebugLog] = useState('');
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -100,7 +102,10 @@ export default function LoginPage() {
         await signInWithEmail(email.trim(), password);
       } else {
         await signUpWithEmail(email.trim(), password, displayName.trim() || undefined);
-        setInfo('가입 확인 메일을 보냈습니다. 메일함에서 링크를 눌러 완료해주세요.');
+        // 가입 후엔 "메일 확인" 전체 화면으로 전환 — 폼/안내 작은 텍스트 대신 명확한 다음 단계.
+        setSentEmail(email.trim());
+        setMode('email-sent');
+        setPassword('');
       }
     } catch (e2) {
       const msg = e2 instanceof Error ? e2.message : '오류가 발생했습니다.';
@@ -138,13 +143,15 @@ export default function LoginPage() {
   };
 
   const handleResendConfirmation = async () => {
-    if (!email.trim()) {
+    const target = (mode === 'email-sent' ? sentEmail : email).trim();
+    if (!target) {
       setError('인증 메일 재전송을 위해 이메일을 먼저 입력해주세요.');
       return;
     }
     try {
-      await resendEmailConfirmation(email.trim());
+      await resendEmailConfirmation(target);
       setInfo('인증 메일을 다시 보냈어요. 메일함을 확인해주세요.');
+      setResentAt(Date.now());
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : '재전송 실패');
@@ -229,6 +236,52 @@ export default function LoginPage() {
                 이메일 회원가입
               </button>
             </div>
+          </div>
+        )}
+
+        {mode === 'email-sent' && (
+          <div className="bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 text-center space-y-4">
+            <div className="mx-auto w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center">
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#0F766E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <path d="m3 7 9 6 9-6" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">메일을 보냈어요!</h2>
+              <p className="mt-2 text-sm text-gray-600">
+                <span className="font-semibold text-emerald-700 break-all">{sentEmail}</span>
+                <br />
+                으로 인증 링크를 보냈어요.
+              </p>
+            </div>
+            <div className="text-xs text-gray-500 bg-gray-50 rounded-xl p-3 leading-relaxed">
+              메일함에서 <strong>“이메일 인증하고 시작하기”</strong> 버튼을 눌러주세요.
+              <br />
+              스팸함도 한 번 확인해보세요.
+            </div>
+            <button
+              type="button"
+              onClick={handleResendConfirmation}
+              disabled={resentAt !== null && Date.now() - resentAt < 30_000}
+              className="w-full py-3 rounded-xl border border-emerald-500 bg-white text-emerald-700 font-semibold hover:bg-emerald-50 disabled:opacity-50"
+            >
+              {resentAt && Date.now() - resentAt < 30_000 ? '재전송 완료' : '인증 메일 다시 보내기'}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setMode('email-signup'); setSentEmail(''); setInfo(null); setError(null); setResentAt(null); }}
+              className="w-full py-3 rounded-xl text-sm text-gray-600 hover:bg-gray-50"
+            >
+              다른 이메일로 가입하기
+            </button>
+            <button
+              type="button"
+              onClick={() => { setMode('email-login'); setInfo(null); setError(null); }}
+              className="w-full py-2 text-xs text-gray-500 underline"
+            >
+              이미 인증을 마쳤어요 → 로그인
+            </button>
           </div>
         )}
 
