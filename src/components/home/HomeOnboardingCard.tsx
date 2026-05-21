@@ -241,7 +241,11 @@ export default function HomeOnboardingCard() {
 
   if (signupDays > 7 || runCount >= 5) return null;
 
-  const profileDone = !!(profile.region_gu && profile.birth_year && profile.gender);
+  // build 163 #2: region_gu 만 검사하던 기존 조건은 너무 엄격.
+  // 사용자가 "경기도" 만 입력해도 (gu 없이) "완료" 로 보여야 자연스러움.
+  // 해외 사용자는 region_si/gu 없이 country_code 만 다른 값으로 가질 수도 있음.
+  const profileDone = !!(profile.birth_year && profile.gender &&
+    (profile.region_si || profile.region_gu || (profile.country_code && profile.country_code !== 'KR')));
 
   const healthFlag = typeof window !== 'undefined'
     ? !!window.localStorage.getItem(`first_sync_done:${user.id}`)
@@ -261,7 +265,10 @@ export default function HomeOnboardingCard() {
   } else {
     items.push({ id: 'first_run', label: '첫 러닝 기록', done: runCount >= 1, href: '/connect' });
   }
-  items.push({ id: 'friend', label: '친구 1명 추가', done: false, href: '/social' });
+  const friendDone = typeof window !== 'undefined'
+    ? !!window.localStorage.getItem(`first_friend_added:${user.id}`)
+    : false;
+  items.push({ id: 'friend', label: '친구 1명 추가', done: friendDone, href: '/social' });
 
   const doneCount = items.filter(i => i.done).length;
   if (doneCount === items.length) return null;

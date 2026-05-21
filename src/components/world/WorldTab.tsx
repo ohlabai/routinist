@@ -132,8 +132,12 @@ export default function WorldTab() {
     setSeriesList(series);
 
     setMine(my);
-    const startedIds = new Set(my.map(m => m.course_id));
-    setAvailable(all.filter(c => !startedIds.has(c.id)));
+    // build 163 #3: 참가중 코스도 "새 코스" 리스트에 노출하되 버튼명만 "참가중 — 진입" 으로 분기.
+    // 기존엔 mine 으로 필터링했지만, fetchMyCourses RPC 가 silent fail (.catch return []) 하면
+    // 참가한 코스가 available 에 그대로 떠서 "도전 시작" 버튼을 또 보게 됨.
+    // 완주한 코스만 제외 — 새 코스 섹션은 "참가 가능 + 진행 중" 으로 정의.
+    const completedIds = new Set(my.filter(m => m.completed_at).map(m => m.course_id));
+    setAvailable(all.filter(c => !completedIds.has(c.id)));
 
     // 진행중 코스도 미리보기 보이게 — all 의 preview_path 매핑.
     const map = new Map<string, PreviewPoint[] | null>();

@@ -14,8 +14,27 @@
 //   dataCache.clearAll();
 
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? 'dev';
-const STORAGE_PREFIX = `routinist_cache_v1_${APP_VERSION}_`;
-const TIMESTAMP_PREFIX = `routinist_cache_ts_v1_${APP_VERSION}_`;
+// build 163: v1 → v2 로 bump. build 161 의 lite-fetch 가 cache 에 route_data 없는 activities 를
+// localStorage 영속화 — 신문 모델이라 사용자가 pull-to-refresh 안 하면 영원히 stale.
+// prefix 자체를 바꿔 모든 사용자 cache 1회 무효화.
+const STORAGE_PREFIX = `routinist_cache_v2_${APP_VERSION}_`;
+const TIMESTAMP_PREFIX = `routinist_cache_ts_v2_${APP_VERSION}_`;
+const LEGACY_PREFIXES = ['routinist_cache_v1_', 'routinist_cache_ts_v1_'];
+
+// 앱 첫 마운트 시 1회 — 옛 v1 cache 키들을 비워서 localStorage 정리.
+function purgeLegacyCaches(): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    const toRemove: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (!k) continue;
+      if (LEGACY_PREFIXES.some(p => k.startsWith(p))) toRemove.push(k);
+    }
+    toRemove.forEach(k => window.localStorage.removeItem(k));
+  } catch {}
+}
+if (typeof window !== 'undefined') purgeLegacyCaches();
 
 interface CacheEntry<T> {
   value: T;

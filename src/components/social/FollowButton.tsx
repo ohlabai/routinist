@@ -7,10 +7,12 @@
 // 누르면 optimistic 즉시 색/라벨 바뀜. 실패 시 롤백 + 토스트로 원인 노출.
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { UserPlus, Check } from 'lucide-react';
 import { followUser, unfollowUser } from '@/lib/social-data';
 import { logClientWarn } from '@/lib/error-logger';
 import AppToast from '@/components/AppToast';
+import { useAuth } from '@/components/AuthProvider';
 
 interface FollowButtonProps {
   userId: string;
@@ -24,6 +26,17 @@ export default function FollowButton({ userId, initialFollowing, onToggle, size 
   const [following, setFollowing] = useState(initialFollowing);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
+  const { user, profile } = useAuth();
+  const router = useRouter();
+
+  // build 163 #1: 신규 회원이 첫 친구를 추가했을 때 onboarding toast + 홈 복귀.
+  // 가입 7일 이내 + first_friend_added flag 미설정인 경우만.
+  const isNewUser = (() => {
+    const createdAt = (profile as { created_at?: string } | null)?.created_at;
+    if (!createdAt) return false;
+    const days = Math.floor((Date.now() - new Date(createdAt).getTime()) / (24 * 60 * 60 * 1000));
+    return days <= 7;
+  })();
 
   const handleToggle = async () => {
     if (loading) return;
@@ -33,7 +46,16 @@ export default function FollowButton({ userId, initialFollowing, onToggle, size 
     try {
       if (next) {
         await followUser(userId);
-        setToast({ text: '친구로 추가했어요', tone: 'ok' });
+        // 신규 회원 첫 친구 추가 → 환영 토스트 + 홈으로 이동
+        const flagKey = user ? `first_friend_added:${user.id}` : null;
+        const isFirst = flagKey && typeof window !== 'undefined' && !window.localStorage.getItem(flagKey);
+        if (isFirst && isNewUser && flagKey) {
+          window.localStorage.setItem(flagKey, String(Date.now()));
+          setToast({ text: '🎉 첫 번째 친구를 추가했어요! 시작 가이드가 완성됐어요', tone: 'ok' });
+          setTimeout(() => router.push('/dashboard'), 1500);
+        } else {
+          setToast({ text: '친구로 추가했어요', tone: 'ok' });
+        }
       } else {
         await unfollowUser(userId);
         setToast({ text: '친구에서 해제했어요', tone: 'ok' });
