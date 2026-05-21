@@ -1,10 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
-import { formatPace, formatDuration } from '@/lib/routinist-data';
+import { formatPace, formatDuration, fetchActivityRoute } from '@/lib/routinist-data';
 import CommentSection from '@/components/social/CommentSection';
 import ShareCard from '@/components/activity/ShareCard';
 import { Share2 } from 'lucide-react';
@@ -23,7 +23,26 @@ function ActivityDetail() {
   const id = searchParams.get('id');
 
   const [showShare, setShowShare] = useState(false);
-  const activity = useMemo(() => activities.find(a => a.id === id), [activities, id]);
+  // build 161 #12-1: UserDataProvider 의 활동은 route_data 가 없는 lite 버전 (첫 로그인 가속).
+  // 활동 상세 진입 시 단건 route_data 만 lazy fetch → 메인 fetch 부담은 그대로 둠.
+  const [route, setRoute] = useState<import('@/types').GeoJSONLineString | null>(null);
+  const baseActivity = useMemo(() => activities.find(a => a.id === id), [activities, id]);
+
+  useEffect(() => {
+    if (!id || !baseActivity) return;
+    if (baseActivity.route_data) { setRoute(baseActivity.route_data); return; }
+    let cancelled = false;
+    (async () => {
+      const r = await fetchActivityRoute(id);
+      if (!cancelled && r?.route_data) setRoute(r.route_data);
+    })();
+    return () => { cancelled = true; };
+  }, [id, baseActivity]);
+
+  const activity = useMemo(
+    () => baseActivity ? { ...baseActivity, route_data: route ?? baseActivity.route_data ?? null } : null,
+    [baseActivity, route]
+  );
 
   if (!activity) {
     return (

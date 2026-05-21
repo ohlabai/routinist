@@ -393,6 +393,9 @@ function UserProfileContent() {
       {/* Achievement 배지 (build 129) */}
       <AchievementsCard userId={profile.id} />
 
+      {/* 친구 이달 랭킹·목표 (build 161 #8-2) — 친구 프로필에 부족했던 컨텍스트 보강 */}
+      <FriendRankingBlock userId={profile.id} monthlyKm={stats.monthly_km} />
+
       {/* 친구 월드런 코스 (build 130) */}
       <FriendCoursesCard userId={profile.id} />
 
@@ -794,6 +797,73 @@ function FriendCalendarCard({ userId }: { userId: string }) {
         <span className="w-3 h-3 rounded-sm bg-emerald-700" />
         <span>많음</span>
       </div>
+    </div>
+  );
+}
+
+// ── 친구 이달 랭킹·목표 (build 161 #8-2) ─────────────
+// find_hero_rank RPC 로 현재 이번 달 랭킹 + monthly_goals 테이블에서 목표 거리 조회.
+// 친구 프로필에 "혼자만의 숫자" 가 아니라 "사회적 맥락" 추가.
+function FriendRankingBlock({ userId, monthlyKm }: { userId: string; monthlyKm: number }) {
+  const [rank, setRank] = useState<{ scope_label: string; rank_position: number; total_in_scope: number } | null>(null);
+  const [goalKm, setGoalKm] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const supabase = getSupabase();
+        const now = new Date();
+        const [rankRes, goalRes] = await Promise.all([
+          supabase.rpc('find_hero_rank', { target_user_id: userId, time_axis: 'month' }),
+          supabase.rpc('get_user_monthly_goal', {
+            target_user_id: userId,
+            p_year: now.getFullYear(),
+            p_month: now.getMonth() + 1,
+          }),
+        ]);
+        if (rankRes.data && rankRes.data.length > 0) {
+          const r = rankRes.data[0];
+          setRank({ scope_label: r.scope_label, rank_position: r.rank_position, total_in_scope: r.total_in_scope });
+        }
+        if (goalRes.data) setGoalKm(Number(goalRes.data));
+      } catch { /* ignore */ }
+      finally { setLoading(false); }
+    })();
+  }, [userId]);
+
+  if (loading) return <div className="card p-4 h-20 animate-pulse" />;
+  if (!rank && !goalKm) return null;
+
+  const goalPct = goalKm && goalKm > 0 ? Math.min(100, Math.round((monthlyKm / goalKm) * 100)) : null;
+
+  return (
+    <div className="card p-4 space-y-3">
+      {rank && (
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">이달 랭킹</p>
+            <p className="text-lg font-extrabold text-[var(--foreground)] mt-0.5">
+              <span className="text-emerald-600">{rank.rank_position}위</span>
+              <span className="text-xs font-medium text-[var(--muted)] ml-1.5">/ {rank.total_in_scope}명</span>
+            </p>
+            <p className="text-[11px] text-[var(--muted)] mt-0.5">{rank.scope_label}</p>
+          </div>
+          <Trophy size={28} className="text-yellow-500" />
+        </div>
+      )}
+      {goalKm && goalPct !== null && (
+        <div className={rank ? 'pt-3 border-t border-[var(--card-border)]' : ''}>
+          <div className="flex items-center justify-between mb-1.5">
+            <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">이달 목표</p>
+            <p className="text-xs font-bold text-[var(--foreground)] tabular-nums">{monthlyKm.toFixed(1)} / {goalKm.toFixed(0)} km</p>
+          </div>
+          <div className="h-2 rounded-full bg-[var(--card-border)]/30 overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all" style={{ width: `${goalPct}%` }} />
+          </div>
+          <p className="text-[11px] text-[var(--muted)] mt-1 text-right">{goalPct}% 진행</p>
+        </div>
+      )}
     </div>
   );
 }

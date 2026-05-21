@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/((?!_next|api|privacy|support|\\.well-known).*)", "destination": "/index.html" }
+    { "source": "/((?!_next|api|privacy|support|\\.well-known|r/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {

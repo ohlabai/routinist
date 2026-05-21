@@ -4,6 +4,11 @@ import { todayStr, daysAgoStr, startOfWeekStr } from './kst';
 
 // ===== Activities =====
 
+// build 161 #12-1: route_data 컬럼은 평균 92KB. 296 활동 → 25MB. 첫 로그인 5~30초 지연의 주범.
+// UserDataProvider 가 쓰는 메인 경로에선 route_data 를 제외 — 활동 상세 페이지가 필요할 때만 lazy fetch.
+// HomeMapPreview 는 자체적으로 fetchRoutesForUser 로 최근 7일만 가져옴 (영향 없음).
+const ACTIVITY_LITE_COLS = 'id, user_id, activity_date, distance_km, duration_seconds, pace_avg_sec_per_km, calories, memo, source, map_snapshot_url, started_at, ended_at, created_at, visibility, heart_rate_avg, heart_rate_max, active_energy_kcal, activity_type';
+
 export async function fetchActivities(userId: string): Promise<Activity[]> {
   const all: Activity[] = [];
   let from = 0;
@@ -12,7 +17,7 @@ export async function fetchActivities(userId: string): Promise<Activity[]> {
   while (true) {
     const { data, error } = await getSupabase()
       .from('activities')
-      .select('*')
+      .select(ACTIVITY_LITE_COLS)
       .eq('user_id', userId)
       .order('activity_date', { ascending: false })
       .range(from, from + PAGE - 1);
@@ -23,6 +28,7 @@ export async function fetchActivities(userId: string): Promise<Activity[]> {
     all.push(...data.map(a => ({
       ...a,
       distance_km: Number(a.distance_km),
+      route_data: null,
     } as Activity)));
 
     if (data.length < PAGE) break;
@@ -30,6 +36,17 @@ export async function fetchActivities(userId: string): Promise<Activity[]> {
   }
 
   return all;
+}
+
+// 활동 상세 (route_data 포함) 단건 조회 — activity/page.tsx 등에서 사용.
+export async function fetchActivityRoute(activityId: string): Promise<{ route_data: import('@/types').GeoJSONLineString | null } | null> {
+  const { data, error } = await getSupabase()
+    .from('activities')
+    .select('route_data')
+    .eq('id', activityId)
+    .maybeSingle();
+  if (error) return null;
+  return data as { route_data: import('@/types').GeoJSONLineString | null } | null;
 }
 
 export async function fetchActivitiesForMonth(userId: string, year: number, month: number): Promise<Activity[]> {
