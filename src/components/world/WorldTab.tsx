@@ -148,10 +148,14 @@ export default function WorldTab() {
   const handleStart = async (courseId: string) => {
     setStarting(courseId);
     try {
-      await startCourse(courseId);
+      const r = await startCourse(courseId);
       const name = confirmStart?.name ?? available.find(c => c.id === courseId)?.name;
-      track('world_course_start', { course_id: courseId, course_name: name });
-      showToast('✨ 코스를 시작했어요');
+      if (r.already_started) {
+        showToast('이미 참가중인 대회예요 — 바로 진입할게요');
+      } else {
+        track('world_course_start', { course_id: courseId, course_name: name });
+        showToast(`✨ ${r.fee_charged.toLocaleString()} 마일리지 차감 — 잔액 ${r.balance.toLocaleString()}`);
+      }
       setConfirmStart(null);
       await load();
       // build 157: 결제(시작) 직후 곧바로 코스 상세 시트로 진입 — Conqueror 앱처럼 가상 대회 참가한 느낌.
@@ -279,7 +283,10 @@ export default function WorldTab() {
             {available
               .filter(c => continentFilter === 'all' || c.continent === continentFilter)
               .filter(c => !seriesFilter || c.series_id === seriesFilter)
-              .map(c => (
+              .map(c => {
+              const myEntry = mine.find(m => m.course_id === c.id);
+              const joined = !!myEntry;
+              return (
               <div key={c.id} className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] overflow-hidden">
                 {/* 지도 미리보기 + 클릭 시 상세 */}
                 <button onClick={() => setDetailCourseId(c.id)} className="w-full text-left active:opacity-90">
@@ -310,17 +317,27 @@ export default function WorldTab() {
                     >
                       자세히
                     </button>
-                    <button
-                      onClick={() => setConfirmStart(c)}
-                      disabled={starting === c.id}
-                      className="flex-1 py-3 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-sm active:scale-[0.99] disabled:opacity-50 shadow-md shadow-emerald-500/25"
-                    >
-                      {starting === c.id ? '시작 중…' : '도전 시작'}
-                    </button>
+                    {joined ? (
+                      <button
+                        onClick={() => setDetailCourseId(c.id)}
+                        className="flex-1 py-3 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white font-extrabold text-sm active:scale-[0.99] shadow-md shadow-amber-500/25"
+                      >
+                        참가중 — 진입
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmStart(c)}
+                        disabled={starting === c.id}
+                        className="flex-1 py-3 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-sm active:scale-[0.99] disabled:opacity-50 shadow-md shadow-emerald-500/25"
+                      >
+                        {starting === c.id ? '시작 중…' : '도전 시작'}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
-            ))}
+            );
+          })}
           </div>
         )}
       </Section>

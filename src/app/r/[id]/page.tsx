@@ -60,21 +60,9 @@ export default async function ShareLandingPage({ params }: { params: Promise<{ i
 
   return (
     <div style={{ minHeight: '100vh', background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      {/* build 137: 자동 store redirect 제거. 사용자가 페이지에 머무르며 buttons 선택.
-          deep link 자동 시도만 유지: 앱 설치된 사용자는 매끄럽게 진입. */}
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `
-            (function () {
-              var ua = navigator.userAgent || '';
-              var isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
-              var isAndroid = /Android/i.test(ua);
-              if (!isIOS && !isAndroid) return;
-              try { window.location.href = ${JSON.stringify(deepLink)}; } catch (e) {}
-            })();
-          `,
-        }}
-      />
+      {/* build 162 #1b: 자동 deep link redirect 제거. 카톡/인스타 인앱 브라우저에서
+          routinist:// 스킴이 미등록인 채로 location.href 변경 시 페이지가 깜빡이는 회귀.
+          버튼 탭으로만 진입하도록 변경 — 사용자가 명시적으로 "앱에서 열기" 누름. */}
       <div style={{ maxWidth: 420, width: '100%', textAlign: 'center' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/apple-touch-icon.png" alt="Routinist" width={88} height={88} style={{ borderRadius: 22, boxShadow: '0 6px 30px rgba(16,185,129,0.25)' }} />

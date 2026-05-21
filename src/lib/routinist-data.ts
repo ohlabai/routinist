@@ -4,11 +4,9 @@ import { todayStr, daysAgoStr, startOfWeekStr } from './kst';
 
 // ===== Activities =====
 
-// build 161 #12-1: route_data 컬럼은 평균 92KB. 296 활동 → 25MB. 첫 로그인 5~30초 지연의 주범.
-// UserDataProvider 가 쓰는 메인 경로에선 route_data 를 제외 — 활동 상세 페이지가 필요할 때만 lazy fetch.
-// HomeMapPreview 는 자체적으로 fetchRoutesForUser 로 최근 7일만 가져옴 (영향 없음).
-const ACTIVITY_LITE_COLS = 'id, user_id, activity_date, distance_km, duration_seconds, pace_avg_sec_per_km, calories, memo, source, map_snapshot_url, started_at, ended_at, created_at, visibility, heart_rate_avg, heart_rate_max, active_energy_kcal, activity_type';
-
+// build 162 #2: build 161 #12-1 lite fetch (route_data 제외) 로 인해
+// ShareCard 지역/지도/MP4 동영상 등 route_data 의존 기능이 회귀.
+// route_data 를 다시 select 에 포함. 첫 로그인 속도는 다른 방법(페이지네이션·캐시)으로 해결.
 export async function fetchActivities(userId: string): Promise<Activity[]> {
   const all: Activity[] = [];
   let from = 0;
@@ -17,7 +15,7 @@ export async function fetchActivities(userId: string): Promise<Activity[]> {
   while (true) {
     const { data, error } = await getSupabase()
       .from('activities')
-      .select(ACTIVITY_LITE_COLS)
+      .select('*')
       .eq('user_id', userId)
       .order('activity_date', { ascending: false })
       .range(from, from + PAGE - 1);
@@ -28,7 +26,6 @@ export async function fetchActivities(userId: string): Promise<Activity[]> {
     all.push(...data.map(a => ({
       ...a,
       distance_km: Number(a.distance_km),
-      route_data: null,
     } as Activity)));
 
     if (data.length < PAGE) break;
@@ -38,7 +35,8 @@ export async function fetchActivities(userId: string): Promise<Activity[]> {
   return all;
 }
 
-// 활동 상세 (route_data 포함) 단건 조회 — activity/page.tsx 등에서 사용.
+// 활동 상세 단건의 route_data 조회 — build 161 시절 lazy fetch 경로.
+// 현재는 fetchActivities 가 route_data 를 함께 가져오지만, 호출부 호환 유지를 위해 남겨둠.
 export async function fetchActivityRoute(activityId: string): Promise<{ route_data: import('@/types').GeoJSONLineString | null } | null> {
   const { data, error } = await getSupabase()
     .from('activities')

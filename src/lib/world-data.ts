@@ -163,10 +163,17 @@ export async function fetchMyCourses(): Promise<MyCourse[]> {
   return (data ?? []) as MyCourse[];
 }
 
-export async function startCourse(courseId: string): Promise<void> {
+export interface StartCourseResult {
+  already_started: boolean;
+  fee_charged: number;
+  balance: number;
+}
+
+export async function startCourse(courseId: string): Promise<StartCourseResult> {
   const supabase = getSupabase();
-  const { error } = await supabase.rpc('start_course', { p_course_id: courseId });
+  const { data, error } = await supabase.rpc('start_course', { p_course_id: courseId });
   if (error) throw error;
+  return (data ?? { already_started: false, fee_charged: 0, balance: 0 }) as StartCourseResult;
 }
 
 // admin

@@ -178,10 +178,12 @@ export default function LoginPage() {
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center px-6 relative bg-gradient-to-br from-blue-50 via-white to-green-50 text-gray-900"
+      className="min-h-screen flex flex-col items-center justify-center px-6 relative overflow-hidden bg-gradient-to-br from-blue-50 via-white to-green-50 text-gray-900"
       style={{
         paddingTop: 'max(40px, env(safe-area-inset-top))',
         paddingBottom: 'max(40px, env(safe-area-inset-bottom))',
+        paddingLeft: 'max(24px, env(safe-area-inset-left))',
+        paddingRight: 'max(24px, env(safe-area-inset-right))',
       }}
     >
       <div className="absolute top-[-80px] right-[-60px] w-64 h-64 rounded-full bg-blue-200/30 blur-3xl pointer-events-none z-0" />
