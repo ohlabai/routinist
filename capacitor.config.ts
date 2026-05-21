@@ -48,7 +48,7 @@ const config: CapacitorConfig = {
     SplashScreen: {
       launchAutoHide: true,
       showSpinner: false,
-      backgroundColor: '#ffffff',
+      backgroundColor: '#ecfdf5',
     },
     SocialLogin: {
       // Apple·Google 만 사용. Facebook·Twitter 는 번들 제외해 앱 크기 절감.

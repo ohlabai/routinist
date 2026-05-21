@@ -14,7 +14,7 @@
  * 중간에 실패해도 finally 에서 복원.
  */
 
-import { existsSync, renameSync } from 'node:fs';
+import { existsSync, renameSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
@@ -53,7 +53,16 @@ function moveIncompatible(forward) {
 let exitCode = 0;
 try {
   moveIncompatible(true);
-  exitCode = run('npx', ['next', 'build'], { BUILD_TARGET: 'capacitor' });
+  // build 165: APP_VERSION 을 pbxproj CURRENT_PROJECT_VERSION 에서 읽어 NEXT_PUBLIC_APP_VERSION 에 주입.
+  // 빌드마다 고유한 dataCache prefix → 캐시 회귀 차단 (build 163 의 'dev' 공유 문제 근본 해결).
+  let appVersion = 'dev';
+  try {
+    const text = readFileSync(resolve(root, 'ios/App/App.xcodeproj/project.pbxproj'), 'utf8');
+    const m = text.match(/CURRENT_PROJECT_VERSION = (\d+);/);
+    if (m) appVersion = m[1];
+  } catch {}
+  console.log(`📦 NEXT_PUBLIC_APP_VERSION = ${appVersion}`);
+  exitCode = run('npx', ['next', 'build'], { BUILD_TARGET: 'capacitor', NEXT_PUBLIC_APP_VERSION: appVersion });
   if (exitCode !== 0) {
     console.error('❌ next build 실패');
   } else {

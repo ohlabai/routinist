@@ -15,6 +15,7 @@ import { Sparkles, Check, ChevronRight, ChevronDown, MapPin, Heart } from 'lucid
 import { detectRegion } from '@/lib/geo';
 import { getSupabase } from '@/lib/supabase';
 import { syncHealthData, isNativeApp, getPlatform } from '@/lib/health-sync';
+import { setMonthlyGoal } from '@/lib/routinist-data';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const BIRTH_YEARS = Array.from({ length: 80 }, (_, i) => CURRENT_YEAR - 14 - i);
@@ -162,6 +163,88 @@ function InlineProfileForm({ onSaved }: { onSaved: () => void }) {
   );
 }
 
+// build 165 #1: 이달 목표 인라인 — /goals 페이지로 보내지 않고 시작 가이드에서 바로 저장.
+const GOAL_PRESETS_KM = [30, 50, 100, 150, 200];
+function InlineMonthlyGoalForm({ onSaved }: { onSaved: () => void }) {
+  const { user } = useAuth();
+  const { refresh } = useUserData();
+  const [goalKm, setGoalKm] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [msgKind, setMsgKind] = useState<'info' | 'error'>('info');
+
+  const handleSave = async () => {
+    if (!user) return;
+    const km = parseFloat(goalKm);
+    if (isNaN(km) || km <= 0) {
+      setMsg('목표 거리를 입력해주세요');
+      setMsgKind('error');
+      return;
+    }
+    setSaving(true);
+    setMsg('');
+    try {
+      const now = new Date();
+      await setMonthlyGoal(user.id, now.getFullYear(), now.getMonth() + 1, km);
+      await refresh();
+      setMsg('🎯 이달 목표를 설정했어요!');
+      setMsgKind('info');
+      setTimeout(() => onSaved(), 700);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : '저장 실패');
+      setMsgKind('error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mt-2 p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-emerald-200/60 dark:border-emerald-900/40 space-y-2.5">
+      <p className="text-[11px] text-[var(--muted)] leading-relaxed">
+        이번 달에 달릴 거리를 정해봐요. 매일 조금씩 채워가는 재미가 쏠쏠해요.
+      </p>
+      <div className="flex gap-1.5 flex-wrap">
+        {GOAL_PRESETS_KM.map(km => (
+          <button
+            key={km}
+            type="button"
+            onClick={() => setGoalKm(String(km))}
+            className={`px-3 py-1.5 rounded-full text-xs font-extrabold transition active:scale-95 ${
+              goalKm === String(km)
+                ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/30'
+                : 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--muted)]'
+            }`}
+          >
+            {km}km
+          </button>
+        ))}
+      </div>
+      <input
+        type="number"
+        step="1"
+        min="1"
+        value={goalKm}
+        onChange={(e) => setGoalKm(e.target.value)}
+        placeholder="직접 입력 (km)"
+        className="w-full px-3 py-2.5 rounded-xl border border-[var(--card-border)] bg-[var(--background)] text-sm"
+      />
+      <button
+        type="button"
+        onClick={handleSave}
+        disabled={saving || !goalKm}
+        className="w-full py-2.5 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-sm font-extrabold disabled:opacity-50"
+      >
+        {saving ? '저장 중…' : '목표 저장하기'}
+      </button>
+      {msg && (
+        <p className={`text-[11px] text-center ${msgKind === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+          {msg}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function InlineHealthConnect({ onSynced }: { onSynced: () => void }) {
   const { user } = useAuth();
   const { refresh } = useUserData();
@@ -224,9 +307,10 @@ function InlineHealthConnect({ onSynced }: { onSynced: () => void }) {
 
 export default function HomeOnboardingCard() {
   const { profile, user } = useAuth();
-  const { activities } = useUserData();
+  const { activities, goals } = useUserData();
   const [profileExpanded, setProfileExpanded] = useState(false);
   const [healthExpanded, setHealthExpanded] = useState(false);
+  const [goalExpanded, setGoalExpanded] = useState(false);
   const [iosNative, setIosNative] = useState(false);
 
   useEffect(() => {
@@ -255,8 +339,14 @@ export default function HomeOnboardingCard() {
   const hasHealthActivity = activities.some(a => a.source === 'health_kit' || a.source === 'health_connect');
   const healthDone = !iosNative || healthFlag || hasHealthActivity || runCount >= 1;
 
+  // build 165 #1: 이달 목표도 시작 가이드에 인라인.
+  const now = new Date();
+  const curYear = now.getFullYear();
+  const curMonth = now.getMonth() + 1;
+  const goalDone = goals.some(g => g.year === curYear && g.month === curMonth && g.goal_km > 0);
+
   type Item =
-    | { id: string; label: string; done: boolean; inline: 'profile' | 'health' }
+    | { id: string; label: string; done: boolean; inline: 'profile' | 'health' | 'goal' }
     | { id: string; label: string; done: boolean; href: string };
 
   const items: Item[] = [
@@ -267,6 +357,7 @@ export default function HomeOnboardingCard() {
   } else {
     items.push({ id: 'first_run', label: '첫 러닝 기록', done: runCount >= 1, href: '/connect' });
   }
+  items.push({ id: 'goal', label: `${curMonth}월 목표 정하기`, done: goalDone, inline: 'goal' });
   const friendDone = typeof window !== 'undefined'
     ? !!window.localStorage.getItem(`first_friend_added:${user.id}`)
     : false;
@@ -289,7 +380,13 @@ export default function HomeOnboardingCard() {
       <ul className="space-y-2">
         {items.map((it, idx) => {
           const isInline = 'inline' in it;
-          const expanded = isInline && it.inline === 'profile' ? profileExpanded : isInline && it.inline === 'health' ? healthExpanded : false;
+          const expanded = isInline && it.inline === 'profile'
+            ? profileExpanded
+            : isInline && it.inline === 'health'
+            ? healthExpanded
+            : isInline && it.inline === 'goal'
+            ? goalExpanded
+            : false;
           const inner = (
             <>
               <span className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
@@ -319,7 +416,8 @@ export default function HomeOnboardingCard() {
             const toggle = () => {
               if (it.done) return;
               if (it.inline === 'profile') setProfileExpanded(v => !v);
-              else setHealthExpanded(v => !v);
+              else if (it.inline === 'health') setHealthExpanded(v => !v);
+              else if (it.inline === 'goal') setGoalExpanded(v => !v);
             };
             return (
               <li key={it.id}>
@@ -331,6 +429,9 @@ export default function HomeOnboardingCard() {
                 )}
                 {!it.done && expanded && it.inline === 'health' && (
                   <InlineHealthConnect onSynced={() => setHealthExpanded(false)} />
+                )}
+                {!it.done && expanded && it.inline === 'goal' && (
+                  <InlineMonthlyGoalForm onSaved={() => setGoalExpanded(false)} />
                 )}
               </li>
             );

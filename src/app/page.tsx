@@ -18,6 +18,12 @@ export default function LandingPage() {
 
   useEffect(() => {
     if (loading && !timedOut) return;
+    // build 165 #5: AuthProvider 의 deep link 핸들러가 라우팅을 처리 중이면
+    // 여기서 /dashboard 로 또 router.replace 하지 말 것 (splash 더블 표시 회귀).
+    if (typeof window !== 'undefined' &&
+        (window as Window & { __routinist_pending_deep_link?: string }).__routinist_pending_deep_link) {
+      return;
+    }
     if (user) {
       router.replace('/dashboard');
     } else {

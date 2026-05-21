@@ -34,7 +34,7 @@
 		"SplashScreen": {
 			"launchAutoHide": true,
 			"showSpinner": false,
-			"backgroundColor": "#ffffff"
+			"backgroundColor": "#ecfdf5"
 		},
 		"SocialLogin": {
 			"providers": {

@@ -166,7 +166,13 @@ export default function WorldTab() {
       // build 157: 결제(시작) 직후 곧바로 코스 상세 시트로 진입 — Conqueror 앱처럼 가상 대회 참가한 느낌.
       setDetailCourseId(courseId);
     } catch (e) {
-      showToast(e instanceof Error ? e.message : '시작 실패', 'warn');
+      // build 165 #3: Supabase PostgrestError 는 Error instance 가 아니라 plain object 이므로
+      // instanceof 분기로 잡으면 RPC RAISE EXCEPTION 의 친근 메시지 ('앗! 마일리지가 N 모자라요…')
+      // 가 묻혀버린다. 안전하게 message 필드 추출.
+      const msg = (typeof e === 'object' && e !== null && 'message' in e && typeof (e as { message: unknown }).message === 'string')
+        ? (e as { message: string }).message
+        : '시작에 실패했어요. 잠시 후 다시 시도해주세요';
+      showToast(msg, 'warn');
     } finally {
       setStarting(null);
     }
@@ -327,7 +333,7 @@ export default function WorldTab() {
                         onClick={() => setDetailCourseId(c.id)}
                         className="flex-1 py-3 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white font-extrabold text-sm active:scale-[0.99] shadow-md shadow-amber-500/25"
                       >
-                        참가중 — 진입
+                        🏃 달리는 중
                       </button>
                     ) : (
                       <button

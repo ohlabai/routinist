@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase';
 import { getProfile, initializeSocialLogin, handleOAuthCallback } from '@/lib/auth';
 import { dataCache } from '@/lib/data-cache';
@@ -57,6 +58,7 @@ function isNativePlatform(): boolean {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -200,13 +202,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const processCallbackUrl = async (url: string) => {
       // build 136: 공유 링크로 들어온 routinist://activity?id=... → 활동 상세로 라우팅.
       // 카톡/인스타에서 routinist.kr/r/{id} 클릭 → /r/{id} 페이지가 deep link 호출 → 앱이 열리면 이 핸들러.
+      // build 165 #5: window.location.replace 는 WebView 전체 리로드 → 검정 flash + 더블 splash.
+      // Next.js router.replace 로 교체 (SPA navigation = WebView 안 깜빡임).
       try {
         const parsed = new URL(url);
         if (parsed.protocol === 'routinist:' && parsed.host === 'activity') {
           const aid = parsed.searchParams.get('id');
           if (aid) {
-            // 라우터 push 가능한 위치라면 사용, 아니면 location 으로.
-            window.location.replace(`/activity?id=${encodeURIComponent(aid)}`);
+            // build 165 #5: race 차단 — /page.tsx (LandingPage) 가 auth 로드 완료 후
+            // /dashboard 로 router.replace 하는 useEffect 와 동시에 여기서도 router.replace 하면
+            // 사용자는 /page → /dashboard → /activity 흐름으로 splash 가 여러 번 깜빡.
+            // window 플래그를 먼저 세팅 → LandingPage 가 이 플래그를 보면 자기 라우팅 skip.
+            (window as Window & { __routinist_pending_deep_link?: string }).__routinist_pending_deep_link = aid;
+            router.replace(`/activity?id=${encodeURIComponent(aid)}`);
             return;
           }
         }
@@ -222,7 +230,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const s = await handleOAuthCallback(url);
         if (s && !window.location.pathname.startsWith('/dashboard')) {
           await new Promise((r) => setTimeout(r, 300));
-          window.location.replace('/dashboard');
+          router.replace('/dashboard');
         }
       } catch (e) {
         authLog('딥링크 콜백 처리 실패', { error: String(e) });
@@ -245,6 +253,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       removeUrlListener?.();
     };
+    // router 는 next/navigation 에서 안정적인 instance — deps 에 안 넣어도 안전.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

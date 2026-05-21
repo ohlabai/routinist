@@ -12,6 +12,7 @@ import { getSupabase } from '@/lib/supabase';
 interface Story {
   photo_id: string;
   user_id: string;
+  activity_id: string | null;
   display_name: string;
   avatar_url: string | null;
   photo_url: string;
@@ -57,6 +58,7 @@ export default function HomeFriendStories() {
         const rows: Story[] = (data ?? []).map((r: {
           id: string;
           user_id: string;
+          activity_id: string | null;
           photo_url: string;
           created_at: string;
           profiles?: { display_name?: string; avatar_url?: string | null } | { display_name?: string; avatar_url?: string | null }[];
@@ -67,6 +69,7 @@ export default function HomeFriendStories() {
           return {
             photo_id: r.id,
             user_id: r.user_id,
+            activity_id: r.activity_id,
             photo_url: r.photo_url,
             created_at: r.created_at,
             display_name: prof?.display_name ?? '러너',
@@ -75,7 +78,17 @@ export default function HomeFriendStories() {
             activity_date: act?.activity_date ?? '',
           };
         });
-        setStories(rows);
+        // build 165 #2: 한 활동에 사진 여러 장 올리면 친구피드에 같은 활동이 N번 반복 (사용자 신고).
+        // activity_id 기준 dedupe — 가장 최근 사진 1장만 (이미 created_at desc 정렬).
+        // activity_id 가 null 인 경우는 사진별 노출 (예외).
+        const seen = new Set<string>();
+        const deduped = rows.filter(r => {
+          if (!r.activity_id) return true;
+          if (seen.has(r.activity_id)) return false;
+          seen.add(r.activity_id);
+          return true;
+        });
+        setStories(deduped);
       } finally {
         if (!cancelled) setLoading(false);
       }

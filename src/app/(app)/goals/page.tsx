@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
 import { setMonthlyGoal, getMonthlyDistance } from '@/lib/routinist-data';
@@ -8,6 +9,7 @@ import { setMonthlyGoal, getMonthlyDistance } from '@/lib/routinist-data';
 const PRESETS = [30, 50, 100, 150, 200];
 
 export default function GoalsPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const { activities, goals, refresh } = useUserData();
 
@@ -41,7 +43,8 @@ export default function GoalsPage() {
       await setMonthlyGoal(user.id, year, month, km);
       await refresh();
       setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      // build 165 #1: 목표 저장 → 홈 이동 (사용자 신고: 설정 후 홈에서 결과 보고 싶어함).
+      setTimeout(() => router.push('/dashboard'), 700);
     } catch (e) {
       console.error(e);
     } finally {
