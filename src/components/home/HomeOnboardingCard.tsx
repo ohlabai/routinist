@@ -357,11 +357,13 @@ export default function HomeOnboardingCard() {
   } else {
     items.push({ id: 'first_run', label: '첫 러닝 기록', done: runCount >= 1, href: '/connect' });
   }
-  items.push({ id: 'goal', label: `${curMonth}월 목표 정하기`, done: goalDone, inline: 'goal' });
+  // build 166 #2: 사용자 요청 — 친구 1명 추가 → 5월 목표 정하기 순서.
+  // (마지막 항목이 완료되면 시작 가이드 카드 자체가 사라지므로, 목표 정하기를 마지막에 둠.)
   const friendDone = typeof window !== 'undefined'
     ? !!window.localStorage.getItem(`first_friend_added:${user.id}`)
     : false;
   items.push({ id: 'friend', label: '친구 1명 추가', done: friendDone, href: '/social' });
+  items.push({ id: 'goal', label: `${curMonth}월 목표 정하기`, done: goalDone, inline: 'goal' });
 
   const doneCount = items.filter(i => i.done).length;
   if (doneCount === items.length) return null;
@@ -394,7 +396,7 @@ export default function HomeOnboardingCard() {
               }`}>
                 {it.done ? <Check size={14} strokeWidth={3} /> : <span className="text-[10px] font-extrabold">{idx + 1}</span>}
               </span>
-              <span className={`flex-1 text-sm font-bold ${
+              <span className={`flex-1 text-center text-sm font-bold ${
                 it.done ? 'text-emerald-700 dark:text-emerald-400 line-through' : 'text-[var(--foreground)]'
               }`}>
                 {it.label}

@@ -43,6 +43,9 @@ export default function HomeFriendStories() {
         }
 
         const cutoff = new Date(Date.now() - 72 * 3600 * 1000).toISOString();
+        // build 166 #4: 한 친구가 사진 여러 장 올리면 dedupe 후 1개만 남아 limit 10 안에서 친구
+        // 다양성이 크게 줄어든다 (예: 친구 A 가 사진 4장 → 1개 카드 → 나머지 카드는 친구 B/C 활동).
+        // limit 을 넉넉히 40 으로 잡고 client 에서 activity dedupe → top 10 슬라이스.
         const { data } = await supabase
           .from('activity_photos')
           .select(`id, user_id, photo_url, created_at, activity_id, share_in_gallery,
@@ -52,7 +55,7 @@ export default function HomeFriendStories() {
           .eq('share_in_gallery', true)
           .gte('created_at', cutoff)
           .order('created_at', { ascending: false })
-          .limit(10);
+          .limit(40);
 
         if (cancelled) return;
         const rows: Story[] = (data ?? []).map((r: {
@@ -88,7 +91,29 @@ export default function HomeFriendStories() {
           seen.add(r.activity_id);
           return true;
         });
-        setStories(deduped);
+        // build 166 #4: 다양한 친구 활동 노출 — 친구별로 가장 최근 활동만 1장씩 우선 슬라이싱,
+        // 그 후 채워지지 않은 슬롯에 같은 친구의 추가 활동을 채운다. (총 10장)
+        const byUser = new Map<string, Story[]>();
+        deduped.forEach(r => {
+          const arr = byUser.get(r.user_id) ?? [];
+          arr.push(r);
+          byUser.set(r.user_id, arr);
+        });
+        const result: Story[] = [];
+        // round-robin: 각 친구의 i 번째 활동을 차례로 추가
+        let idx = 0;
+        let added = true;
+        while (added && result.length < 10) {
+          added = false;
+          for (const list of byUser.values()) {
+            if (list[idx] && result.length < 10) {
+              result.push(list[idx]);
+              added = true;
+            }
+          }
+          idx += 1;
+        }
+        setStories(result);
       } finally {
         if (!cancelled) setLoading(false);
       }

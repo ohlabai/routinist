@@ -24,6 +24,27 @@ import { useI18n } from '@/lib/i18n';
 import { Coins } from 'lucide-react';
 import { track } from '@/lib/analytics';
 import NextLink from 'next/link';
+import { useAuth } from '@/components/AuthProvider';
+
+// build 166 #1: 사용자가 마일리지로 코스 참가했는데 "도전하기" 가 그대로 보이는 회귀.
+// fetchMyCourses RPC 가 silent fail 하거나 client cache 회귀 시 mine=[] → joined=false 가 됨.
+// localStorage 에 사용자가 직접 시작한 코스 id 영구 저장 → fetch 실패해도 "달리는 중" 유지.
+function joinedKey(uid: string) { return `joined_courses:${uid}`; }
+function getKnownJoined(uid: string | undefined): Set<string> {
+  if (!uid || typeof window === 'undefined') return new Set();
+  try {
+    const raw = window.localStorage.getItem(joinedKey(uid));
+    return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+  } catch { return new Set(); }
+}
+function addKnownJoined(uid: string | undefined, courseId: string): void {
+  if (!uid || typeof window === 'undefined') return;
+  try {
+    const s = getKnownJoined(uid);
+    s.add(courseId);
+    window.localStorage.setItem(joinedKey(uid), JSON.stringify([...s]));
+  } catch {}
+}
 
 // 코스 카드용 미리보기 SVG — preview_path (0~100) 정규화 폴리라인.
 // 시작점=에메랄드 원, 끝점=주황 원. 배경 그리드 + 폴리라인 그림자.
@@ -99,6 +120,7 @@ function CoursePreview({ path, progress }: { path: PreviewPoint[] | null; progre
 
 export default function WorldTab() {
   const { t } = useI18n();
+  const { user } = useAuth();
   const [mine, setMine] = useState<MyCourse[]>([]);
   const [available, setAvailable] = useState<VirtualCourse[]>([]);
   const [pathMap, setPathMap] = useState<Map<string, PreviewPoint[] | null>>(new Map());
@@ -110,6 +132,9 @@ export default function WorldTab() {
   const [seriesList, setSeriesList] = useState<CourseSeries[]>([]);
   const [seriesFilter, setSeriesFilter] = useState<string | null>(null);
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
+  // build 166 #1: localStorage 기반 joined 영구셋. fetchMyCourses 실패해도 유지.
+  const [knownJoined, setKnownJoined] = useState<Set<string>>(() => getKnownJoined(undefined));
+  useEffect(() => { setKnownJoined(getKnownJoined(user?.id)); }, [user?.id]);
 
   const showToast = useCallback((text: string, tone: 'ok' | 'warn' = 'ok') => {
     setToast({ text, tone });
@@ -120,7 +145,17 @@ export default function WorldTab() {
     setLoading(true);
     // 두 fetch 를 분리해서 한쪽 실패해도 다른 쪽은 표시 (사용자 신고: 빈 코스 화면).
     const myPromise = fetchMyCourses().catch(e => {
+      // build 166 #1 진단: 사용자가 마일리지 차감 후에도 "도전하기" 가 보이는 회귀를 추적하기 위해
+      // fail 시 localStorage 에 마지막 에러 + ts 기록. /admin/diagnostics 등에서 확인 가능.
       console.warn('[world] fetchMyCourses fail', e);
+      try {
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('world_fetch_my_courses_last_error', JSON.stringify({
+            ts: new Date().toISOString(),
+            message: (e as { message?: string })?.message ?? String(e),
+          }));
+        }
+      } catch {}
       return [] as MyCourse[];
     });
     const allPromise = fetchAvailableCourses().catch(e => {
@@ -161,6 +196,10 @@ export default function WorldTab() {
         // build 164 #3: 친근한·재미있는 출발 멘트.
         showToast(`🎉 출발! ${r.fee_charged.toLocaleString()} 마일리지 차감 (잔액 ${r.balance.toLocaleString()})`);
       }
+      // build 166 #1: handleStart 가 성공하면 (already_started 든 fee_charged 든) localStorage 에 영구 저장.
+      // fetchMyCourses 가 RLS / network 이슈로 빈 결과를 줘도 "달리는 중" 표시가 유지됨.
+      addKnownJoined(user?.id, courseId);
+      setKnownJoined(prev => { const s = new Set(prev); s.add(courseId); return s; });
       setConfirmStart(null);
       await load();
       // build 157: 결제(시작) 직후 곧바로 코스 상세 시트로 진입 — Conqueror 앱처럼 가상 대회 참가한 느낌.
@@ -296,7 +335,8 @@ export default function WorldTab() {
               .filter(c => !seriesFilter || c.series_id === seriesFilter)
               .map(c => {
               const myEntry = mine.find(m => m.course_id === c.id);
-              const joined = !!myEntry;
+              // build 166 #1: fetchMyCourses 가 빈결과여도 localStorage knownJoined 로 fallback.
+              const joined = !!myEntry || knownJoined.has(c.id);
               return (
               <div key={c.id} className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] overflow-hidden">
                 {/* 지도 미리보기 + 클릭 시 상세 */}
