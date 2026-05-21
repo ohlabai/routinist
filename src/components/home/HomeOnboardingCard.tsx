@@ -39,7 +39,11 @@ function InlineProfileForm({ onSaved }: { onSaved: () => void }) {
       setCountry(r.country_code);
       setSido(r.si ?? '');
       setGu(r.gu ?? '');
-      setMsg(`감지: ${r.display}`);
+      // build 164 #1: 사용자에게 더 큰 확인 — 어떤 값이 입력칸에 들어갔는지 명시.
+      const detected = r.country_code === 'KR'
+        ? `${r.si ?? ''} ${r.gu ?? ''}`.trim() || '한국'
+        : r.display;
+      setMsg(`✓ ${detected} (으)로 입력했어요. 맞으면 저장하기 눌러주세요`);
       setMsgKind('info');
     } catch (e) {
       setMsg(e instanceof Error ? e.message : '위치 감지 실패');
@@ -241,11 +245,9 @@ export default function HomeOnboardingCard() {
 
   if (signupDays > 7 || runCount >= 5) return null;
 
-  // build 163 #2: region_gu 만 검사하던 기존 조건은 너무 엄격.
-  // 사용자가 "경기도" 만 입력해도 (gu 없이) "완료" 로 보여야 자연스러움.
-  // 해외 사용자는 region_si/gu 없이 country_code 만 다른 값으로 가질 수도 있음.
-  const profileDone = !!(profile.birth_year && profile.gender &&
-    (profile.region_si || profile.region_gu || (profile.country_code && profile.country_code !== 'KR')));
+  // build 164 #1: 생년·성별만 필수. 지역은 권장이되 강제 아님 (KR 국가만 채우고 시·구 비워둔
+  // 사용자도 "저장 완료" 로 인식되어야 자연스러움).
+  const profileDone = !!(profile.birth_year && profile.gender);
 
   const healthFlag = typeof window !== 'undefined'
     ? !!window.localStorage.getItem(`first_sync_done:${user.id}`)

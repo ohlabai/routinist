@@ -153,12 +153,13 @@ export default function WorldTab() {
     setStarting(courseId);
     try {
       const r = await startCourse(courseId);
-      const name = confirmStart?.name ?? available.find(c => c.id === courseId)?.name;
+      const name = confirmStart?.name ?? available.find(c => c.id === courseId)?.name ?? '코스';
       if (r.already_started) {
-        showToast('이미 참가중인 대회예요 — 바로 진입할게요');
+        showToast(`🏃 ${name} 참가중이에요 — 바로 진입할게요!`);
       } else {
         track('world_course_start', { course_id: courseId, course_name: name });
-        showToast(`✨ ${r.fee_charged.toLocaleString()} 마일리지 차감 — 잔액 ${r.balance.toLocaleString()}`);
+        // build 164 #3: 친근한·재미있는 출발 멘트.
+        showToast(`🎉 출발! ${r.fee_charged.toLocaleString()} 마일리지 차감 (잔액 ${r.balance.toLocaleString()})`);
       }
       setConfirmStart(null);
       await load();
@@ -330,11 +331,13 @@ export default function WorldTab() {
                       </button>
                     ) : (
                       <button
-                        onClick={() => setConfirmStart(c)}
+                        onClick={() => setDetailCourseId(c.id)}
                         disabled={starting === c.id}
                         className="flex-1 py-3 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-sm active:scale-[0.99] disabled:opacity-50 shadow-md shadow-emerald-500/25"
                       >
-                        {starting === c.id ? '시작 중…' : '도전 시작'}
+                        {/* build 164 #3: "도전 시작" 누르면 바로 결제 다이얼로그가 뜨는 게 거친 흐름.
+                            먼저 코스 상세를 보고, 거기서 결제 버튼을 누르는 흐름으로 매끄럽게. */}
+                        도전하기 →
                       </button>
                     )}
                   </div>
@@ -354,10 +357,11 @@ export default function WorldTab() {
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-50 dark:from-emerald-900/40 dark:to-emerald-950/40 flex items-center justify-center">
                 <Coins size={24} className="text-emerald-600" />
               </div>
-              <h3 className="text-base font-extrabold text-center">{confirmStart.name} 도전</h3>
+              <h3 className="text-base font-extrabold text-center">🏃 {confirmStart.name} 출발 준비!</h3>
               <p className="text-sm text-[var(--muted)] text-center leading-relaxed">
-                참가비 <span className="font-extrabold text-emerald-600">{confirmStart.entry_fee_p.toLocaleString()} 마일리지</span> 가 차감돼요.
-                <br />지금부터 누적 km 이 코스에 쌓이고, 완주 시 디지털 인증서 + 메달 신청이 열려요.
+                참가비 <span className="font-extrabold text-emerald-600">{confirmStart.entry_fee_p.toLocaleString()} 마일리지</span> 차감하고 시작할게요.
+                <br />지금부터 달리는 모든 km 이 이 코스에 쌓여요.
+                <br />완주하면 디지털 인증서와 실물 메달이 기다리고 있어요! 🏅
               </p>
             </div>
             <div className="flex gap-2">
@@ -373,7 +377,7 @@ export default function WorldTab() {
                 disabled={starting === confirmStart.id}
                 className="flex-1 py-3 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-sm disabled:opacity-50 active:scale-95"
               >
-                {starting === confirmStart.id ? '차감 중…' : '결제하고 시작'}
+                {starting === confirmStart.id ? '차감 중…' : '출발! 🚀'}
               </button>
             </div>
           </div>
@@ -382,7 +386,11 @@ export default function WorldTab() {
 
       {/* 코스 상세 sheet */}
       {detailCourseId && (
-        <CourseDetailSheet courseId={detailCourseId} onClose={() => { setDetailCourseId(null); load(); }} />
+        <CourseDetailSheet
+          courseId={detailCourseId}
+          onClose={() => { setDetailCourseId(null); load(); }}
+          onStartCourse={(c) => { setDetailCourseId(null); setConfirmStart(c); }}
+        />
       )}
 
       {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2200} />}

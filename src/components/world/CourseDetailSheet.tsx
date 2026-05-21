@@ -24,11 +24,13 @@ import AppToast from '@/components/AppToast';
 interface Props {
   courseId: string;
   onClose: () => void;
+  // build 164 #3: 미참가 사용자가 sheet 에서 바로 결제 시작할 수 있는 sticky CTA.
+  onStartCourse?: (course: VirtualCourse) => void;
 }
 
 const MEDAL_PRICE = 30000;
 
-export default function CourseDetailSheet({ courseId, onClose }: Props) {
+export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: Props) {
   const { user, profile } = useAuth();
   const [course, setCourse] = useState<VirtualCourse | null>(null);
   const [runners, setRunners] = useState<CourseRunner[]>([]);
@@ -364,6 +366,25 @@ export default function CourseDetailSheet({ courseId, onClose }: Props) {
             </>
           )}
         </div>
+
+        {/* build 164 #3: 미참가 사용자에게 sticky bottom CTA 노출.
+            상세 화면을 충분히 본 뒤 자연스럽게 결제로 이어지는 흐름. */}
+        {!loading && course && !myRunner && onStartCourse && (
+          <div
+            className="sticky bottom-0 px-5 py-3 bg-[var(--background)] border-t border-[var(--card-border)]/40"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}
+          >
+            <button
+              onClick={() => onStartCourse(course)}
+              className="w-full py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base active:scale-[0.98] shadow-md shadow-emerald-500/25 inline-flex items-center justify-center gap-1.5"
+            >
+              <Trophy size={16} /> {course.entry_fee_p.toLocaleString()} 마일리지로 도전 시작
+            </button>
+            <p className="text-[11px] text-center text-[var(--muted)] mt-1.5">
+              지금 {runners.length}명이 함께 달리고 있어요
+            </p>
+          </div>
+        )}
 
         {medalFormOpen && course && (
           <MedalRequestForm

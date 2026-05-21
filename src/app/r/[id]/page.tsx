@@ -51,18 +51,51 @@ export default async function ShareLandingPage({ params }: { params: Promise<{ i
   const { id } = await params;
   const deepLink = `routinist://activity?id=${id}`;
   const webFallback = `/activity?id=${id}`;
-  // 환경변수로 store URL 관리 — App Store 승인 후 실제 ID 로 갱신 (rebuild 없이 Vercel env 만 변경).
-  // build 141: fallback 을 app.routinist.kr 로 (이전 routinist.kr 은 cafe24 mall).
+  // build 164 #5: App Store URL 하드코딩 fallback — 사용자 제공 URL (id6762175125).
+  // 환경변수가 있으면 override (Vercel 에서 빠르게 변경 가능).
   const iosStoreUrl = process.env.NEXT_PUBLIC_IOS_APP_STORE_URL
-    || APP_DOMAIN;
+    || 'https://apps.apple.com/kr/app/%EB%8B%AC%EB%A6%AC%EB%8A%94-%EC%8A%B5%EA%B4%80-%EB%A3%A8%ED%8B%B0%EB%8B%88%EC%8A%A4%ED%8A%B8/id6762175125';
   const androidStoreUrl = process.env.NEXT_PUBLIC_ANDROID_PLAY_STORE_URL
-    || APP_DOMAIN;
+    || iosStoreUrl;
 
   return (
     <div style={{ minHeight: '100vh', background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      {/* build 162 #1b: 자동 deep link redirect 제거. 카톡/인스타 인앱 브라우저에서
-          routinist:// 스킴이 미등록인 채로 location.href 변경 시 페이지가 깜빡이는 회귀.
-          버튼 탭으로만 진입하도록 변경 — 사용자가 명시적으로 "앱에서 열기" 누름. */}
+      {/* build 164 #5: 표준 deep-link 패턴으로 자동 진입.
+            1) hidden iframe 으로 routinist:// 시도 (메인 페이지 navigation 없음 — 깜빡임 제거)
+            2) 1.6초 후에도 페이지가 살아 있으면 (visibilitychange 미발생) 앱 미설치로 판단 → App Store 로 redirect
+          KakaoTalk in-app 웹뷰는 보통 iframe scheme 을 그대로 OS 로 전달 — 앱 있으면 진입, 없으면 page 그대로.
+          window.location.href 직접 변경 방식은 KakaoTalk 에서 검정/흰 깜빡임 회귀가 있었음. */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+            (function () {
+              var ua = navigator.userAgent || '';
+              var isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+              var isAndroid = /Android/i.test(ua);
+              if (!isIOS && !isAndroid) return;
+              var deepLink = ${JSON.stringify(deepLink)};
+              var storeUrl = ${JSON.stringify(iosStoreUrl)};
+              var androidStore = ${JSON.stringify(androidStoreUrl)};
+              var fallback = isAndroid ? androidStore : storeUrl;
+              var leftPage = false;
+              function markLeft() { leftPage = true; }
+              document.addEventListener('visibilitychange', markLeft);
+              window.addEventListener('pagehide', markLeft);
+              window.addEventListener('blur', markLeft);
+              try {
+                var iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = deepLink;
+                document.body.appendChild(iframe);
+              } catch (e) {}
+              setTimeout(function () {
+                if (leftPage || document.hidden) return;
+                window.location.replace(fallback);
+              }, 1600);
+            })();
+          `,
+        }}
+      />
       <div style={{ maxWidth: 420, width: '100%', textAlign: 'center' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/apple-touch-icon.png" alt="Routinist" width={88} height={88} style={{ borderRadius: 22, boxShadow: '0 6px 30px rgba(16,185,129,0.25)' }} />
