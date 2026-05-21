@@ -194,7 +194,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* 하단 5탭 네비게이션 — flex-shrink-0 로 고정, sticky 제거.
           채팅 페이지에선 입력창이 가리는 문제로 nav 숨김 (사용자 신고 build 67). */}
       <nav className={`flex-shrink-0 z-40 border-t border-[var(--card-border)] bg-[var(--header-bg)] backdrop-blur-xl pb-[env(safe-area-inset-bottom)] ${isChat ? 'hidden' : ''}`}>
-        <div className="flex justify-around items-center h-16">
+        <div className="flex justify-around items-center h-12">
           {TABS_BASE.map((tab) => {
             const isActive =
               pathname === tab.href ||
@@ -204,14 +204,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <Link
                 key={tab.href}
                 href={tab.href}
-                className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-2xl transition-all duration-200 ${
+                className={`flex flex-col items-center gap-0 px-3 py-0.5 rounded-xl transition-all duration-200 ${
                   isActive
                     ? 'text-[var(--accent)] bg-[var(--accent)]/10'
                     : 'text-[var(--muted)]'
                 }`}
               >
-                <tab.Icon size={isActive ? 24 : 22} strokeWidth={isActive ? 2.5 : 1.75} />
-                <span className={`text-[13px] ${isActive ? 'font-bold' : 'font-medium'}`}>{t(tab.labelKey)}</span>
+                <tab.Icon size={isActive ? 20 : 18} strokeWidth={isActive ? 2.5 : 1.75} />
+                <span className={`text-[10px] leading-tight ${isActive ? 'font-bold' : 'font-medium'}`}>{t(tab.labelKey)}</span>
               </Link>
             );
           })}

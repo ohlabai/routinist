@@ -147,7 +147,7 @@ function drawCard(
     const padding = 120;
     const mapW = W - padding * 2;
     const mapH = 480;
-    const mapY = 260;
+    const mapY = 300;
 
     const scaleX = mapW / (maxLng - minLng || 0.001);
     const scaleY = mapH / (maxLat - minLat || 0.001);
@@ -476,7 +476,7 @@ function drawCard(
       ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.fillStyle = bgImage ? 'rgba(255,255,255,0.95)' : mainColor;
       ctx.textAlign = 'center';
-      ctx.fillText(`${monthRunCount}`, x, labelY);
+      ctx.fillText(`${monthRunCount}회`, x, labelY);
     }
   }
 

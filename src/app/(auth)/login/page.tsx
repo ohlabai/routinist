@@ -46,20 +46,28 @@ export default function LoginPage() {
 
   // Safari/인앱 브라우저에서 앱으로 복귀(= 포그라운드 진입) 감지 → 로딩 스피너 리셋
   // 사용자가 OAuth 취소/뒤로가기한 경우에도 UI가 즉시 풀림
+  // build 159 #9: 이메일 인증 메일을 외부에서 확인하고 앱으로 복귀하면 자동으로 로그인 화면 전환.
+  //   "이미 인증을 마쳤어요" 링크를 사용자가 찾지 않아도 흐름이 자연스럽게 이어짐.
   useEffect(() => {
     const isNative = typeof window !== 'undefined' && (window as CapacitorWindow).Capacitor !== undefined;
     if (!isNative) return;
     let remove: (() => void) | null = null;
     import('@capacitor/app').then(({ App }) => {
       App.addListener('appStateChange', ({ isActive }) => {
-        if (isActive && loadingProvider) {
+        if (!isActive) return;
+        if (loadingProvider) {
           // 조금 기다렸다 풀기 — 딥링크 처리가 먼저 완료되어 dashboard 이동할 시간을 줌
           setTimeout(() => setLoadingProvider(null), 1500);
+        }
+        if (mode === 'email-sent' && sentEmail) {
+          setEmail(sentEmail);
+          setMode('email-login');
+          setInfo('인증을 확인했어요. 비밀번호를 입력해 로그인해주세요.');
         }
       }).then(handle => { remove = () => handle.remove(); });
     }).catch(() => {});
     return () => { remove?.(); };
-  }, [loadingProvider]);
+  }, [loadingProvider, mode, sentEmail]);
 
   // /login?debug=1 접근 시 진단 로그 패널 표시
   // /login?reason=session_expired 접근 시 안내 배너 (refreshSession 실패로 강제 로그아웃된 경우)

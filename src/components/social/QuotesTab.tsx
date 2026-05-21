@@ -295,11 +295,11 @@ export default function QuotesTab() {
       {/* 작성 모달 */}
       {composeOpen && (
         <div
-          className="fixed inset-0 z-[80] bg-black/65 flex items-end sm:items-center justify-center p-3 animate-[fadeIn_0.2s_ease-out]"
+          className="fixed inset-0 z-[80] bg-black/65 flex items-start sm:items-center justify-center p-3 pt-[max(env(safe-area-inset-top),16px)] sm:pt-3 animate-[fadeIn_0.2s_ease-out]"
           onClick={() => !composing && setComposeOpen(false)}
         >
           <div
-            className="w-full max-w-md bg-[var(--background)] rounded-3xl p-5 shadow-2xl"
+            className="w-full max-w-md bg-[var(--background)] rounded-3xl p-5 shadow-2xl mt-12 sm:mt-0"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between mb-3">
