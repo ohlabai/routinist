@@ -4,9 +4,15 @@ import { todayStr, daysAgoStr, startOfWeekStr } from './kst';
 
 // ===== Activities =====
 
-// build 162 #2: build 161 #12-1 lite fetch (route_data 제외) 로 인해
-// ShareCard 지역/지도/MP4 동영상 등 route_data 의존 기능이 회귀.
-// route_data 를 다시 select 에 포함. 첫 로그인 속도는 다른 방법(페이지네이션·캐시)으로 해결.
+// build 167 #1: build 162 의 route_data 포함 fetch 가 홈 로딩 회귀 (297회 × GPS 수천 점 = 페이로드 폭증).
+// 다시 lite fetch (route_data 제외) 로 — 홈/통계/캘린더는 route_data 안 씀.
+// ShareCard/activity 상세에선 fetchActivityRoute 로 단건 lazy fetch (이미 activity/page.tsx 패턴).
+//
+// build 167 #2: 같은 activity_date 의 tiebreaker — started_at desc → created_at desc.
+// 하루 2번 뛰었을 때 최신이 위로 (이전엔 DB가 임의 정렬해서 첫 번째 뛴 게 최근으로 표시되는 버그).
+const ACTIVITY_LITE_COLS =
+  'id,user_id,activity_date,distance_km,duration_seconds,pace_avg_sec_per_km,calories,heart_rate_avg,heart_rate_max,memo,source,visibility,started_at,ended_at,exercise_type,created_at,updated_at';
+
 export async function fetchActivities(userId: string): Promise<Activity[]> {
   const all: Activity[] = [];
   let from = 0;
@@ -15,9 +21,11 @@ export async function fetchActivities(userId: string): Promise<Activity[]> {
   while (true) {
     const { data, error } = await getSupabase()
       .from('activities')
-      .select('*')
+      .select(ACTIVITY_LITE_COLS)
       .eq('user_id', userId)
       .order('activity_date', { ascending: false })
+      .order('started_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
       .range(from, from + PAGE - 1);
 
     if (error) throw error;
@@ -26,6 +34,8 @@ export async function fetchActivities(userId: string): Promise<Activity[]> {
     all.push(...data.map(a => ({
       ...a,
       distance_km: Number(a.distance_km),
+      route_data: null,
+      map_snapshot_url: null,
     } as Activity)));
 
     if (data.length < PAGE) break;
@@ -55,16 +65,20 @@ export async function fetchActivitiesForMonth(userId: string, year: number, mont
 
   const { data, error } = await getSupabase()
     .from('activities')
-    .select('*')
+    .select(ACTIVITY_LITE_COLS)
     .eq('user_id', userId)
     .gte('activity_date', startDate)
     .lt('activity_date', endDate)
-    .order('activity_date', { ascending: false });
+    .order('activity_date', { ascending: false })
+    .order('started_at', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false });
 
   if (error) throw error;
   return (data || []).map(a => ({
     ...a,
     distance_km: Number(a.distance_km),
+    route_data: null,
+    map_snapshot_url: null,
   } as Activity));
 }
 

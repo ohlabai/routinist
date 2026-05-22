@@ -219,6 +219,9 @@ export default function WorldTab() {
 
   const completed = mine.filter(m => m.completed_at);
   const inProgress = mine.filter(m => !m.completed_at);
+  // build 167 #5: 진행 중인 다른 코스가 있으면 새 코스 도전 차단 (정책: 동시 1개).
+  // SQL guard + UI 양쪽 모두. UI 가 먼저 친근 메시지 보여줘서 결제 시도 자체를 막음.
+  const hasActiveCourse = inProgress.length > 0;
 
   return (
     <div className="space-y-5">
@@ -375,6 +378,14 @@ export default function WorldTab() {
                       >
                         🏃 달리는 중
                       </button>
+                    ) : hasActiveCourse ? (
+                      // build 167 #5: 진행 중인 다른 코스가 있으면 도전 차단. 친근 안내.
+                      <button
+                        onClick={() => showToast('진행 중인 코스를 완주한 후에 새 도전을 시작할 수 있어요 🏃', 'warn')}
+                        className="flex-1 py-3 rounded-xl bg-[var(--card-border)]/30 text-[var(--muted)] font-bold text-sm active:scale-[0.99] cursor-not-allowed"
+                      >
+                        완주 후 도전 가능
+                      </button>
                     ) : (
                       <button
                         onClick={() => setDetailCourseId(c.id)}
@@ -457,8 +468,13 @@ function ProgressCard({ course, path }: { course: MyCourse; path: PreviewPoint[]
   const pct = Math.min(100, (course.progress_km / course.distance_km) * 100);
   const remain = Math.max(0, course.distance_km - course.progress_km);
   const ratio = Math.min(1, course.progress_km / course.distance_km);
+  // build 167 #5: 100% 도달 시 성취감 디자인 — 큰 그라데이션 카드 + ✨ 메달 받기 CTA.
+  const isCompleted = pct >= 100;
   return (
-    <div className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] overflow-hidden">
+    <div className={`rounded-2xl overflow-hidden border ${isCompleted
+      ? 'bg-gradient-to-br from-amber-50 via-orange-50 to-amber-50 dark:from-amber-950/30 dark:via-orange-950/30 dark:to-amber-950/30 border-amber-300 dark:border-amber-700 shadow-lg shadow-amber-500/20'
+      : 'bg-[var(--card)] border-[var(--card-border)]'
+    }`}>
       {/* 지도 미리보기 + 러너 위치 마커 */}
       <CoursePreview path={path} progress={ratio} />
       <div className="p-4">
@@ -470,21 +486,25 @@ function ProgressCard({ course, path }: { course: MyCourse; path: PreviewPoint[]
           {course.progress_km.toFixed(1)} / {course.distance_km.toFixed(1)} km
         </p>
 
-        <div className="mt-3">
-          <div className="h-2.5 rounded-full bg-[var(--card-border)]/30 overflow-hidden">
-            <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-700 ease-out" style={{ width: `${pct}%` }} />
+        {isCompleted ? (
+          // build 167 #5: 완주 — 메달·축하 디자인. 진입(자세히)으로 가서 메달 발급 신청.
+          <div className="mt-3 flex flex-col gap-2">
+            <div className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-md shadow-amber-500/30">
+              <Trophy size={18} className="drop-shadow" />
+              <span className="text-sm font-extrabold drop-shadow">🎉 완주했어요! 메달이 기다려요</span>
+            </div>
           </div>
-          <div className="flex items-center justify-between mt-1.5 text-xs">
-            <span className="text-emerald-600 font-extrabold">{pct.toFixed(0)}%</span>
-            {remain > 0 ? (
+        ) : (
+          <div className="mt-3">
+            <div className="h-2.5 rounded-full bg-[var(--card-border)]/30 overflow-hidden">
+              <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-700 ease-out" style={{ width: `${pct}%` }} />
+            </div>
+            <div className="flex items-center justify-between mt-1.5 text-xs">
+              <span className="text-emerald-600 font-extrabold">{pct.toFixed(0)}%</span>
               <span className="text-[var(--muted)] font-semibold">남은 거리 {remain.toFixed(1)}km</span>
-            ) : (
-              <span className="text-emerald-600 font-extrabold inline-flex items-center gap-1">
-                <Trophy size={12} /> 완주!
-              </span>
-            )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

@@ -30,15 +30,30 @@ export async function POST(req: NextRequest) {
   // 일요일 KST 에만 weekly_best_quote 발송 (주 1회)
   const isSunday = new Date().getUTCDay() === 0;
 
+  // build 167 (v1.1) — 인게이지먼트 3종 추가.
+  // 매월 마지막 날 KST 에 월말 정산 카드 push.
+  const nowKst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const tomorrowKst = new Date(nowKst);
+  tomorrowKst.setUTCDate(nowKst.getUTCDate() + 1);
+  const isLastDayOfMonth = nowKst.getUTCMonth() !== tomorrowKst.getUTCMonth();
+
   type RpcResult = { data: unknown; error: { message?: string } | null };
   const wrap = (q: PromiseLike<RpcResult>): Promise<RpcResult> => Promise.resolve(q);
 
   const tasks: Promise<RpcResult>[] = [
     wrap(supabase.rpc('enqueue_review_reminders') as unknown as PromiseLike<RpcResult>),
     wrap(supabase.rpc('enqueue_low_stock_wishlist') as unknown as PromiseLike<RpcResult>),
+    // build 167 #9: 3일 미접속 이탈 리마인더 (매일)
+    wrap(supabase.rpc('enqueue_idle_reminders') as unknown as PromiseLike<RpcResult>),
+    // build 167 #11: Run of the Day 매일 1회 자동 선정 (어제 활동 기준)
+    wrap(supabase.rpc('pick_run_of_the_day') as unknown as PromiseLike<RpcResult>),
   ];
   if (isSunday) {
     tasks.push(wrap(supabase.rpc('enqueue_weekly_best_quote') as unknown as PromiseLike<RpcResult>));
+  }
+  if (isLastDayOfMonth) {
+    // build 167 #10: 월말 정산 카드 push (매월 마지막날 1회)
+    tasks.push(wrap(supabase.rpc('enqueue_month_end_recaps') as unknown as PromiseLike<RpcResult>));
   }
 
   const results = await Promise.all(tasks);
@@ -47,7 +62,10 @@ export async function POST(req: NextRequest) {
     ok: true,
     review_reminders: results[0].data ?? 0,
     low_stock_pushes: results[1].data ?? 0,
-    weekly_best_quotes: isSunday ? (results[2]?.data ?? 0) : null,
+    idle_reminders: results[2].data ?? 0,
+    run_of_the_day: results[3].data ?? 0,
+    weekly_best_quotes: isSunday ? (results[4]?.data ?? 0) : null,
+    month_end_recaps: isLastDayOfMonth ? (results[isSunday ? 5 : 4]?.data ?? 0) : null,
     errors: results.map(r => r.error?.message).filter(Boolean),
   });
 }

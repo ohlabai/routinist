@@ -47,6 +47,9 @@ import RankNeighbors from '@/components/home/RankNeighbors';
 import HomeMapPreview from '@/components/home/HomeMapPreview';
 import HomeChallengeCard from '@/components/home/HomeChallengeCard';
 import HomeOnboardingCard from '@/components/home/HomeOnboardingCard';
+import PullDownOnboardingHint from '@/components/home/PullDownOnboardingHint';
+import MonthEndRecapCard from '@/components/home/MonthEndRecapCard';
+import RunOfTheDayCard from '@/components/home/RunOfTheDayCard';
 import HomeFriendStories from '@/components/home/HomeFriendStories';
 import FreshnessBadge from '@/components/FreshnessBadge';
 import AppToast from '@/components/AppToast';
@@ -578,6 +581,8 @@ export default function DashboardPage() {
           → 7 랭킹Hero (활성화 hero) → 8 LiveRunning → 9 캘린더 → 10 지역배너
           → 11 Friends → 12 Predict → 13 LocalTop → 14 Neighbors → 15 OnThisDay */}
       <div className="space-y-3 pt-1">
+        {/* build 167 #8: 첫 방문자 PTR 온보딩 힌트 — 회색 빈 화면에서 위→아래 화살표 + 친근 안내 */}
+        <PullDownOnboardingHint />
         {/* 1 HealthKit — App Store 2.5.1 요건 */}
         <HealthConnectCard />
 
@@ -589,6 +594,12 @@ export default function DashboardPage() {
           <WeeklyRecapCard activities={activities} />
           <StreakWarningCard activities={activities} streak={getStreak(activities)} />
         </div>
+
+        {/* build 167 #10: 월말 정산 카드 (조건부 — 월말 3일 + 다음달 첫 7일) */}
+        <MonthEndRecapCard activities={activities} />
+
+        {/* build 167 #11: Run of the Day — 어제 활동 중 자동 선정. 데이터 있을 때만 표시 */}
+        <RunOfTheDayCard />
 
         {/* 4 {이름}님의 N월 헤더 */}
         <div className="mx-4 flex items-center justify-between pt-1">

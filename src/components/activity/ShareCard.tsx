@@ -10,6 +10,8 @@ import { detectRegionLabel } from '@/lib/region-from-gps';
 import { captureCanvasAnimation } from '@/lib/canvas-to-video';
 import { getSupabase } from '@/lib/supabase';
 import { track } from '@/lib/analytics';
+import { fetchActivityRoute } from '@/lib/routinist-data';
+import { createUserQuote } from '@/lib/user-quotes';
 import AppToast from '@/components/AppToast';
 import type { Activity } from '@/types';
 
@@ -101,6 +103,8 @@ function drawCard(
   monthlyGoalKm?: number,
   regionLabel?: string,
   routeProgress: number = 1,
+  /** build 167 #3: 거리 표시 카운트업. 미지정 시 activity.distance_km 그대로. */
+  kmDisplay?: number,
 ) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -311,10 +315,12 @@ function drawCard(
 
   // 거리 (메인) — build 136: map 끝(260+480=740) 과 7.19 사이 여백 확보.
   // distY 가 폰트의 baseline 이라 실제 위쪽은 distY-180. distY=950 → 폰트 시작 770 → map 끝 740 과 30px 여백.
+  // build 167 #3: kmDisplay 가 주어지면 (MP4 카운트업 중) 그 값으로, 아니면 최종 거리.
   const distY = hasRoute ? 950 : H * 0.36;
   ctx.font = 'bold 180px -apple-system, BlinkMacSystemFont, sans-serif';
   ctx.fillStyle = mainColor;
-  ctx.fillText(activity.distance_km.toFixed(2), W / 2, distY);
+  const kmValue = typeof kmDisplay === 'number' ? kmDisplay : activity.distance_km;
+  ctx.fillText(kmValue.toFixed(2), W / 2, distY);
 
   ctx.font = 'bold 56px -apple-system, BlinkMacSystemFont, sans-serif';
   ctx.fillStyle = accentColor;
@@ -600,9 +606,21 @@ function downloadBlob(blob: Blob, fileName: string) {
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
-export default function ShareCard({ activity, displayName, onClose, hideRegister, onRegistered }: ShareCardProps) {
+export default function ShareCard({ activity: baseActivity, displayName, onClose, hideRegister, onRegistered }: ShareCardProps) {
   const { user, profile } = useAuth();
   const { activities, goals } = useUserData();
+  // build 167 #1: useUserData() activities 는 route_data 없는 lite. ShareCard 진입 시 단건 lazy fetch.
+  const [routeData, setRouteData] = useState<Activity['route_data']>(baseActivity.route_data ?? null);
+  const activity = useMemo<Activity>(() => ({ ...baseActivity, route_data: routeData }), [baseActivity, routeData]);
+  useEffect(() => {
+    if (routeData) return;
+    let cancelled = false;
+    fetchActivityRoute(baseActivity.id).then(r => {
+      if (!cancelled && r?.route_data) setRouteData(r.route_data);
+    }).catch(() => { /* silent */ });
+    return () => { cancelled = true; };
+  }, [baseActivity.id, routeData]);
+
   // 활동 월의 목표(km) — 가로 progress bar 에 사용. 없으면 undefined → bar 미표시.
   const monthlyGoalKm = (() => {
     const d = new Date(activity.activity_date);
@@ -634,8 +652,10 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
   // 캘린더 저장은 항상 자동 (UI 표시 X — 사용자 의도).
   const [registerToGallery, setRegisterToGallery] = useState(true);
   // build 150: 한 줄 메시지 직접 입력. 비어있으면 명언(placeholder) 사용, 입력 있으면 카드에 그 텍스트.
-  // 별도 모달 폐기 (UI 복잡도 줄임). 영구 저장 원하면 /quotes/mine 페이지에서.
+  // build 167 #4: 사용자가 직접 타이핑한 customText 는 자동으로 quotes 테이블 (러너 한 줄) 에도 저장.
+  //   디폴트 ON. 일회용 메시지면 체크 해제 가능. 랜덤 명언은 저장 안 함.
   const [customText, setCustomText] = useState('');
+  const [saveToQuotes, setSaveToQuotes] = useState(true);
 
   // 공유카드 열 때마다 random 명언 + 🎲 버튼으로 새로 굴릴 수 있음.
   // SNS 도배 회피 + 사용자가 마음에 들 때까지 새로 받음.
@@ -708,8 +728,8 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
   };
 
   // build 136: 정적 PNG 공유. 네이티브 공유 시트 (Capacitor Share) + 캡션.
-  const sharePngBlob = async (blob: Blob, urlForCaption: string) => {
-    const text = `${shareCaption}\n${urlForCaption}`;
+  // build 167 #3: 사용자 결정 — 공유 시 태그/링크 제거. 채팅창 지저분함 회피. 동영상/이미지만 공유.
+  const sharePngBlob = async (blob: Blob) => {
     if (isNativeApp()) {
       try {
         const dataUrl = await blobToDataUrl(blob);
@@ -723,8 +743,6 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
         });
         const { Share } = await import('@capacitor/share');
         await Share.share({
-          title: `${activity.distance_km.toFixed(2)}km 러닝`,
-          text,
           url: result.uri,
           dialogTitle: '러닝 기록 공유',
         });
@@ -734,7 +752,7 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
     } else if (navigator.share) {
       try {
         const file = new File([blob], `routinist-${activity.activity_date}.png`, { type: 'image/png' });
-        await navigator.share({ files: [file], title: `${activity.distance_km.toFixed(2)}km 러닝`, text });
+        await navigator.share({ files: [file] });
       } catch (err) {
         // user cancelled 인지 진짜 에러인지 구분 — AbortError 는 무시.
         if (err instanceof Error && err.name !== 'AbortError') showShareError('웹 공유', err);
@@ -745,12 +763,11 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
   };
 
   // 비디오 (MP4/webm) 네이티브 공유. 카톡·인스타가 동영상으로 인식.
-  const shareVideoBlob = async (blob: Blob, extension: 'mp4' | 'webm', urlForCaption: string) => {
-    const text = `${shareCaption}\n${urlForCaption}`;
+  // build 167 #3: text/title 제거 — 파일만 공유.
+  const shareVideoBlob = async (blob: Blob, extension: 'mp4' | 'webm') => {
     const fileName = `routinist-${activity.activity_date}.${extension}`;
     if (isNativeApp()) {
       // build 153: webm 차단(152) 제거 — 이전 빌드에서 webm 도 정상 공유됐다는 사용자 보고.
-      // 진단 로그는 화면 toast 로 노출(temp) — 정확한 회귀 지점 추적용.
       try {
         const diag = (label: string) => {
           console.log(`[ShareCard] ${label}`);
@@ -767,8 +784,6 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
         diag(`file written uri=${result.uri}`);
         const { Share } = await import('@capacitor/share');
         const shareResult = await Share.share({
-          title: `${activity.distance_km.toFixed(2)}km 러닝`,
-          text,
           url: result.uri,
           dialogTitle: '러닝 기록 공유',
         });
@@ -780,7 +795,7 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
       try {
         const mime = extension === 'mp4' ? 'video/mp4' : 'video/webm';
         const file = new File([blob], fileName, { type: mime });
-        await navigator.share({ files: [file], title: `${activity.distance_km.toFixed(2)}km 러닝`, text });
+        await navigator.share({ files: [file] });
       } catch (err) {
         if (err instanceof Error && err.name !== 'AbortError') showShareError('웹 비디오 공유', err);
       }
@@ -836,9 +851,19 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
       if (includeGallery) {
         // quote_id 는 quotes 테이블 row 일 때만 (non-fallback, 또한 user 직접 입력은 X — id 가 'custom-' 접두로 시작).
         // build 137: caption 컬럼에 quote.text 직접 저장 → view join 실패해도 캡션 노출 보장.
-        // build 150: 사용자가 직접 입력한 텍스트는 quote_id 없이 caption 만 저장 (영구 명언 등록은 /quotes/mine).
+        // build 167 #4: 사용자가 직접 타이핑한 customText + saveToQuotes ON 이면 createUserQuote 로
+        //   영구 quotes 등록 → 그 id 를 quote_id 로 연결. 소셜 탭 "러너 한 줄" / "내 한 줄" 자동 노출.
         const isCustom = effectiveQuote?.id?.toString().startsWith('custom-') ?? false;
-        const quoteIdForCard = effectiveQuote && !isCustom && !isFallbackQuote(effectiveQuote) ? effectiveQuote.id : null;
+        let quoteIdForCard: string | null = null;
+        if (isCustom && saveToQuotes && customText.trim()) {
+          try {
+            quoteIdForCard = await withTimeout(createUserQuote(customText.trim()), 8000, 'create_user_quote');
+          } catch (e) {
+            console.warn('[ShareCard] createUserQuote 실패, caption-only 폴백:', e);
+          }
+        } else if (effectiveQuote && !isCustom && !isFallbackQuote(effectiveQuote)) {
+          quoteIdForCard = effectiveQuote.id;
+        }
         const captionForCard = effectiveQuote ? effectiveQuote.text : null;
         tasks.push(
           withTimeout(
@@ -883,12 +908,8 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
     }
   };
 
-  // 캡션 — 직접 입력 텍스트 또는 명언 + 해시태그. 공유 시 OG 딥링크가 별도 줄로 첨부됨.
-  const shareCaption = effectiveQuote
-    ? `"${effectiveQuote.text}"${effectiveQuote.author && effectiveQuote.category !== 'user' ? ` — ${effectiveQuote.author}` : ''}\n\n#Routinist #${activity.distance_km.toFixed(1)}km`
-    : `오늘도 한 발 더. ${activity.distance_km.toFixed(2)}km #Routinist`;
-
   // build 136: 공유는 단일 CTA. 동영상 토글 ON 이면 라인 그리기 MP4, OFF 또는 미지원이면 PNG.
+  // build 167 #3: 캡션·해시태그·딥링크 모두 제거. 동영상/이미지 파일만 공유 → 채팅창 깔끔.
   const handleShare = async () => {
     if (!canvasRef.current) return;
     track('share_card_share', {
@@ -900,10 +921,6 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
       as_video: shareAsVideo,
     });
 
-    // 카톡/인스타에서 링크 누르면 앱(또는 설치 페이지) 으로 — build 136 OG 라우트.
-    // build 141 fix: routinist.kr 은 cafe24 mall — 앱 OG 도메인은 app.routinist.kr (Vercel Next 앱).
-    const shareLandingUrl = `https://app.routinist.kr/r/${activity.id}`;
-
     // 비디오 분기 — MediaRecorder 지원 + GPS 라인 있을 때만 의미 있음.
     const hasRoute = !!activity.route_data?.coordinates?.length;
     if (shareAsVideo && hasRoute && typeof MediaRecorder !== 'undefined') {
@@ -912,6 +929,7 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
         const result = await captureCanvasAnimation(
           canvasRef.current,
           (progress) => {
+            // build 167 #3: KM 숫자도 progress 에 맞춰 0.00 → distance_km 카운트업.
             drawCard(
               canvasRef.current!,
               activity,
@@ -924,17 +942,16 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
               monthlyGoalKm,
               regionLabel ?? undefined,
               progress,
+              activity.distance_km * progress,
             );
           },
-          // build 142: durationMs/holdMs default 사용 (canvas-to-video 의 4000/1500ms).
-          // 이전 명시값 2500/1000 이 build 137 의 default 변경을 덮어쓰던 회귀 fix.
           { fps: 30, bitsPerSecond: 5_000_000 },
         );
-        await shareVideoBlob(result.blob, result.extension, shareLandingUrl);
+        await shareVideoBlob(result.blob, result.extension);
       } catch (err) {
         console.warn('비디오 생성 실패, PNG 폴백:', err);
         const blob = await new Promise<Blob | null>(res => canvasRef.current!.toBlob(b => res(b), 'image/png'));
-        if (blob) await sharePngBlob(blob, shareLandingUrl);
+        if (blob) await sharePngBlob(blob);
       } finally {
         // 정적 카드로 복귀
         generate();
@@ -945,7 +962,7 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
 
     // 정적 이미지 공유
     const blob = await new Promise<Blob | null>(res => canvasRef.current!.toBlob(b => res(b), 'image/png'));
-    if (blob) await sharePngBlob(blob, shareLandingUrl);
+    if (blob) await sharePngBlob(blob);
   };
 
   return (
@@ -967,7 +984,8 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
         {/* build 150: 한 줄 메시지 — 통합 인라인 input.
             - placeholder: 현재 명언 (회색). 클릭해도 사라지지 않음 (Apple Notes 패턴).
             - 사용자 타이핑 → 카드 안 명언이 실시간 동기화 (effectiveQuote).
-            - 오른쪽 아이콘: 빈 상태 → 🔀 셔플(다음 명언), 입력 있음 → ✕ 지우기. */}
+            - 오른쪽 아이콘: 빈 상태 → 🔀 셔플(다음 명언), 입력 있음 → ✕ 지우기.
+            - build 167 #4: 직접 입력 시 "러너 한 줄에도 저장" 체크박스 노출 (디폴트 ON). */}
         <div className="px-4 pb-2 flex-shrink-0">
           <div className="flex items-center gap-2 bg-[var(--card)] border border-[var(--card-border)] rounded-xl px-3 py-2.5">
             <input
@@ -996,6 +1014,23 @@ export default function ShareCard({ activity, displayName, onClose, hideRegister
               </button>
             )}
           </div>
+          {customText.trim() && (
+            <label className="flex items-center gap-2 px-1 pt-2 cursor-pointer select-none">
+              <span className="relative flex items-center justify-center">
+                <input
+                  type="checkbox"
+                  checked={saveToQuotes}
+                  onChange={(e) => setSaveToQuotes(e.target.checked)}
+                  className="peer sr-only"
+                />
+                <span className="w-4 h-4 rounded border-2 border-[var(--card-border)] peer-checked:bg-emerald-500 peer-checked:border-emerald-500 transition-all" />
+                {saveToQuotes && (
+                  <Check size={10} className="absolute text-white pointer-events-none" strokeWidth={3} />
+                )}
+              </span>
+              <span className="text-[11px] text-[var(--muted)]">러너 한 줄에도 저장 (소셜 탭에서 보임)</span>
+            </label>
+          )}
         </div>
 
         {/* 테마 선택 — 5개 한 줄 grid (사용자 피드백 #9). 화살표 제거. */}

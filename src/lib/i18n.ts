@@ -59,6 +59,14 @@ export type TranslationKey =
   | 'profile.menuPrivacy'
   | 'profile.menuTerms'
   | 'profile.deleteAccount'
+  // build 167 #7: 내 정보 페이지 하드코딩 한글 영문화
+  | 'profile.title'
+  | 'profile.menuFeedback'
+  | 'profile.menuPushSettings'
+  | 'profile.menuOrders'
+  | 'profile.menuAddresses'
+  | 'profile.menuAdmin'
+  | 'profile.pushOnSummary'
   | 'profile.themeTitle'
   | 'profile.themeLight'
   | 'profile.themeDark'
@@ -317,6 +325,13 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'profile.menuPrivacy': '개인정보처리방침',
     'profile.menuTerms': '이용약관',
     'profile.deleteAccount': '계정 탈퇴',
+    'profile.title': '내 정보',
+    'profile.menuFeedback': '제안 / 버그 게시판',
+    'profile.menuPushSettings': '알림 설정',
+    'profile.menuOrders': '내 주문 내역',
+    'profile.menuAddresses': '배송지 관리',
+    'profile.menuAdmin': '어드민 대시보드',
+    'profile.pushOnSummary': '알림 ON · 주문·메시지·매칭 즉시 받기',
     'profile.themeTitle': '화면 모드',
     'profile.themeLight': '라이트',
     'profile.themeDark': '다크',
@@ -572,6 +587,13 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'profile.menuPrivacy': 'Privacy policy',
     'profile.menuTerms': 'Terms of service',
     'profile.deleteAccount': 'Delete account',
+    'profile.title': 'Profile',
+    'profile.menuFeedback': 'Feedback / Bug board',
+    'profile.menuPushSettings': 'Notifications',
+    'profile.menuOrders': 'My orders',
+    'profile.menuAddresses': 'Addresses',
+    'profile.menuAdmin': 'Admin dashboard',
+    'profile.pushOnSummary': 'Push ON · Get orders, messages, matches instantly',
     'profile.themeTitle': 'Theme',
     'profile.themeLight': 'Light',
     'profile.themeDark': 'Dark',

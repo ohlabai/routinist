@@ -158,12 +158,12 @@ export default function ProfilePage() {
   // build 136 메뉴 IA 정리 — 데이터 점검(audit) 은 일반 메뉴에서 제거 (어드민 대시보드 안에만 노출).
   // 명언 랭킹/러너 에세이/나의 명언은 이미 소셜 탭으로 이전됨.
   const settings: { href: string; label: string; Icon: typeof HelpCircle }[] = [
-    { href: '/feedback', label: '제안 / 버그 게시판', Icon: HelpCircle },
-    { href: '/profile/push-settings', label: '알림 설정', Icon: HelpCircle },
-    { href: '/shop/orders', label: '내 주문 내역', Icon: HelpCircle },
-    { href: '/shop/addresses', label: '배송지 관리', Icon: HelpCircle },
+    { href: '/feedback', label: t('profile.menuFeedback'), Icon: HelpCircle },
+    { href: '/profile/push-settings', label: t('profile.menuPushSettings'), Icon: HelpCircle },
+    { href: '/shop/orders', label: t('profile.menuOrders'), Icon: HelpCircle },
+    { href: '/shop/addresses', label: t('profile.menuAddresses'), Icon: HelpCircle },
     ...(isAdmin ? [
-      { href: '/admin', label: '어드민 대시보드', Icon: Settings },
+      { href: '/admin', label: t('profile.menuAdmin'), Icon: Settings },
     ] : []),
     { href: '/support', label: t('profile.menuSupport'), Icon: HelpCircle },
     { href: '/privacy', label: t('profile.menuPrivacy'), Icon: Shield },
@@ -176,7 +176,7 @@ export default function ProfilePage() {
       <header className="sticky top-0 z-30 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
         <div className="px-4 py-3 flex items-center gap-2">
           <AppLogo size={28} />
-          <h1 className="text-xl font-extrabold tracking-tight">내 정보</h1>
+          <h1 className="text-xl font-extrabold tracking-tight">{t('profile.title')}</h1>
         </div>
       </header>
 
@@ -328,7 +328,7 @@ export default function ProfilePage() {
           <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center">
             <Bell size={16} className="text-emerald-600" />
           </div>
-          <p className="text-xs text-[var(--muted)] flex-1">알림 ON · 주문·메시지·매칭 즉시 받기</p>
+          <p className="text-xs text-[var(--muted)] flex-1">{t('profile.pushOnSummary')}</p>
         </div>
       )}
 
