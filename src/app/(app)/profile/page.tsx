@@ -83,16 +83,15 @@ export default function ProfilePage() {
   }, [user?.id]);
   const displayBalance = freshBalance !== null ? freshBalance : Number(profile?.mileage_balance ?? 0);
 
-  // build 175 #5: 쪽지함 미읽음 카운트 — receiver(나) + read_at IS NULL.
-  // conversations.user_a/user_b 중 본인 + 다른 쪽이 sender.
+  // 쪽지함 미읽음 카운트 — receiver(나) + read_at IS NULL. build 175 신설, build 179 refresh 보강.
+  // mount + visibility 복귀 + window focus 시마다 재요청 → 채팅 읽고 돌아왔을 때 stale 배지 회피.
   const [unreadMessages, setUnreadMessages] = useState(0);
   useEffect(() => {
     if (!user?.id) return;
     let cancelled = false;
-    (async () => {
+    const fetchUnread = async () => {
       try {
         const sb = getSupabase();
-        // 본인이 속한 conversation 의 메시지 중 sender 가 본인이 아니고 read_at IS NULL.
         const { data: convs } = await sb.from('conversations')
           .select('id, user_a, user_b')
           .or(`user_a.eq.${user.id},user_b.eq.${user.id}`);
@@ -105,8 +104,16 @@ export default function ProfilePage() {
           .is('read_at', null);
         if (!cancelled) setUnreadMessages(count ?? 0);
       } catch { /* silent */ }
-    })();
-    return () => { cancelled = true; };
+    };
+    fetchUnread();
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchUnread(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', fetchUnread);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', fetchUnread);
+    };
   }, [user?.id]);
 
   const handlePushToggle = async () => {

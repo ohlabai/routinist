@@ -15,6 +15,7 @@ import AppToast from '@/components/AppToast';
 import type { Product, ProductStatus, ProductVariant } from '@/types';
 
 import { isAdminEmail } from '@/lib/admin-emails';
+import { logClientWarn } from '@/lib/error-logger';
 const STORAGE_BUCKET = 'product-images';
 
 interface FormState {
@@ -126,6 +127,7 @@ function ProductEditContent() {
         showToast('수정 완료');
       }
     } catch (e) {
+      logClientWarn('admin/products/edit', 'save 실패', { err: String(e), id, isNew });
       showToast(e instanceof Error ? e.message : '저장 실패', 'warn');
     } finally { setSaving(false); }
   };
@@ -175,7 +177,7 @@ function ProductEditContent() {
   }
 
   return (
-    <div className="max-w-lg mx-auto pb-32 bg-[var(--background)] min-h-screen">
+    <div className="max-w-lg mx-auto pb-48 bg-[var(--background)] min-h-screen">
       <header className="sticky top-0 z-30 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
         <div className="flex items-center gap-2 px-3 py-3">
           <Link href="/admin/products" className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition">
@@ -371,8 +373,11 @@ function ProductEditContent() {
         </Section>
       </div>
 
-      {/* Sticky CTA */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 max-w-lg w-full bg-[var(--background)]/95 backdrop-blur-lg border-t border-[var(--card-border)]/30 safe-area-bottom z-20">
+      {/* CTA — 하단 nav 와 겹쳐 클릭 안 되던 회귀 fix (build 179). z-50 + nav 위로 띄움. */}
+      <div
+        className="fixed left-1/2 -translate-x-1/2 max-w-lg w-full bg-[var(--background)]/95 backdrop-blur-lg border-t border-[var(--card-border)]/30 z-50"
+        style={{ bottom: 'calc(56px + env(safe-area-inset-bottom))' }}
+      >
         <div className="p-3">
           <button
             onClick={handleSave}

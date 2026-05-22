@@ -385,9 +385,13 @@ function CheckoutContent() {
         <div className="card p-4">
           <div className="flex gap-2 mb-2">
             <input
-              type="number" min={0} max={totals.maxMileage}
-              value={mileageUseInput || ''}
-              onChange={e => setMileageUseInput(Math.max(0, Math.min(totals.maxMileage, parseInt(e.target.value) || 0)))}
+              type="text"
+              inputMode="numeric"
+              value={mileageUseInput > 0 ? mileageUseInput.toLocaleString() : ''}
+              onChange={e => {
+                const num = parseInt(e.target.value.replace(/[^\d]/g, ''), 10) || 0;
+                setMileageUseInput(Math.max(0, Math.min(totals.maxMileage, num)));
+              }}
               placeholder="0"
               className="flex-1 px-4 py-2.5 rounded-xl bg-[var(--background)] border-2 border-[var(--card-border)] text-sm font-bold text-[var(--foreground)] focus:outline-none focus:border-emerald-500"
             />

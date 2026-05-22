@@ -207,7 +207,11 @@ export default function AdminProductsPage() {
       ) : (
         <div className="px-4 pt-4 space-y-2.5">
           {products.map(p => (
-            <div key={p.id} className="card p-3 flex gap-3">
+            <div
+              key={p.id}
+              onClick={() => router.push(`/admin/products/edit?id=${p.id}`)}
+              className="card p-3 flex gap-3 cursor-pointer active:scale-[0.99] transition"
+            >
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-zinc-900 dark:to-zinc-950 overflow-hidden flex-shrink-0 relative">
                 {p.thumbnail_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -224,7 +228,7 @@ export default function AdminProductsPage() {
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-sm font-bold text-[var(--foreground)] line-clamp-1">{p.name}</p>
                   <button
-                    onClick={() => handleFeatured(p.id, !p.is_featured)}
+                    onClick={e => { e.stopPropagation(); handleFeatured(p.id, !p.is_featured); }}
                     className={`flex-shrink-0 active:scale-90 ${p.is_featured ? 'text-amber-500' : 'text-[var(--muted)]'}`}
                     aria-label="추천 토글"
                   >
@@ -240,7 +244,8 @@ export default function AdminProductsPage() {
                 <div className="flex items-center gap-1.5 mt-2">
                   <select
                     value={p.status}
-                    onChange={e => handleStatusChange(p.id, e.target.value as ProductStatus)}
+                    onClick={e => e.stopPropagation()}
+                    onChange={e => { e.stopPropagation(); handleStatusChange(p.id, e.target.value as ProductStatus); }}
                     className="text-[10px] font-bold px-2 py-1 rounded-full border border-[var(--card-border)] bg-[var(--background)] focus:outline-none focus:border-emerald-500"
                   >
                     <option value="published">판매중</option>
@@ -249,12 +254,13 @@ export default function AdminProductsPage() {
                   </select>
                   <Link
                     href={`/admin/products/edit?id=${p.id}`}
+                    onClick={e => e.stopPropagation()}
                     className="text-[11px] font-bold text-emerald-600 inline-flex items-center gap-0.5 active:scale-95"
                   >
                     <Edit2 size={11} /> 편집
                   </Link>
                   <button
-                    onClick={() => handleDelete(p.id, p.name)}
+                    onClick={e => { e.stopPropagation(); handleDelete(p.id, p.name); }}
                     className="ml-auto text-[11px] font-bold text-red-500 inline-flex items-center gap-0.5 active:scale-95"
                   >
                     <Trash2 size={11} /> 삭제
