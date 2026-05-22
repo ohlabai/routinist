@@ -3,9 +3,9 @@
 // 제안/버그 게시판 (build 107) — 유저가 직접 버그/기능 요청 남기는 공개 게시판.
 // 어드민은 /admin/feedback 에서 상태 변경 + 답글.
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ThumbsUp, MessageSquare, Bug, Sparkles, Layout, HelpCircle, Plus, X, Check, Trash2, Lock, Globe, Flag } from 'lucide-react';
+import { ArrowLeft, ThumbsUp, MessageSquare, Bug, Sparkles, Layout, HelpCircle, Plus, X, Check, Trash2, Lock, Globe, Flag, ImagePlus } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import AppLogo from '@/components/AppLogo';
 import AppToast from '@/components/AppToast';
@@ -15,6 +15,7 @@ import {
   fetchMyFeedbackUpvotes,
   toggleFeedbackUpvote,
   createFeedback,
+  uploadFeedbackImage,
   deleteMyFeedback,
   reportFeedback,
   CATEGORY_LABEL,
@@ -263,6 +264,19 @@ export default function FeedbackPage() {
                   </button>
                 )}
 
+                {/* build 172.1 #5C: 첨부 이미지 표시 */}
+                {p.image_url && (
+                  <div className="mt-3 rounded-2xl overflow-hidden border border-[var(--card-border)]/40 bg-[var(--card)]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={p.image_url}
+                      alt="첨부"
+                      className="w-full max-h-[420px] object-contain cursor-pointer"
+                      onClick={() => window.open(p.image_url!, '_blank', 'noopener')}
+                    />
+                  </div>
+                )}
+
                 {/* 어드민 답글 — 에메랄드 톤 강화 */}
                 {p.admin_reply && (
                   <div className="mt-3.5 rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-50/50 dark:from-emerald-950/40 dark:to-emerald-950/20 border-2 border-emerald-200/60 dark:border-emerald-800/40 p-3.5">
@@ -394,11 +408,32 @@ function ComposeModal({ onClose, onCreated, onError }: {
   onCreated: () => void;
   onError: (msg: string) => void;
 }) {
+  const { user } = useAuth();
   const [category, setCategory] = useState<FeedbackCategory>('bug');
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [isPublic, setIsPublic] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  // build 172.1 #5C: 이미지 첨부 (1장)
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!f.type.startsWith('image/')) { onError('이미지 파일만 첨부할 수 있어요'); return; }
+    if (f.size > 10 * 1024 * 1024) { onError('이미지가 10MB 보다 커요'); return; }
+    setImageFile(f);
+    const reader = new FileReader();
+    reader.onload = () => setImagePreview(reader.result as string);
+    reader.readAsDataURL(f);
+  };
+
+  const clearImage = () => {
+    setImageFile(null); setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   const handleSubmit = async () => {
     const t = title.trim();
@@ -407,8 +442,19 @@ function ComposeModal({ onClose, onCreated, onError }: {
     if (b.length < 5) { onError('내용이 너무 짧아요'); return; }
     setSubmitting(true);
     try {
-      await createFeedback(category, t, b, isPublic);
-      track('feedback_create', { category, is_public: isPublic, body_length: b.length });
+      // 이미지 있으면 먼저 업로드 후 URL 받아 createFeedback 에 전달
+      let imageUrl: string | null = null;
+      if (imageFile && user) {
+        try {
+          imageUrl = await uploadFeedbackImage(user.id, imageFile);
+        } catch (e) {
+          onError(`이미지 업로드 실패 — ${e instanceof Error ? e.message.slice(0, 80) : '알 수 없는 오류'}`);
+          setSubmitting(false);
+          return;
+        }
+      }
+      await createFeedback(category, t, b, isPublic, imageUrl);
+      track('feedback_create', { category, is_public: isPublic, body_length: b.length, has_image: !!imageUrl });
       onCreated();
     } catch (e) {
       onError(e instanceof Error ? e.message : '등록 실패');
@@ -417,18 +463,21 @@ function ComposeModal({ onClose, onCreated, onError }: {
     }
   };
 
-  // 모바일 작성 최적화 — 큰 글씨 / 넓은 칸 / 에메랄드 일관 컬러 (사용자 피드백 2026-05-14).
+  // 모바일 작성 최적화 (build 172.1 #5):
+  // - max-h-[92dvh] (iOS Safari 키보드 대응 — dvh 가 vh 보다 정확)
+  // - sticky CTA 제거 → flex flex-col 의 마지막 자식으로 자연 배치 (가림 회귀 fix)
+  // - 본문은 flex-1 + min-h-0 + overflow-y-auto (flex 내부 스크롤 안전 패턴)
   return (
     <div
       className="fixed inset-0 z-[80] bg-black/65 flex items-end sm:items-center justify-center sm:p-3 animate-[fadeIn_0.2s_ease-out]"
       onClick={() => !submitting && onClose()}
     >
       <div
-        className="w-full sm:max-w-lg bg-[var(--background)] rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92vh] flex flex-col"
+        className="w-full sm:max-w-lg bg-[var(--background)] rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92dvh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 헤더 — sticky, 에메랄드 그라데이션 액센트 */}
-        <div className="sticky top-0 z-10 px-5 pt-4 pb-3 bg-[var(--background)] border-b border-emerald-100 dark:border-emerald-950/40 rounded-t-3xl">
+        {/* 헤더 — flex-shrink-0, 에메랄드 그라데이션 액센트 */}
+        <div className="flex-shrink-0 px-5 pt-4 pb-3 bg-[var(--background)] border-b border-emerald-100 dark:border-emerald-950/40 rounded-t-3xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-50 dark:from-emerald-900/40 dark:to-emerald-950/40 flex items-center justify-center">
@@ -449,8 +498,8 @@ function ComposeModal({ onClose, onCreated, onError }: {
           </div>
         </div>
 
-        {/* 본문 — scroll */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+        {/* 본문 — flex-1 + min-h-0 (flex 내부 overflow 안전 패턴) */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-5">
           {/* 카테고리 — 2x2 grid, 큰 카드 */}
           <div>
             <label className="block text-sm font-extrabold text-[var(--foreground)] mb-2">카테고리</label>
@@ -551,10 +600,45 @@ function ComposeModal({ onClose, onCreated, onError }: {
               }`} />
             </div>
           </button>
+
+          {/* build 172.1 #5C: 이미지 첨부 (선택, 1장) — 캡쳐 화면 등 */}
+          <div>
+            <label className="block text-sm font-extrabold text-[var(--foreground)] mb-2">사진 첨부 <span className="text-[11px] text-[var(--muted)] font-medium">(선택)</span></label>
+            {imagePreview ? (
+              <div className="relative rounded-2xl overflow-hidden border-2 border-emerald-200/60 dark:border-emerald-800/40">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={imagePreview} alt="첨부 이미지" className="w-full max-h-[280px] object-contain bg-[var(--card)]" />
+                <button
+                  type="button"
+                  onClick={clearImage}
+                  className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/65 text-white flex items-center justify-center active:scale-90 shadow-md"
+                  aria-label="첨부 이미지 제거"
+                >
+                  <X size={16} strokeWidth={2.5} />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full py-5 rounded-2xl border-2 border-dashed border-[var(--card-border)] bg-[var(--card)] text-[var(--muted)] font-bold text-sm active:scale-[0.99] inline-flex items-center justify-center gap-2 hover:border-emerald-400 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 transition"
+              >
+                <ImagePlus size={20} className="text-emerald-500" />
+                캡쳐 화면이나 사진 첨부
+              </button>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImagePick}
+              className="hidden"
+            />
+          </div>
         </div>
 
-        {/* CTA — sticky bottom, 안전영역 */}
-        <div className="sticky bottom-0 px-5 py-4 bg-[var(--background)] border-t border-[var(--card-border)]/40" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
+        {/* CTA — flex 마지막 자식 (sticky 제거). 가려짐 회귀 fix. safe-area 만 추가 */}
+        <div className="flex-shrink-0 px-5 py-4 bg-[var(--background)] border-t border-[var(--card-border)]/40" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
           <button
             onClick={handleSubmit}
             disabled={submitting || title.trim().length < 2 || body.trim().length < 5}

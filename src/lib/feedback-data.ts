@@ -10,6 +10,7 @@ export interface FeedbackPost {
   category: FeedbackCategory;
   title: string;
   body: string;
+  image_url: string | null;
   is_public: boolean;
   status: FeedbackStatus;
   admin_reply: string | null;
@@ -48,6 +49,7 @@ export async function createFeedback(
   title: string,
   body: string,
   isPublic: boolean = true,
+  imageUrl: string | null = null,
 ): Promise<string> {
   const supabase = getSupabase();
   const { data, error } = await supabase.rpc('create_feedback', {
@@ -55,9 +57,54 @@ export async function createFeedback(
     p_title: title,
     p_body: body,
     p_is_public: isPublic,
+    p_image_url: imageUrl,
   });
   if (error) throw error;
   return data as string;
+}
+
+// build 172.1 #5C: 게시글 첨부 이미지 업로드. activity-photos bucket 의 feedback/ 폴더.
+//   - 클라이언트에서 1024px 로 리사이즈하여 업로드 용량 절감
+//   - 경로 최상단은 auth.uid() (RLS 정책 충족)
+export async function uploadFeedbackImage(userId: string, file: File): Promise<string> {
+  const supabase = getSupabase();
+  // 클라이언트 리사이즈 — canvas 로 longest edge 1024px 로 축소 (90% jpeg).
+  const blob = await resizeImage(file, 1024, 0.9);
+  const ext = 'jpg';
+  const path = `${userId}/feedback/${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from('activity-photos').upload(path, blob, {
+    contentType: 'image/jpeg',
+    upsert: false,
+  });
+  if (error) throw error;
+  const { data } = supabase.storage.from('activity-photos').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+async function resizeImage(file: File, maxEdge: number, quality: number): Promise<Blob> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('FileReader 실패'));
+    reader.readAsDataURL(file);
+  });
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const i = new Image();
+    i.onload = () => resolve(i);
+    i.onerror = () => reject(new Error('이미지 로드 실패'));
+    i.src = dataUrl;
+  });
+  const ratio = Math.min(1, maxEdge / Math.max(img.width, img.height));
+  const w = Math.round(img.width * ratio);
+  const h = Math.round(img.height * ratio);
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas 컨텍스트 실패');
+  ctx.drawImage(img, 0, 0, w, h);
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob 실패')), 'image/jpeg', quality);
+  });
 }
 
 export async function toggleFeedbackUpvote(feedbackId: string): Promise<boolean> {
