@@ -115,11 +115,27 @@ export default function AddressAutocompleteSheet({ onClose, onComplete }: Props)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [query, search]);
 
-  const handlePick = (d: KakaoAddressDoc) => {
+  const handlePick = async (d: KakaoAddressDoc) => {
     const r = d.road_address;
     const a = d.address;
+    let zonecode = r?.zone_no ?? '';
+
+    // 키워드 검색에서 온 결과는 zone_no 가 비어있음 — 도로명주소로 한 번 더 조회.
+    if (!zonecode && r?.address_name && KAKAO_KEY) {
+      try {
+        const r2 = await fetch(
+          `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(r.address_name)}&size=1`,
+          { headers: { Authorization: `KakaoAK ${KAKAO_KEY}` } },
+        );
+        if (r2.ok) {
+          const data = await r2.json();
+          zonecode = (data.documents?.[0]?.road_address?.zone_no as string | undefined) ?? '';
+        }
+      } catch { /* 우편번호 못 채우면 빈값으로 진행 */ }
+    }
+
     onComplete({
-      zonecode: r?.zone_no ?? '',
+      zonecode,
       address: r?.address_name ?? a?.address_name ?? '',
       roadAddress: r?.address_name ?? '',
       jibunAddress: a?.address_name ?? '',
