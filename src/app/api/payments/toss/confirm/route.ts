@@ -28,6 +28,32 @@ interface TossPaymentResponse {
   [k: string]: unknown;
 }
 
+// build 190: 토스 응답의 method 는 한글 ('카드', '간편결제' 등) — orders.payment_method CHECK
+// 제약은 영문 enum ('card', 'easypay' 등) 만 허용. 매핑 누락 시 CHECK 위반으로 결제 confirm 실패.
+function mapTossMethodToDb(tossMethod?: string | null): string | null {
+  if (!tossMethod) return null;
+  const m = tossMethod.trim();
+  const map: Record<string, string> = {
+    '카드': 'card',
+    '계좌이체': 'transfer',
+    '가상계좌': 'vbank',
+    '휴대폰': 'mobile',
+    '상품권': 'voucher',
+    '문화상품권': 'voucher',
+    '도서문화상품권': 'voucher',
+    '게임문화상품권': 'voucher',
+    '간편결제': 'easypay',
+    '카카오페이': 'easypay',
+    '네이버페이': 'easypay',
+    '페이코': 'easypay',
+    '삼성페이': 'easypay',
+    '엘페이': 'easypay',
+    '에스에스지페이': 'easypay',
+    '토스페이': 'easypay',
+  };
+  return map[m] ?? 'card';  // 알 수 없는 한글 method 는 안전망으로 'card' 매핑 (CHECK 통과).
+}
+
 async function tossCancel(secret: string, paymentKey: string, reason: string): Promise<boolean> {
   try {
     const auth = Buffer.from(`${secret}:`).toString('base64');
@@ -118,7 +144,7 @@ export async function POST(req: NextRequest) {
     p_payment_key: paymentKey,
     p_amount: amount,
     p_provider: 'toss',
-    p_method: tossRes.method ?? null,
+    p_method: mapTossMethodToDb(tossRes.method),
     p_raw_response: tossRes,
   });
 
