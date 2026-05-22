@@ -218,6 +218,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return;
           }
         }
+        // build 189: 토스 결제 후 routinist:// 스킴 deep link 복귀 처리.
+        // appScheme='routinist' 옵션 + 외부 카드 ACS 흐름에서 토스가 결제 완료 시
+        // routinist://shop/payment/success?paymentKey=...&orderId=...&amount=... 로 콜백.
+        // 핸들러 없으면 앱이 root(홈)로 떨어져 결제 confirm 안 됨.
+        if (parsed.protocol === 'routinist:') {
+          const fullPath = `${parsed.host}${parsed.pathname}`.replace(/^\/+/, '');
+          const idx = fullPath.indexOf('shop/payment/');
+          if (idx >= 0) {
+            const route = '/' + fullPath.substring(idx);
+            router.replace(`${route}${parsed.search}`);
+            return;
+          }
+        }
       } catch { /* 잘못된 URL — fallthrough */ }
 
       // 비밀번호 재설정 같은 deep link 만 처리. 일반 OAuth 콜백은 안 옴.

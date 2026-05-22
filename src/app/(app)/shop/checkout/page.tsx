@@ -43,9 +43,13 @@ function CheckoutContent() {
     recipient_name: '', phone: '', postal_code: '', address_line1: '',
     address_line2: '', is_default: true, label: '집',
   });
-  // 토스 SDK v1 이 직접 받는 결제수단만 노출. 카드 진입 후 결제창에서 카카오페이·네이버페이 선택 가능.
-  type PayMethod = '카드' | '계좌이체' | '가상계좌' | '휴대폰' | '토스페이';
-  const [payMethod, setPayMethod] = useState<PayMethod>('카드');
+  // build 189: 라이브 가맹점 검증 완료된 '카드' 만 활성화.
+  // - 계좌이체: 토스 가맹점 부가서비스(뱅크페이) 미계약 → PG021
+  // - 가상계좌·휴대폰: customerMobilePhone 등 추가 파라미터/계약 필요
+  // - "토스페이": SDK v1 정식 한글 키 아님 → requestPayment 호출 시 fail
+  // 카드 진입 후 토스 결제창 내부에서 카카오페이·네이버페이·페이코 선택 가능.
+  type PayMethod = '카드';
+  const [payMethod] = useState<PayMethod>('카드');
 
   useEffect(() => {
     if (authLoading) return;
@@ -174,8 +178,14 @@ function CheckoutContent() {
       const tossPayments = await loadTossPayments(tossClientKey);
 
       const customerName = (user.user_metadata?.name as string) || (user.email?.split('@')[0]) || '고객';
-      const successUrl = `${window.location.origin}/shop/payment/success?orderUuid=${draft.order_id}`;
-      const failUrl = `${window.location.origin}/shop/payment/fail?orderUuid=${draft.order_id}`;
+      // build 189: iOS Capacitor 에선 origin 이 https://localhost 라 외부 Safari 로 빠지면 resolve 불가.
+      // 항상 절대 web 도메인을 successUrl 로 사용 — Safari 에서도, in-WebView 에서도 유효.
+      // app.routinist.kr 은 capacitor.config 의 allowNavigation 에 등록되어 in-WebView 로 로드됨.
+      const isLocalhost = typeof window !== 'undefined'
+        && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+      const baseUrl = isLocalhost ? 'https://app.routinist.kr' : window.location.origin;
+      const successUrl = `${baseUrl}/shop/payment/success?orderUuid=${draft.order_id}`;
+      const failUrl = `${baseUrl}/shop/payment/fail?orderUuid=${draft.order_id}`;
 
       await tossPayments.requestPayment(payMethod, {
         amount: draft.total_krw,
@@ -421,24 +431,16 @@ function CheckoutContent() {
         </div>
       </Section>
 
-      {/* 결제 수단 */}
+      {/* 결제 수단 — build 189: 카드만 라이브 검증 완료. 다른 수단은 가맹점 추가 계약 후 활성화. */}
       <Section title="결제 수단" icon={<CreditCardIcon />}>
         <div className="card p-3.5">
-          <div className="grid grid-cols-3 gap-2">
-            {(['카드', '토스페이', '계좌이체', '가상계좌', '휴대폰'] as const).map(m => (
-              <button
-                key={m}
-                onClick={() => setPayMethod(m)}
-                className={`py-2.5 px-2 rounded-xl text-xs font-extrabold transition active:scale-95 border-2 ${
-                  payMethod === m
-                    ? 'bg-emerald-500 text-white border-emerald-500 shadow-md shadow-emerald-500/25'
-                    : 'bg-[var(--card)] border-[var(--card-border)] text-[var(--foreground)]'
-                }`}
-              >
-                {m}
-              </button>
-            ))}
+          <div className="rounded-xl border-2 border-emerald-500 bg-emerald-500 shadow-md shadow-emerald-500/25 py-3 px-3 inline-flex items-center justify-center gap-2 w-full">
+            <CreditCardIcon />
+            <span className="text-sm font-extrabold text-white">신용·체크카드</span>
           </div>
+          <p className="text-[11px] text-[var(--muted)] mt-2.5 leading-relaxed">
+            토스 결제창에서 카카오페이·네이버페이·페이코·삼성페이 도 선택할 수 있어요. 계좌이체·가상계좌·휴대폰결제는 곧 추가됩니다.
+          </p>
         </div>
       </Section>
 
