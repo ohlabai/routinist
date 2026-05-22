@@ -33,9 +33,19 @@ const config: CapacitorConfig = {
       'kakaopay.com',
       'mockup-pg-web.kakaopay.com',
       'pg-web.kakaopay.com',
-      // 토스페이먼츠
+      // 토스페이먼츠 — build 183: payment-gateway / js / api 서브도메인 누락 fix.
+      // requestPayment() 호출 시 window.location 이 payment-gateway.tosspayments.com 로
+      // 이동하는데 거기 미등록이면 Capacitor 가 외부 Safari 로 열어 흐름 끊김.
       'tosspayments.com',
       'pay.tosspayments.com',
+      'payment-gateway.tosspayments.com',
+      'js.tosspayments.com',
+      'api.tosspayments.com',
+      'event.tosspayments.com',
+      // KCP / 카드사 안심클릭 인증 페이지
+      'kcp.co.kr',
+      'pay.kcp.co.kr',
+      'spay.kcp.co.kr',
       // 네이버페이
       'naverpay.com',
       'mbrowser.pay.naver.com',
