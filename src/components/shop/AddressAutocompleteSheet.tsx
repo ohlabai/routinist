@@ -78,10 +78,13 @@ export default function AddressAutocompleteSheet({ onClose, onComplete }: Props)
       const addrData = await addr.json();
       let docs: KakaoAddressDoc[] = addrData.documents ?? [];
 
-      // 2) 아파트명/POI 키워드 검색 보강 — 주소 매칭 없으면 키워드로 시도해 도로명주소 추출
+      // 2) 아파트명/POI 키워드 검색 보강 — 주소 매칭 없으면 키워드로 시도해 도로명주소 추출.
+      // build 191: category_group_code 필터 제거. AT4(관광)/SC4(학교)/PO3(공공) 만 허용했더니
+      // "개포자이프레지던스" 같은 아파트명은 카카오 분류상 별도 카테고리 없는 일반 POI 라 검색 0건.
+      // 전체 POI 검색으로 변경 — 아파트·상가·식당·카페 등 모두 keyword fallback 으로 잡힘.
       if (docs.length === 0) {
         const kw = await fetch(
-          `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(trimmed)}&size=10&category_group_code=AT4,SC4,PO3`,
+          `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(trimmed)}&size=10`,
           { headers: { Authorization: `KakaoAK ${KAKAO_KEY}` }, signal: ctrl.signal },
         );
         if (kw.ok) {
