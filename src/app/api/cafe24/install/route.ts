@@ -3,9 +3,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
-// OAuth 2.0 표준 — scope 는 공백 구분 (콤마 X). URLSearchParams 가 자동으로 encode.
-const SCOPE = 'mall.read_product mall.read_category';
-
 export async function GET(req: NextRequest) {
   const mallId = process.env.CAFE24_MALL_ID ?? 'routinist';
   const clientId = process.env.CAFE24_CLIENT_ID;
@@ -17,13 +14,20 @@ export async function GET(req: NextRequest) {
   const origin = req.nextUrl.origin;
   const redirectUri = `${origin}/api/cafe24/callback`;
 
+  // ?scope=... 으로 override 가능. 빈값(?scope=) 으로 보내면 scope 파라미터 자체 제거 (콘솔 default).
+  // ?sep=comma 또는 ?sep=space 로 구분자 강제. 기본 space (OAuth 2.0 표준).
+  const override = req.nextUrl.searchParams.get('scope');
+  const sep = req.nextUrl.searchParams.get('sep') === 'comma' ? ',' : ' ';
+  const SCOPE_DEFAULT_LIST = ['mall.read_product', 'mall.read_category'];
+  const scope = override !== null ? override : SCOPE_DEFAULT_LIST.join(sep);
+
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: clientId,
     state: 'routinist',
     redirect_uri: redirectUri,
-    scope: SCOPE,
   });
+  if (scope) params.set('scope', scope);
   const authorizeUrl = `https://${mallId}.cafe24api.com/api/v2/oauth/authorize?${params.toString()}`;
   return NextResponse.redirect(authorizeUrl);
 }
