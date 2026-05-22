@@ -141,10 +141,28 @@ export default function WorldTab() {
     setTimeout(() => setToast(null), 2200);
   }, []);
 
+  // build 170 #6: knownJoined stale 정리.
+  // localStorage 가 영구 fallback 이라 사용자가 이전에 시도했다가 DB 에서 사라진 코스
+  // (완주·취소·환불 등) 도 "달리는 중" 으로 잘못 표시될 수 있음 (사용자 신고: 2개 보임).
+  // mine 이 한 번이라도 정상 fetch 되면 그 결과를 source of truth 로 삼아 sync.
+  const reconcileKnownJoined = useCallback((freshMine: MyCourse[]) => {
+    if (!user?.id || typeof window === 'undefined') return;
+    const activeIds = new Set(freshMine.filter(m => !m.completed_at).map(m => m.course_id));
+    try {
+      const next = JSON.stringify([...activeIds]);
+      window.localStorage.setItem(joinedKey(user.id), next);
+      setKnownJoined(activeIds);
+    } catch {}
+  }, [user?.id]);
+
   const load = useCallback(async () => {
     setLoading(true);
     // 두 fetch 를 분리해서 한쪽 실패해도 다른 쪽은 표시 (사용자 신고: 빈 코스 화면).
+    // build 170 #6: fetchMyCourses 성공/실패 구분 → 성공 시에만 knownJoined reconcile.
+    //   실패 시엔 기존 localStorage 유지 (회귀 fallback).
+    let myFetchOk = true;
     const myPromise = fetchMyCourses().catch(e => {
+      myFetchOk = false;
       // build 166 #1 진단: 사용자가 마일리지 차감 후에도 "도전하기" 가 보이는 회귀를 추적하기 위해
       // fail 시 localStorage 에 마지막 에러 + ts 기록. /admin/diagnostics 등에서 확인 가능.
       console.warn('[world] fetchMyCourses fail', e);
@@ -167,6 +185,9 @@ export default function WorldTab() {
     setSeriesList(series);
 
     setMine(my);
+    // build 170 #6: mine 성공 fetch 이면 knownJoined 를 ground truth 로 sync.
+    // → DB 에서 사라진 코스(완주·취소)가 localStorage 에 잔재해 "달리는 중" 으로 잘못 표시되는 버그 fix.
+    if (myFetchOk) reconcileKnownJoined(my);
     // build 163 #3: 참가중 코스도 "새 코스" 리스트에 노출하되 버튼명만 "참가중 — 진입" 으로 분기.
     // 기존엔 mine 으로 필터링했지만, fetchMyCourses RPC 가 silent fail (.catch return []) 하면
     // 참가한 코스가 available 에 그대로 떠서 "도전 시작" 버튼을 또 보게 됨.

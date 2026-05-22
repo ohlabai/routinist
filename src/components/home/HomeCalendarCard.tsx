@@ -36,6 +36,9 @@ export default function HomeCalendarCard() {
 
   const [photos, setPhotos] = useState<Map<string, string>>(new Map());
   const [customPhotos, setCustomPhotos] = useState<Map<string, string>>(new Map());
+  // build 170 #2: storage object 가 사라져 broken URL 인 셀은 거리 기반 초록 fallback 으로 복귀.
+  // 한 번 onError 발생한 URL 은 set 에 저장 → 같은 URL 재시도 안 함 (무한 onError 루프 방지).
+  const [brokenUrls, setBrokenUrls] = useState<Set<string>>(new Set());
   // build 136: 캘린더 셀 탭 없이 바로 공유카드 만들기 — 최근 활동으로 진입.
   const [shareCardOpen, setShareCardOpen] = useState(false);
 
@@ -211,7 +214,9 @@ export default function HomeCalendarCard() {
           const day = i + 1;
           const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
           const km = dateDistanceMap.get(dateStr) || 0;
-          const photoUrl = customPhotos.get(dateStr) || photos.get(dateStr);
+          const rawPhotoUrl = customPhotos.get(dateStr) || photos.get(dateStr);
+          // build 170 #2: broken URL 은 fallback (거리 기반 초록셀).
+          const photoUrl = rawPhotoUrl && !brokenUrls.has(rawPhotoUrl) ? rawPhotoUrl : undefined;
           const hasPhoto = !!photoUrl;
           const bg = distanceColor(km, dateStr);
           const activityId = dateActivityMap.get(dateStr);
@@ -228,7 +233,17 @@ export default function HomeCalendarCard() {
               {hasPhoto && (
                 <>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={photoUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                  <img
+                    src={photoUrl}
+                    alt=""
+                    className="absolute inset-0 w-full h-full object-cover"
+                    onError={() => {
+                      if (photoUrl) setBrokenUrls(prev => {
+                        if (prev.has(photoUrl)) return prev;
+                        const next = new Set(prev); next.add(photoUrl); return next;
+                      });
+                    }}
+                  />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
                 </>
               )}

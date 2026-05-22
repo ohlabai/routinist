@@ -204,9 +204,11 @@ export default function HomeRankingHero() {
               {conditionLabel || t('homeHero.conditionDone')}
             </p>
           </div>
+          {/* build 170 #1: "수정" 버튼 톤 다운 — 이미 세팅한 사용자가 "또 입력하라"고 느끼지 않게.
+              border/배경 제거 + 작은 텍스트 링크. */}
           <Link
             href="/profile/edit"
-            className="text-xs font-bold text-emerald-700 dark:text-emerald-300 px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-emerald-200 dark:border-emerald-800 active:scale-95 transition flex-shrink-0"
+            className="text-[11px] font-semibold text-[var(--muted)] underline underline-offset-2 active:scale-95 flex-shrink-0 self-start mt-1"
           >
             {t('homeHero.edit')}
           </Link>

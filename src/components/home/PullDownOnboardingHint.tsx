@@ -14,22 +14,28 @@ const STORAGE_KEY = 'ptr_onboarding_hint_dismissed';
 
 export default function PullDownOnboardingHint() {
   const { user } = useAuth();
-  const { activities, loading, lastUpdated } = useUserData();
+  const { loading, lastUpdated } = useUserData();
   const { t } = useI18n();
   const [visible, setVisible] = useState(false);
   const [dismissing, setDismissing] = useState(false);
 
+  // build 170 #7: 활동이 있어도 가입 7일 이내 + 한 번도 dismiss 안 한 사용자에겐 노출.
+  // (이전 build 169 까진 activities.length > 0 면 무조건 숨김 → 멋쟁이사자 같은 활동 많은 신규 가입자가 안내를 못 봄)
   useEffect(() => {
     if (!user) return;
     if (typeof window === 'undefined') return;
     if (loading) return;
-    // 한 번이라도 새로고침했거나 활동이 이미 있으면 표시 안 함.
-    if (activities.length > 0) return;
     try {
       if (window.localStorage.getItem(STORAGE_KEY)) return;
     } catch {}
+    // 가입 7일 이내만 표시. created_at 없으면 안전상 표시 (신규 가입자 추정).
+    const createdAt = (user as { created_at?: string } | null)?.created_at;
+    if (createdAt) {
+      const daysSinceSignup = (Date.now() - new Date(createdAt).getTime()) / (24 * 60 * 60 * 1000);
+      if (daysSinceSignup > 7) return;
+    }
     setVisible(true);
-  }, [user, loading, activities.length]);
+  }, [user, loading]);
 
   // PTR 1회 성공 시 (lastUpdated 갱신) 자동 dismiss.
   useEffect(() => {

@@ -75,7 +75,10 @@ export async function autoDetectAndSetRegion(userId: string): Promise<AutoRegion
   if (error) return { applied: false, reason: 'update_fail' };
 
   // 5. 클라이언트 안내용 LocalStorage 플래그
-  if (typeof window !== 'undefined') {
+  // build 170 #8: region_si/gu 비어있고 country_code 만 채워지면 "한국" 같은 빈약한 모달이 떠서
+  // 사용자가 친구 추가 토스트 등 무관한 액션 직후 모달 발생으로 보이고 혼란. silent 분기.
+  const hasMeaningfulRegion = !!(region.si || region.gu);
+  if (hasMeaningfulRegion && typeof window !== 'undefined') {
     try {
       window.localStorage.setItem('routinist_region_auto_set', JSON.stringify({
         at: Date.now(),

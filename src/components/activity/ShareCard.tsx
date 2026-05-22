@@ -521,20 +521,27 @@ function drawCard(
     ctx.roundRect(goalBarPadX, goalBarTop, fillW, goalBarH, radius);
     ctx.fill();
 
-    // 두 라벨 모두 progress bar **아래** + 같은 폰트 크기 32px (사용자 피드백 — 키움 + 통일).
-    // 5/11 — 오늘 진행 끝점에 정렬.   88.2/200km — 우측 끝에 정렬.
-    const labelY = goalBarTop + goalBarH + 38;
+    // build 170 #3: 라벨 겹침 fix — 두 라벨이 같은 라인에 있어 progress 가 100% 가까울 때
+    // 5/30 + 199.9/200km 가 겹침. 5/21 라벨은 막대 **위**(작게), 누적 km 는 막대 **아래** 우측.
     const todayMarkerX = goalBarPadX + fillW;
+    const topLabelY = goalBarTop - 12;        // 막대 바로 위
+    const bottomLabelY = goalBarTop + goalBarH + 38;
 
-    ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
+    // 위: 오늘 마커 ("5/21") — 진행 끝점 위에 작게
+    ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, sans-serif';
     ctx.fillStyle = bgImage ? '#ffffff' : accentColor;
     ctx.textAlign = 'center';
-    ctx.fillText(`${activityMonth + 1}/${todayDay}`, todayMarkerX, labelY);
+    // 끝점이 막대 시작·끝 너무 가까우면 안쪽으로 클램프 (라벨 잘림 방지)
+    const minX = goalBarPadX + 30;
+    const maxX = goalBarPadX + goalBarW - 30;
+    const clampedX = Math.min(maxX, Math.max(minX, todayMarkerX));
+    ctx.fillText(`${activityMonth + 1}/${todayDay}`, clampedX, topLabelY);
 
+    // 아래: 누적/목표 — 우측 끝, 굵게 (메인 정보)
     ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
     ctx.fillStyle = bgImage ? 'rgba(255,255,255,0.95)' : mainColor;
     ctx.textAlign = 'right';
-    ctx.fillText(`${monthSum.toFixed(1)} / ${monthlyGoalKm.toFixed(0)}km`, goalBarPadX + goalBarW, labelY);
+    ctx.fillText(`${monthSum.toFixed(1)} / ${monthlyGoalKm.toFixed(0)}km`, goalBarPadX + goalBarW, bottomLabelY);
   }
 
   // 포토에세이 — 공유카드 캔버스에는 표시 X (사용자 피드백 build 100).
@@ -642,6 +649,50 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
     const g = goals?.find(g => g.year === y && g.month === m);
     return g?.goal_km ?? undefined;
   })();
+
+  // build 170 #4: MP4 카운트업 페이스 연동.
+  // 시간 progress (0→1) 를 실제 그 시점의 누적 거리 비율로 매핑.
+  // → 빠르게 달린 구간엔 km 숫자가 빠르게 증가, 느린/멈춘 구간엔 천천히.
+  // route_data.coordinates 의 4번째 슬롯(timestamp ms) 활용. 없으면 선형 fallback.
+  const paceMap = useMemo<{ timeR: number; distR: number }[] | null>(() => {
+    const coords = (routeData?.coordinates ?? []) as [number, number, number?, number?][];
+    if (coords.length < 2) return null;
+    const first = coords[0][3];
+    const last = coords[coords.length - 1][3];
+    if (typeof first !== 'number' || typeof last !== 'number' || last <= first) return null;
+    const totalT = last - first;
+    let cumD = 0;
+    const dists: number[] = [0];
+    for (let i = 1; i < coords.length; i++) {
+      const [lng1, lat1] = coords[i - 1];
+      const [lng2, lat2] = coords[i];
+      const meanLat = ((lat1 + lat2) / 2) * Math.PI / 180;
+      const dx = (lng2 - lng1) * Math.cos(meanLat) * 111320;
+      const dy = (lat2 - lat1) * 110540;
+      cumD += Math.hypot(dx, dy);
+      dists.push(cumD);
+    }
+    const totalD = cumD || 1;
+    return coords.map((c, i) => ({
+      timeR: ((c[3] as number) - first) / totalT,
+      distR: dists[i] / totalD,
+    }));
+  }, [routeData]);
+
+  const timeToDistRatio = useCallback((timeR: number) => {
+    if (!paceMap) return timeR;
+    const clamped = Math.min(1, Math.max(0, timeR));
+    for (let i = 1; i < paceMap.length; i++) {
+      if (paceMap[i].timeR >= clamped) {
+        const prev = paceMap[i - 1];
+        const cur = paceMap[i];
+        const segT = cur.timeR - prev.timeR;
+        const ratio = segT > 0 ? (clamped - prev.timeR) / segT : 0;
+        return prev.distR + (cur.distR - prev.distR) * ratio;
+      }
+    }
+    return 1;
+  }, [paceMap]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // build 142: setTimeout cleanup — 모달 unmount 후 state 업데이트 경고 회피.
@@ -942,7 +993,10 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
         const result = await captureCanvasAnimation(
           canvasRef.current,
           (progress) => {
-            // build 167 #3: KM 숫자도 progress 에 맞춰 0.00 → distance_km 카운트업.
+            // build 170 #4: progress = 시간 진행률. paceMap 으로 그 시점의 누적 거리 비율 추출
+            // → 빠른 구간에선 km 빠르게, 느린/멈춘 구간에선 천천히 올라감.
+            // timestamp 없는 활동(수동 입력 등)은 timeToDistRatio 가 선형 fallback 반환.
+            const distR = timeToDistRatio(progress);
             drawCard(
               canvasRef.current!,
               activity,
@@ -955,7 +1009,7 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
               monthlyGoalKm,
               regionLabel ?? undefined,
               progress,
-              activity.distance_km * progress,
+              activity.distance_km * distR,
             );
           },
           { fps: 30, bitsPerSecond: 5_000_000 },
