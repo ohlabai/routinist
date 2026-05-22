@@ -431,15 +431,19 @@ function CheckoutContent() {
         </div>
       </Section>
 
-      {/* 결제 수단 — build 189: 카드만 라이브 검증 완료. 다른 수단은 가맹점 추가 계약 후 활성화. */}
+      {/* 결제 수단 — build 192: 토스 결제창이 카드와 간편결제(카카오페이 등)를 한 화면에 노출.
+          메뉴명에 "카드 · 간편결제" 로 표기해 사용자가 진입 전에 인지하도록 변경. */}
       <Section title="결제 수단" icon={<CreditCardIcon />}>
         <div className="card p-3.5">
-          <div className="rounded-xl border-2 border-emerald-500 bg-emerald-500 shadow-md shadow-emerald-500/25 py-3 px-3 inline-flex items-center justify-center gap-2 w-full">
-            <CreditCardIcon />
-            <span className="text-sm font-extrabold text-white">신용·체크카드</span>
+          <div className="rounded-xl border-2 border-emerald-500 bg-emerald-500 shadow-md shadow-emerald-500/25 py-3.5 px-3 flex flex-col items-center justify-center gap-1 w-full">
+            <div className="inline-flex items-center gap-2">
+              <CreditCardIcon />
+              <span className="text-sm font-extrabold text-white">카드 · 간편결제</span>
+            </div>
+            <span className="text-[10px] font-bold text-white/85">카카오페이 · 네이버페이 · 페이코 · 삼성페이</span>
           </div>
           <p className="text-[11px] text-[var(--muted)] mt-2.5 leading-relaxed">
-            토스 결제창에서 카카오페이·네이버페이·페이코·삼성페이 도 선택할 수 있어요. 계좌이체·가상계좌·휴대폰결제는 곧 추가됩니다.
+            결제창에서 신용·체크카드 또는 간편결제 중 원하시는 방법을 선택하세요. 계좌이체·가상계좌·휴대폰결제는 곧 추가됩니다.
           </p>
         </div>
       </Section>
