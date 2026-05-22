@@ -431,20 +431,12 @@ function CheckoutContent() {
         </div>
       </Section>
 
-      {/* 결제 수단 — build 192: 토스 결제창이 카드와 간편결제(카카오페이 등)를 한 화면에 노출.
-          메뉴명에 "카드 · 간편결제" 로 표기해 사용자가 진입 전에 인지하도록 변경. */}
+      {/* 결제 수단 — build 193: 카드 1개만 활성화된 현 상태에서 "선택" UI 불필요.
+          작은 정보 카드 + 하단 초록 CTA 만 강조 → 시각 노이즈 0, 가장 세련. */}
       <Section title="결제 수단" icon={<CreditCardIcon />}>
-        <div className="card p-3.5">
-          <div className="rounded-xl border-2 border-emerald-500 bg-emerald-500 shadow-md shadow-emerald-500/25 py-3.5 px-3 flex flex-col items-center justify-center gap-1 w-full">
-            <div className="inline-flex items-center gap-2">
-              <CreditCardIcon />
-              <span className="text-sm font-extrabold text-white">카드 · 간편결제</span>
-            </div>
-            <span className="text-[10px] font-bold text-white/85">카카오페이 · 네이버페이 · 페이코 · 삼성페이</span>
-          </div>
-          <p className="text-[11px] text-[var(--muted)] mt-2.5 leading-relaxed">
-            결제창에서 신용·체크카드 또는 간편결제 중 원하시는 방법을 선택하세요. 계좌이체·가상계좌·휴대폰결제는 곧 추가됩니다.
-          </p>
+        <div className="card p-3.5 flex items-center justify-center gap-2">
+          <CreditCardIcon />
+          <span className="text-sm font-bold text-[var(--foreground)]">카드 · 간편결제로 결제</span>
         </div>
       </Section>
 
