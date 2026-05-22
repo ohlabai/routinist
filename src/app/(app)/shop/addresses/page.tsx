@@ -11,7 +11,7 @@ import {
 } from '@/lib/shop-data';
 import { useAuth } from '@/components/AuthProvider';
 import AppToast from '@/components/AppToast';
-import PostcodeSearchSheet from '@/components/shop/PostcodeSearchSheet';
+import AddressAutocompleteSheet from '@/components/shop/AddressAutocompleteSheet';
 import type { ShippingAddress } from '@/types';
 
 const EMPTY_ADDR: NewAddressInput = {
@@ -266,7 +266,7 @@ export default function AddressesPage() {
 
       {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2500} />}
       {postcodeOpen && (
-        <PostcodeSearchSheet
+        <AddressAutocompleteSheet
           onClose={() => setPostcodeOpen(false)}
           onComplete={(r) => {
             setForm(prev => ({

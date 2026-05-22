@@ -20,7 +20,7 @@ import { fetchMileageBalance } from '@/lib/mileage-data';
 import { useAuth } from '@/components/AuthProvider';
 import AppToast from '@/components/AppToast';
 import BusinessFooter from '@/components/shop/BusinessFooter';
-import PostcodeSearchSheet from '@/components/shop/PostcodeSearchSheet';
+import AddressAutocompleteSheet from '@/components/shop/AddressAutocompleteSheet';
 import type { CartItem, ShippingAddress } from '@/types';
 
 function CheckoutContent() {
@@ -498,7 +498,7 @@ function CheckoutContent() {
 
       {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={3000} />}
       {postcodeOpen && (
-        <PostcodeSearchSheet
+        <AddressAutocompleteSheet
           onClose={() => setPostcodeOpen(false)}
           onComplete={(r) => {
             setNewAddr(prev => ({
