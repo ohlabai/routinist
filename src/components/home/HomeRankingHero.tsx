@@ -268,21 +268,19 @@ export default function HomeRankingHero() {
         </div>
 
         {isTopRank ? (
-          // 1위 — 깔끔한 메달 + 숫자 + 부제 (장식 최소화)
-          <div className="flex flex-col items-center gap-2">
-            <div className={`w-20 h-20 rounded-full ${style.medalBg} ${style.medalShadow} flex items-center justify-center`}>
-              <Crown size={36} className="text-white drop-shadow" strokeWidth={2.5} />
-            </div>
-            <div className="flex items-baseline">
+          // build 169 #10: 메달 박스 제거 — "1" 숫자가 주인공. Crown 은 작게 옆에 장식.
+          <div className="flex flex-col items-center">
+            <div className="flex items-center justify-center gap-2">
+              <Crown size={32} className={`${style.accent} drop-shadow`} strokeWidth={2.5} />
               <span
                 className={`leading-[0.85] font-extrabold tracking-tighter tabular-nums ${style.numberText}`}
-                style={{ fontSize: '72px' }}
+                style={{ fontSize: '128px' }}
               >
                 1
               </span>
-              <span className="text-2xl font-extrabold text-[var(--foreground)] ml-1">{t('ranking.rank')}</span>
+              <span className="text-3xl font-extrabold text-[var(--foreground)] self-end pb-2">{t('ranking.rank')}</span>
             </div>
-            <p className={`text-sm font-extrabold ${style.accent} -mt-1`}>{t('homeHero.holdSpot')}</p>
+            <p className={`text-sm font-extrabold ${style.accent} mt-1`}>{t('homeHero.holdSpot')}</p>
           </div>
         ) : (
           // 2위 이하 — 기존 압축형 (메달은 top3 만, 숫자 + 위)

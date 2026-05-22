@@ -11,38 +11,40 @@ import AppLogo from '@/components/AppLogo';
 import MileageRankingTab from '@/components/social/MileageRankingTab';
 import RankingBreakdown from '@/components/ranking/RankingBreakdown';
 import RankingTimeline from '@/components/ranking/RankingTimeline';
-import { Trophy, Coins, Users, Globe } from 'lucide-react';
+import { Trophy, Coins, Globe } from 'lucide-react';
 import ContestTab from '@/components/contest/ContestTab';
 import WorldTab from '@/components/world/WorldTab';
+import { useI18n, type TranslationKey } from '@/lib/i18n';
 
 // build 143: 친선런 메뉴 숨김 (사용량 0건, 사용자 결정). 코드/ContestTab/DB 는 유지 — 필요 시 복원.
 type SubTab = 'me' | 'mileage' | 'contest' | 'world';
-// build 154: 시간축 4개 (이번주 추가)
-type TimeAxis = 'today' | 'week' | 'month' | 'year';
-
-const SUB_TABS: { id: SubTab; label: string; Icon: typeof Trophy }[] = [
-  { id: 'me', label: '내 랭킹', Icon: Trophy },
-  { id: 'mileage', label: '마일리지', Icon: Coins },
-  { id: 'world', label: '월드마라톤', Icon: Globe },
-];
+// build 169 #11: '오늘' 제거 (의미 작음·미달리기 사용자가 0km 동률 → 혼란). week/month/year 3축으로 축소.
+type TimeAxis = 'week' | 'month' | 'year';
 
 function RankingInner() {
   const { profile } = useAuth();
+  const { t } = useI18n();
   const searchParams = useSearchParams();
   const initialTab = (searchParams.get('tab') as SubTab) ?? 'me';
   const [activeSub, setActiveSub] = useState<SubTab>(
     ['me', 'mileage', 'world'].includes(initialTab) ? initialTab : 'me'
   );
-  const [axis, setAxis] = useState<TimeAxis>('month');
+  const [axis, setAxis] = useState<TimeAxis>('week');
 
   const hasDemographics = !!(profile?.region_gu || profile?.birth_year || profile?.gender);
+
+  const SUB_TABS: { id: SubTab; tKey: TranslationKey; Icon: typeof Trophy }[] = [
+    { id: 'me', tKey: 'ranking.mine', Icon: Trophy },
+    { id: 'mileage', tKey: 'ranking.mileage', Icon: Coins },
+    { id: 'world', tKey: 'ranking.world', Icon: Globe },
+  ];
 
   return (
     <div className="max-w-lg mx-auto pb-12 bg-[var(--background)] min-h-screen">
       <header className="sticky top-0 z-30 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
         <div className="px-4 py-3 flex items-center gap-2">
           <AppLogo size={28} />
-          <h1 className="text-xl font-extrabold tracking-tight">랭킹</h1>
+          <h1 className="text-xl font-extrabold tracking-tight">{t('ranking.title')}</h1>
         </div>
       </header>
 
@@ -60,7 +62,7 @@ function RankingInner() {
             }`}
           >
             <s.Icon size={16} />
-            {s.label}
+            {t(s.tKey)}
           </button>
         ))}
       </div>
@@ -68,7 +70,7 @@ function RankingInner() {
       {activeSub === 'me' && (
         <div className="space-y-4">
           <div className="flex gap-1.5">
-            {(['today', 'week', 'month', 'year'] as TimeAxis[]).map(a => (
+            {(['week', 'month', 'year'] as TimeAxis[]).map(a => (
               <button
                 key={a}
                 onClick={() => setAxis(a)}
@@ -78,7 +80,7 @@ function RankingInner() {
                     : 'bg-[var(--card-bg)] text-[var(--muted)] border border-[var(--card-border)]'
                 }`}
               >
-                {a === 'today' ? '🔥 오늘' : a === 'week' ? '📆 이번주' : a === 'month' ? '📅 이달' : '🏆 올해'}
+                {a === 'week' ? t('ranking.week') : a === 'month' ? t('ranking.month') : t('ranking.year')}
               </button>
             ))}
           </div>

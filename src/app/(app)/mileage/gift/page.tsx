@@ -191,15 +191,27 @@ export default function GiftMileagePage() {
         </div>
       )}
 
-      {/* Sticky CTA */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 max-w-lg w-full bg-[var(--background)]/95 backdrop-blur-lg border-t border-[var(--card-border)]/30 safe-area-bottom z-20">
+      {/* Sticky CTA — build 169 #15: 사용자 신고 "선물하기 버튼이 안 보인다".
+          원인 추정: 받는 사람만 선택 후 amount 비어있어 disabled 상태 → 시선이 가지 않음.
+          fix: 단계별 가이드 라벨 + 항상 표시 + safe-area 명시 (env 사용). */}
+      <div
+        className="fixed bottom-0 left-1/2 -translate-x-1/2 max-w-lg w-full bg-[var(--background)]/95 backdrop-blur-lg border-t border-[var(--card-border)]/30 z-30"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
         <div className="p-3">
           <button
             onClick={handleGift}
             disabled={!selectedUser || !amount || sending}
             className="w-full py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base active:scale-[0.98] disabled:opacity-50 inline-flex items-center justify-center gap-2 shadow-md shadow-emerald-500/30"
           >
-            <Gift size={18} /> {sending ? '전송 중…' : '선물 보내기'}
+            <Gift size={18} />
+            {sending
+              ? '전송 중…'
+              : !selectedUser
+                ? '받는 사람을 선택하세요'
+                : !amount
+                  ? '선물할 마일리지를 입력하세요'
+                  : `${Number(amount || 0).toLocaleString()}P 선물 보내기`}
           </button>
         </div>
       </div>

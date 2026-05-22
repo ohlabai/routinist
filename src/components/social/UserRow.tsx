@@ -5,6 +5,7 @@ import type { Profile } from '@/types';
 import FollowButton from './FollowButton';
 import AppLogo from '@/components/AppLogo';
 import GenderBadge from '@/components/profile/GenderBadge';
+import { useI18n } from '@/lib/i18n';
 
 interface UserRowProps {
   profile: Profile;
@@ -16,6 +17,7 @@ interface UserRowProps {
 
 export default function UserRow({ profile, currentUserId, isFollowing = false, showFollow = true, onFollowToggle }: UserRowProps) {
   const isSelf = currentUserId === profile.id;
+  const { t } = useI18n();
 
   return (
     <div className="flex items-center gap-3 py-3">
@@ -37,7 +39,7 @@ export default function UserRow({ profile, currentUserId, isFollowing = false, s
             size={11}
           />
         </p>
-        <p className="text-xs text-[var(--muted)]">{Number(profile.total_distance_km).toFixed(1)}km · {profile.total_runs}회</p>
+        <p className="text-xs text-[var(--muted)]">{Number(profile.total_distance_km).toFixed(1)}km · {t('home.summaryRuns').replace('{n}', String(profile.total_runs))}</p>
       </Link>
       {showFollow && !isSelf && (
         <FollowButton

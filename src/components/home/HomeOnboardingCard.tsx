@@ -353,7 +353,7 @@ export default function HomeOnboardingCard() {
     { id: 'profile', label: '지역·생년·성별 입력', done: profileDone, inline: 'profile' },
   ];
   if (iosNative) {
-    items.push({ id: 'health', label: 'Apple Health 와 연동해서 러닝 가져오기', done: healthDone, inline: 'health' });
+    items.push({ id: 'health', label: 'Apple 건강 앱 연동하기', done: healthDone, inline: 'health' });
   } else {
     items.push({ id: 'first_run', label: '첫 러닝 기록', done: runCount >= 1, href: '/connect' });
   }
@@ -369,7 +369,7 @@ export default function HomeOnboardingCard() {
   if (doneCount === items.length) return null;
 
   return (
-    <div className="mx-4 mt-3 rounded-3xl bg-gradient-to-br from-amber-50 via-orange-50/40 to-emerald-50 dark:from-amber-950/30 dark:via-orange-950/20 dark:to-emerald-950/20 border border-amber-200/60 dark:border-amber-900/30 p-5 shadow-sm">
+    <div className="mx-4 mt-3 rounded-3xl bg-gradient-to-br from-emerald-100/80 via-emerald-50/40 to-teal-50 dark:from-emerald-950/40 dark:via-emerald-950/20 dark:to-teal-950/20 border border-emerald-200/60 dark:border-emerald-900/40 p-5 shadow-sm">
       <div className="mb-3">
         <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide inline-flex items-center gap-1">
           <Sparkles size={11} /> 가입 {signupDays + 1}일째

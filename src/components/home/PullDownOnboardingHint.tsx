@@ -8,12 +8,14 @@ import { useEffect, useState } from 'react';
 import { ChevronDown, X } from 'lucide-react';
 import { useUserData } from '@/components/UserDataProvider';
 import { useAuth } from '@/components/AuthProvider';
+import { useI18n } from '@/lib/i18n';
 
 const STORAGE_KEY = 'ptr_onboarding_hint_dismissed';
 
 export default function PullDownOnboardingHint() {
   const { user } = useAuth();
   const { activities, loading, lastUpdated } = useUserData();
+  const { t } = useI18n();
   const [visible, setVisible] = useState(false);
   const [dismissing, setDismissing] = useState(false);
 
@@ -63,10 +65,10 @@ export default function PullDownOnboardingHint() {
           </div>
           <div className="min-w-0">
             <p className="text-sm font-extrabold text-emerald-700 dark:text-emerald-300">
-              👋 처음 오셨어요? 환영해요!
+              {t('ptr.welcomeTitle')}
             </p>
             <p className="text-xs text-emerald-700/80 dark:text-emerald-300/80 mt-0.5 leading-relaxed">
-              화면을 아래로 살짝 당기면 Apple Health 기록이 자동으로 채워져요 🍎
+              {t('ptr.welcomeSub')}
             </p>
           </div>
         </div>

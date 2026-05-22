@@ -24,6 +24,7 @@ import GenderBadge from '@/components/profile/GenderBadge';
 import AppLogo from '@/components/AppLogo';
 import AppToast from '@/components/AppToast';
 import { track } from '@/lib/analytics';
+import { useI18n } from '@/lib/i18n';
 
 const SCOPES: NearbyScope[] = ['dong', 'gu', 'si', 'national'];
 
@@ -37,6 +38,7 @@ function ageOf(year: number | null): string {
 export default function NearbyPage() {
   const router = useRouter();
   const { user, profile } = useAuth();
+  const { t } = useI18n();
   const [scope, setScope] = useState<NearbyScope>('gu');
   const [mode, setMode] = useState<'region' | 'pace'>('region');
   const [runners, setRunners] = useState<NearbyRunner[]>([]);
@@ -119,7 +121,7 @@ export default function NearbyPage() {
             <ArrowLeft size={20} />
           </button>
           <AppLogo size={24} />
-          <h1 className="text-xl font-extrabold tracking-tight">동네 러너 찾기</h1>
+          <h1 className="text-xl font-extrabold tracking-tight">{t('nearby.title')}</h1>
         </div>
 
         {/* mode toggle — 동네 vs 페이스 */}
@@ -130,7 +132,7 @@ export default function NearbyPage() {
               mode === 'region' ? 'bg-emerald-500 text-white shadow' : 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--muted)]'
             }`}
           >
-            <MapPin size={12} /> 동네별
+            <MapPin size={12} /> {t('nearby.modeRegion')}
           </button>
           <button
             onClick={() => setMode('pace')}
@@ -138,7 +140,7 @@ export default function NearbyPage() {
               mode === 'pace' ? 'bg-emerald-500 text-white shadow' : 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--muted)]'
             }`}
           >
-            <Zap size={12} /> 비슷한 페이스
+            <Zap size={12} /> {t('nearby.modePace')}
           </button>
         </div>
 
@@ -164,7 +166,7 @@ export default function NearbyPage() {
               disabled={loading || noRegion}
               className="flex-shrink-0 ml-auto px-3.5 py-2 rounded-full bg-emerald-500 text-white font-bold text-sm active:scale-95 disabled:opacity-50 inline-flex items-center gap-1"
             >
-              <Search size={14} /> 찾기
+              <Search size={14} /> {t('nearby.searchCta')}
             </button>
           </div>
         )}

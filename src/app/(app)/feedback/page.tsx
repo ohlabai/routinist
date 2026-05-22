@@ -161,7 +161,7 @@ export default function FeedbackPage() {
             <ArrowLeft size={20} />
           </Link>
           <AppLogo size={26} />
-          <h1 className="text-xl font-extrabold tracking-tight">제안 / 버그</h1>
+          <h1 className="text-xl font-extrabold tracking-tight">앱 기능 제안 게시판</h1>
         </div>
         <div className="px-4 pb-3 flex items-center gap-2 overflow-x-auto scrollbar-hide">
           {STATUS_FILTERS.map(f => (

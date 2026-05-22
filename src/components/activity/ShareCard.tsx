@@ -316,29 +316,23 @@ function drawCard(
   // 거리 (메인) — build 136: map 끝(260+480=740) 과 7.19 사이 여백 확보.
   // distY 가 폰트의 baseline 이라 실제 위쪽은 distY-180. distY=950 → 폰트 시작 770 → map 끝 740 과 30px 여백.
   // build 167 #3: kmDisplay 가 주어지면 (MP4 카운트업 중) 그 값으로, 아니면 최종 거리.
-  // build 168 #5: 카운트업 중 좌우 흔들림 fix — digit 단위 fixed cell 그리기 (monospace 흉내).
-  //   center align + 각 digit width 차이 → 매 프레임 X 위치 흔들림. fix: max digit width 의 cell 안에 각 자리 center.
+  // build 168 #5: digit 단위 fixed cell 그리기 시도 → 사용자 피드백 "너무 벌어져 보기 싫음".
+  // build 169 #8: 자연 폭으로 복귀. textAlign='center' + 정수부 right-align + 소수부 left-align 으로
+  //   정수 자릿수가 늘어나도 소수점이 화면 중앙에 고정 → 카운트업 좌우 흔들림 최소화하면서 자연스러운 폭.
   const distY = hasRoute ? 950 : H * 0.36;
   const kmFont = 'bold 180px -apple-system, BlinkMacSystemFont, sans-serif';
   ctx.font = kmFont;
   ctx.fillStyle = mainColor;
   const kmValue = typeof kmDisplay === 'number' ? kmDisplay : activity.distance_km;
   const kmText = kmValue.toFixed(2);
-  // 모든 digit + 점 의 최대 width → cell 크기. 카운트업 중에도 각 자리가 같은 cell 점유.
-  const cellChars = '0123456789.';
-  let maxDigitW = 0;
-  for (const c of cellChars) {
-    const w = ctx.measureText(c).width;
-    if (w > maxDigitW) maxDigitW = w;
-  }
-  const kmTotalW = maxDigitW * kmText.length;
-  let cellX = W / 2 - kmTotalW / 2;
+  const dotIdx = kmText.indexOf('.');
+  const intPart = dotIdx >= 0 ? kmText.slice(0, dotIdx) : kmText;
+  const fracPart = dotIdx >= 0 ? kmText.slice(dotIdx) : '';
+  // 소수점(.) 을 화면 중앙에 고정. 정수부는 right-align, 소수부는 left-align.
+  ctx.textAlign = 'right';
+  ctx.fillText(intPart, W / 2, distY);
   ctx.textAlign = 'left';
-  for (const ch of kmText) {
-    const chW = ctx.measureText(ch).width;
-    ctx.fillText(ch, cellX + (maxDigitW - chW) / 2, distY);
-    cellX += maxDigitW;
-  }
+  ctx.fillText(fracPart, W / 2, distY);
   ctx.textAlign = 'center';
 
   ctx.font = 'bold 56px -apple-system, BlinkMacSystemFont, sans-serif';

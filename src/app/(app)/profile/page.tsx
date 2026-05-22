@@ -1,16 +1,16 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
-import { signOut } from '@/lib/auth';
+import { signOut, uploadAvatar, updateProfile } from '@/lib/auth';
 import { getStreak } from '@/lib/routinist-data';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ChevronRight, HelpCircle, Shield, Heart, Award, LogOut, MapPin,
   MessageCircle, Coins, Gift, Sun, Moon, Monitor, Settings,
-  AlertTriangle, X, FileText, Bell, BellOff, PenLine,
+  AlertTriangle, X, FileText, Bell, BellOff, PenLine, Camera,
 } from 'lucide-react';
 import { useEffect } from 'react';
 import { checkPushPermission, requestPushPermissionAgain, type PushPermissionState } from '@/lib/push-notifications';
@@ -35,13 +35,40 @@ function formatDur(sec: number) {
 }
 
 export default function ProfilePage() {
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const { activities } = useUserData();
   const router = useRouter();
   const isAdmin = isAdminEmail(user?.email);
   const [pushState, setPushState] = useState<PushPermissionState>('unavailable');
   const [pushBusy, setPushBusy] = useState(false);
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
+  // build 169 #14: 프로필 사진 직접 탭 → 파일 선택 → 즉시 업로드 → refresh.
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const handleAvatarTap = () => {
+    if (avatarUploading) return;
+    avatarInputRef.current?.click();
+  };
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setAvatarUploading(true);
+    try {
+      const url = await uploadAvatar(user.id, file);
+      await updateProfile(user.id, { avatar_url: url });
+      await refreshProfile();
+      setToast({ text: '프로필 사진을 변경했어요 ✨', tone: 'ok' });
+      setTimeout(() => setToast(null), 2500);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logClientWarn('ProfilePage', '아바타 업로드 실패', { reason: msg });
+      setToast({ text: `사진 업로드 실패 — ${msg.slice(0, 80)}`, tone: 'warn' });
+      setTimeout(() => setToast(null), 4000);
+    } finally {
+      setAvatarUploading(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
+    }
+  };
 
   useEffect(() => {
     checkPushPermission().then(setPushState).catch(() => {});
@@ -184,22 +211,43 @@ export default function ProfilePage() {
       {/* 프로필 카드 */}
       <div className="card p-6">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-[var(--card-border)] overflow-hidden flex-shrink-0">
+          <button
+            onClick={handleAvatarTap}
+            disabled={avatarUploading}
+            aria-label="프로필 사진 변경"
+            className="relative w-16 h-16 rounded-full bg-[var(--card-border)] overflow-hidden flex-shrink-0 active:scale-95 transition disabled:opacity-60"
+          >
             {profile?.avatar_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center"><AppLogo size={36} /></div>
             )}
-          </div>
+            {/* 카메라 뱃지 — 탭 가능 시각 신호 */}
+            <span className="absolute -bottom-0.5 -right-0.5 w-6 h-6 rounded-full bg-emerald-500 border-2 border-[var(--background)] flex items-center justify-center">
+              {avatarUploading ? (
+                <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Camera size={12} className="text-white" />
+              )}
+            </span>
+          </button>
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleAvatarChange}
+          />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <h2 className="text-2xl font-bold text-[var(--foreground)] truncate">{profile?.display_name}</h2>
               <Link
                 href="/profile/edit"
-                className="text-[10px] font-bold text-emerald-600 inline-flex items-center gap-0.5 active:scale-95 px-2 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/30 flex-shrink-0"
+                className="text-xs font-bold text-emerald-600 inline-flex items-center gap-1 active:scale-95 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30 flex-shrink-0"
               >
-                편집
+                <PenLine size={12} />
+                {t('profile.edit')}
               </Link>
             </div>
             {profile?.region_gu ? (
@@ -223,7 +271,7 @@ export default function ProfilePage() {
             <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
               <Coins size={15} className="text-emerald-600" />
             </div>
-            <span className="text-sm font-extrabold text-emerald-800 dark:text-emerald-200">마일리지</span>
+            <span className="text-sm font-extrabold text-emerald-800 dark:text-emerald-200">{t('profile.mileage')}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-xl font-extrabold text-emerald-700 dark:text-emerald-300">
@@ -236,11 +284,11 @@ export default function ProfilePage() {
 
         {/* 통산 km 라인 — 베스트 3칩 위에 작은 라벨로 유지 */}
         <p className="text-xs text-[var(--muted)] mt-3 text-center">
-          통산 <span className="font-semibold text-[var(--foreground)]">{totalKm.toFixed(0)}km</span>
+          {t('profile.totalLine')} <span className="font-semibold text-[var(--foreground)]">{totalKm.toFixed(0)}km</span>
           <span className="mx-1.5">·</span>
-          <span className="font-semibold text-[var(--foreground)]">{totalRuns}회</span>
+          <span className="font-semibold text-[var(--foreground)]">{t('home.summaryRuns').replace('{n}', String(totalRuns))}</span>
           <span className="mx-1.5">·</span>
-          연속 <span className="font-semibold text-[var(--foreground)]">{streak}일</span>
+          <span className="font-semibold text-[var(--foreground)]">{t('profile.streakDays').replace('🔥', `${streak} 🔥`)}</span>
         </p>
 
         {/* 개인 베스트 3칩 — 최장거리 / 최빠페이스 / 최장시간 (build 67) */}
@@ -249,19 +297,19 @@ export default function ProfilePage() {
             <p className="text-lg font-extrabold text-[var(--accent)]">
               {personalBest.longestKm > 0 ? `${personalBest.longestKm.toFixed(1)}km` : '—'}
             </p>
-            <p className="text-xs text-[var(--muted)] mt-0.5">최장 거리</p>
+            <p className="text-xs text-[var(--muted)] mt-0.5">{t('profile.bestLong')}</p>
           </div>
           <div>
             <p className="text-lg font-extrabold text-[var(--foreground)]">
               {personalBest.fastestPace ? formatPace(personalBest.fastestPace) : '—'}
             </p>
-            <p className="text-xs text-[var(--muted)] mt-0.5">최빠 페이스</p>
+            <p className="text-xs text-[var(--muted)] mt-0.5">{t('profile.bestPace')}</p>
           </div>
           <div>
             <p className="text-lg font-extrabold text-[var(--foreground)]">
               {personalBest.longestDur > 0 ? formatDur(personalBest.longestDur) : '—'}
             </p>
-            <p className="text-xs text-[var(--muted)] mt-0.5">최장 시간</p>
+            <p className="text-xs text-[var(--muted)] mt-0.5">{t('profile.bestDur')}</p>
           </div>
         </div>
       </div>
@@ -313,11 +361,9 @@ export default function ProfilePage() {
             <BellOff size={18} className="text-emerald-600" />
           </div>
           <div className="flex-1 text-left">
-            <p className="text-sm font-extrabold text-[var(--foreground)]">알림 켜기</p>
+            <p className="text-sm font-extrabold text-[var(--foreground)]">{t('profile.pushOnTitle')}</p>
             <p className="text-[11px] text-[var(--muted)] mt-0.5">
-              {pushState === 'denied'
-                ? '설정에서 다시 활성화하면 새 메시지·주문 알림을 받을 수 있어요'
-                : '주문·메시지·매칭 알림 받기'}
+              {pushState === 'denied' ? t('profile.pushOnSubReenable') : t('profile.pushOnSubInvite')}
             </p>
           </div>
           <ChevronRight size={16} className="text-emerald-600" />

@@ -217,9 +217,11 @@ export default function HomeCalendarCard() {
           const activityId = dateActivityMap.get(dateStr);
           const textWhite = km >= 7 || hasPhoto;
 
+          // build 169 #12: day 숫자 + km 숫자 겹침 fix — 두 span 을 절대 위치로 분리.
+          // day 는 top, km 은 bottom 에 고정 → 좁은 화면에서도 line-height 충돌 없음.
           const inner = (
             <div
-              className={`aspect-square rounded-md relative overflow-hidden flex flex-col items-center justify-center ${
+              className={`aspect-square rounded-md relative overflow-hidden ${
                 hasPhoto ? '' : bg
               } ${km > 0 ? 'ring-1 ring-green-300/50' : ''}`}
             >
@@ -230,11 +232,11 @@ export default function HomeCalendarCard() {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
                 </>
               )}
-              <span className={`relative text-xs font-semibold ${textWhite ? 'text-white' : 'text-[var(--foreground)]'}`}>
+              <span className={`absolute top-0.5 left-1/2 -translate-x-1/2 text-[11px] font-bold leading-none ${textWhite ? 'text-white drop-shadow' : 'text-[var(--foreground)]'}`}>
                 {day}
               </span>
               {km > 0 && (
-                <span className={`relative text-[9px] font-medium ${textWhite ? 'text-white/90' : 'text-[var(--muted)]'}`}>
+                <span className={`absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[8px] font-semibold leading-none whitespace-nowrap ${textWhite ? 'text-white/95 drop-shadow' : 'text-[var(--muted)]'}`}>
                   {km.toFixed(1)}
                 </span>
               )}

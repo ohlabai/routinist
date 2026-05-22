@@ -18,13 +18,13 @@ const ICON: Partial<Record<DisplayNameCheck['status'], string>> = {
   checking: '…',
 };
 
+// build 169 #5: 닉네임 입력 시 메시지가 조건부 렌더되어 입력창이 위·아래로 흔들리는 jitter 발생.
+// 항상 같은 높이의 자리를 차지하도록 min-h-[18px] reserved space 부여 (메시지 없을 땐 빈 박스).
 export default function DisplayNameStatusHint({ check }: { check: DisplayNameCheck }) {
-  if (!check.message) return null;
-  const icon = ICON[check.status];
+  const icon = check.message ? ICON[check.status] : undefined;
   return (
-    <p className={`text-xs mt-1 ${COLOR[check.status]}`}>
-      {icon ? `${icon} ` : ''}
-      {check.message}
+    <p className={`text-xs mt-1 min-h-[18px] leading-[18px] ${COLOR[check.status]}`}>
+      {check.message ? `${icon ? `${icon} ` : ''}${check.message}` : '\u00A0'}
     </p>
   );
 }

@@ -336,6 +336,15 @@ export default function WorldTab() {
             {available
               .filter(c => continentFilter === 'all' || c.continent === continentFilter)
               .filter(c => !seriesFilter || c.series_id === seriesFilter)
+              // build 169 #13: 내가 도전 중인 코스를 최상단으로. (사용자가 참가한 코스가 리스트 중간에
+              // 묻혀 보이지 않는다는 신고). myEntry || knownJoined 인 코스에 우선순위 부여.
+              .sort((a, b) => {
+                const aJoined = mine.some(m => m.course_id === a.id) || knownJoined.has(a.id);
+                const bJoined = mine.some(m => m.course_id === b.id) || knownJoined.has(b.id);
+                if (aJoined && !bJoined) return -1;
+                if (!aJoined && bJoined) return 1;
+                return 0;
+              })
               .map(c => {
               const myEntry = mine.find(m => m.course_id === c.id);
               // build 166 #1: fetchMyCourses 가 빈결과여도 localStorage knownJoined 로 fallback.

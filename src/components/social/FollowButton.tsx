@@ -13,6 +13,7 @@ import { followUser, unfollowUser } from '@/lib/social-data';
 import { logClientWarn } from '@/lib/error-logger';
 import AppToast from '@/components/AppToast';
 import { useAuth } from '@/components/AuthProvider';
+import { useI18n } from '@/lib/i18n';
 
 interface FollowButtonProps {
   userId: string;
@@ -27,6 +28,7 @@ export default function FollowButton({ userId, initialFollowing, onToggle, size 
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
   const { user, profile } = useAuth();
+  const { t } = useI18n();
   const router = useRouter();
 
   // build 163 #1: 신규 회원이 첫 친구를 추가했을 때 onboarding toast + 홈 복귀.
@@ -85,7 +87,7 @@ export default function FollowButton({ userId, initialFollowing, onToggle, size 
       <button
         onClick={handleToggle}
         disabled={loading}
-        aria-label={following ? '친구 해제' : '친구 추가'}
+        aria-label={following ? t('friend.added') : t('friend.add')}
         className={`${padding} inline-flex items-center gap-1.5 rounded-full font-bold transition-all disabled:opacity-50 active:scale-95 ${
           following
             ? 'bg-emerald-500 text-white shadow-sm hover:bg-emerald-600'
@@ -99,7 +101,7 @@ export default function FollowButton({ userId, initialFollowing, onToggle, size 
         ) : (
           <UserPlus size={iconSize} strokeWidth={2.5} />
         )}
-        <span>{following ? '친구' : '친구 추가'}</span>
+        <span>{following ? t('friend.added') : t('friend.add')}</span>
       </button>
       {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2000} />}
     </>

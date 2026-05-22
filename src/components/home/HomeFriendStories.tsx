@@ -8,6 +8,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 
 interface Story {
   photo_id: string;
@@ -23,6 +24,7 @@ interface Story {
 
 export default function HomeFriendStories() {
   const { user } = useAuth();
+  const { t } = useI18n();
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -126,9 +128,9 @@ export default function HomeFriendStories() {
   return (
     <div className="mt-3">
       <div className="flex items-center justify-between mb-2 mx-4">
-        <h3 className="text-sm font-bold text-[var(--foreground)]">친구 활동 · 최근 72시간</h3>
+        <h3 className="text-sm font-bold text-[var(--foreground)]">{t('home.friendStoriesTitle')}</h3>
         <Link href="/social?tab=photos" className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-          전체 보기 →
+          {t('home.friendStoriesSeeAll')}
         </Link>
       </div>
       <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 px-4">

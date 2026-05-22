@@ -290,7 +290,64 @@ export type TranslationKey =
   | 'homeHero.tierChallenging'
   | 'homeHero.runner'
   | 'homeHero.kmMore'
-  | 'homeHero.toRankAbbr';
+  | 'homeHero.toRankAbbr'
+  // build 169: 잔여 영문화 — 홈 요약 4칩, 프로필 잔여, 마일리지 선물, 게시판 등
+  | 'home.summaryTitle'
+  | 'home.summaryWeek'
+  | 'home.summaryMonth'
+  | 'home.summaryYear'
+  | 'home.summaryAllTime'
+  | 'home.summaryRuns'
+  | 'home.summaryMonthDays'
+  | 'home.yoyLast'
+  | 'home.friendStoriesTitle'
+  | 'home.friendStoriesSeeAll'
+  | 'ptr.welcomeTitle'
+  | 'ptr.welcomeSub'
+  | 'profile.mileage'
+  | 'profile.totalLine'
+  | 'profile.bestLong'
+  | 'profile.bestPace'
+  | 'profile.bestDur'
+  | 'profile.pushOnTitle'
+  | 'profile.pushOnSubReenable'
+  | 'profile.pushOnSubInvite'
+  | 'profile.menuMileageAdmin'
+  | 'profile.dialogDeleteTitle'
+  | 'profile.dialogDeleteBody'
+  | 'profile.dialogDeleteSummary'
+  | 'profile.dialogDeleteSummary2'
+  | 'profile.dialogDeleteSummary3'
+  | 'profile.dialogDeleteSummary4'
+  | 'profile.dialogDeleteConfirmTip'
+  | 'profile.dialogDeleteConfirmPlaceholder'
+  | 'profile.dialogDeleteConfirmCta'
+  | 'profile.dialogDeleteProcessing'
+  | 'profile.dialogDeleteCancel'
+  | 'profile.editPageTitle'
+  | 'gift.title'
+  | 'gift.balanceLabel'
+  | 'gift.recipient'
+  | 'gift.searchPlaceholder'
+  | 'gift.recipientLabel'
+  | 'gift.amountTitle'
+  | 'gift.amountAll'
+  | 'gift.cta'
+  | 'gift.sending'
+  | 'gift.errInvalid'
+  | 'gift.errNotEnough'
+  | 'gift.success'
+  | 'gift.errGeneric'
+  | 'feedback.boardTitle'
+  | 'feedback.menuLabel'
+  | 'ranking.notRunningYetTitle'
+  | 'ranking.notRunningYetSub'
+  | 'friend.add'
+  | 'friend.added'
+  | 'nearby.title'
+  | 'nearby.modeRegion'
+  | 'nearby.modePace'
+  | 'nearby.searchCta';
 
 const DICT: Record<Locale, Record<TranslationKey, string>> = {
   ko: {
@@ -340,7 +397,7 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'profile.menuTerms': '이용약관',
     'profile.deleteAccount': '계정 탈퇴',
     'profile.title': '내 정보',
-    'profile.menuFeedback': '제안 / 버그 게시판',
+    'profile.menuFeedback': '앱 기능 제안 게시판',
     'profile.menuPushSettings': '알림 설정',
     'profile.menuOrders': '내 주문 내역',
     'profile.menuAddresses': '배송지 관리',
@@ -567,6 +624,62 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'homeHero.runner': '러너',
     'homeHero.kmMore': '{km}km 더',
     'homeHero.toRankAbbr': '→ {rank}위',
+    'home.summaryTitle': '요약',
+    'home.summaryWeek': '이번 주',
+    'home.summaryMonth': '이번 달',
+    'home.summaryYear': '올해',
+    'home.summaryAllTime': '누적',
+    'home.summaryRuns': '{n}회 러닝',
+    'home.summaryMonthDays': '{days}일 · {runs}회',
+    'home.yoyLast': '전년 {sign}{km}km',
+    'home.friendStoriesTitle': '친구 활동 · 최근 72시간',
+    'home.friendStoriesSeeAll': '전체 보기 →',
+    'ptr.welcomeTitle': '👋 처음 오셨어요? 환영해요!',
+    'ptr.welcomeSub': '화면을 아래로 살짝 당기면 Apple 건강 기록이 자동으로 채워져요 🍎',
+    'profile.mileage': '마일리지',
+    'profile.totalLine': '통산',
+    'profile.bestLong': '최장 거리',
+    'profile.bestPace': '최빠 페이스',
+    'profile.bestDur': '최장 시간',
+    'profile.pushOnTitle': '알림 켜기',
+    'profile.pushOnSubReenable': '설정에서 다시 활성화하면 새 메시지·주문 알림을 받을 수 있어요',
+    'profile.pushOnSubInvite': '주문·메시지·매칭 알림 받기',
+    'profile.menuMileageAdmin': '마일리지 보상 설정 (관리자)',
+    'profile.dialogDeleteTitle': '정말 탈퇴할까요?',
+    'profile.dialogDeleteBody': '탈퇴하면 러닝 기록·사진·친구·마일리지 등 모든 데이터가 영구 삭제되며 복구할 수 없어요.',
+    'profile.dialogDeleteSummary': '• 통산 {km}km · {runs}회 러닝 기록',
+    'profile.dialogDeleteSummary2': '• 업로드한 사진과 캘린더',
+    'profile.dialogDeleteSummary3': '• 친구·쪽지·응원 내역',
+    'profile.dialogDeleteSummary4': '• 적립한 마일리지',
+    'profile.dialogDeleteConfirmTip': '계속하려면 아래에 "탈퇴" 라고 입력해주세요',
+    'profile.dialogDeleteConfirmPlaceholder': '탈퇴',
+    'profile.dialogDeleteConfirmCta': '탈퇴하기',
+    'profile.dialogDeleteProcessing': '탈퇴 처리 중...',
+    'profile.dialogDeleteCancel': '취소',
+    'profile.editPageTitle': '프로필 편집',
+    'gift.title': '마일리지 선물',
+    'gift.balanceLabel': '보유 마일리지',
+    'gift.recipient': '받는 사람',
+    'gift.searchPlaceholder': '닉네임으로 검색',
+    'gift.recipientLabel': '받는 사람',
+    'gift.amountTitle': '선물할 마일리지',
+    'gift.amountAll': '전액',
+    'gift.cta': '선물 보내기',
+    'gift.sending': '전송 중…',
+    'gift.errInvalid': '올바른 금액을 입력하세요',
+    'gift.errNotEnough': '마일리지가 부족합니다',
+    'gift.success': '{name}님에게 {pts}P 를 선물했어요 🎁',
+    'gift.errGeneric': '선물 실패',
+    'feedback.boardTitle': '앱 기능 제안 게시판',
+    'feedback.menuLabel': '앱 기능 제안 게시판',
+    'ranking.notRunningYetTitle': '이번 주는 아직 안 달렸어요',
+    'ranking.notRunningYetSub': '이번 주 0km 인 러너들 사이에서는 모두 동률이에요. 한 번 달리면 순위에 오를 수 있어요!',
+    'friend.add': '친구 추가',
+    'friend.added': '친구',
+    'nearby.title': '동네 러너 찾기',
+    'nearby.modeRegion': '동네별',
+    'nearby.modePace': '비슷한 페이스',
+    'nearby.searchCta': '찾기',
   },
   en: {
     'common.loading': 'Loading...',
@@ -615,7 +728,7 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'profile.menuTerms': 'Terms of service',
     'profile.deleteAccount': 'Delete account',
     'profile.title': 'Profile',
-    'profile.menuFeedback': 'Feedback / Bug board',
+    'profile.menuFeedback': 'Feature requests',
     'profile.menuPushSettings': 'Notifications',
     'profile.menuOrders': 'My orders',
     'profile.menuAddresses': 'Addresses',
@@ -842,6 +955,62 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'homeHero.runner': 'Runner',
     'homeHero.kmMore': '{km}km more',
     'homeHero.toRankAbbr': '→ #{rank}',
+    'home.summaryTitle': 'Summary',
+    'home.summaryWeek': 'This week',
+    'home.summaryMonth': 'This month',
+    'home.summaryYear': 'This year',
+    'home.summaryAllTime': 'All time',
+    'home.summaryRuns': '{n} runs',
+    'home.summaryMonthDays': '{days} days · {runs} runs',
+    'home.yoyLast': 'YoY {sign}{km}km',
+    'home.friendStoriesTitle': "Friends · Last 72 h",
+    'home.friendStoriesSeeAll': 'See all →',
+    'ptr.welcomeTitle': '👋 New here? Welcome!',
+    'ptr.welcomeSub': 'Pull the screen down to auto-fill your Apple Health records 🍎',
+    'profile.mileage': 'Mileage',
+    'profile.totalLine': 'Total',
+    'profile.bestLong': 'Longest km',
+    'profile.bestPace': 'Best pace',
+    'profile.bestDur': 'Longest time',
+    'profile.pushOnTitle': 'Turn on notifications',
+    'profile.pushOnSubReenable': 'Re-enable in Settings to receive new messages and order alerts',
+    'profile.pushOnSubInvite': 'Get order, message, and match alerts',
+    'profile.menuMileageAdmin': 'Mileage rewards (admin)',
+    'profile.dialogDeleteTitle': 'Delete your account?',
+    'profile.dialogDeleteBody': 'Deleting permanently removes your runs, photos, friends, mileage, and all data. This cannot be undone.',
+    'profile.dialogDeleteSummary': '• {km}km · {runs} runs history',
+    'profile.dialogDeleteSummary2': '• Uploaded photos & calendar',
+    'profile.dialogDeleteSummary3': '• Friends, messages, cheers',
+    'profile.dialogDeleteSummary4': '• Accumulated mileage',
+    'profile.dialogDeleteConfirmTip': 'To continue, type "DELETE" below',
+    'profile.dialogDeleteConfirmPlaceholder': 'DELETE',
+    'profile.dialogDeleteConfirmCta': 'Delete account',
+    'profile.dialogDeleteProcessing': 'Deleting...',
+    'profile.dialogDeleteCancel': 'Cancel',
+    'profile.editPageTitle': 'Edit profile',
+    'gift.title': 'Gift mileage',
+    'gift.balanceLabel': 'Your balance',
+    'gift.recipient': 'Recipient',
+    'gift.searchPlaceholder': 'Search by nickname',
+    'gift.recipientLabel': 'Recipient',
+    'gift.amountTitle': 'Amount to gift',
+    'gift.amountAll': 'All',
+    'gift.cta': 'Send gift',
+    'gift.sending': 'Sending…',
+    'gift.errInvalid': 'Please enter a valid amount',
+    'gift.errNotEnough': 'Not enough mileage',
+    'gift.success': 'Sent {pts}P to {name} 🎁',
+    'gift.errGeneric': 'Gift failed',
+    'feedback.boardTitle': 'Feature requests',
+    'feedback.menuLabel': 'Feature requests',
+    'ranking.notRunningYetTitle': 'No runs this week yet',
+    'ranking.notRunningYetSub': 'All runners with 0km this week are tied. Run once to climb the ranks!',
+    'friend.add': 'Add friend',
+    'friend.added': 'Friends',
+    'nearby.title': 'Find runners nearby',
+    'nearby.modeRegion': 'Region',
+    'nearby.modePace': 'Pace',
+    'nearby.searchCta': 'Search',
   },
 };
 

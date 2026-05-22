@@ -581,12 +581,12 @@ export default function DashboardPage() {
           → 7 랭킹Hero (활성화 hero) → 8 LiveRunning → 9 캘린더 → 10 지역배너
           → 11 Friends → 12 Predict → 13 LocalTop → 14 Neighbors → 15 OnThisDay */}
       <div className="space-y-3 pt-1">
-        {/* build 167 #8: 첫 방문자 PTR 온보딩 힌트 — 회색 빈 화면에서 위→아래 화살표 + 친근 안내 */}
+        {/* build 169 #7: PTR 온보딩 힌트가 최상단 자리. (이전엔 HealthConnect 배너가 가장 위에 있어
+            첫 진입 시 시각적 노이즈가 컸음 — 사용자 신고). HealthKit 진입점은 시작 가이드 안에 통합. */}
         <PullDownOnboardingHint />
-        {/* 1 HealthKit — App Store 2.5.1 요건 */}
-        <HealthConnectCard />
 
-        {/* 1.5 신규 가입자 onboarding 가이드 (build 100) — 가입 7일 이내 + 5회 미만일 때만 노출 */}
+        {/* 1.5 신규 가입자 onboarding 가이드 (build 100) — 가입 7일 이내 + 5회 미만일 때만 노출.
+            App Store 2.5.1 요건 충족: 안에 "Apple Health 연동" 진입 항목 포함. */}
         <HomeOnboardingCard />
 
         {/* 2 주간 리캡 + 3 스트릭 경고 (둘 다 조건부, 자체 padding 없어 wrap) */}
@@ -1228,41 +1228,41 @@ export default function DashboardPage() {
       {/* 24 요약 4칩 — 이번 주/이번 달/올해/누적 */}
       <LazyMount minHeight={200}>
       <div className="card p-5">
-        <h3 className="text-base font-bold text-[var(--foreground)] mb-4">요약</h3>
+        <h3 className="text-base font-bold text-[var(--foreground)] mb-4">{t('home.summaryTitle')}</h3>
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-[var(--card-border)]/30 rounded-xl p-4">
-            <p className="text-xs text-[var(--muted)] mb-1">이번 주</p>
+            <p className="text-xs text-[var(--muted)] mb-1">{t('home.summaryWeek')}</p>
             <p className="text-2xl font-extrabold text-[var(--accent)]">{weekKm.toFixed(1)}<span className="text-sm ml-1">km</span></p>
-            <p className="text-xs text-[var(--muted)] mt-1">{weekRuns}회 러닝</p>
+            <p className="text-xs text-[var(--muted)] mt-1">{t('home.summaryRuns').replace('{n}', String(weekRuns))}</p>
             {yoyComparison.week.last > 0.5 && (
               <p className={`text-xs mt-1 ${yoyComparison.week.diff >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
-                전년 {yoyComparison.week.diff >= 0 ? '+' : ''}{yoyComparison.week.diff.toFixed(0)}km
+                {t('home.yoyLast').replace('{sign}', yoyComparison.week.diff >= 0 ? '+' : '').replace('{km}', yoyComparison.week.diff.toFixed(0))}
               </p>
             )}
           </div>
           <div className="bg-[var(--card-border)]/30 rounded-xl p-4">
-            <p className="text-xs text-[var(--muted)] mb-1">이번 달</p>
+            <p className="text-xs text-[var(--muted)] mb-1">{t('home.summaryMonth')}</p>
             <p className="text-2xl font-extrabold text-green-600">{monthlyDistance.toFixed(1)}<span className="text-sm ml-1">km</span></p>
-            <p className="text-xs text-[var(--muted)] mt-1">{monthlyRunDays}일 · {calendarActivities.length}회</p>
+            <p className="text-xs text-[var(--muted)] mt-1">{t('home.summaryMonthDays').replace('{days}', String(monthlyRunDays)).replace('{runs}', String(calendarActivities.length))}</p>
             {yoyComparison.month.last > 0.5 && (
               <p className={`text-xs mt-1 ${yoyComparison.month.diff >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
-                전년 {yoyComparison.month.diff >= 0 ? '+' : ''}{yoyComparison.month.diff.toFixed(0)}km
+                {t('home.yoyLast').replace('{sign}', yoyComparison.month.diff >= 0 ? '+' : '').replace('{km}', yoyComparison.month.diff.toFixed(0))}
               </p>
             )}
           </div>
           <div className="bg-[var(--card-border)]/30 rounded-xl p-4">
-            <p className="text-xs text-[var(--muted)] mb-1">올해</p>
+            <p className="text-xs text-[var(--muted)] mb-1">{t('home.summaryYear')}</p>
             <p className="text-2xl font-extrabold text-purple-600">{yearlyTotal.toFixed(0)}<span className="text-sm ml-1">km</span></p>
             {yearlyPrevTotal > 0 && (
               <p className={`text-xs mt-1 ${yearlyTotal >= yearlyPrevTotal ? 'text-emerald-600' : 'text-rose-500'}`}>
-                전년 {yearlyTotal >= yearlyPrevTotal ? '+' : ''}{(yearlyTotal - yearlyPrevTotal).toFixed(0)}km
+                {t('home.yoyLast').replace('{sign}', yearlyTotal >= yearlyPrevTotal ? '+' : '').replace('{km}', (yearlyTotal - yearlyPrevTotal).toFixed(0))}
               </p>
             )}
           </div>
           <div className="bg-[var(--card-border)]/30 rounded-xl p-4">
-            <p className="text-xs text-[var(--muted)] mb-1">누적</p>
+            <p className="text-xs text-[var(--muted)] mb-1">{t('home.summaryAllTime')}</p>
             <p className="text-2xl font-extrabold text-orange-600">{totalKm.toFixed(0)}<span className="text-sm ml-1">km</span></p>
-            <p className="text-xs text-[var(--muted)] mt-1">{totalRuns}회 러닝</p>
+            <p className="text-xs text-[var(--muted)] mt-1">{t('home.summaryRuns').replace('{n}', String(totalRuns))}</p>
           </div>
         </div>
       </div>

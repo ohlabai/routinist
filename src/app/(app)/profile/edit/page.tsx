@@ -233,13 +233,13 @@ export default function ProfileEditPage() {
 
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-[var(--foreground)] mb-1">닉네임</label>
+          <label className="block text-base font-semibold text-[var(--foreground)] mb-1.5">닉네임</label>
           <input
             type="text"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             maxLength={20}
-            className="w-full px-4 py-3 rounded-xl bg-[var(--card)] border border-[var(--card-border)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+            className="w-full px-4 py-3.5 rounded-xl bg-[var(--card)] border border-[var(--card-border)] text-[var(--foreground)] text-base focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
           />
           <div className="flex items-center justify-between mt-1">
             <DisplayNameStatusHint check={displayNameCheck} />
@@ -248,14 +248,14 @@ export default function ProfileEditPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-[var(--foreground)] mb-1">소개</label>
+          <label className="block text-base font-semibold text-[var(--foreground)] mb-1.5">소개</label>
           <textarea
             value={bio}
             onChange={(e) => setBio(e.target.value)}
             maxLength={100}
             rows={3}
             placeholder="한 줄 소개를 입력해주세요"
-            className="w-full px-4 py-3 rounded-xl bg-[var(--card)] border border-[var(--card-border)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)] resize-none"
+            className="w-full px-4 py-3.5 rounded-xl bg-[var(--card)] border border-[var(--card-border)] text-[var(--foreground)] text-base focus:outline-none focus:ring-2 focus:ring-[var(--accent)] resize-none"
           />
           <p className="text-xs text-[var(--muted)] mt-1">{bio.length}/100</p>
         </div>
