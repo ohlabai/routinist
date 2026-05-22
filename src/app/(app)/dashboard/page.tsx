@@ -568,7 +568,7 @@ export default function DashboardPage() {
     <header className="sticky top-0 z-20 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
       <div className="px-4 py-3 flex items-center gap-2">
         <AppLogo size={28} />
-        <h1 className="text-xl font-extrabold tracking-tight">홈</h1>
+        <h1 className="text-xl font-extrabold tracking-tight">{t('home.title')}</h1>
       </div>
     </header>
       {syncToast && (
@@ -605,10 +605,16 @@ export default function DashboardPage() {
         <div className="mx-4 flex items-center justify-between pt-1">
           <div>
             <h2 className="text-xl font-bold text-[var(--foreground)]">
-              {profile?.display_name ?? '러너'}님의 {month}월
+              {t('home.userMonthTitle')
+                .replace('{name}', profile?.display_name ?? t('profile.runner'))
+                .replace('{month}', String(month))}
             </h2>
             <div className="flex items-center gap-2 mt-0.5">
-              <p className="text-xs text-[var(--muted)]">통산 {totalKm.toFixed(0)}km · {totalRuns}회 러닝</p>
+              <p className="text-xs text-[var(--muted)]">
+                {t('home.totalSummary')
+                  .replace('{km}', totalKm.toFixed(0))
+                  .replace('{runs}', String(totalRuns))}
+              </p>
               <FreshnessBadge ts={lastUpdated} onRefresh={refresh} />
             </div>
           </div>
@@ -663,9 +669,9 @@ export default function DashboardPage() {
           )}
           <div className="relative">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-base font-semibold text-[var(--foreground)]">내 {month}월 목표</h3>
+              <h3 className="text-base font-semibold text-[var(--foreground)]">{t('home.monthGoal').replace('{month}', String(month))}</h3>
               <Link href="/goals" className="text-sm text-[var(--accent)] font-semibold flex items-center gap-0.5">
-                설정 <ChevronRight size={14} />
+                {t('home.set')} <ChevronRight size={14} />
               </Link>
             </div>
             {goalKm > 0 ? (
@@ -693,23 +699,25 @@ export default function DashboardPage() {
                   <div className="mt-2 flex items-center justify-center gap-1 text-green-600 font-bold">
                     <span className="confetti-emoji">🎉</span>
                     <span className="confetti-emoji">🏆</span>
-                    <span className="mx-2 text-base">{goalKm}km 목표 달성!</span>
+                    <span className="mx-2 text-base">{t('home.goalAchieved').replace('{km}', String(goalKm))}</span>
                     <span className="confetti-emoji">✨</span>
                     <span className="confetti-emoji">🎊</span>
                   </div>
                 ) : (
                   <div className="flex justify-between items-center text-xs text-[var(--muted)]">
-                    <span>/ <span className="font-semibold text-[var(--foreground)]">{goalKm}km</span> 목표</span>
-                    <span>남은 {goalRemaining.toFixed(1)}km · 하루 {dailyNeeded.toFixed(1)}km</span>
+                    <span dangerouslySetInnerHTML={{
+                      __html: t('home.goalLabel').replace('{km}', `<span class='font-semibold text-[var(--foreground)]'>${goalKm}km</span>`)
+                    }} />
+                    <span>{t('home.goalRemaining').replace('{remain}', goalRemaining.toFixed(1)).replace('{daily}', dailyNeeded.toFixed(1))}</span>
                   </div>
                 )}
               </>
             ) : (
               <div className="text-center py-4 space-y-2">
                 <p className="text-3xl">🎯</p>
-                <p className="text-sm font-medium text-[var(--foreground)]">아직 이번 달 목표가 없습니다</p>
+                <p className="text-sm font-medium text-[var(--foreground)]">{t('home.monthGoalEmpty')}</p>
                 <Link href="/goals" className="text-sm text-[var(--accent)] font-semibold inline-block">
-                  목표 설정하기 →
+                  {t('home.monthGoalSet')}
                 </Link>
               </div>
             )}
@@ -741,8 +749,8 @@ export default function DashboardPage() {
             <div className="flex items-center gap-3">
               <span className="text-2xl">📍</span>
               <div className="flex-1">
-                <p className="text-sm font-semibold text-[var(--foreground)]">지역을 설정하면 랭킹에 참여할 수 있어요!</p>
-                <p className="text-xs text-[var(--muted)]">프로필에서 시/구/동을 선택해보세요</p>
+                <p className="text-sm font-semibold text-[var(--foreground)]">{t('home.regionNotSet')}</p>
+                <p className="text-xs text-[var(--muted)]">{t('home.regionNotSetSub')}</p>
               </div>
               <ChevronRight size={16} className="text-[var(--accent)]" />
             </div>
@@ -1264,10 +1272,10 @@ export default function DashboardPage() {
       <LazyMount minHeight={300}>
       <div className="card p-5">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-base font-semibold text-[var(--foreground)]">최근 활동</h3>
+          <h3 className="text-base font-semibold text-[var(--foreground)]">{t('home.recentActivity')}</h3>
           {activities.length > 0 && (
             <Link href="/history" className="text-sm text-[var(--accent)] font-semibold flex items-center gap-0.5">
-              전체 기록 <ChevronRight size={14} />
+              {t('home.viewAllHistory')} <ChevronRight size={14} />
             </Link>
           )}
         </div>
@@ -1278,9 +1286,9 @@ export default function DashboardPage() {
         ) : recentActivities.length === 0 ? (
           <div className="text-center py-6 space-y-2">
             <p className="text-3xl">👟</p>
-            <p className="text-sm font-medium text-[var(--foreground)]">아직 기록이 없습니다</p>
+            <p className="text-sm font-medium text-[var(--foreground)]">{t('home.noActivityYet')}</p>
             <Link href="/connect" className="text-sm text-[var(--accent)] font-semibold inline-block">
-              건강 앱 연동하기 →
+              {t('home.connectHealthCta')}
             </Link>
           </div>
         ) : (

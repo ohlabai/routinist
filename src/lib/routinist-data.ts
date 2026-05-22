@@ -10,8 +10,10 @@ import { todayStr, daysAgoStr, startOfWeekStr } from './kst';
 //
 // build 167 #2: 같은 activity_date 의 tiebreaker — started_at desc → created_at desc.
 // 하루 2번 뛰었을 때 최신이 위로 (이전엔 DB가 임의 정렬해서 첫 번째 뛴 게 최근으로 표시되는 버그).
+// build 168 fix: build 167 의 exercise_type/updated_at 은 DB에 없는 컬럼 → PostgREST 가 select 거부.
+// 실제 DB 컬럼: activity_type, active_energy_kcal. updated_at 없음.
 const ACTIVITY_LITE_COLS =
-  'id,user_id,activity_date,distance_km,duration_seconds,pace_avg_sec_per_km,calories,heart_rate_avg,heart_rate_max,memo,source,visibility,started_at,ended_at,exercise_type,created_at,updated_at';
+  'id,user_id,activity_date,distance_km,duration_seconds,pace_avg_sec_per_km,calories,heart_rate_avg,heart_rate_max,active_energy_kcal,memo,source,visibility,started_at,ended_at,activity_type,created_at';
 
 export async function fetchActivities(userId: string): Promise<Activity[]> {
   const all: Activity[] = [];

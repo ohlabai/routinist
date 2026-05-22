@@ -75,6 +75,20 @@ export type TranslationKey =
   | 'profile.totalSummary'
   | 'settings.language'
   // build 157: 핵심 화면 영어 확장
+  // build 168 #6: 홈 dashboard 잔여 한글 영문화
+  | 'home.title'
+  | 'home.userMonthTitle'
+  | 'home.recentActivity'
+  | 'home.viewAllHistory'
+  | 'home.noActivityYet'
+  | 'home.connectHealthCta'
+  | 'home.regionNotSet'
+  | 'home.regionNotSetSub'
+  | 'home.set'
+  | 'home.goalAchieved'
+  | 'home.goalLabel'
+  | 'home.goalRemaining'
+  | 'home.totalSummary'
   | 'home.todayKm'
   | 'home.todayPace'
   | 'home.recentPace'
@@ -339,6 +353,19 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'profile.signOut': '로그아웃',
     'profile.totalSummary': '통산 {km}km · {runs}회 러닝',
     'settings.language': '언어',
+    'home.title': '홈',
+    'home.userMonthTitle': '{name}님의 {month}월',
+    'home.recentActivity': '최근 활동',
+    'home.viewAllHistory': '전체 기록',
+    'home.noActivityYet': '아직 기록이 없습니다',
+    'home.connectHealthCta': '건강 앱 연동하기 →',
+    'home.regionNotSet': '지역을 설정하면 랭킹에 참여할 수 있어요!',
+    'home.regionNotSetSub': '프로필에서 시/구/동을 선택해보세요',
+    'home.set': '설정',
+    'home.goalAchieved': '{km}km 목표 달성!',
+    'home.goalLabel': '/ {km}km 목표',
+    'home.goalRemaining': '남은 {remain}km · 하루 {daily}km',
+    'home.totalSummary': '통산 {km}km · {runs}회 러닝',
     'home.todayKm': '오늘 km',
     'home.todayPace': '오늘 페이스',
     'home.recentPace': '최근 페이스',
@@ -601,6 +628,19 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'profile.signOut': 'Sign out',
     'profile.totalSummary': 'Total {km}km · {runs} runs',
     'settings.language': 'Language',
+    'home.title': 'Home',
+    'home.userMonthTitle': "{name}'s {month}",
+    'home.recentActivity': 'Recent activity',
+    'home.viewAllHistory': 'View all',
+    'home.noActivityYet': 'No activity yet',
+    'home.connectHealthCta': 'Connect health app →',
+    'home.regionNotSet': 'Set your region to join the ranking!',
+    'home.regionNotSetSub': 'Pick city / district in your profile',
+    'home.set': 'Set',
+    'home.goalAchieved': '{km}km goal reached!',
+    'home.goalLabel': '/ {km}km goal',
+    'home.goalRemaining': '{remain}km left · {daily}km/day',
+    'home.totalSummary': 'Total {km}km · {runs} runs',
     'home.todayKm': 'Today km',
     'home.todayPace': 'Today pace',
     'home.recentPace': 'Recent pace',

@@ -259,37 +259,56 @@ export default function HomeRankingHero() {
         onClick={goDetail}
         className="relative w-full px-5 pt-3 pb-4 text-center active:scale-[0.99] transition"
       >
+        {/* build 168 #2: 1위 상패 산만 — scope·tier 라벨 한 줄로 압축, 부가 장식 제거.
+            "자리를 지키고 있어요" 박스 + Crown + Sparkles 중복 → 메달 박스 안 아이콘 하나로 정리. */}
         <div className="flex items-center justify-center gap-1.5 mb-2 text-[13px] text-[var(--muted)] font-bold tracking-wide">
           <span>{rank.scope_label}</span>
           <span className="text-[var(--card-border)]">·</span>
           <span>{periodLabel}</span>
-          <span className="text-[var(--card-border)]">·</span>
-          <span className={`inline-flex items-center gap-0.5 font-extrabold ${style.accent}`}>
-            <span>{tier.icon}</span>
-            <span>{tier.label}</span>
-          </span>
         </div>
 
-        {/* 메달 + 숫자 + "위" 한 줄 — 카드 압축 + 숫자 크기 ↑ (사용자 피드백 build 106) */}
-        <div className="flex items-center justify-center gap-3">
-          {isTop3 && (
-            <div className={`w-14 h-14 rounded-2xl ${style.medalBg} ${style.medalShadow} flex items-center justify-center flex-shrink-0`}>
-              <span className="text-2xl drop-shadow-sm">{tier.icon}</span>
+        {isTopRank ? (
+          // 1위 — 깔끔한 메달 + 숫자 + 부제 (장식 최소화)
+          <div className="flex flex-col items-center gap-2">
+            <div className={`w-20 h-20 rounded-full ${style.medalBg} ${style.medalShadow} flex items-center justify-center`}>
+              <Crown size={36} className="text-white drop-shadow" strokeWidth={2.5} />
             </div>
-          )}
-          <div className="flex items-baseline">
-            <span
-              className={`leading-[0.85] font-extrabold tracking-tighter tabular-nums ${style.numberText}`}
-              style={{ fontSize: '96px' }}
-            >
-              {rank.rank_position}
-            </span>
-            <span className="text-3xl font-extrabold text-[var(--foreground)] ml-1">{t('ranking.rank')}</span>
+            <div className="flex items-baseline">
+              <span
+                className={`leading-[0.85] font-extrabold tracking-tighter tabular-nums ${style.numberText}`}
+                style={{ fontSize: '72px' }}
+              >
+                1
+              </span>
+              <span className="text-2xl font-extrabold text-[var(--foreground)] ml-1">{t('ranking.rank')}</span>
+            </div>
+            <p className={`text-sm font-extrabold ${style.accent} -mt-1`}>{t('homeHero.holdSpot')}</p>
           </div>
-        </div>
-        <p className="mt-1 text-xs text-[var(--muted)] font-bold">
-          {t('rankingHero.peopleSlash').replace('{n}', rank.total_in_scope.toLocaleString())}
-        </p>
+        ) : (
+          // 2위 이하 — 기존 압축형 (메달은 top3 만, 숫자 + 위)
+          <>
+            <div className="flex items-center justify-center gap-3">
+              {isTop3 && (
+                <div className={`w-14 h-14 rounded-2xl ${style.medalBg} ${style.medalShadow} flex items-center justify-center flex-shrink-0`}>
+                  <span className="text-2xl drop-shadow-sm">{tier.icon}</span>
+                </div>
+              )}
+              <div className="flex items-baseline">
+                <span
+                  className={`leading-[0.85] font-extrabold tracking-tighter tabular-nums ${style.numberText}`}
+                  style={{ fontSize: '96px' }}
+                >
+                  {rank.rank_position}
+                </span>
+                <span className="text-3xl font-extrabold text-[var(--foreground)] ml-1">{t('ranking.rank')}</span>
+              </div>
+            </div>
+            <p className="mt-1 text-xs text-[var(--muted)] font-bold">
+              {t('rankingHero.peopleSlash').replace('{n}', rank.total_in_scope.toLocaleString())}
+            </p>
+          </>
+        )}
+
         <p className="mt-2 text-base">
           <span className={`font-bold ${style.accent}`}>{name}</span>
           <span className="text-[var(--muted)]"> · </span>
@@ -310,14 +329,6 @@ export default function HomeRankingHero() {
                 style={{ width: `${progressToNext}%` }}
               />
             </div>
-          </div>
-        )}
-
-        {isTopRank && (
-          <div className="mt-4 mx-auto max-w-[280px] px-3 py-2.5 rounded-xl bg-white/70 dark:bg-zinc-900/60 backdrop-blur-sm flex items-center justify-center gap-2 text-sm shadow-sm">
-            <Crown size={16} className="text-emerald-600 flex-shrink-0" />
-            <span className={`font-extrabold ${style.accent}`}>{t('homeHero.holdSpot')}</span>
-            <Sparkles size={14} className="text-emerald-500" />
           </div>
         )}
 
