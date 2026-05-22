@@ -73,12 +73,12 @@ export default function HomeChallengeCard() {
         </div>
 
         <div className="flex items-baseline gap-1 mb-2">
-          <span className={`text-4xl font-bold tabular-nums leading-none ${
+          <span className={`text-4xl font-extrabold leading-none ${
             achieved ? 'text-amber-600' : 'text-emerald-600'
           }`}>
             {thisWeekKm.toFixed(1)}
           </span>
-          <span className="text-base font-bold text-[var(--muted)]">/ {target}km</span>
+          <span className="text-base font-extrabold text-[var(--muted)]">/ {target}km</span>
         </div>
 
         <div className="h-2.5 bg-[var(--card-border)]/40 rounded-full overflow-hidden mb-3">
