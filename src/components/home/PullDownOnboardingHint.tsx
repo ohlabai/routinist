@@ -22,8 +22,10 @@ export default function PullDownOnboardingHint() {
   const [visible, setVisible] = useState(false);
   const [dismissing, setDismissing] = useState(false);
 
-  // build 170 #7 + build 171 #1': 활동이 있어도 가입 7일 이내 + 한 번도 dismiss 안 한 사용자에겐 노출.
-  // dismiss 플래그는 user.id 별로 분리 (디바이스 공유 회귀 회피).
+  // build 171.1 #1 (B 정책): 신규 가입자(가입 7일 이내) 첫 진입 시 1회만 노출.
+  //   - dismiss 플래그는 user.id 별로 분리 (디바이스 공유 회귀 회피)
+  //   - 표시 8초 후 자동 dismiss → 다음 진입엔 안 보임 (X 누르지 않아도)
+  //   - 기존 사용자(가입 7일 초과)는 안내 안 봄
   useEffect(() => {
     if (!user) return;
     if (typeof window === 'undefined') return;
@@ -39,6 +41,15 @@ export default function PullDownOnboardingHint() {
     }
     setVisible(true);
   }, [user, loading]);
+
+  // 자동 dismiss — 표시 8초 후 (사용자가 X 안 눌러도 다음 진입엔 안 보임).
+  useEffect(() => {
+    if (!visible) return;
+    const t = setTimeout(() => handleDismiss(), 8000);
+    return () => clearTimeout(t);
+    // handleDismiss 는 setState only — deps 안전.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
 
   // PTR 1회 성공 시 (lastUpdated 갱신) 자동 dismiss.
   useEffect(() => {
