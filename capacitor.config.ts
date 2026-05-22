@@ -42,10 +42,36 @@ const config: CapacitorConfig = {
       'js.tosspayments.com',
       'api.tosspayments.com',
       'event.tosspayments.com',
-      // KCP / 카드사 안심클릭 인증 페이지
+      // build 185: 카드사 ACS / Secure 인증 페이지 (신용카드 결제 흐름).
+      // 토스 결제창 → 카드사 ACS redirect 시 외부 Safari 로 빠지면 세션 끊김 + "비정상 접근" 에러.
+      'acs.hanacard.co.kr',
+      'acs.kbcard.com',
+      'acs.shinhancard.com',
+      'acs.samsungcard.com',
+      'acs.hyundaicard.com',
+      'acs.lottecard.co.kr',
+      'acs.bccard.com',
+      'acs.nhcard.co.kr',
+      'acs.citi.co.kr',
+      'acs.wooricard.com',
+      'acs.kakaobank.com',
+      'acs.tossbank.com',
+      'secure.shinhancard.com',
+      'secure.kbcard.com',
+      'secure.samsungcard.com',
+      'secure.bccard.com',
+      'secure.hyundaicard.com',
+      'secure.lottecard.co.kr',
+      'secure.hanacard.co.kr',
+      'secure.wooricard.com',
+      // KCP / 카드사 안심클릭
       'kcp.co.kr',
       'pay.kcp.co.kr',
       'spay.kcp.co.kr',
+      // 통신사 휴대폰결제 인증
+      'mcash.danalpay.com',
+      'web.kg-inicis.com',
+      'mobile.inicis.com',
       // 네이버페이
       'naverpay.com',
       'mbrowser.pay.naver.com',

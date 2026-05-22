@@ -187,6 +187,9 @@ function CheckoutContent() {
         customerEmail: user.email ?? undefined,
         successUrl,
         failUrl,
+        // build 185: iOS Capacitor 앱에서 카드사 인증앱 deep link 호출 후
+        // 우리 앱으로 복귀하기 위한 URL scheme. Info.plist 의 CFBundleURLSchemes 와 일치.
+        appScheme: 'routinist',
       });
     } catch (e) {
       console.warn('[checkout] payment fail', e);
