@@ -83,6 +83,32 @@ export default function ProfilePage() {
   }, [user?.id]);
   const displayBalance = freshBalance !== null ? freshBalance : Number(profile?.mileage_balance ?? 0);
 
+  // build 175 #5: 쪽지함 미읽음 카운트 — receiver(나) + read_at IS NULL.
+  // conversations.user_a/user_b 중 본인 + 다른 쪽이 sender.
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const sb = getSupabase();
+        // 본인이 속한 conversation 의 메시지 중 sender 가 본인이 아니고 read_at IS NULL.
+        const { data: convs } = await sb.from('conversations')
+          .select('id, user_a, user_b')
+          .or(`user_a.eq.${user.id},user_b.eq.${user.id}`);
+        const convIds = (convs ?? []).map((c: { id: string }) => c.id);
+        if (convIds.length === 0) { if (!cancelled) setUnreadMessages(0); return; }
+        const { count } = await sb.from('messages')
+          .select('*', { count: 'exact', head: true })
+          .in('conversation_id', convIds)
+          .neq('sender_id', user.id)
+          .is('read_at', null);
+        if (!cancelled) setUnreadMessages(count ?? 0);
+      } catch { /* silent */ }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
   const handlePushToggle = async () => {
     setPushBusy(true);
     try {
@@ -347,16 +373,25 @@ export default function ProfilePage() {
 
       {/* 액션 그리드 2×2 */}
       <div className="grid grid-cols-2 gap-3">
-        {actions.map(a => (
-          <Link
-            key={a.href}
-            href={a.href}
-            className="card p-4 flex flex-col items-start gap-2 active:scale-[0.98] transition-transform"
-          >
-            <a.Icon size={24} className={a.color} />
-            <span className="text-sm font-semibold text-[var(--foreground)]">{a.label}</span>
-          </Link>
-        ))}
+        {actions.map(a => {
+          // build 175 #5: 쪽지함 카드에 미읽음 배지
+          const showBadge = a.href === '/messages' && unreadMessages > 0;
+          return (
+            <Link
+              key={a.href}
+              href={a.href}
+              className="card p-4 flex flex-col items-start gap-2 active:scale-[0.98] transition-transform relative"
+            >
+              <a.Icon size={24} className={a.color} />
+              <span className="text-sm font-semibold text-[var(--foreground)]">{a.label}</span>
+              {showBadge && (
+                <span className="absolute top-3 right-3 min-w-[22px] h-[22px] px-1.5 rounded-full bg-rose-500 text-white text-[11px] font-extrabold flex items-center justify-center shadow-sm">
+                  {unreadMessages > 99 ? '99+' : unreadMessages}
+                </span>
+              )}
+            </Link>
+          );
+        })}
       </div>
 
       {/* 알림 권한 — 네이티브 + 권한 부여 안 된 경우만 노출 */}

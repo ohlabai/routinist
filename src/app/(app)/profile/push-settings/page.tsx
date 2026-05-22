@@ -10,25 +10,32 @@ import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import AppToast from '@/components/AppToast';
 
-type CategoryKey = 'friend_overtake' | 'milestone' | 'contest' | 'club_course' | 'feedback_reply' | 'weekly_recap' | 'marketing';
+type CategoryKey = 'chat_message' | 'mileage_gift' | 'feedback_reply' | 'likes' | 'friend_overtake' | 'milestone' | 'contest' | 'club_course' | 'weekly_recap' | 'marketing';
 
+// build 175 #5: 핵심 알림 4종을 상단에 노출 — 채팅·선물·답글·좋아요. 기본 ON.
 // 친선런(contest) 은 메뉴 숨김 (build 144) 과 동일하게 알림 설정에서도 표시 안 함.
 // DB 의 contest 키는 그대로 유지 — 추후 부활 시 1줄로 복구.
 const CATEGORIES: { key: CategoryKey; label: string; description: string; Icon: typeof Bell }[] = [
+  { key: 'chat_message', label: '채팅 메시지', description: '새 쪽지·채팅이 도착했을 때', Icon: MessageSquare },
+  { key: 'mileage_gift', label: '마일리지 선물', description: '다른 러너에게 선물을 받았을 때', Icon: Award },
+  { key: 'feedback_reply', label: '운영자 답글', description: '내 제안에 운영자가 답글을 달았을 때', Icon: MessageSquare },
+  { key: 'likes', label: '좋아요·응원', description: '내 사진·한 줄·활동에 좋아요/응원이 도착했을 때', Icon: Users },
   { key: 'friend_overtake', label: '친구 추월', description: '친구가 내 km 를 추월하거나 내가 추월했을 때', Icon: Users },
   { key: 'milestone', label: '나의 기록', description: '1위 등극, 최장 거리 갱신 등', Icon: TrendingUp },
   { key: 'club_course', label: '클럽 마라톤', description: '클럽 코스 시작·완주 알림', Icon: Flag },
-  { key: 'feedback_reply', label: '제안 답글', description: '운영자가 내 제안에 답글을 달았을 때', Icon: MessageSquare },
   { key: 'weekly_recap', label: '주간 회고', description: '매주 내 러닝 요약', Icon: Award },
   { key: 'marketing', label: '이벤트·마케팅', description: '신기능, 쇼핑 할인 등 (기본 OFF)', Icon: Megaphone },
 ];
 
 const DEFAULTS: Record<CategoryKey, boolean> = {
+  chat_message: true,
+  mileage_gift: true,
+  feedback_reply: true,
+  likes: true,
   friend_overtake: true,
   milestone: true,
   contest: true,
   club_course: true,
-  feedback_reply: true,
   weekly_recap: true,
   marketing: false,
 };
