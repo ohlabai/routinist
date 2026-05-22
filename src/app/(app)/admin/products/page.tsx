@@ -5,7 +5,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, Edit2, Trash2, Image as ImageIcon, Star, Package } from 'lucide-react';
+import { ArrowLeft, Plus, Edit2, Trash2, Image as ImageIcon, Star, Package, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import AppToast from '@/components/AppToast';
@@ -35,7 +35,44 @@ export default function AdminProductsPage() {
 
   const showToast = (text: string, tone: 'ok' | 'warn' = 'ok') => {
     setToast({ text, tone });
-    setTimeout(() => setToast(null), 2500);
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  // build 176 #B: Cafe24 즉시 동기화 — admin server route 호출.
+  // 60초 쿨다운 (cafe24 API rate limit + 동시 중복 호출 방지).
+  const [syncing, setSyncing] = useState(false);
+  const [lastSyncAt, setLastSyncAt] = useState<number>(0);
+  const handleCafe24Sync = async () => {
+    if (syncing) return;
+    const cooldown = 60_000;
+    if (Date.now() - lastSyncAt < cooldown) {
+      const left = Math.ceil((cooldown - (Date.now() - lastSyncAt)) / 1000);
+      showToast(`잠시 후 다시 시도 (${left}초)`, 'warn');
+      return;
+    }
+    setSyncing(true);
+    try {
+      const sb = getSupabase();
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) { showToast('로그인이 필요해요', 'warn'); return; }
+      const r = await fetch('/api/admin/cafe24/sync', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+      });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok || !body.ok) {
+        showToast(`동기화 실패 — ${body.error ?? r.status}`, 'warn');
+        return;
+      }
+      const res = body.result ?? {};
+      showToast(`✅ 신규 ${res.inserted ?? 0} · 갱신 ${res.updated ?? 0} · 옵션 ${res.variants ?? 0}`);
+      setLastSyncAt(Date.now());
+      load();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : '동기화 실패', 'warn');
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const load = useCallback(async () => {
@@ -108,6 +145,14 @@ export default function AdminProductsPage() {
             <ArrowLeft size={20} />
           </button>
           <h1 className="text-xl font-extrabold tracking-tight flex-1">상품 관리</h1>
+          <button
+            onClick={handleCafe24Sync}
+            disabled={syncing}
+            className="text-xs font-bold text-amber-700 dark:text-amber-300 inline-flex items-center gap-1 active:scale-95 px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-950/30 disabled:opacity-50"
+          >
+            <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+            {syncing ? '동기화…' : 'Cafe24'}
+          </button>
           <Link
             href="/admin/products/edit?id=new"
             className="text-xs font-bold text-emerald-600 inline-flex items-center gap-1 active:scale-95 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30"
