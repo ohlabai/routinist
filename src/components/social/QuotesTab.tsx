@@ -66,7 +66,9 @@ export default function QuotesTab() {
     try {
       if (mode === 'all') {
         const list = await fetchTopQuotes(50, 0);
-        setItems(list.map<FeedItem>(q => ({
+        // build 182 — 러너 한 줄 "전체" 탭은 실제 사용자 작성 명언만 노출.
+        // 시스템 고전 명언 (is_user_quote=false) 은 숨김.
+        setItems(list.filter(q => q.is_user_quote).map<FeedItem>(q => ({
           id: q.id,
           text: q.text,
           author: q.author,

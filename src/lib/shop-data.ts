@@ -399,6 +399,23 @@ export function validatePostalCode(code: string): boolean {
   return POSTAL_RE.test(code.trim());
 }
 
+// build 182: 입력 중 자동 하이픈 — 010-1234-5678 형식.
+// 휴대폰 010-xxxx-xxxx / 011-xxx-xxxx / 02 지역 / 1577-xxxx 등 광범위 처리.
+export function formatPhoneKR(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 11);
+  if (digits.length < 4) return digits;
+  // 02 (서울) — 2자리 국번
+  if (digits.startsWith('02')) {
+    if (digits.length <= 5) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+    if (digits.length <= 9) return `${digits.slice(0, 2)}-${digits.slice(2, 5)}-${digits.slice(5)}`;
+    return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6, 10)}`;
+  }
+  // 010 / 011 / 016~9 / 070 / 050 / 031~64 등 — 3자리 prefix
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  if (digits.length === 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+}
+
 // =============================================
 // 운송장 — 어드민/고객 단일 진실
 // =============================================

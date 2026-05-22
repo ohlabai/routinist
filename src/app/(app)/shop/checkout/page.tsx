@@ -13,13 +13,14 @@ import {
 function CreditCardIcon() { return <CreditCard size={16} className="text-emerald-500" />; }
 import {
   fetchCart, fetchAddresses, createAddress, createOrderDraft,
-  validatePhone, validatePostalCode,
+  validatePhone, validatePostalCode, formatPhoneKR,
   type OrderDraftItem, type NewAddressInput,
 } from '@/lib/shop-data';
 import { fetchMileageBalance } from '@/lib/mileage-data';
 import { useAuth } from '@/components/AuthProvider';
 import AppToast from '@/components/AppToast';
 import BusinessFooter from '@/components/shop/BusinessFooter';
+import PostcodeSearchSheet from '@/components/shop/PostcodeSearchSheet';
 import type { CartItem, ShippingAddress } from '@/types';
 
 function CheckoutContent() {
@@ -37,6 +38,7 @@ function CheckoutContent() {
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
   const [addressFormOpen, setAddressFormOpen] = useState(false);
+  const [postcodeOpen, setPostcodeOpen] = useState(false);
   const [newAddr, setNewAddr] = useState<NewAddressInput>({
     recipient_name: '', phone: '', postal_code: '', address_line1: '',
     address_line2: '', is_default: true, label: '집',
@@ -305,21 +307,27 @@ function CheckoutContent() {
               />
             </Field>
             <Field>
-              <input type="tel" placeholder="연락처 (010-1234-5678) *"
+              <input type="tel" inputMode="numeric" placeholder="연락처 (010-1234-5678) *"
                 value={newAddr.phone}
-                onChange={e => setNewAddr({ ...newAddr, phone: e.target.value })}
+                onChange={e => setNewAddr({ ...newAddr, phone: formatPhoneKR(e.target.value) })}
               />
             </Field>
             <Field>
-              <input type="text" placeholder="우편번호 *"
-                value={newAddr.postal_code}
-                onChange={e => setNewAddr({ ...newAddr, postal_code: e.target.value })}
-              />
+              <button
+                type="button"
+                onClick={() => setPostcodeOpen(true)}
+                className="w-full text-left text-sm"
+              >
+                <span className={newAddr.postal_code ? 'text-[var(--foreground)]' : 'text-[var(--muted)]'}>
+                  {newAddr.postal_code || '우편번호 * (탭하여 검색)'}
+                </span>
+              </button>
             </Field>
             <Field>
               <input type="text" placeholder="기본 주소 *"
                 value={newAddr.address_line1}
-                onChange={e => setNewAddr({ ...newAddr, address_line1: e.target.value })}
+                readOnly
+                onClick={() => setPostcodeOpen(true)}
               />
             </Field>
             <Field>
@@ -486,6 +494,19 @@ function CheckoutContent() {
       </div>
 
       {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={3000} />}
+      {postcodeOpen && (
+        <PostcodeSearchSheet
+          onClose={() => setPostcodeOpen(false)}
+          onComplete={(r) => {
+            setNewAddr(prev => ({
+              ...prev,
+              postal_code: r.zonecode,
+              address_line1: r.address,
+            }));
+            setPostcodeOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

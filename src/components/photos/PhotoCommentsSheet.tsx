@@ -89,7 +89,13 @@ export default function PhotoCommentsSheet({ photoId, onClose, onCountChange }: 
       // 다음 paint 후 reload 로 정확한 profile join 보강
       setTimeout(() => { void load(); }, 200);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : '실패';
+      // Supabase PostgrestError 는 Error instanceof false. message 필드를 직접 추출.
+      const msg =
+        e instanceof Error
+          ? e.message
+          : typeof e === 'object' && e !== null && 'message' in e
+            ? String((e as { message: unknown }).message)
+            : '알 수 없는 오류';
       const friendly = msg.includes('부적절') ? msg : `등록 실패 — ${msg.slice(0, 80)}`;
       setToast({ text: friendly, tone: 'warn' });
     } finally {
@@ -103,7 +109,12 @@ export default function PhotoCommentsSheet({ photoId, onClose, onCountChange }: 
       setComments(c => c.filter(x => x.id !== commentId));
       onCountChange?.(Math.max(0, comments.length - 1));
     } catch (e) {
-      const msg = e instanceof Error ? e.message : '실패';
+      const msg =
+        e instanceof Error
+          ? e.message
+          : typeof e === 'object' && e !== null && 'message' in e
+            ? String((e as { message: unknown }).message)
+            : '삭제 실패';
       setToast({ text: msg, tone: 'warn' });
     }
   };

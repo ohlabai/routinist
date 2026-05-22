@@ -6,11 +6,12 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, MapPin, Plus, Edit2, Trash2, Star, Home } from 'lucide-react';
 import {
-  fetchAddresses, createAddress, updateAddress, deleteAddress,
+  fetchAddresses, createAddress, updateAddress, deleteAddress, formatPhoneKR,
   type NewAddressInput,
 } from '@/lib/shop-data';
 import { useAuth } from '@/components/AuthProvider';
 import AppToast from '@/components/AppToast';
+import PostcodeSearchSheet from '@/components/shop/PostcodeSearchSheet';
 import type { ShippingAddress } from '@/types';
 
 const EMPTY_ADDR: NewAddressInput = {
@@ -27,6 +28,7 @@ export default function AddressesPage() {
   const [form, setForm] = useState<NewAddressInput>(EMPTY_ADDR);
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
+  const [postcodeOpen, setPostcodeOpen] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -153,9 +155,15 @@ export default function AddressesPage() {
             </p>
             <Input placeholder="별칭 (집, 회사 등)" value={form.label ?? ''} onChange={v => setForm({ ...form, label: v })} />
             <Input placeholder="받는 사람 이름 *" value={form.recipient_name} onChange={v => setForm({ ...form, recipient_name: v })} />
-            <Input type="tel" placeholder="연락처 (010-1234-5678) *" value={form.phone} onChange={v => setForm({ ...form, phone: v })} />
-            <Input placeholder="우편번호 *" value={form.postal_code} onChange={v => setForm({ ...form, postal_code: v })} />
-            <Input placeholder="기본 주소 *" value={form.address_line1} onChange={v => setForm({ ...form, address_line1: v })} />
+            <Input type="tel" inputMode="numeric" placeholder="연락처 (010-1234-5678) *" value={form.phone} onChange={v => setForm({ ...form, phone: formatPhoneKR(v) })} />
+            <button
+              type="button"
+              onClick={() => setPostcodeOpen(true)}
+              className={`w-full px-3.5 py-3 rounded-2xl border-2 border-[var(--card-border)] bg-[var(--background)] text-sm text-left ${form.postal_code ? 'text-[var(--foreground)] font-semibold' : 'text-[var(--muted)]'}`}
+            >
+              {form.postal_code || '우편번호 * (탭하여 검색)'}
+            </button>
+            <Input placeholder="기본 주소 *" value={form.address_line1} readOnly onClick={() => setPostcodeOpen(true)} />
             <Input placeholder="상세 주소 (선택)" value={form.address_line2 ?? ''} onChange={v => setForm({ ...form, address_line2: v })} />
             <label className="flex items-center gap-2.5 mt-2 cursor-pointer">
               <input
@@ -257,19 +265,43 @@ export default function AddressesPage() {
       )}
 
       {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2500} />}
+      {postcodeOpen && (
+        <PostcodeSearchSheet
+          onClose={() => setPostcodeOpen(false)}
+          onComplete={(r) => {
+            setForm(prev => ({
+              ...prev,
+              postal_code: r.zonecode,
+              address_line1: r.address,
+            }));
+            setPostcodeOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }
 
 function Input({
-  placeholder, value, onChange, type = 'text',
-}: { placeholder: string; value: string; onChange: (v: string) => void; type?: string }) {
+  placeholder, value, onChange, type = 'text', inputMode, readOnly, onClick,
+}: {
+  placeholder: string;
+  value: string;
+  onChange?: (v: string) => void;
+  type?: string;
+  inputMode?: 'numeric' | 'text';
+  readOnly?: boolean;
+  onClick?: () => void;
+}) {
   return (
     <input
       type={type}
+      inputMode={inputMode}
       placeholder={placeholder}
       value={value}
-      onChange={e => onChange(e.target.value)}
+      readOnly={readOnly}
+      onClick={onClick}
+      onChange={onChange ? e => onChange(e.target.value) : undefined}
       className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--background)] border-2 border-[var(--card-border)] text-sm font-medium focus:outline-none focus:border-emerald-500 transition placeholder:text-[var(--muted)]"
     />
   );
