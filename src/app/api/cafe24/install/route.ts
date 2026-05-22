@@ -3,7 +3,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
-const SCOPE = 'mall.read_product,mall.read_category,mall.read_design,mall.read_personal';
+// 새 앱에 등록된 scope 만 — 상품 fetch 에 필요한 최소.
+// invalid_scope 에러 시 콘솔의 "사용 권한" 에 체크된 항목과 일치해야 함.
+const SCOPE = 'mall.read_product,mall.read_category';
 
 export async function GET(req: NextRequest) {
   const mallId = process.env.CAFE24_MALL_ID ?? 'routinist';
