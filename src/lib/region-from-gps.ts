@@ -16,6 +16,37 @@ interface CoarseRegion {
 
 const KR_BBOX: [number, number, number, number] = [33.0, 38.7, 124.5, 131.9];
 
+// build 171 #2: 서울 25개 구 bbox — profile.region_gu 가 비어있어도 GPS 좌표로 "서울 강남" 표시.
+// 굵은 사각형이라 인접 구 경계는 살짝 부정확하지만 모서리 ↔ 중심부 대략적인 매칭은 충분.
+// 좁은 → 넓은 순서 (검색 정렬에서 좁은 구가 먼저 매칭됨).
+const KR_SEOUL_GU: CoarseRegion[] = [
+  { name: '서울 강남', bbox: [37.460, 37.545, 127.000, 127.115] },
+  { name: '서울 서초', bbox: [37.450, 37.510, 126.985, 127.060] },
+  { name: '서울 송파', bbox: [37.465, 37.535, 127.080, 127.180] },
+  { name: '서울 강동', bbox: [37.520, 37.580, 127.115, 127.190] },
+  { name: '서울 광진', bbox: [37.525, 37.560, 127.060, 127.115] },
+  { name: '서울 성동', bbox: [37.530, 37.575, 127.010, 127.080] },
+  { name: '서울 중랑', bbox: [37.575, 37.625, 127.075, 127.135] },
+  { name: '서울 동대문', bbox: [37.560, 37.605, 127.030, 127.085] },
+  { name: '서울 종로', bbox: [37.565, 37.640, 126.950, 127.030] },
+  { name: '서울 중구', bbox: [37.550, 37.580, 126.965, 127.020] },
+  { name: '서울 용산', bbox: [37.510, 37.555, 126.955, 127.020] },
+  { name: '서울 성북', bbox: [37.580, 37.625, 126.995, 127.075] },
+  { name: '서울 강북', bbox: [37.620, 37.665, 126.995, 127.055] },
+  { name: '서울 도봉', bbox: [37.640, 37.700, 127.020, 127.075] },
+  { name: '서울 노원', bbox: [37.605, 37.680, 127.060, 127.115] },
+  { name: '서울 은평', bbox: [37.590, 37.660, 126.890, 126.960] },
+  { name: '서울 서대문', bbox: [37.560, 37.605, 126.910, 126.970] },
+  { name: '서울 마포', bbox: [37.530, 37.580, 126.890, 126.970] },
+  { name: '서울 강서', bbox: [37.530, 37.605, 126.770, 126.880] },
+  { name: '서울 양천', bbox: [37.505, 37.560, 126.835, 126.890] },
+  { name: '서울 영등포', bbox: [37.495, 37.545, 126.870, 126.945] },
+  { name: '서울 구로', bbox: [37.470, 37.515, 126.825, 126.900] },
+  { name: '서울 금천', bbox: [37.450, 37.490, 126.870, 126.925] },
+  { name: '서울 동작', bbox: [37.480, 37.520, 126.930, 126.985] },
+  { name: '서울 관악', bbox: [37.450, 37.500, 126.910, 126.985] },
+];
+
 // 한국 시·도 단위 bbox — 충분히 굵게 잡음. profile region 이 우선이므로 fallback 용.
 const KR_CITY: CoarseRegion[] = [
   { name: '서울', bbox: [37.42, 37.71, 126.76, 127.18] },
@@ -100,12 +131,23 @@ export function detectRegionLabel(
   const [lng, lat] = firstCoord;
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
 
-  // 한국 안이면 profile 우선
+  // 한국 안이면 profile 우선. 단 build 171 #2:
+  //   profile.region_gu 가 비어있고 region_si='서울특별시' 만 있으면 "서울" 만 표시되어 빈약.
+  //   이 경우 GPS 좌표로 서울 구 bbox 룩업 시도 → "서울 강남" 같이 강화.
   if (inBox(lat, lng, KR_BBOX)) {
-    if (profile?.region_si || profile?.region_gu) {
-      return shortenKR(profile.region_si, profile.region_gu);
+    const hasGu = !!profile?.region_gu;
+    if (hasGu) {
+      return shortenKR(profile?.region_si, profile?.region_gu);
     }
-    // profile 없으면 시·도 룩업
+    // 1) GPS 가 서울 안이면 25개 구 bbox 룩업
+    for (const r of KR_SEOUL_GU) {
+      if (inBox(lat, lng, r.bbox)) return r.name;
+    }
+    // 2) profile.region_si 만 있으면 그걸 사용
+    if (profile?.region_si) {
+      return shortenKR(profile.region_si, null);
+    }
+    // 3) profile 없으면 시·도 룩업
     for (const r of KR_CITY) {
       if (inBox(lat, lng, r.bbox)) return r.name;
     }

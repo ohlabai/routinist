@@ -13,7 +13,8 @@ import { logClientInfo, logClientWarn } from '@/lib/error-logger';
 import { dataCache, CACHE_KEYS, onCacheInvalidated } from '@/lib/data-cache';
 import { useI18n, type TranslationKey } from '@/lib/i18n';
 
-type TimeAxis = 'today' | 'month' | 'year';
+// build 171 #4: 홈 hero axis 도 랭킹 페이지처럼 today → week. 의미 부족한 today 제거.
+type TimeAxis = 'week' | 'month' | 'year';
 
 interface HeroRank {
   scope_label: string;
@@ -27,7 +28,7 @@ interface HeroRank {
 }
 
 const AXIS_OPTIONS: { id: TimeAxis; tKey: TranslationKey }[] = [
-  { id: 'today', tKey: 'home.tabToday' },
+  { id: 'week', tKey: 'ranking.week' },
   { id: 'month', tKey: 'home.tabMonth' },
   { id: 'year', tKey: 'home.tabYear' },
 ];
@@ -224,7 +225,7 @@ export default function HomeRankingHero() {
   const tier = getRankTier(rank.rank_position, t);
   const isTopRank = rank.rank_position === 1;
   const isTop3 = rank.rank_position <= 3;
-  const periodLabel = axis === 'today' ? t('home.tabToday') : axis === 'month' ? t('home.tabMonth') : t('home.tabYear');
+  const periodLabel = axis === 'week' ? t('ranking.week') : axis === 'month' ? t('home.tabMonth') : t('home.tabYear');
   const name = profile?.display_name ?? t('homeHero.runner');
   const kmToNext = Math.max(0, Number(rank.km_to_next) || 0);
   const myKm = Number(rank.my_km) || 0;

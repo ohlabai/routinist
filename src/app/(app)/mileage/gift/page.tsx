@@ -54,7 +54,7 @@ export default function GiftMileagePage() {
   const isError = message.includes('실패') || message.includes('부족') || message.includes('올바른');
 
   return (
-    <div className="max-w-lg mx-auto pb-32 bg-[var(--background)] min-h-screen">
+    <div className="max-w-lg mx-auto pb-56 bg-[var(--background)] min-h-screen">
       <header className="sticky top-0 z-30 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
         <div className="flex items-center gap-2 px-3 py-3">
           <button onClick={() => router.back()} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition">
@@ -191,12 +191,12 @@ export default function GiftMileagePage() {
         </div>
       )}
 
-      {/* Sticky CTA — build 169 #15: 사용자 신고 "선물하기 버튼이 안 보인다".
-          원인 추정: 받는 사람만 선택 후 amount 비어있어 disabled 상태 → 시선이 가지 않음.
-          fix: 단계별 가이드 라벨 + 항상 표시 + safe-area 명시 (env 사용). */}
+      {/* Sticky CTA — build 169 #15 + build 171 #3:
+          fixed bottom:0 + z-30 은 layout 의 5탭 nav(z-40, h-14=56px) 에 가려 안 보이는 회귀.
+          fix: bottom 을 nav 높이만큼 띄우고 z 를 nav 보다 높게(z-50). */}
       <div
-        className="fixed bottom-0 left-1/2 -translate-x-1/2 max-w-lg w-full bg-[var(--background)]/95 backdrop-blur-lg border-t border-[var(--card-border)]/30 z-30"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        className="fixed left-1/2 -translate-x-1/2 max-w-lg w-full bg-[var(--background)]/95 backdrop-blur-lg border-t border-[var(--card-border)]/30 z-50"
+        style={{ bottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
       >
         <div className="p-3">
           <button

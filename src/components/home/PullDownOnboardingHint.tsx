@@ -10,7 +10,10 @@ import { useUserData } from '@/components/UserDataProvider';
 import { useAuth } from '@/components/AuthProvider';
 import { useI18n } from '@/lib/i18n';
 
-const STORAGE_KEY = 'ptr_onboarding_hint_dismissed';
+// build 171 #1': 디바이스 전역 storage key 였음 → 같은 디바이스의 다른 계정/테스트가 dismiss 한 영향을
+// 신규 가입자가 받는 회귀. user.id 별로 분리.
+const STORAGE_KEY_PREFIX = 'ptr_onboarding_hint_dismissed:';
+const storageKey = (uid: string) => `${STORAGE_KEY_PREFIX}${uid}`;
 
 export default function PullDownOnboardingHint() {
   const { user } = useAuth();
@@ -19,14 +22,14 @@ export default function PullDownOnboardingHint() {
   const [visible, setVisible] = useState(false);
   const [dismissing, setDismissing] = useState(false);
 
-  // build 170 #7: 활동이 있어도 가입 7일 이내 + 한 번도 dismiss 안 한 사용자에겐 노출.
-  // (이전 build 169 까진 activities.length > 0 면 무조건 숨김 → 멋쟁이사자 같은 활동 많은 신규 가입자가 안내를 못 봄)
+  // build 170 #7 + build 171 #1': 활동이 있어도 가입 7일 이내 + 한 번도 dismiss 안 한 사용자에겐 노출.
+  // dismiss 플래그는 user.id 별로 분리 (디바이스 공유 회귀 회피).
   useEffect(() => {
     if (!user) return;
     if (typeof window === 'undefined') return;
     if (loading) return;
     try {
-      if (window.localStorage.getItem(STORAGE_KEY)) return;
+      if (window.localStorage.getItem(storageKey(user.id))) return;
     } catch {}
     // 가입 7일 이내만 표시. created_at 없으면 안전상 표시 (신규 가입자 추정).
     const createdAt = (user as { created_at?: string } | null)?.created_at;
@@ -47,7 +50,7 @@ export default function PullDownOnboardingHint() {
 
   const handleDismiss = () => {
     setDismissing(true);
-    try { window.localStorage.setItem(STORAGE_KEY, '1'); } catch {}
+    try { if (user) window.localStorage.setItem(storageKey(user.id), '1'); } catch {}
     setTimeout(() => setVisible(false), 300);
   };
 
