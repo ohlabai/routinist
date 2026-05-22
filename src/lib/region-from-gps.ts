@@ -131,25 +131,22 @@ export function detectRegionLabel(
   const [lng, lat] = firstCoord;
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
 
-  // 한국 안이면 profile 우선. 단 build 171 #2:
-  //   profile.region_gu 가 비어있고 region_si='서울특별시' 만 있으면 "서울" 만 표시되어 빈약.
-  //   이 경우 GPS 좌표로 서울 구 bbox 룩업 시도 → "서울 강남" 같이 강화.
+  // build 173.1 #3: GPS 우선 정책 변경.
+  //   이전: profile.region_gu 가 있으면 거주지 우선 → 사용자가 다른 지역에서 달려도 거주지 표시 (사용자 신고).
+  //   변경: 한국 안 + GPS 좌표 → 25개 구 bbox 룩업 (서울) 또는 KR_CITY (시·도) 룩업 우선.
+  //   profile region 은 마지막 fallback (GPS 가 매칭 안 될 때).
   if (inBox(lat, lng, KR_BBOX)) {
-    const hasGu = !!profile?.region_gu;
-    if (hasGu) {
-      return shortenKR(profile?.region_si, profile?.region_gu);
-    }
-    // 1) GPS 가 서울 안이면 25개 구 bbox 룩업
+    // 1) GPS 가 서울 안이면 25개 구 bbox 룩업 (가장 정밀)
     for (const r of KR_SEOUL_GU) {
       if (inBox(lat, lng, r.bbox)) return r.name;
     }
-    // 2) profile.region_si 만 있으면 그걸 사용
-    if (profile?.region_si) {
-      return shortenKR(profile.region_si, null);
-    }
-    // 3) profile 없으면 시·도 룩업
+    // 2) 서울 외 시·도 bbox 룩업
     for (const r of KR_CITY) {
       if (inBox(lat, lng, r.bbox)) return r.name;
+    }
+    // 3) 매칭 안 되면 profile region 사용 (한국 안인데 bbox 룩업 실패한 변두리)
+    if (profile?.region_si || profile?.region_gu) {
+      return shortenKR(profile.region_si, profile.region_gu);
     }
     return '한국';
   }

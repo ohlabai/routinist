@@ -525,6 +525,43 @@ function ComposeModal({ onClose, onCreated, onError }: {
             </div>
           </div>
 
+          {/* build 173.1 #2: 이미지 첨부 — 카테고리 다음 (스크롤 안 해도 노출). compact 형태 */}
+          <div>
+            <label className="block text-sm font-extrabold text-[var(--foreground)] mb-2">
+              사진 첨부 <span className="text-[11px] text-[var(--muted)] font-medium">(선택 · 캡쳐 화면 첨부 가능)</span>
+            </label>
+            {imagePreview ? (
+              <div className="relative rounded-2xl overflow-hidden border-2 border-emerald-200/60 dark:border-emerald-800/40">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={imagePreview} alt="첨부 이미지" className="w-full max-h-[220px] object-contain bg-[var(--card)]" />
+                <button
+                  type="button"
+                  onClick={clearImage}
+                  className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/65 text-white flex items-center justify-center active:scale-90 shadow-md"
+                  aria-label="첨부 이미지 제거"
+                >
+                  <X size={16} strokeWidth={2.5} />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full py-3.5 rounded-2xl border-2 border-dashed border-emerald-300/60 bg-emerald-50/30 dark:bg-emerald-950/15 text-emerald-700 dark:text-emerald-300 font-bold text-sm active:scale-[0.99] inline-flex items-center justify-center gap-2 hover:border-emerald-400 hover:bg-emerald-50/60 transition"
+              >
+                <ImagePlus size={20} />
+                캡쳐 화면 / 사진 첨부하기
+              </button>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImagePick}
+              className="hidden"
+            />
+          </div>
+
           {/* 제목 — 큰 input */}
           <div>
             <label className="block text-sm font-extrabold text-[var(--foreground)] mb-2">제목</label>
@@ -601,40 +638,6 @@ function ComposeModal({ onClose, onCreated, onError }: {
             </div>
           </button>
 
-          {/* build 172.1 #5C: 이미지 첨부 (선택, 1장) — 캡쳐 화면 등 */}
-          <div>
-            <label className="block text-sm font-extrabold text-[var(--foreground)] mb-2">사진 첨부 <span className="text-[11px] text-[var(--muted)] font-medium">(선택)</span></label>
-            {imagePreview ? (
-              <div className="relative rounded-2xl overflow-hidden border-2 border-emerald-200/60 dark:border-emerald-800/40">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={imagePreview} alt="첨부 이미지" className="w-full max-h-[280px] object-contain bg-[var(--card)]" />
-                <button
-                  type="button"
-                  onClick={clearImage}
-                  className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/65 text-white flex items-center justify-center active:scale-90 shadow-md"
-                  aria-label="첨부 이미지 제거"
-                >
-                  <X size={16} strokeWidth={2.5} />
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full py-5 rounded-2xl border-2 border-dashed border-[var(--card-border)] bg-[var(--card)] text-[var(--muted)] font-bold text-sm active:scale-[0.99] inline-flex items-center justify-center gap-2 hover:border-emerald-400 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 transition"
-              >
-                <ImagePlus size={20} className="text-emerald-500" />
-                캡쳐 화면이나 사진 첨부
-              </button>
-            )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleImagePick}
-              className="hidden"
-            />
-          </div>
         </div>
 
         {/* CTA — flex 마지막 자식 (sticky 제거). 가려짐 회귀 fix. safe-area 만 추가 */}

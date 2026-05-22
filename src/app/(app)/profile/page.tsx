@@ -74,6 +74,15 @@ export default function ProfilePage() {
     checkPushPermission().then(setPushState).catch(() => {});
   }, []);
 
+  // build 173.1 #1: /profile mount 시 직접 mileage_balance 재조회.
+  // AuthProvider 의 profile 캐시는 선물·차감 직후 stale → 별도 state 로 fresh 잔액 유지.
+  const [freshBalance, setFreshBalance] = useState<number | null>(null);
+  useEffect(() => {
+    if (!user?.id) return;
+    import('@/lib/mileage-data').then(m => m.fetchMileageBalance(user.id)).then(setFreshBalance).catch(() => {});
+  }, [user?.id]);
+  const displayBalance = freshBalance !== null ? freshBalance : Number(profile?.mileage_balance ?? 0);
+
   const handlePushToggle = async () => {
     setPushBusy(true);
     try {
@@ -275,7 +284,7 @@ export default function ProfilePage() {
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-xl font-extrabold text-emerald-700 dark:text-emerald-300">
-              {Number(profile?.mileage_balance ?? 0).toLocaleString()}
+              {displayBalance.toLocaleString()}
             </span>
             <span className="text-sm font-extrabold text-emerald-600">P</span>
             <ChevronRight size={16} className="text-emerald-500/70 group-active:translate-x-0.5 transition" />
