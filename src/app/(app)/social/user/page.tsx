@@ -872,17 +872,33 @@ function FriendRankingBlock({ userId, monthlyKm }: { userId: string; monthlyKm: 
 function FriendMiniMap({ userId }: { userId: string }) {
   const [activities, setActivities] = useState<{ activity_id: string; distance_km: number; route_data: { coordinates?: [number, number][] } | null }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [periodDays, setPeriodDays] = useState<number>(7);
 
   useEffect(() => {
+    // build 184: route_data 가 없는 활동 (Apple Health 거리만 sync) 이 많아
+    // 7일 안에 GPS 경로 없는 사용자는 미니맵 자체가 안 뜸. 7 → 30 → 90 fallback.
+    let cancelled = false;
     (async () => {
-      try {
-        const supabase = getSupabase();
-        const { data } = await supabase.rpc('fetch_user_recent_routes', { p_user_id: userId, p_days: 7 });
-        setActivities((data ?? []) as typeof activities);
-      } catch { /* ignore */ } finally {
-        setLoading(false);
+      const supabase = getSupabase();
+      for (const days of [7, 30, 90]) {
+        if (cancelled) return;
+        try {
+          const { data } = await supabase.rpc('fetch_user_recent_routes', { p_user_id: userId, p_days: days });
+          const list = (data ?? []) as typeof activities;
+          const withRoute = list.filter(a => a.route_data?.coordinates && a.route_data.coordinates.length >= 2);
+          if (withRoute.length > 0) {
+            if (!cancelled) {
+              setActivities(list);
+              setPeriodDays(days);
+              setLoading(false);
+            }
+            return;
+          }
+        } catch { /* try next window */ }
       }
+      if (!cancelled) setLoading(false);
     })();
+    return () => { cancelled = true; };
   }, [userId]);
 
   if (loading) return <div className="card p-4 h-32 animate-pulse" />;
@@ -909,7 +925,7 @@ function FriendMiniMap({ userId }: { userId: string }) {
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
           <MapPin size={14} className="text-emerald-500" />
-          <h3 className="text-sm font-extrabold">최근 7일 러닝 경로</h3>
+          <h3 className="text-sm font-extrabold">최근 {periodDays}일 러닝 경로</h3>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="text-xs font-bold text-emerald-600 tabular-nums">{withRoute.length}회</span>
