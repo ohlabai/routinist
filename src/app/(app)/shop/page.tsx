@@ -25,11 +25,15 @@ import { useI18n, type TranslationKey } from '@/lib/i18n';
 const DISPLAY_CATEGORIES = ['의류', '모자', '악세사리', '굿즈'] as const;
 type DisplayCategory = typeof DISPLAY_CATEGORIES[number];
 
+// build 176.1: cafe24 raw 카테고리가 "러닝 장갑"/"러닝 조끼"/"잡화" 등으로 들어와서 매핑 실패 → 화면에서 사라지던 버그 fix.
+// 1) 정확 매핑 확장 + 2) 매핑 실패 시 부분 문자열 매치 + 3) 그래도 안 되면 '굿즈' fallback.
 const CATEGORY_MAP: Record<string, DisplayCategory> = {
-  의류: '의류', 조끼: '의류', 상의: '의류', 하의: '의류', 자켓: '의류',
-  모자: '모자', 캡: '모자', 비니: '모자',
-  악세사리: '악세사리', 액세사리: '악세사리', 장갑: '악세사리', 양말: '악세사리',
-  굿즈: '굿즈', 다이어리: '굿즈', 키링: '굿즈', 텀블러: '굿즈',
+  의류: '의류', 조끼: '의류', 상의: '의류', 하의: '의류', 자켓: '의류', 티셔츠: '의류', 후드: '의류',
+  '러닝 조끼': '의류', '러닝 자켓': '의류', '러닝웨어': '의류',
+  모자: '모자', 캡: '모자', 비니: '모자', 볼캡: '모자', '러닝 모자': '모자',
+  악세사리: '악세사리', 액세사리: '악세사리', 장갑: '악세사리', 양말: '악세사리', 잡화: '악세사리',
+  '러닝 장갑': '악세사리', '러닝 양말': '악세사리', 헤어밴드: '악세사리', 손목밴드: '악세사리',
+  굿즈: '굿즈', 다이어리: '굿즈', 키링: '굿즈', 텀블러: '굿즈', 기타: '굿즈',
 };
 
 const CATEGORY_EMOJI: Record<DisplayCategory, string> = {
@@ -37,8 +41,15 @@ const CATEGORY_EMOJI: Record<DisplayCategory, string> = {
 };
 
 function mapToDisplay(raw: string | null): DisplayCategory | null {
-  if (!raw) return null;
-  return CATEGORY_MAP[raw] ?? null;
+  if (!raw) return '굿즈';  // 빈 카테고리는 굿즈 default
+  // 1) 정확 매치
+  if (CATEGORY_MAP[raw]) return CATEGORY_MAP[raw];
+  // 2) 부분 매치 — "러닝 신상품 의류" 같은 자유 텍스트 케이스
+  for (const [key, disp] of Object.entries(CATEGORY_MAP)) {
+    if (raw.includes(key)) return disp;
+  }
+  // 3) 마지막 fallback — 굿즈로 표시 (사라지지 않게)
+  return '굿즈';
 }
 
 function ShopContent() {
