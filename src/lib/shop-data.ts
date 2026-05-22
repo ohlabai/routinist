@@ -282,11 +282,20 @@ export async function createOrderDraft(
   return row as OrderDraftResult;
 }
 
-export async function cancelOrder(orderId: string, reason?: string): Promise<void> {
+export async function cancelOrder(
+  orderId: string,
+  reason?: string,
+  /**
+   * build 186: true 면 pending 외 상태는 no-op. fail page 같은 곳에서
+   * paid 상태인데 실수로 환불 처리하는 orphan 차단용.
+   */
+  onlyIfPending?: boolean,
+): Promise<void> {
   const supabase = getSupabase();
   const { error } = await supabase.rpc('cancel_order', {
     p_order_id: orderId,
     p_reason: reason ?? null,
+    p_only_if_pending: onlyIfPending ?? false,
   });
   if (error) throw error;
 }

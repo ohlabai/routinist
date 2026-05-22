@@ -16,7 +16,12 @@ function PaymentFailContent() {
 
   useEffect(() => {
     if (orderUuid) {
-      cancelOrder(orderUuid, `결제 실패: ${code} ${message}`).catch(() => {});
+      // build 186: 사용자가 success → 뒤로가기 → 동일 orderUuid 로 fail 진입하는
+      // 경로 등에서 paid 상태 주문을 잘못 환불하는 orphan 방지. RPC 안쪽에서 pending
+      // 이 아닌 경우 그대로 RETURN true (no-op).
+      cancelOrder(orderUuid, `결제 실패: ${code} ${message}`, true).catch((e) => {
+        console.warn('[payment/fail] cancelOrder 실패', e);
+      });
     }
     // buyNow stale 데이터 정리 — 다음 결제 시 영향 차단
     try { sessionStorage.removeItem('buyNowItem'); } catch {}

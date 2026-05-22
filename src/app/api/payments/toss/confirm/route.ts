@@ -123,10 +123,33 @@ export async function POST(req: NextRequest) {
   });
 
   if (error) {
+    // build 186: "이미 결제된 주문" 류 에러는 자동 cancel 하면 안 됨.
+    // confirm 이 두 번 호출되거나 webhook race 가 있을 때 두 번째 호출은
+    // mark_order_paid 안의 EXISTS 가드를 통과 못 하고 RAISE 되지만, 그건
+    // 실제 결제가 이미 정상 처리된 상태라 cancel 시 진짜 환불됨.
+    const msg = error.message ?? '';
+    const isAlreadyPaid =
+      msg.includes('결제 가능 상태가 아닙니다') ||
+      msg.includes('duplicate key') ||
+      msg.includes('provider_payment_key') ||
+      (error as { code?: string }).code === '23505';
+
+    if (isAlreadyPaid) {
+      console.warn('[toss/confirm] already paid — idempotent return', { paymentKey, orderUuid, msg });
+      return NextResponse.json({
+        success: true,
+        paymentKey,
+        orderId,
+        method: tossRes.method ?? null,
+        approvedAt: tossRes.approvedAt ?? null,
+        receiptUrl: tossRes.receipt?.url ?? null,
+        alreadyPaid: true,
+      });
+    }
+
     console.error('[toss/confirm] mark_order_paid failed — auto-cancelling toss payment', error);
     // 결제는 됐는데 DB 반영 fail — 사용자 돈 묶임 차단.
-    // 토스 자동 cancel 호출. 성공/실패 와 무관하게 클라엔 명확히 안내.
-    const cancelled = await tossCancel(tossSecret, paymentKey, error.message ?? 'order finalization failed');
+    const cancelled = await tossCancel(tossSecret, paymentKey, msg || 'order finalization failed');
     return NextResponse.json({
       error: 'Order finalization failed',
       message: error.message,
