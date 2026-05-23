@@ -112,9 +112,12 @@ function ProductEditContent() {
         name: form.name.trim(), description: form.description.trim() || null,
         category: form.category.trim() || null, brand: form.brand.trim() || null,
         price_krw: form.price_krw, compare_price_krw: form.compare_price_krw,
-        stock: form.stock, status: form.status, is_active: form.status === 'published',
+        stock: form.stock, status: form.status,
+        // is_active 는 generated column (status 에서 자동 파생) — 명시 전송 금지
         is_featured: form.is_featured, thumbnail_url: form.thumbnail_url || null,
-        images: form.images, source: 'manual',
+        images: form.images,
+        // 새 상품일 때만 source='manual'. UPDATE 시엔 기존 source ('1688','cafe24') 보존.
+        ...(isNew ? { source: 'manual' } : {}),
       };
       if (isNew) {
         const { data, error } = await supabase.from('products').insert(payload).select().single();
