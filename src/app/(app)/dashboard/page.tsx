@@ -33,6 +33,7 @@ import { useI18n } from '@/lib/i18n';
 import AppLogo from '@/components/AppLogo';
 import HomeRankingHero from '@/components/home/HomeRankingHero';
 import TrackStartCTA from '@/components/home/TrackStartCTA';
+import SharePeriodEntry from '@/components/home/SharePeriodEntry';
 import StreakWarningCard from '@/components/home/StreakWarningCard';
 import WeeklyRecapCard from '@/components/home/WeeklyRecapCard';
 import HomeCalendarCard from '@/components/home/HomeCalendarCard';
@@ -733,6 +734,9 @@ export default function DashboardPage() {
 
         {/* 6.9 달리기 시작 CTA (build 194 미니멀 트래킹 진입점) — 랭킹 hero 위 */}
         <TrackStartCTA />
+
+        {/* 6.95 공유카드 — 이번 주/이번 달 (build 195). 활동 1건 이상일 때만 노출 */}
+        <SharePeriodEntry activities={activities} />
 
         {/* 7 랭킹 Hero — 활성화 핵심 (eager) */}
         <HomeRankingHero />
