@@ -710,10 +710,39 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
   const [renderingVideo, setRenderingVideo] = useState(false);
 
   // GPS 첫 좌표 + profile region → 지역 라벨 (한국이면 "서울 강남", 해외면 "중국 항저우")
-  const regionLabel = (() => {
+  const regionLabelBase = (() => {
     const first = activity.route_data?.coordinates?.[0] as [number, number] | undefined;
     return detectRegionLabel(first ?? null, profile);
   })();
+
+  // build 196: 일간 카드에 옵션 D 랭킹 suffix 추가. find_hero_rank time_axis='today' 재활용.
+  // 모수 ≤3 친근 메시지 ("1위 ✨"), 4 이상 사실 표기 ("8위/50명"). 실패하면 region 만 표시.
+  const [rankSuffix, setRankSuffix] = useState<string | null>(null);
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const supabase = getSupabase();
+        const { data } = await supabase.rpc('find_hero_rank', {
+          target_user_id: user.id, time_axis: 'today',
+        });
+        if (cancelled) return;
+        const row = Array.isArray(data) ? data[0] : null;
+        if (!row) return;
+        const total = row.total_in_scope ?? 0;
+        const rank = row.rank_position ?? 0;
+        if (rank === 0 || total === 0) return;
+        if (total <= 3) setRankSuffix(rank === 1 ? '1위 ✨' : `${rank}위`);
+        else setRankSuffix(`${rank}위 / ${total}명`);
+      } catch { /* 랭킹 실패해도 카드 동작에 영향 X */ }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  const regionLabel = regionLabelBase && rankSuffix
+    ? `${regionLabelBase} · ${rankSuffix}`
+    : regionLabelBase;
   // 러닝사진 등록 — 디폴트 ON (체크 해제하면 캘린더만 저장).
   // 캘린더 저장은 항상 자동 (UI 표시 X — 사용자 의도).
   const [registerToGallery, setRegisterToGallery] = useState(true);
