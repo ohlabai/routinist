@@ -32,6 +32,7 @@ import LazyMount from '@/components/LazyMount';
 import { useI18n } from '@/lib/i18n';
 import AppLogo from '@/components/AppLogo';
 import HomeRankingHero from '@/components/home/HomeRankingHero';
+import TrackStartCTA from '@/components/home/TrackStartCTA';
 import StreakWarningCard from '@/components/home/StreakWarningCard';
 import WeeklyRecapCard from '@/components/home/WeeklyRecapCard';
 import HomeCalendarCard from '@/components/home/HomeCalendarCard';
@@ -729,6 +730,9 @@ export default function DashboardPage() {
 
         {/* 6.7 친구 활동 스토리 — build 143: 300ms defer (secondary) */}
         {secondaryMounted && <HomeFriendStories />}
+
+        {/* 6.9 달리기 시작 CTA (build 194 미니멀 트래킹 진입점) — 랭킹 hero 위 */}
+        <TrackStartCTA />
 
         {/* 7 랭킹 Hero — 활성화 핵심 (eager) */}
         <HomeRankingHero />

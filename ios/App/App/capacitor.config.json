@@ -80,6 +80,7 @@
 		"AppPlugin",
 		"CAPBrowserPlugin",
 		"FilesystemPlugin",
+		"GeolocationPlugin",
 		"PushNotificationsPlugin",
 		"SharePlugin",
 		"HealthPlugin",
