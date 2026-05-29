@@ -175,6 +175,18 @@ body {
 }
 .animate-heart-pulse { animation: heartPulse 0.35s ease-out; }
 
+/* build 210 #1: /track 카운트다운 (3→2→1) */
+@keyframes countdownPulse {
+  0% { transform: scale(1.45); opacity: 0; }
+  35% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes goBounce {
+  0% { transform: scale(0.6) translateY(-20px); opacity: 0; }
+  60% { transform: scale(1.15) translateY(0); opacity: 1; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
 /* 달성 배너 그라데이션 sweep */
 @keyframes shimmer {
   0% { background-position: -200% 0; }

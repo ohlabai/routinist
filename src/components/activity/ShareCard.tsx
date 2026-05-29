@@ -23,11 +23,14 @@ interface ShareCardProps {
   hideRegister?: boolean;
   /** 등록 성공 시 호출 — 리스트 새로고침용 */
   onRegistered?: () => void;
-  /** build 209 #2/#3: 주간/월간 모드 — 일간 layout 그대로 + 지도/hero KM 만 기간 누적값으로 교체. */
+  /** build 209 #2/#3: 주간/월간 모드 — 일간 layout 그대로 + 지도/hero KM 만 기간 누적값으로 교체.
+   *  build 210 #3/#4: 막대 애니메이션 범위 확장. */
   periodOverrides?: {
     extraRoutes?: Array<Array<[number, number]>>;
     periodWord?: string;
-    title?: string;            // 헤더 타이틀 ("이번 주 공유" 등)
+    title?: string;
+    highlightDays?: number[];
+    horizontalTotalKm?: number;
   };
 }
 
@@ -112,10 +115,13 @@ function drawCard(
   /** build 167 #3: 거리 표시 카운트업. 미지정 시 activity.distance_km 그대로. */
   kmDisplay?: number,
   /** build 209 #2/#3: 주간/월간 ShareCard 가 일간과 동일 폼을 쓰기 위한 override.
-   *  지정 시 — 지도는 extraRoutes 모두 합성, 헤더 라벨은 periodWord 표시. 그 외 layout 동일. */
+   *  지정 시 — 지도는 extraRoutes 모두 합성, 헤더 라벨은 periodWord 표시. 그 외 layout 동일.
+   *  build 210 #3/#4: highlightDays 로 막대 애니메이션 확장 (일간=오늘만, 주간=주간 7일, 월간=한 달 전체) */
   periodOverrides?: {
     extraRoutes?: Array<Array<[number, number]>>;
     periodWord?: string;  // "이번 주" / "이번 달"
+    highlightDays?: number[];  // 이 day 번호들이 emerald → bounce → 흰색
+    horizontalTotalKm?: number;  // 가로 막대도 이 km 까지 emerald 애니메이션 (없으면 todayKm)
   },
 ) {
   // build 205 #11: 막대 그래프 애니메이션 진행도. routeProgress 와 동일 timeline (0~1).
@@ -656,16 +662,20 @@ function drawCard(
 
     // build 205 #11: 오늘 막대만 0 → km 애니메이션. 과거 막대는 정적 (참고용 baseline).
     // 차오름 후 bounce + emerald → 원래(barFillToday) 컬러 전환.
+    // build 210 #3/#4: periodOverrides.highlightDays 지정 시 — 주간(7일)/월간(전체) 일괄 emerald 애니.
+    const highlightSet = periodOverrides?.highlightDays
+      ? new Set(periodOverrides.highlightDays)
+      : null;
     for (let day = 1; day <= daysInMonth; day++) {
       const km = dailyKm.get(day) ?? 0;
       const x = chartPadX + (day - 1) * (barWidth + 4);
       const isToday = day === todayDay;
+      const isHighlighted = highlightSet ? highlightSet.has(day) : isToday;
       const targetH = (km / maxDay) * chartH;
 
-      if (isToday && km > 0) {
+      if (isHighlighted && km > 0) {
         const animH = targetH * fillT;
         const fillEmerald = '#10b981';
-        // todayColor: bg 가 사진이면 흰색, 아니면 accentColor
         const todayBaseHex = onPhoto ? '#ffffff' : (accentColor.startsWith('#') ? accentColor : '#10b981');
         const animColor = colorMixT >= 1
           ? barFillToday
@@ -696,13 +706,14 @@ function drawCard(
 
   // (2) 가로 progress bar — 위 막대(1380+110=1490) 끝과 90px 여유 (build 150 피드백).
   // build 205 #11: 어제까지 누적 → 오늘 누적 까지 차오름 + bounce + 컬러 emerald → 흰색.
+  // build 210 #3/#4: period 모드면 horizontalTotalKm 만큼이 emerald (주간=주간합, 월간=월간합).
   if (monthlyGoalKm && monthlyGoalKm > 0 && monthSum > 0) {
     const goalBarTop = 1580;
     const goalBarH = 14;
     const goalBarPadX = 100;
     const goalBarW = W - goalBarPadX * 2;
-    const todayKm = dailyKm.get(todayDay) ?? 0;
-    const baselineSum = Math.max(0, monthSum - todayKm); // 어제까지 누적
+    const animatingKm = periodOverrides?.horizontalTotalKm ?? (dailyKm.get(todayDay) ?? 0);
+    const baselineSum = Math.max(0, monthSum - animatingKm);
     const baselineProgress = Math.min(1, baselineSum / monthlyGoalKm);
     const finalProgress = Math.min(1, monthSum / monthlyGoalKm);
     // 차오름: baseline → final 사이를 fillT 비율로 보간

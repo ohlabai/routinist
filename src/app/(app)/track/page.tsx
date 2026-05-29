@@ -31,6 +31,18 @@ export default function TrackPage() {
   // lazy initializer 로 진행 중인 트래킹 복원 — useEffect 안 setState 보다 cleaner.
   const [state, setState] = useState<TrackingState | null>(() => loadState());
   const [finished, setFinished] = useState<TrackingState | null>(null);
+  // build 210 #1: 시작 카운트다운 (3 → 2 → 1 → GO!) — Apple Fitness 패턴 + 차별화 효과
+  const [countdown, setCountdown] = useState<number | null>(null);
+
+  // 항상 HH:MM:SS — Apple Fitness 스타일 (이전 formatDuration 은 시간 0 이면 MM:SS)
+  const formatDurationFull = (seconds: number): string => {
+    const s = Math.max(0, Math.floor(seconds));
+    const hh = Math.floor(s / 3600);
+    const mm = Math.floor((s % 3600) / 60);
+    const ss = s % 60;
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${pad(hh)}:${pad(mm)}:${pad(ss)}`;
+  };
 
   const mapEl = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -116,9 +128,14 @@ export default function TrackPage() {
     return () => { cancelled = true; };
   }, []);
 
-  // 권한 확인 → 워처 시작.
+  // 권한 확인 → 카운트다운 → 워처 시작.
   // build 205 #3: 권한 granted 직후 getCurrentLocation 으로 첫 좌표를 캐서 지도를 즉시 중심 이동.
-  // 다이얼로그 후 잠시 빈 지도를 보다가 첫 watch 좌표 도착할 때 점프하는 어색함 제거.
+  // build 210 #1: 시작 전 3-2-1 카운트다운 — Apple Fitness 영감, 사용자에게 출발 알림.
+  const beginTrackingAfterCountdown = useCallback(() => {
+    const fresh = createInitialState();
+    setState(fresh);
+    saveState(fresh);
+  }, []);
   const startTracking = useCallback(async () => {
     const r = await requestLocationPermission();
     setPerm(r);
@@ -128,10 +145,24 @@ export default function TrackPage() {
       mapRef.current.panTo(here);
       youMarkerRef.current?.setPosition(here);
     }
-    const fresh = createInitialState();
-    setState(fresh);
-    saveState(fresh);
+    // 카운트다운 트리거
+    setCountdown(3);
   }, []);
+
+  // 카운트다운 tick (3 → 2 → 1 → GO!)
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown <= 0) {
+      // GO! 표시 후 0.5s 뒤 트래킹 시작
+      const t = setTimeout(() => {
+        setCountdown(null);
+        beginTrackingAfterCountdown();
+      }, 500);
+      return () => clearTimeout(t);
+    }
+    const t = setTimeout(() => setCountdown(c => (c !== null ? c - 1 : null)), 800);
+    return () => clearTimeout(t);
+  }, [countdown, beginTrackingAfterCountdown]);
 
   // state.status === 'active' 일 때 워처 + 1초 tick 실행
   useEffect(() => {
@@ -277,20 +308,20 @@ export default function TrackPage() {
           {hasState ? (isPaused ? tt('일시정지') : tt('달리는 중')) : tt('달리기 준비')}
         </h1>
         {isActive && (
-          <div className="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30">
-            <span className="relative flex w-2 h-2">
+          <div className="ml-auto inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/40">
+            <span className="relative flex w-2.5 h-2.5">
               <span className="absolute inset-0 rounded-full bg-emerald-500 opacity-75 animate-ping" />
-              <span className="relative rounded-full w-2 h-2 bg-emerald-500" />
+              <span className="relative rounded-full w-2.5 h-2.5 bg-emerald-500" />
             </span>
-            <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 tracking-widest">
+            <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400 tracking-wider leading-none">
               {locale === 'en' ? 'LIVE' : '기록 중'}
             </span>
           </div>
         )}
         {isPaused && (
-          <div className="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30">
-            <span className="w-2 h-2 rounded-full bg-amber-500" />
-            <span className="text-[10px] font-extrabold text-amber-600 dark:text-amber-400 tracking-widest">
+          <div className="ml-auto inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/40">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+            <span className="text-sm font-extrabold text-amber-600 dark:text-amber-400 tracking-wider leading-none">
               {locale === 'en' ? 'PAUSED' : '일시정지'}
             </span>
           </div>
@@ -326,13 +357,13 @@ export default function TrackPage() {
           </div>
         ) : (
           <>
-            {/* 시간 hero — 5xl, 큰 초시계 명확. tabular-nums 로 흔들림 없음. */}
+            {/* 시간 hero — 6xl. build 210 #1: 항상 HH:MM:SS (Apple Fitness 패턴). */}
             <div className="text-center mb-4">
-              <p className="text-[10px] font-extrabold text-[var(--muted)] tracking-[0.2em] uppercase mb-1">
+              <p className="text-[11px] font-extrabold text-[var(--muted)] tracking-[0.25em] uppercase mb-1">
                 {locale === 'en' ? 'TIME' : '시간'}
               </p>
               <p className="text-6xl font-extrabold tracking-tight text-[var(--foreground)] tabular-nums leading-none">
-                {formatDuration(state!.elapsedSeconds)}
+                {formatDurationFull(state!.elapsedSeconds)}
               </p>
             </div>
 
@@ -387,6 +418,42 @@ export default function TrackPage() {
           userId={user.id}
           onClose={() => setFinished(null)}
         />
+      )}
+
+      {/* build 210 #1: 시작 카운트다운 — Apple Fitness 영감 + 차별화 효과
+          (1) 풀스크린 어두운 backdrop + emerald radial glow
+          (2) 큰 숫자 ring + scale/fade 애니메이션
+          (3) 0 일 때 "GO!" 표시 후 트래킹 시작 */}
+      {countdown !== null && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md animate-[fadeIn_0.2s_ease-out]">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.35),transparent_60%)]" />
+          <div className="relative text-center">
+            {countdown > 0 ? (
+              <>
+                <div
+                  key={countdown}
+                  className="mx-auto w-56 h-56 rounded-full border-[6px] border-emerald-400/40 flex items-center justify-center animate-[countdownPulse_0.8s_ease-out]"
+                >
+                  <span className="text-[140px] font-extrabold text-white leading-none tabular-nums drop-shadow-[0_0_40px_rgba(16,185,129,0.6)]">
+                    {countdown}
+                  </span>
+                </div>
+                <p className="mt-6 text-base font-bold text-emerald-300 tracking-[0.3em] uppercase">
+                  {locale === 'en' ? 'Get Ready' : '준비'}
+                </p>
+              </>
+            ) : (
+              <div className="animate-[goBounce_0.5s_ease-out]">
+                <p className="text-[120px] font-extrabold text-emerald-400 leading-none tracking-wider drop-shadow-[0_0_50px_rgba(16,185,129,0.8)]">
+                  GO!
+                </p>
+                <p className="mt-4 text-sm font-bold text-white/70 tracking-[0.3em] uppercase">
+                  {locale === 'en' ? 'Start running' : '달리기 시작'}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

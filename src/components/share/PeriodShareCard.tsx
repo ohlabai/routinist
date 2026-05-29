@@ -44,6 +44,30 @@ export default function PeriodShareCard({ data, onClose }: Props) {
     created_at: new Date().toISOString(),
   };
 
+  // build 210 #3/#4: 막대 애니메이션 범위 계산 — 주간은 이번 주 7일, 월간은 이번 달 전체.
+  const now = new Date();
+  const monthOfNow = now.getMonth();
+  const yearOfNow = now.getFullYear();
+  const daysInMonth = new Date(yearOfNow, monthOfNow + 1, 0).getDate();
+  let highlightDays: number[];
+  if (data.period === 'month') {
+    highlightDays = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  } else {
+    // 주간 — 월요일~일요일 7일 중 현재 달에 속하는 일자만
+    const dow = now.getDay();
+    const diff = (dow + 6) % 7;
+    const weekStart = new Date(yearOfNow, monthOfNow, now.getDate() - diff);
+    const list: number[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + i);
+      if (d.getMonth() === monthOfNow && d.getFullYear() === yearOfNow) {
+        list.push(d.getDate());
+      }
+    }
+    highlightDays = list;
+  }
+
   return (
     <ShareCard
       activity={syntheticActivity}
@@ -54,6 +78,8 @@ export default function PeriodShareCard({ data, onClose }: Props) {
         extraRoutes: data.routes,
         periodWord,
         title: `${periodWord} 공유`,
+        highlightDays,
+        horizontalTotalKm: data.totalKm,
       }}
     />
   );
