@@ -9,6 +9,7 @@ import Image from 'next/image';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
+import PhotoLightbox, { type LightboxPhoto } from '@/components/PhotoLightbox';
 
 interface Story {
   photo_id: string;
@@ -27,6 +28,8 @@ export default function HomeFriendStories() {
   const { t } = useI18n();
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
+  // build 205 #2: 친구 카드 클릭 시 공유카드 이미지가 풀스크린으로 우선 노출 → 거기서 프로필 진입.
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -134,10 +137,10 @@ export default function HomeFriendStories() {
         </Link>
       </div>
       <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 px-4">
-        {stories.map(s => (
-          <Link
+        {stories.map((s, i) => (
+          <button
             key={s.photo_id}
-            href={`/social/user?id=${s.user_id}`}
+            onClick={() => setLightboxIndex(i)}
             className="flex-shrink-0 w-24 h-32 rounded-2xl overflow-hidden bg-[var(--card-border)] relative shadow-sm active:scale-95 transition"
           >
             <Image src={s.photo_url} alt="" fill className="object-cover" sizes="96px" unoptimized />
@@ -154,9 +157,23 @@ export default function HomeFriendStories() {
             <p className="absolute bottom-1.5 left-2 right-2 text-[11px] font-extrabold text-white drop-shadow">
               {Number(s.distance_km).toFixed(1)}km
             </p>
-          </Link>
+          </button>
         ))}
       </div>
+      {lightboxIndex !== null && (
+        <PhotoLightbox
+          photos={stories.map((s): LightboxPhoto => ({
+            photo_id: s.photo_id,
+            photo_url: s.photo_url,
+            display_name: s.display_name,
+            distance_km: s.distance_km,
+            user_id: s.user_id,
+          }))}
+          initialIndex={lightboxIndex}
+          showProfileLink
+          onClose={() => setLightboxIndex(null)}
+        />
+      )}
     </div>
   );
 }

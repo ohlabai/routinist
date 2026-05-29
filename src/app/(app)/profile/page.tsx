@@ -231,6 +231,8 @@ export default function ProfilePage() {
     { href: '/profile/push-settings', label: t('profile.menuPushSettings'), Icon: HelpCircle },
     { href: '/shop/orders', label: t('profile.menuOrders'), Icon: HelpCircle },
     { href: '/shop/addresses', label: t('profile.menuAddresses'), Icon: HelpCircle },
+    // build 205 #15: 셀러 신청 / 셀러 콘솔. 승인 여부 모름 → /seller/products 로 보내고 그 안에서 분기.
+    { href: '/seller/products', label: t('profile.menuSeller'), Icon: HelpCircle },
     ...(isAdmin ? [
       { href: '/admin', label: t('profile.menuAdmin'), Icon: Settings },
     ] : []),

@@ -96,12 +96,14 @@ export default function AdminProductsPage() {
   const handleStatusChange = async (id: string, status: ProductStatus) => {
     try {
       const supabase = getSupabase();
-      const { error } = await supabase.from('products').update({ status, is_active: status === 'published' }).eq('id', id);
+      // is_active 는 GENERATED ALWAYS AS (status = 'published') STORED — 직접 update 불가 (build 205 fix).
+      const { error } = await supabase.from('products').update({ status }).eq('id', id);
       if (error) throw error;
       setProducts(prev => prev.map(p => p.id === id ? { ...p, status, is_active: status === 'published' } : p));
-      showToast(`상태: ${status}`);
+      showToast(`상태: ${FILTER_LABELS[status as StatusFilter] ?? status}`);
     } catch (e) {
-      showToast(e instanceof Error ? e.message : '실패', 'warn');
+      const msg = e instanceof Error ? e.message : (e && typeof e === 'object' && 'message' in e ? String((e as { message: unknown }).message) : '실패');
+      showToast(msg, 'warn');
     }
   };
 

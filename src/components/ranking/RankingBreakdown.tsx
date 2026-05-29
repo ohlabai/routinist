@@ -100,14 +100,15 @@ export default function RankingBreakdown({ axis }: Props) {
   const [rows, setRows] = useState<RankBreakdown[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // build 152: 칩 토글 filters. 모두 ON 으로 시작 — 가장 좁은 코호트.
+  // build 205: 회원 1천명 미만 단계 — 디폴트는 국가+도시(시/도) 2단계만 ON.
+  // 너무 좁게 시작하면 모두 1~2위로 신뢰성 떨어짐. 사용자가 별 칩을 직접 켜서 좁힐 수 있음.
   const [filters, setFilters] = useState<Record<FilterKey, boolean>>({
     country: true,
     region_si: true,
-    region_gu: true,
-    gender: true,
-    decade: true,
-    starter: true,
+    region_gu: false,
+    gender: false,
+    decade: false,
+    starter: false,
   });
   const [combined, setCombined] = useState<CombinedRank | null>(null);
   const [combinedLoading, setCombinedLoading] = useState(true);

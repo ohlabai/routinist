@@ -80,6 +80,26 @@ export async function requestLocationPermission(): Promise<'granted' | 'denied' 
   } catch { return 'denied'; }
 }
 
+// build 205 #3: 권한이 이미 granted 인지 사전 조회 (다이얼로그 안 띄움).
+// Strava/Nike Run Club 패턴 — 첫 마운트에서 권한 있으면 조용히 현재 위치로 이동.
+export async function checkLocationPermission(): Promise<'granted' | 'denied' | 'prompt'> {
+  try {
+    const r = await Geolocation.checkPermissions();
+    const ok = r.location === 'granted' || r.coarseLocation === 'granted';
+    if (ok) return 'granted';
+    if (r.location === 'denied' || r.coarseLocation === 'denied') return 'denied';
+    return 'prompt';
+  } catch { return 'prompt'; }
+}
+
+// build 205 #3: 한 번 위치 fetch (워처 없이). 시작 전 지도 중심 이동용.
+export async function getCurrentLocation(): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 });
+    return { lat: pos.coords.latitude, lng: pos.coords.longitude };
+  } catch { return null; }
+}
+
 export interface WatcherHandle { clear: () => Promise<void>; }
 
 export async function startWatcher(

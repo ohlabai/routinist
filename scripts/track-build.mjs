@@ -13,7 +13,10 @@
 //
 // Claude Haiku 4.5 사용. 빌드당 약 $0.005. 월 50 빌드 = $0.25.
 
-import 'dotenv/config';
+import { config as dotenvConfig } from 'dotenv';
+// Next.js 관례에 맞춰 .env.local 우선, fallback .env. 둘 다 로드해도 .env.local 이 이김.
+dotenvConfig({ path: '.env.local' });
+dotenvConfig({ path: '.env' });
 import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import Anthropic from '@anthropic-ai/sdk';

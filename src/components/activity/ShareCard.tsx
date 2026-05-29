@@ -106,6 +106,33 @@ function drawCard(
   /** build 167 #3: 거리 표시 카운트업. 미지정 시 activity.distance_km 그대로. */
   kmDisplay?: number,
 ) {
+  // build 205 #11: 막대 그래프 애니메이션 진행도. routeProgress 와 동일 timeline (0~1).
+  // 일간 카드: 오늘 막대 / 가로 누적바가 0 → 목표 까지 차오른 후 bounce → 원래 색.
+  // PeriodShareCard (주간/월간) 는 별도 캔버스라 영향 없음.
+  const barProgress = routeProgress;
+  // easeOutCubic + elastic bounce (period-share-canvas.ts 와 동일 공식)
+  const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+  const easeOutElastic = (t: number) => {
+    if (t <= 0) return 0; if (t >= 1) return 1;
+    const c4 = (2 * Math.PI) / 3;
+    return Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1;
+  };
+  // 0~0.85: 차오름 (easeOutCubic). 0.72~0.82: bounce 오버슛. 0.85~1: 컬러 emerald → 원래.
+  const fillT = easeOutCubic(Math.min(1, barProgress / 0.85));
+  const bounceWindow = Math.max(0, Math.min(1, (barProgress - 0.72) / 0.10));
+  const bouncePx = bounceWindow > 0 && bounceWindow < 1 ? (1 - easeOutElastic(bounceWindow)) * 18 : 0;
+  const colorMixT = Math.max(0, Math.min(1, (barProgress - 0.85) / 0.15)); // 1 = 원래 색
+  const lerpHex = (h1: string, h2: string, t: number) => {
+    const p = (h: string) => {
+      const c = h.replace('#', '');
+      return [parseInt(c.slice(0, 2), 16), parseInt(c.slice(2, 4), 16), parseInt(c.slice(4, 6), 16)] as const;
+    };
+    const [r1, g1, b1] = p(h1); const [r2, g2, b2] = p(h2);
+    const r = Math.round(r1 + (r2 - r1) * t);
+    const g = Math.round(g1 + (g2 - g1) * t);
+    const b = Math.round(b1 + (b2 - b1) * t);
+    return `rgb(${r},${g},${b})`;
+  };
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
@@ -478,15 +505,32 @@ function drawCard(
       if ((dailyKm.get(day) ?? 0) > 0) lastRunDay = day;
     }
 
+    // build 205 #11: 오늘 막대만 0 → km 애니메이션. 과거 막대는 정적 (참고용 baseline).
+    // 차오름 후 bounce + emerald → 원래(barFillToday) 컬러 전환.
     for (let day = 1; day <= daysInMonth; day++) {
       const km = dailyKm.get(day) ?? 0;
       const x = chartPadX + (day - 1) * (barWidth + 4);
-      const h = (km / maxDay) * chartH;
       const isToday = day === todayDay;
-      ctx.fillStyle = isToday ? barFillToday : (km > 0 ? barFillOther : barFillEmpty);
-      const barH = Math.max(h, 3);
-      const barTop = chartTop + chartH - barH;
-      ctx.fillRect(x, barTop, barWidth, barH);
+      const targetH = (km / maxDay) * chartH;
+
+      if (isToday && km > 0) {
+        const animH = targetH * fillT;
+        const fillEmerald = '#10b981';
+        // todayColor: bg 가 사진이면 흰색, 아니면 accentColor
+        const todayBaseHex = onPhoto ? '#ffffff' : (accentColor.startsWith('#') ? accentColor : '#10b981');
+        const animColor = colorMixT >= 1
+          ? barFillToday
+          : lerpHex(fillEmerald, todayBaseHex, colorMixT);
+        ctx.fillStyle = animColor;
+        const barH = Math.max(animH, 3);
+        const barTop = chartTop + chartH - barH - bouncePx;
+        ctx.fillRect(x, barTop, barWidth, barH);
+      } else {
+        ctx.fillStyle = km > 0 ? barFillOther : barFillEmpty;
+        const barH = Math.max(targetH, 3);
+        const barTop = chartTop + chartH - barH;
+        ctx.fillRect(x, barTop, barWidth, barH);
+      }
     }
 
     // build 136: "이달 N회" 라벨 대신 마지막 달린 막대 아래에 N 숫자만.
@@ -502,12 +546,18 @@ function drawCard(
   }
 
   // (2) 가로 progress bar — 위 막대(1380+110=1490) 끝과 90px 여유 (build 150 피드백).
+  // build 205 #11: 어제까지 누적 → 오늘 누적 까지 차오름 + bounce + 컬러 emerald → 흰색.
   if (monthlyGoalKm && monthlyGoalKm > 0 && monthSum > 0) {
     const goalBarTop = 1580;
     const goalBarH = 14;
     const goalBarPadX = 100;
     const goalBarW = W - goalBarPadX * 2;
-    const progress = Math.min(1, monthSum / monthlyGoalKm);
+    const todayKm = dailyKm.get(todayDay) ?? 0;
+    const baselineSum = Math.max(0, monthSum - todayKm); // 어제까지 누적
+    const baselineProgress = Math.min(1, baselineSum / monthlyGoalKm);
+    const finalProgress = Math.min(1, monthSum / monthlyGoalKm);
+    // 차오름: baseline → final 사이를 fillT 비율로 보간
+    const progress = baselineProgress + (finalProgress - baselineProgress) * fillT;
     const radius = goalBarH / 2;
 
     // 트랙 (배경)
@@ -516,9 +566,12 @@ function drawCard(
     ctx.roundRect(goalBarPadX, goalBarTop, goalBarW, goalBarH, radius);
     ctx.fill();
 
-    // 진행 (흰색)
-    ctx.fillStyle = '#ffffff';
-    const fillW = Math.max(goalBarH, goalBarW * progress);
+    // 진행 — 컬러: 0.85 이전엔 emerald, 이후엔 흰색으로 전환. bounce 는 가로 너비에 살짝 over.
+    const finalFillHex = '#ffffff';
+    const animFillColor = colorMixT >= 1 ? finalFillHex : lerpHex('#10b981', finalFillHex, colorMixT);
+    ctx.fillStyle = animFillColor;
+    const baseFillW = Math.max(goalBarH, goalBarW * progress);
+    const fillW = Math.min(goalBarW, baseFillW + (bouncePx > 0 ? bouncePx * 0.6 : 0));
     ctx.beginPath();
     ctx.roundRect(goalBarPadX, goalBarTop, fillW, goalBarH, radius);
     ctx.fill();

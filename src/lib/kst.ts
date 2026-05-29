@@ -47,6 +47,11 @@ export function toLocalMonthStr(d: Date = new Date()): string {
   return toLocalDateStr(d).slice(0, 7);
 }
 
+// 주어진 Date 의 사용자 timezone 기준 그 달 1일 YYYY-MM-DD.
+export function startOfMonthStr(d: Date = new Date()): string {
+  return `${toLocalMonthStr(d)}-01`;
+}
+
 // 주어진 Date 의 사용자 timezone 기준 그 주 월요일 YYYY-MM-DD.
 // 사용자가 KST 21시에 일요일 → 월요일로 넘어가는 시점을 정확히 처리.
 // `new Date(toLocaleString('en-US'))` 비표준 파싱 대신 formatToParts 로 견고하게.

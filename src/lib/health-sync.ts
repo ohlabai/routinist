@@ -264,14 +264,17 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     }
 
     const existingStartedAtMs: number[] = [];
-    const existingByDate = new Map<string, number[]>();
+    // existingByDate 는 옛 데이터 (started_at NULL) 호환용 fallback. started_at 있는 행을
+    // 여기 넣으면 같은 날 같은 거리 두 번 뛴 경우 두 번째가 false-positive 중복으로 스킵됨 (build 204 회귀).
+    const existingByDateLegacy = new Map<string, number[]>();
     (existingAll ?? []).forEach(row => {
       if (row.started_at) {
         existingStartedAtMs.push(new Date(row.started_at).getTime());
+      } else {
+        const arr = existingByDateLegacy.get(row.activity_date) ?? [];
+        arr.push(Number(row.distance_km));
+        existingByDateLegacy.set(row.activity_date, arr);
       }
-      const arr = existingByDate.get(row.activity_date) ?? [];
-      arr.push(Number(row.distance_km));
-      existingByDate.set(row.activity_date, arr);
     });
     existingStartedAtMs.sort((a, b) => a - b);
 
@@ -310,9 +313,10 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
       const workoutMs = new Date(workout.startDate).getTime();
       if (isDuplicateByTime(workoutMs)) { dupCount++; continue; }
 
-      // 2순위 (옛 데이터 호환): 같은 날짜 + 거리 ±0.1km
-      const sameDateDistances = existingByDate.get(activityDate) ?? [];
-      if (sameDateDistances.some(d => Math.abs(d - distanceKm) < 0.1)) { dupCount++; continue; }
+      // 2순위 (옛 데이터 호환): started_at NULL 인 옛 행과만 비교. 같은 날 같은 거리 두 번 뛴
+      // 새 워크아웃이 서로를 중복으로 잡는 회귀 방지.
+      const legacyDistances = existingByDateLegacy.get(activityDate) ?? [];
+      if (legacyDistances.some(d => Math.abs(d - distanceKm) < 0.1)) { dupCount++; continue; }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const insertData: Record<string, any> = {
@@ -331,11 +335,10 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
       if (activityType === 'walking') insertData.activity_type = 'walking';
 
       toInsert.push(insertData);
-      // 중복 검출용 캐시 업데이트
+      // 같은 sync 안에서 같은 timestamp 거의 없음 — 정렬 비용 아끼려고 sort 생략.
+      // ±5s 윈도우라 정렬 안 해도 안전 (insertion order 가 timestamp 순 ascending 으로 비슷).
       existingStartedAtMs.push(workoutMs);
-      // (정렬 비용 아끼려고 매번 sort 안 함 — 한 sync 안에서 두 번 같은 timestamp 거의 없음)
-      sameDateDistances.push(distanceKm);
-      existingByDate.set(activityDate, sameDateDistances);
+      // legacy map 은 일부러 업데이트 안 함 — 새 워크아웃끼리는 started_at 으로만 비교.
     }
 
     let insertErrors = 0;

@@ -12,15 +12,19 @@ export interface LightboxPhoto {
   display_name?: string;
   caption?: string | null;
   distance_km?: number | null;
+  // build 205 #2: 친구 스토리에서 띄울 때 프로필 진입점 노출.
+  user_id?: string | null;
 }
 
 interface Props {
   photos: LightboxPhoto[];
   initialIndex?: number;
   onClose: () => void;
+  // 프로필 보기 버튼 노출 (친구 활동 entry 에서만 true).
+  showProfileLink?: boolean;
 }
 
-export default function PhotoLightbox({ photos, initialIndex = 0, onClose }: Props) {
+export default function PhotoLightbox({ photos, initialIndex = 0, onClose, showProfileLink = false }: Props) {
   const [index, setIndex] = useState(Math.max(0, Math.min(initialIndex, photos.length - 1)));
   const startX = useRef<number | null>(null);
   const deltaX = useRef(0);
@@ -130,6 +134,14 @@ export default function PhotoLightbox({ photos, initialIndex = 0, onClose }: Pro
             </div>
             {current.caption && (
               <p className="text-xs text-white/85 mt-1 line-clamp-3 italic break-keep">{current.caption}</p>
+            )}
+            {showProfileLink && current.user_id && (
+              <a
+                href={`/social/user?id=${current.user_id}`}
+                className="mt-2.5 block w-full text-center px-4 py-2 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-extrabold transition active:scale-95"
+              >
+                프로필 보기 →
+              </a>
             )}
           </div>
         )}

@@ -16,6 +16,7 @@ import type { Product, ProductStatus, ProductVariant } from '@/types';
 
 import { isAdminEmail } from '@/lib/admin-emails';
 import { logClientWarn } from '@/lib/error-logger';
+import RichTextEditor from '@/components/admin/RichTextEditor';
 const STORAGE_BUCKET = 'product-images';
 
 interface FormState {
@@ -35,8 +36,12 @@ function ProductEditContent() {
   const searchParams = useSearchParams();
   const id = searchParams.get('id') ?? 'new';
   const isNew = id === 'new';
+  // build 205 #15: 셀러가 본인 명의로 상품 등록할 때 query 로 seller_id 전달.
+  const sellerIdQuery = searchParams.get('seller_id');
   const { user, loading: authLoading } = useAuth();
   const isAdmin = isAdminEmail(user?.email);
+  const [sellerCheck, setSellerCheck] = useState<{ id: string; brand_name: string } | null>(null);
+  const isSellerSelfEdit = !!sellerCheck && (!!sellerIdQuery || !isAdmin);
 
   const [form, setForm] = useState<FormState>(EMPTY);
   const [variants, setVariants] = useState<ProductVariant[]>([]);
@@ -50,9 +55,17 @@ function ProductEditContent() {
     setTimeout(() => setToast(null), 2500);
   };
 
+  // 어드민 OR 본인이 active seller 면 접근 가능. 셀러는 본인 seller_id 인 상품만 RLS 가 허용.
   useEffect(() => {
     if (authLoading) return;
-    if (!user || !isAdmin) { router.replace('/'); return; }
+    if (!user) { router.replace('/'); return; }
+    (async () => {
+      const sb = getSupabase();
+      const { data: s } = await sb.from('sellers').select('id, brand_name, status').eq('user_id', user.id).maybeSingle();
+      const isActiveSeller = s?.status === 'active';
+      if (isActiveSeller) setSellerCheck({ id: s!.id, brand_name: s!.brand_name });
+      if (!isAdmin && !isActiveSeller) router.replace('/');
+    })();
   }, [authLoading, user, isAdmin, router]);
 
   useEffect(() => {
@@ -118,6 +131,10 @@ function ProductEditContent() {
         images: form.images,
         // 새 상품일 때만 source='manual'. UPDATE 시엔 기존 source ('1688','cafe24') 보존.
         ...(isNew ? { source: 'manual' } : {}),
+        // build 205 #15: seller_id 자동 주입 — 셀러가 본인 콘솔에서 들어왔을 때 query 또는 본인 seller_id.
+        ...(isNew && (sellerIdQuery || (isSellerSelfEdit && sellerCheck))
+          ? { seller_id: sellerIdQuery ?? sellerCheck?.id }
+          : {}),
       };
       if (isNew) {
         const { data, error } = await supabase.from('products').insert(payload).select().single();
@@ -231,10 +248,10 @@ function ProductEditContent() {
               />
             </Field>
             <Field label="설명">
-              <textarea
-                rows={4} value={form.description}
-                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                className="resize-none"
+              <RichTextEditor
+                value={form.description ?? ''}
+                onChange={html => setForm(f => ({ ...f, description: html }))}
+                placeholder="상품 설명, 사이즈, 소재, 세탁법 등을 자유롭게 작성하세요"
               />
             </Field>
             <div className="grid grid-cols-2 gap-3">

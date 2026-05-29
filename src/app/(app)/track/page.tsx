@@ -13,7 +13,8 @@ import { loadGoogleMaps, API_KEY as MAPS_KEY } from '@/lib/google-maps';
 import {
   type TrackingState,
   createInitialState, loadState, saveState, clearState,
-  requestLocationPermission, startWatcher, type WatcherHandle,
+  requestLocationPermission, checkLocationPermission, getCurrentLocation,
+  startWatcher, type WatcherHandle,
   appendCoord, tickElapsed, formatDuration, formatDistanceKm,
 } from '@/lib/gps-tracking';
 import TrackSummarySheet from '@/components/track/TrackSummarySheet';
@@ -41,15 +42,17 @@ export default function TrackPage() {
     if (!authLoading && !user) router.replace('/login?redirect=/track');
   }, [user, authLoading, router]);
 
-  // 지도 초기화 (현재 위치 중심)
+  // 지도 초기화 (현재 위치 중심).
+  // build 205 #3: 권한이 이미 granted 라면 조용히 getCurrentLocation 으로 즉시 사용자 위치 표시.
+  // 시작 전에도 "지금 내가 어디 있는지" 보여서 Strava/Nike Run Club 패턴 매칭.
   useEffect(() => {
     if (!MAPS_KEY || !mapEl.current) return;
     let cancelled = false;
-    loadGoogleMaps().then(() => {
+    loadGoogleMaps().then(async () => {
       if (cancelled || !mapEl.current) return;
-      const initialCenter = { lat: 37.5665, lng: 126.9780 }; // 서울 기본
+      const fallbackCenter = { lat: 37.5665, lng: 126.9780 }; // 권한 없으면 서울 기본
       const map = new google.maps.Map(mapEl.current, {
-        center: initialCenter,
+        center: fallbackCenter,
         zoom: 16,
         disableDefaultUI: true,
         gestureHandling: 'greedy',
@@ -68,7 +71,7 @@ export default function TrackPage() {
         map,
       });
       youMarkerRef.current = new google.maps.Marker({
-        position: initialCenter,
+        position: fallbackCenter,
         map,
         icon: {
           path: google.maps.SymbolPath.CIRCLE,
@@ -87,16 +90,34 @@ export default function TrackPage() {
         const last = path[path.length - 1];
         map.setCenter(last);
         youMarkerRef.current?.setPosition(last);
+        return;
+      }
+      // 진행 중인 트래킹 없을 때만 현재 위치로 이동 시도. 권한 다이얼로그는 띄우지 않음 (checkPermissions only).
+      const permState = await checkLocationPermission();
+      setPerm(permState);
+      if (permState === 'granted') {
+        const here = await getCurrentLocation();
+        if (here && !cancelled && mapRef.current) {
+          mapRef.current.panTo(here);
+          youMarkerRef.current?.setPosition(here);
+        }
       }
     }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
 
-  // 권한 확인 → 워처 시작
+  // 권한 확인 → 워처 시작.
+  // build 205 #3: 권한 granted 직후 getCurrentLocation 으로 첫 좌표를 캐서 지도를 즉시 중심 이동.
+  // 다이얼로그 후 잠시 빈 지도를 보다가 첫 watch 좌표 도착할 때 점프하는 어색함 제거.
   const startTracking = useCallback(async () => {
     const r = await requestLocationPermission();
     setPerm(r);
     if (r !== 'granted') return;
+    const here = await getCurrentLocation();
+    if (here && mapRef.current) {
+      mapRef.current.panTo(here);
+      youMarkerRef.current?.setPosition(here);
+    }
     const fresh = createInitialState();
     setState(fresh);
     saveState(fresh);

@@ -6,8 +6,10 @@
 
 import Link from 'next/link';
 import { MapPin, ChevronRight } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 
 export default function TrackStartCTA() {
+  const { tt } = useI18n();
   return (
     <div className="mx-4">
       <Link
@@ -21,8 +23,8 @@ export default function TrackStartCTA() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[10px] font-extrabold tracking-widest uppercase text-emerald-50/85">Start Now</p>
-            <p className="text-base font-extrabold leading-tight">달리기 시작하기</p>
-            <p className="text-[11px] text-emerald-50/85 mt-0.5">GPS 로 경로·거리·시간이 자동 기록돼요</p>
+            <p className="text-base font-extrabold leading-tight">{tt('달리기 시작하기')}</p>
+            <p className="text-[11px] text-emerald-50/85 mt-0.5">{tt('GPS 로 경로·거리·시간이 자동 기록돼요')}</p>
           </div>
           <ChevronRight size={18} className="text-white/80 flex-shrink-0" />
         </div>

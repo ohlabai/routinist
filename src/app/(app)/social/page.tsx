@@ -13,7 +13,7 @@ import UserRow from '@/components/social/UserRow';
 import PhotosTab from '@/components/photos/PhotosTab';
 import QuotesTab from '@/components/social/QuotesTab';
 import { User as UserIcon, Users, Search, Plus, MapPin, Camera, Trophy, MessageSquare } from 'lucide-react';
-import { startOfWeekStr } from '@/lib/kst';
+import { startOfWeekStr, startOfMonthStr } from '@/lib/kst';
 import type { Profile, Club } from '@/types';
 import AppLogo from '@/components/AppLogo';
 import { useI18n } from '@/lib/i18n';
@@ -30,6 +30,11 @@ type SectionId = typeof SECTIONS[number]['id'];
 function startOfWeek(): string {
   return startOfWeekStr();
 }
+function startOfMonth(): string {
+  return startOfMonthStr();
+}
+
+type ComparePeriod = 'week' | 'month';
 
 function SocialPageInner() {
   const { user, profile } = useAuth();
@@ -45,6 +50,7 @@ function SocialPageInner() {
   const [myClubs, setMyClubs] = useState<Club[]>([]);
   const [loading, setLoading] = useState(true);
   const [friendsCompare, setFriendsCompare] = useState<{ id: string; name: string; avatar: string | null; km: number; isMe: boolean }[]>([]);
+  const [comparePeriod, setComparePeriod] = useState<ComparePeriod>('week');
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -59,16 +65,16 @@ function SocialPageInner() {
       setFollowingIds(new Set(following.map((f) => f.id)));
       setMyClubs(clubs);
 
-      // 친구 + 나 이번 주 비교
+      // 친구 + 나 비교 — 기간(주/월) 선택 (build 205 #4).
       const supabase = getSupabase();
-      const weekStart = startOfWeek();
+      const periodStart = comparePeriod === 'week' ? startOfWeek() : startOfMonth();
       const friendIds = following.map(f => f.id);
       const allIds = [user.id, ...friendIds];
       const { data: acts } = await supabase
         .from('activities')
         .select('user_id, distance_km')
         .in('user_id', allIds)
-        .gte('activity_date', weekStart);
+        .gte('activity_date', periodStart);
       const kmMap = new Map<string, number>();
       (acts ?? []).forEach(a => kmMap.set(a.user_id, (kmMap.get(a.user_id) ?? 0) + Number(a.distance_km)));
       const rows = [
@@ -81,7 +87,7 @@ function SocialPageInner() {
     } finally {
       setLoading(false);
     }
-  }, [user, profile, t]);
+  }, [user, profile, t, comparePeriod]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -135,8 +141,27 @@ function SocialPageInner() {
           {friendsCompare.length > 1 ? (
             <div className="card p-4">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-bold text-[var(--foreground)]">{t('social.weekCompare')}</h3>
-                <span className="text-[10px] text-[var(--muted)]">{t('social.weekMondayBase')}</span>
+                <h3 className="text-sm font-bold text-[var(--foreground)]">
+                  {comparePeriod === 'week' ? t('social.weekCompare') : t('social.monthCompare')}
+                </h3>
+                <div className="flex gap-1 bg-[var(--card-border)]/30 rounded-full p-0.5">
+                  <button
+                    onClick={() => setComparePeriod('week')}
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition ${
+                      comparePeriod === 'week' ? 'bg-emerald-500 text-white shadow-sm' : 'text-[var(--muted)]'
+                    }`}
+                  >
+                    {t('social.thisWeek')}
+                  </button>
+                  <button
+                    onClick={() => setComparePeriod('month')}
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition ${
+                      comparePeriod === 'month' ? 'bg-emerald-500 text-white shadow-sm' : 'text-[var(--muted)]'
+                    }`}
+                  >
+                    {t('social.thisMonth')}
+                  </button>
+                </div>
               </div>
               <div className="space-y-2">
                 {(() => {

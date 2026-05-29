@@ -65,6 +65,7 @@ export type TranslationKey =
   | 'profile.menuPushSettings'
   | 'profile.menuOrders'
   | 'profile.menuAddresses'
+  | 'profile.menuSeller'
   | 'profile.menuAdmin'
   | 'profile.pushOnSummary'
   | 'profile.themeTitle'
@@ -135,6 +136,9 @@ export type TranslationKey =
   | 'social.tabPhotos'
   | 'social.tabQuotes'
   | 'social.weekCompare'
+  | 'social.monthCompare'
+  | 'social.thisWeek'
+  | 'social.thisMonth'
   | 'social.weekMondayBase'
   | 'social.me'
   | 'social.emptyFriendsTitle'
@@ -401,6 +405,7 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'profile.menuPushSettings': '알림 설정',
     'profile.menuOrders': '내 주문 내역',
     'profile.menuAddresses': '배송지 관리',
+    'profile.menuSeller': '판매자 콘솔',
     'profile.menuAdmin': '어드민 대시보드',
     'profile.pushOnSummary': '알림 ON · 주문·메시지·매칭 즉시 받기',
     'profile.themeTitle': '화면 모드',
@@ -468,6 +473,9 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'social.tabPhotos': '포토',
     'social.tabQuotes': '러너 한 줄',
     'social.weekCompare': '이번 주 친구 비교',
+    'social.monthCompare': '이번 달 친구 비교',
+    'social.thisWeek': '이번 주',
+    'social.thisMonth': '이번 달',
     'social.weekMondayBase': '월요일 기준',
     'social.me': '나',
     'social.emptyFriendsTitle': '친구와 함께 달려보세요',
@@ -732,6 +740,7 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'profile.menuPushSettings': 'Notifications',
     'profile.menuOrders': 'My orders',
     'profile.menuAddresses': 'Addresses',
+    'profile.menuSeller': 'Seller console',
     'profile.menuAdmin': 'Admin dashboard',
     'profile.pushOnSummary': 'Push ON · Get orders, messages, matches instantly',
     'profile.themeTitle': 'Theme',
@@ -799,6 +808,9 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'social.tabPhotos': 'Photos',
     'social.tabQuotes': 'Quotes',
     'social.weekCompare': 'This week with friends',
+    'social.monthCompare': 'This month with friends',
+    'social.thisWeek': 'Week',
+    'social.thisMonth': 'Month',
     'social.weekMondayBase': 'Starts Monday',
     'social.me': 'me',
     'social.emptyFriendsTitle': 'Run with friends',
@@ -1031,13 +1043,99 @@ interface I18nState {
   locale: Locale;
   setLocale: (l: Locale) => void;
   t: (key: TranslationKey) => string;
+  // build 205 #14: 자유 텍스트 한↔영 매핑 — JSX 안 raw 한글을 점진적으로 영문화.
+  // tt('판매자 신청') → 한국어 모드면 그대로, 영어 모드면 EXTRAS_EN['판매자 신청'] (fallback ko).
+  // 새 키 추가는 정식 t('key') 권장. 잔존 한글을 일괄 영문화할 때 빠른 우회로.
+  tt: (ko: string) => string;
 }
 
 const I18nContext = createContext<I18nState>({
   locale: 'ko',
   setLocale: () => {},
   t: (k) => k,
+  tt: (ko) => ko,
 });
+
+// 자주 노출되는 잔존 한글 → 영어 매핑. 정식 키는 DICT 에 추가하고 t() 사용 권장.
+// 임시 alias 로 사용 — 점진적 마이그레이션 안전망.
+const EXTRAS_EN: Record<string, string> = {
+  // 셀러 (build 205)
+  '판매자 신청': 'Seller application',
+  '판매자 신청 제출': 'Submit application',
+  '심사 중이에요': 'Under review',
+  '반려되었어요': 'Application rejected',
+  '이미 판매자세요!': 'You are already a seller!',
+  '상품을 직접 등록하고 매출 정산을 받아볼 수 있어요.': 'Register your own products and receive payouts.',
+  '셀러 콘솔로 가기': 'Go to seller console',
+  '신청이 접수되었어요. 영업일 기준 1~3일 안에 검토됩니다.': 'Application received. Review takes 1-3 business days.',
+  '모든 항목을 입력해주세요': 'Please fill in every field',
+  '제출 중...': 'Submitting...',
+  '브랜드 정보': 'Brand info',
+  '연락처': 'Contact',
+  '정산 계좌': 'Payout account',
+  '출고지': 'Shipping origin',
+  '브랜드명 *': 'Brand name *',
+  '사업자등록번호 *': 'Business registration no. *',
+  '상호 *': 'Trade name *',
+  '대표자명 *': 'Owner name *',
+  '연락 전화 *': 'Phone *',
+  '이메일 *': 'Email *',
+  '은행명 *': 'Bank *',
+  '계좌번호 *': 'Account no. *',
+  '예금주명 *': 'Account holder *',
+  '우편번호 *': 'Zip *',
+  '주소 *': 'Address *',
+  '출고지 전화 *': 'Origin phone *',
+  '셀러 콘솔': 'Seller console',
+  '아직 판매자가 아니에요': "You're not a seller yet",
+  '상품을 직접 등록하려면 판매자 신청을 먼저 해주세요.': 'Apply for a seller account to register products.',
+  '첫 상품 등록': 'Register first product',
+  '신규': 'New',
+  '편집': 'Edit',
+  '삭제': 'Delete',
+  '삭제 완료': 'Deleted',
+  '판매중': 'Published',
+  '임시저장': 'Draft',
+  '비활성': 'Inactive',
+  '전체': 'All',
+  '심사 대기': 'Pending',
+  '승인됨': 'Approved',
+  '반려': 'Rejected',
+  '승인 완료': 'Approved',
+  '반려 완료': 'Rejected',
+  '이 신청을 승인할까요?': 'Approve this application?',
+  '반려 사유 (셀러에게 전달됨)': 'Reason for rejection (shown to seller)',
+  '실패': 'Failed',
+  // 어드민 상품
+  '상품 관리': 'Products',
+  // 트래킹
+  '달리기 시작하기': 'Start running',
+  'GPS 로 경로·거리·시간이 자동 기록돼요': 'GPS auto-records route, distance, and time',
+  '달리기 완료!': 'Run complete!',
+  '저장하기': 'Save',
+  '저장 중…': 'Saving…',
+  '저장 실패': 'Save failed',
+  '이번 기록을 저장하지 않고 버릴까요?': 'Discard this run without saving?',
+  // 홈
+  '공유카드': 'Share card',
+  '이번 주': 'This week',
+  '이번 달': 'This month',
+  '한 주·한 달 기록을 8초 영상 또는 9:16 이미지로 친구에게 자랑하세요':
+    'Share your week or month as an 8-second video or 9:16 image',
+  '이번 주 도전': 'This week challenge',
+  '이번 주 목표 달성! 멋져요': 'Weekly goal achieved! Awesome',
+  '절반 넘어왔어요. 계속!': "Halfway there. Keep going!",
+  '이번 주도 한 번 달려볼까요?': "Let's run this week",
+  // Apple Health
+  'Apple 건강 앱 연동하기': 'Connect Apple Health',
+  '러닝·걷기·심박·GPS 자동으로 가져옵니다': 'Auto import runs, walks, heart rate, GPS',
+  'Apple Health 연동됨': 'Apple Health connected',
+  'Apple Health 권한이 필요해요': 'Apple Health permission required',
+  'Apple Health 최신 기록 불러오기': 'Sync latest from Apple Health',
+  '새 기록이 없어요': 'No new records',
+  '동기화 실패': 'Sync failed',
+  '재시도': 'Retry',
+};
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>('ko');
@@ -1054,6 +1152,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
         try { window.localStorage.setItem(STORAGE_KEY, l); } catch {}
       },
       t: (key) => DICT[locale]?.[key] ?? DICT.ko[key] ?? key,
+      tt: (ko) => locale === 'en' ? (EXTRAS_EN[ko] ?? ko) : ko,
     };
   }, [locale]);
 
