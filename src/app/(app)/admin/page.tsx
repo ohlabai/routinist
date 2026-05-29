@@ -286,6 +286,7 @@ export default function AdminDashboardPage() {
               <AdminLink href="/admin/products" icon={<Package size={20} />} label="상품 관리" />
               <AdminLink href="/admin/mileage" icon={<Coins size={20} />} label="마일리지 정책" />
               <AdminLink href="/admin/experiments" icon={<Beaker size={20} />} label="A/B 실험" />
+              <AdminLink href="/admin/builds" icon={<Package size={20} />} label="Build Dashboard" />
               <AdminLink href="/profile/audit" icon={<Stethoscope size={20} />} label="데이터 점검" />
             </div>
           </Section>
