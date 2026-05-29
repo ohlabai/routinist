@@ -24,6 +24,7 @@ import {
   type ClubChallenge, type ChallengeProgress, type ClubEvent, type CheerEmoji, type CheerAgg, type WeeklyMvp,
 } from '@/lib/club-activation';
 import InviteQRCard from '@/components/clubs/InviteQRCard';
+import ClubChallengesCard from '@/components/club/ClubChallengesCard';
 import ClubExternalArchive from '@/components/clubs/ClubExternalArchive';
 import ClubChallengeSection from '@/components/club/ClubChallengeSection';
 import Link from 'next/link';
@@ -935,6 +936,9 @@ function ClubDetail() {
       {/* 챌린지·모임 탭 */}
       {activeTab === 'challenges' && (
         <div className="space-y-5">
+          {/* build 200 / Phase 4: 활성 챌린지 leaderboard 카드 (멤버 순위 자동) */}
+          <ClubChallengesCard clubId={clubId!} />
+
           {/* 클럽 마라톤 — 단체 코스 챌린지 (build 118) */}
           <ClubChallengeSection clubId={clubId!} canManage={isAdmin} />
 
