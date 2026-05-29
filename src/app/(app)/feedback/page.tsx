@@ -10,6 +10,7 @@ import { useAuth } from '@/components/AuthProvider';
 import AppLogo from '@/components/AppLogo';
 import AppToast from '@/components/AppToast';
 import { track } from '@/lib/analytics';
+import { useI18n } from '@/lib/i18n';
 import {
   fetchFeedback,
   fetchMyFeedbackUpvotes,
@@ -53,8 +54,15 @@ const SORT_OPTIONS = [
   { id: 'latest' as const, label: '최신순' },
 ];
 
-function timeAgo(iso: string): string {
+function timeAgo(iso: string, locale: 'ko' | 'en' = 'ko'): string {
   const ms = Date.now() - new Date(iso).getTime();
+  if (locale === 'en') {
+    if (ms < 60_000) return 'now';
+    if (ms < 3600_000) return `${Math.floor(ms / 60_000)}m`;
+    if (ms < 86400_000) return `${Math.floor(ms / 3600_000)}h`;
+    if (ms < 30 * 86400_000) return `${Math.floor(ms / 86400_000)}d`;
+    return `${Math.floor(ms / (30 * 86400_000))}mo`;
+  }
   if (ms < 60_000) return '방금';
   if (ms < 3600_000) return `${Math.floor(ms / 60_000)}분`;
   if (ms < 86400_000) return `${Math.floor(ms / 3600_000)}시간`;
@@ -64,6 +72,7 @@ function timeAgo(iso: string): string {
 
 export default function FeedbackPage() {
   const { user } = useAuth();
+  const { tt, locale } = useI18n();
   const [posts, setPosts] = useState<FeedbackPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<FeedbackStatus | 'all'>('all');
@@ -98,7 +107,7 @@ export default function FeedbackPage() {
   useEffect(() => { load(); }, [load]);
 
   const handleUpvote = async (p: FeedbackPost) => {
-    if (!user) { showToast('로그인이 필요해요', 'warn'); return; }
+    if (!user) { showToast(tt('로그인이 필요해요'), 'warn'); return; }
     if (likeBusy === p.id) return;
     setLikeBusy(p.id);
     const wasLiked = !!p.liked_by_me;
@@ -115,20 +124,20 @@ export default function FeedbackPage() {
         liked_by_me: wasLiked,
         upvote_count: x.upvote_count + (wasLiked ? 1 : -1),
       } : x));
-      showToast(e instanceof Error ? e.message : '실패', 'warn');
+      showToast(e instanceof Error ? e.message : tt('실패'), 'warn');
     } finally {
       setLikeBusy(null);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('내 글을 삭제할까요?')) return;
+    if (!confirm(tt('내 글을 삭제할까요?'))) return;
     try {
       await deleteMyFeedback(id);
       setPosts(prev => prev.filter(p => p.id !== id));
-      showToast('삭제됨');
+      showToast(tt('삭제됨'));
     } catch (e) {
-      showToast(e instanceof Error ? e.message : '삭제 실패', 'warn');
+      showToast(e instanceof Error ? e.message : tt('삭제 실패'), 'warn');
     }
   };
 
@@ -137,9 +146,9 @@ export default function FeedbackPage() {
     setReporting(true);
     try {
       await reportFeedback(reportTarget.id, reason);
-      showToast('신고가 접수됐어요. 24시간 안에 검토합니다');
+      showToast(tt('신고가 접수됐어요. 24시간 안에 검토합니다'));
     } catch (e) {
-      showToast(e instanceof Error ? e.message : '신고 실패', 'warn');
+      showToast(e instanceof Error ? e.message : tt('신고 실패'), 'warn');
     } finally {
       setReporting(false);
       setReportTarget(null);
@@ -162,7 +171,7 @@ export default function FeedbackPage() {
             <ArrowLeft size={20} />
           </Link>
           <AppLogo size={26} />
-          <h1 className="text-xl font-extrabold tracking-tight">앱 기능 제안 게시판</h1>
+          <h1 className="text-xl font-extrabold tracking-tight">{tt('앱 기능 제안 게시판')}</h1>
         </div>
         <div className="px-4 pb-3 flex items-center gap-2 overflow-x-auto scrollbar-hide">
           {STATUS_FILTERS.map(f => (
@@ -175,7 +184,7 @@ export default function FeedbackPage() {
                   : 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--muted)]'
               }`}
             >
-              {f.label}
+              {tt(f.label)}
             </button>
           ))}
           <span className="text-[var(--card-border)] px-1">|</span>
@@ -189,7 +198,7 @@ export default function FeedbackPage() {
                   : 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--muted)]'
               }`}
             >
-              {o.label}
+              {tt(o.label)}
             </button>
           ))}
         </div>
@@ -201,11 +210,10 @@ export default function FeedbackPage() {
           <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/10 blur-2xl" />
           <div className="relative">
             <p className="text-base font-extrabold text-white mb-1.5">
-              서비스를 더 나아지게 도와주세요
+              {tt('서비스를 더 나아지게 도와주세요')}
             </p>
             <p className="text-xs text-white/90 leading-relaxed">
-              버그·기능·UI 어떤 제안이든 환영해요. 좋아요가 모이면 우선 검토하고,
-              운영자가 직접 답글로 진행 상황을 알려드려요.
+              {tt('버그·기능·UI 어떤 제안이든 환영해요. 좋아요가 모이면 우선 검토하고, 운영자가 직접 답글로 진행 상황을 알려드려요.')}
             </p>
           </div>
         </div>
@@ -217,8 +225,8 @@ export default function FeedbackPage() {
             <div className="w-16 h-16 rounded-full bg-emerald-50 dark:bg-emerald-950/30 mx-auto mb-3 flex items-center justify-center">
               <MessageSquare size={28} className="text-emerald-500" />
             </div>
-            <p className="text-base font-extrabold mb-1">아직 글이 없어요</p>
-            <p className="text-sm text-[var(--muted)]">첫 제안을 남겨주세요</p>
+            <p className="text-base font-extrabold mb-1">{tt('아직 글이 없어요')}</p>
+            <p className="text-sm text-[var(--muted)]">{tt('첫 제안을 남겨주세요')}</p>
           </div>
         ) : (
           posts.map(p => {
@@ -234,20 +242,20 @@ export default function FeedbackPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-[var(--card-border)]/40 text-[var(--muted)]">
-                        {CATEGORY_LABEL[p.category]}
+                        {tt(CATEGORY_LABEL[p.category])}
                       </span>
                       <span className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full ${STATUS_COLOR[p.status]}`}>
-                        {STATUS_LABEL[p.status]}
+                        {tt(STATUS_LABEL[p.status])}
                       </span>
                       {!p.is_public && (
                         <span className="text-[10px] font-bold inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-[var(--muted)]">
-                          <Lock size={9} /> 비공개
+                          <Lock size={9} /> {tt('비공개')}
                         </span>
                       )}
                     </div>
                     <p className="text-[17px] font-extrabold mt-1.5 text-[var(--foreground)] leading-snug break-keep">{p.title}</p>
                     <p className="text-xs text-[var(--muted)] mt-1 font-medium">
-                      {p.author_name} <span className="text-[var(--card-border)]">·</span> {timeAgo(p.created_at)}
+                      {p.author_name} <span className="text-[var(--card-border)]">·</span> {timeAgo(p.created_at, locale)}
                     </p>
                   </div>
                 </div>
@@ -260,7 +268,7 @@ export default function FeedbackPage() {
                     onClick={() => toggleExpand(p.id)}
                     className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400 mt-1.5 active:scale-95"
                   >
-                    {isOpen ? '접기 ↑' : '더 보기 ↓'}
+                    {isOpen ? (locale === 'en' ? 'Collapse ↑' : '접기 ↑') : (locale === 'en' ? 'Read more ↓' : '더 보기 ↓')}
                   </button>
                 )}
 
@@ -270,7 +278,7 @@ export default function FeedbackPage() {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={p.image_url}
-                      alt="첨부"
+                      alt={tt('첨부')}
                       className="w-full max-h-[420px] object-contain cursor-pointer"
                       onClick={() => window.open(p.image_url!, '_blank', 'noopener')}
                     />
@@ -284,9 +292,9 @@ export default function FeedbackPage() {
                       <div className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-sm">
                         <Check size={13} className="text-white" strokeWidth={3} />
                       </div>
-                      <span className="text-xs font-extrabold text-emerald-700 dark:text-emerald-300">운영자 답글</span>
+                      <span className="text-xs font-extrabold text-emerald-700 dark:text-emerald-300">{tt('운영자 답글')}</span>
                       {p.admin_replied_at && (
-                        <span className="text-[10px] text-[var(--muted)]">· {timeAgo(p.admin_replied_at)}</span>
+                        <span className="text-[10px] text-[var(--muted)]">· {timeAgo(p.admin_replied_at, locale)}</span>
                       )}
                     </div>
                     <p className="text-[14px] text-emerald-900 dark:text-emerald-100 leading-relaxed whitespace-pre-wrap break-keep">
@@ -313,15 +321,15 @@ export default function FeedbackPage() {
                       onClick={() => handleDelete(p.id)}
                       className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs text-rose-600 dark:text-rose-400 font-semibold active:scale-95"
                     >
-                      <Trash2 size={11} /> 삭제
+                      <Trash2 size={11} /> {tt('삭제')}
                     </button>
                   ) : user ? (
                     <button
                       onClick={() => setReportTarget(p)}
                       className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs text-[var(--muted)] font-semibold active:scale-95"
-                      aria-label="신고"
+                      aria-label={tt('신고')}
                     >
-                      <Flag size={11} /> 신고
+                      <Flag size={11} /> {tt('신고')}
                     </button>
                   ) : null}
                 </div>
@@ -334,19 +342,19 @@ export default function FeedbackPage() {
       {/* FAB — 큼직하고 또렷한 에메랄드 CTA */}
       <button
         onClick={() => {
-          if (!user) { showToast('로그인이 필요해요', 'warn'); return; }
+          if (!user) { showToast(tt('로그인이 필요해요'), 'warn'); return; }
           setComposeOpen(true);
         }}
-        aria-label="제안 쓰기"
+        aria-label={tt('제안 쓰기')}
         className="fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+88px)] z-30 px-5 py-3.5 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base shadow-xl shadow-emerald-500/40 active:scale-95 inline-flex items-center gap-2 transition"
       >
-        <Plus size={20} strokeWidth={3} /> 제안 쓰기
+        <Plus size={20} strokeWidth={3} /> {tt('제안 쓰기')}
       </button>
 
       {composeOpen && (
         <ComposeModal
           onClose={() => setComposeOpen(false)}
-          onCreated={() => { setComposeOpen(false); load(); showToast('✨ 제안이 등록됐어요'); }}
+          onCreated={() => { setComposeOpen(false); load(); showToast(tt('✨ 제안이 등록됐어요')); }}
           onError={(msg) => showToast(msg, 'warn')}
         />
       )}
@@ -365,9 +373,9 @@ export default function FeedbackPage() {
               <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center">
                 <Flag size={24} className="text-amber-600" />
               </div>
-              <h3 className="text-base font-bold">게시글 신고</h3>
+              <h3 className="text-base font-bold">{tt('게시글 신고')}</h3>
               <p className="text-xs text-[var(--muted)] text-center leading-relaxed">
-                신고 사유를 선택해주세요. 3회 누적되면 자동 숨김 처리되며 24시간 안에 운영자가 검토합니다.
+                {tt('신고 사유를 선택해주세요. 3회 누적되면 자동 숨김 처리되며 24시간 안에 운영자가 검토합니다.')}
               </p>
             </div>
             <div className="space-y-1.5">
@@ -383,7 +391,7 @@ export default function FeedbackPage() {
                   disabled={reporting}
                   className="w-full px-3 py-3 rounded-xl bg-[var(--card-border)]/30 text-sm font-semibold disabled:opacity-50 active:bg-[var(--card-border)]/60"
                 >
-                  {opt.label}
+                  {tt(opt.label)}
                 </button>
               ))}
             </div>
@@ -392,7 +400,7 @@ export default function FeedbackPage() {
               disabled={reporting}
               className="w-full mt-3 py-2.5 text-sm text-[var(--muted)] disabled:opacity-50"
             >
-              취소
+              {tt('취소')}
             </button>
           </div>
         </div>
@@ -409,6 +417,7 @@ function ComposeModal({ onClose, onCreated, onError }: {
   onError: (msg: string) => void;
 }) {
   const { user } = useAuth();
+  const { tt, locale } = useI18n();
   const [category, setCategory] = useState<FeedbackCategory>('bug');
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -422,8 +431,8 @@ function ComposeModal({ onClose, onCreated, onError }: {
   const handleImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    if (!f.type.startsWith('image/')) { onError('이미지 파일만 첨부할 수 있어요'); return; }
-    if (f.size > 10 * 1024 * 1024) { onError('이미지가 10MB 보다 커요'); return; }
+    if (!f.type.startsWith('image/')) { onError(tt('이미지 파일만 첨부할 수 있어요')); return; }
+    if (f.size > 10 * 1024 * 1024) { onError(tt('이미지가 10MB 보다 커요')); return; }
     setImageFile(f);
     const reader = new FileReader();
     reader.onload = () => setImagePreview(reader.result as string);
@@ -438,8 +447,8 @@ function ComposeModal({ onClose, onCreated, onError }: {
   const handleSubmit = async () => {
     const t = title.trim();
     const b = body.trim();
-    if (t.length < 2) { onError('제목이 너무 짧아요'); return; }
-    if (b.length < 5) { onError('내용이 너무 짧아요'); return; }
+    if (t.length < 2) { onError(tt('제목이 너무 짧아요')); return; }
+    if (b.length < 5) { onError(tt('내용이 너무 짧아요')); return; }
     setSubmitting(true);
     try {
       // 이미지 있으면 먼저 업로드 후 URL 받아 createFeedback 에 전달
@@ -448,7 +457,8 @@ function ComposeModal({ onClose, onCreated, onError }: {
         try {
           imageUrl = await uploadFeedbackImage(user.id, imageFile);
         } catch (e) {
-          onError(`이미지 업로드 실패 — ${e instanceof Error ? e.message.slice(0, 80) : '알 수 없는 오류'}`);
+          const reason = e instanceof Error ? e.message.slice(0, 80) : tt('알 수 없는 오류');
+          onError(`${tt('이미지 업로드 실패')} — ${reason}`);
           setSubmitting(false);
           return;
         }
@@ -457,7 +467,7 @@ function ComposeModal({ onClose, onCreated, onError }: {
       track('feedback_create', { category, is_public: isPublic, body_length: b.length, has_image: !!imageUrl });
       onCreated();
     } catch (e) {
-      onError(e instanceof Error ? e.message : '등록 실패');
+      onError(e instanceof Error ? e.message : tt('등록 실패'));
     } finally {
       setSubmitting(false);
     }
@@ -484,14 +494,14 @@ function ComposeModal({ onClose, onCreated, onError }: {
                 <MessageSquare size={18} className="text-emerald-600" />
               </div>
               <div>
-                <h3 className="text-lg font-extrabold tracking-tight">제안 쓰기</h3>
-                <p className="text-[11px] text-[var(--muted)]">의견을 들려주세요</p>
+                <h3 className="text-lg font-extrabold tracking-tight">{tt('제안 쓰기')}</h3>
+                <p className="text-[11px] text-[var(--muted)]">{tt('의견을 들려주세요')}</p>
               </div>
             </div>
             <button
               onClick={onClose}
               className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90 transition"
-              aria-label="닫기"
+              aria-label={tt('닫기')}
             >
               <X size={20} />
             </button>
@@ -502,7 +512,7 @@ function ComposeModal({ onClose, onCreated, onError }: {
         <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-5">
           {/* 카테고리 — 2x2 grid, 큰 카드 */}
           <div>
-            <label className="block text-sm font-extrabold text-[var(--foreground)] mb-2">카테고리</label>
+            <label className="block text-sm font-extrabold text-[var(--foreground)] mb-2">{tt('카테고리')}</label>
             <div className="grid grid-cols-2 gap-2">
               {(['bug', 'feature', 'ui', 'other'] as FeedbackCategory[]).map(c => {
                 const Icon = CATEGORY_ICONS[c];
@@ -518,7 +528,7 @@ function ComposeModal({ onClose, onCreated, onError }: {
                     }`}
                   >
                     <Icon size={18} className={active ? 'text-white' : 'text-emerald-500'} />
-                    {CATEGORY_LABEL[c]}
+                    {tt(CATEGORY_LABEL[c])}
                   </button>
                 );
               })}
@@ -528,17 +538,17 @@ function ComposeModal({ onClose, onCreated, onError }: {
           {/* build 173.1 #2: 이미지 첨부 — 카테고리 다음 (스크롤 안 해도 노출). compact 형태 */}
           <div>
             <label className="block text-sm font-extrabold text-[var(--foreground)] mb-2">
-              사진 첨부 <span className="text-[11px] text-[var(--muted)] font-medium">(선택 · 캡쳐 화면 첨부 가능)</span>
+              {tt('사진 첨부')} <span className="text-[11px] text-[var(--muted)] font-medium">{tt('(선택 · 캡쳐 화면 첨부 가능)')}</span>
             </label>
             {imagePreview ? (
               <div className="relative rounded-2xl overflow-hidden border-2 border-emerald-200/60 dark:border-emerald-800/40">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={imagePreview} alt="첨부 이미지" className="w-full max-h-[220px] object-contain bg-[var(--card)]" />
+                <img src={imagePreview} alt={tt('첨부 이미지')} className="w-full max-h-[220px] object-contain bg-[var(--card)]" />
                 <button
                   type="button"
                   onClick={clearImage}
                   className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/65 text-white flex items-center justify-center active:scale-90 shadow-md"
-                  aria-label="첨부 이미지 제거"
+                  aria-label={tt('첨부 이미지 제거')}
                 >
                   <X size={16} strokeWidth={2.5} />
                 </button>
@@ -550,7 +560,7 @@ function ComposeModal({ onClose, onCreated, onError }: {
                 className="w-full py-3.5 rounded-2xl border-2 border-dashed border-emerald-300/60 bg-emerald-50/30 dark:bg-emerald-950/15 text-emerald-700 dark:text-emerald-300 font-bold text-sm active:scale-[0.99] inline-flex items-center justify-center gap-2 hover:border-emerald-400 hover:bg-emerald-50/60 transition"
               >
                 <ImagePlus size={20} />
-                캡쳐 화면 / 사진 첨부하기
+                {tt('캡쳐 화면 / 사진 첨부하기')}
               </button>
             )}
             <input
@@ -564,11 +574,11 @@ function ComposeModal({ onClose, onCreated, onError }: {
 
           {/* 제목 — 큰 input */}
           <div>
-            <label className="block text-sm font-extrabold text-[var(--foreground)] mb-2">제목</label>
+            <label className="block text-sm font-extrabold text-[var(--foreground)] mb-2">{tt('제목')}</label>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value.slice(0, 120))}
-              placeholder="한 줄로 요약해주세요"
+              placeholder={tt('한 줄로 요약해주세요')}
               className="w-full px-4 py-4 rounded-2xl border-2 border-[var(--card-border)] bg-[var(--card)] text-[17px] font-semibold focus:outline-none focus:border-emerald-500 focus:bg-emerald-50/40 dark:focus:bg-emerald-950/20 transition placeholder:text-[var(--muted)] placeholder:font-normal"
             />
             <p className="text-[11px] text-[var(--muted)] mt-1.5 px-1">{title.length}/120</p>
@@ -576,19 +586,31 @@ function ComposeModal({ onClose, onCreated, onError }: {
 
           {/* 내용 — 큰 textarea */}
           <div>
-            <label className="block text-sm font-extrabold text-[var(--foreground)] mb-2">내용</label>
+            <label className="block text-sm font-extrabold text-[var(--foreground)] mb-2">{tt('내용')}</label>
             <textarea
               value={body}
               onChange={(e) => setBody(e.target.value.slice(0, 4000))}
               rows={9}
               placeholder={
-                category === 'bug'
-                  ? '어떤 화면에서\n어떻게 했을 때\n어떻게 됐는지\n\n구체적으로 알려주시면 빠르게 고칠 수 있어요'
-                  : category === 'feature'
-                  ? '어떤 기능이\n왜 필요한지\n어디서 쓰고 싶은지\n\n자유롭게 들려주세요'
-                  : category === 'ui'
-                  ? '어떤 화면의\n어떤 부분이\n어떻게 개선되면 좋을지'
-                  : '자유롭게 의견을 들려주세요'
+                locale === 'en'
+                  ? (
+                      category === 'bug'
+                        ? 'Which screen\nWhat you did\nWhat happened\n\nThe more specific, the faster we can fix it'
+                        : category === 'feature'
+                        ? 'What feature\nWhy you need it\nWhere you would use it\n\nFeel free to share'
+                        : category === 'ui'
+                        ? 'Which screen\nWhich part\nHow it could be improved'
+                        : 'Share your thoughts freely'
+                    )
+                  : (
+                      category === 'bug'
+                        ? '어떤 화면에서\n어떻게 했을 때\n어떻게 됐는지\n\n구체적으로 알려주시면 빠르게 고칠 수 있어요'
+                        : category === 'feature'
+                        ? '어떤 기능이\n왜 필요한지\n어디서 쓰고 싶은지\n\n자유롭게 들려주세요'
+                        : category === 'ui'
+                        ? '어떤 화면의\n어떤 부분이\n어떻게 개선되면 좋을지'
+                        : '자유롭게 의견을 들려주세요'
+                    )
               }
               className="w-full px-4 py-4 rounded-2xl border-2 border-[var(--card-border)] bg-[var(--card)] text-[17px] leading-relaxed focus:outline-none focus:border-emerald-500 focus:bg-emerald-50/40 dark:focus:bg-emerald-950/20 transition resize-none placeholder:text-[var(--muted)] placeholder:text-[15px] placeholder:leading-relaxed"
             />
@@ -596,7 +618,7 @@ function ComposeModal({ onClose, onCreated, onError }: {
               <span className="text-[11px] text-[var(--muted)]">{body.length}/4000</span>
               {body.length >= 5 && (
                 <span className="text-[11px] text-emerald-600 font-bold inline-flex items-center gap-0.5">
-                  <Check size={11} /> 충분히 적었어요
+                  <Check size={11} /> {tt('충분히 적었어요')}
                 </span>
               )}
             </div>
@@ -621,12 +643,12 @@ function ComposeModal({ onClose, onCreated, onError }: {
             </div>
             <div className="flex-1 min-w-0">
               <p className={`text-sm font-extrabold ${isPublic ? 'text-emerald-700 dark:text-emerald-300' : 'text-[var(--foreground)]'}`}>
-                {isPublic ? '공개로 등록' : '비공개 (나·운영자만)'}
+                {isPublic ? tt('공개로 등록') : tt('비공개 (나·운영자만)')}
               </p>
               <p className="text-[12px] text-[var(--muted)] mt-0.5 leading-snug">
                 {isPublic
-                  ? '다른 러너가 좋아요를 누를 수 있어요. 같은 의견이 모이면 우선 반영됩니다.'
-                  : '공개 게시판에는 노출되지 않아요. 운영자만 볼 수 있어요.'}
+                  ? tt('다른 러너가 좋아요를 누를 수 있어요. 같은 의견이 모이면 우선 반영됩니다.')
+                  : tt('공개 게시판에는 노출되지 않아요. 운영자만 볼 수 있어요.')}
               </p>
             </div>
             <div className={`w-11 h-6 rounded-full flex-shrink-0 mt-1 transition relative ${
@@ -650,10 +672,10 @@ function ComposeModal({ onClose, onCreated, onError }: {
             {submitting ? (
               <>
                 <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
-                등록 중…
+                {tt('등록 중…')}
               </>
             ) : (
-              <><Check size={18} strokeWidth={3} /> 등록</>
+              <><Check size={18} strokeWidth={3} /> {tt('등록')}</>
             )}
           </button>
         </div>

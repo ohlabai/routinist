@@ -1,6 +1,9 @@
 // 주간·월간 공유카드용 데이터 fetch (build 195).
+// build 208 #1: route_data + 명언 + 지역 라벨 + handle 까지 묶어서 한 번에 — 일간 ShareCard 폼 통일.
 
 import { getSupabase } from './supabase';
+import { fetchRandomQuote } from './quotes-data';
+import { detectRegionLabel } from './region-from-gps';
 import type { PeriodChartData } from './period-share-canvas';
 
 interface ActivityRow {
@@ -8,6 +11,41 @@ interface ActivityRow {
   distance_km: number | string;
   duration_seconds: number | null;
   pace_avg_sec_per_km: number | null;
+  route_data?: { coordinates?: number[][] } | null;
+}
+
+interface ProfileRow {
+  region_si?: string | null;
+  region_gu?: string | null;
+  country_code?: string | null;
+  handle?: string | null;
+  display_name?: string | null;
+}
+
+// 활동의 route_data.coordinates 에서 [lng, lat] 만 추려 routes 배열로 반환.
+// 너무 dense 한 경로는 down-sample 해서 캔버스 부담 줄임 (build 138 패턴).
+function extractRoutes(rows: ActivityRow[]): Array<Array<[number, number]>> {
+  const out: Array<Array<[number, number]>> = [];
+  for (const r of rows) {
+    const coords = r.route_data?.coordinates;
+    if (!Array.isArray(coords) || coords.length < 2) continue;
+    // 길면 down-sample (최대 200점)
+    const step = coords.length > 200 ? Math.ceil(coords.length / 200) : 1;
+    const pts: Array<[number, number]> = [];
+    for (let i = 0; i < coords.length; i += step) {
+      const c = coords[i];
+      if (Array.isArray(c) && typeof c[0] === 'number' && typeof c[1] === 'number') {
+        pts.push([c[0], c[1]]);
+      }
+    }
+    // 마지막 점 보장
+    const last = coords[coords.length - 1];
+    if (Array.isArray(last) && pts[pts.length - 1] !== last) {
+      pts.push([last[0] as number, last[1] as number]);
+    }
+    if (pts.length >= 2) out.push(pts);
+  }
+  return out;
 }
 
 function userLocalDate(d: Date): string {
@@ -71,9 +109,10 @@ export async function fetchWeekChartData(userId: string, userName: string): Prom
   const prevEndIso = userLocalDate(prevWeekEnd);
 
   // 이번 주 + 지난 주 활동 한 번에 fetch (range)
+  // build 208 #1: route_data 추가 — 지도 합성용
   const { data: rows } = await supabase
     .from('activities')
-    .select('activity_date,distance_km,duration_seconds,pace_avg_sec_per_km')
+    .select('activity_date,distance_km,duration_seconds,pace_avg_sec_per_km,route_data')
     .eq('user_id', userId)
     .gte('activity_date', prevStartIso)
     .lte('activity_date', weekEndIso);
@@ -111,12 +150,26 @@ export async function fetchWeekChartData(userId: string, userName: string): Prom
     }
   }
 
-  // 랭킹
-  const { data: heroData } = await supabase.rpc('find_hero_rank', {
-    target_user_id: userId, time_axis: 'week',
-  });
+  // 랭킹 + 프로필 + 명언 — 병렬
+  const [{ data: heroData }, { data: profileData }, quote] = await Promise.all([
+    supabase.rpc('find_hero_rank', { target_user_id: userId, time_axis: 'week' }),
+    supabase.from('profiles').select('region_si,region_gu,country_code,handle,display_name').eq('id', userId).single(),
+    fetchRandomQuote('ko').catch(() => null),
+  ]);
   const hero = Array.isArray(heroData) ? heroData[0] : null;
   const rankLine = rankLineFromHero(hero, '이번 주');
+
+  // 이번 주 활동의 routes 합성 (지난 주는 제외)
+  const thisWeekRows = activities.filter(a =>
+    a.activity_date && a.activity_date >= weekStartIso && a.activity_date <= weekEndIso
+  );
+  const routes = extractRoutes(thisWeekRows);
+
+  // 지역 라벨 — GPS 첫 좌표 + profile fallback
+  const profile = (profileData ?? null) as ProfileRow | null;
+  const firstCoord: [number, number] | null = routes[0]?.[0] ?? null;
+  const regionLabel = detectRegionLabel(firstCoord, profile);
+  const userHandle = profile?.handle ? `@${profile.handle}` : `@${userName}`;
 
   // 라벨 (5/19 ~ 5/25)
   const fmtMd = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
@@ -135,6 +188,10 @@ export async function fetchWeekChartData(userId: string, userName: string): Prom
       avgPaceSec: paceCount > 0 ? Math.round(paceSum / paceCount) : null,
       runs,
       rankLine,
+      quote: quote ? { text: quote.text, author: quote.author ?? '' } : null,
+      routes,
+      regionLabel,
+      userHandle,
     },
   };
 }
@@ -157,7 +214,7 @@ export async function fetchMonthChartData(userId: string, userName: string): Pro
 
   const { data: rows } = await supabase
     .from('activities')
-    .select('activity_date,distance_km,duration_seconds,pace_avg_sec_per_km')
+    .select('activity_date,distance_km,duration_seconds,pace_avg_sec_per_km,route_data')
     .eq('user_id', userId)
     .gte('activity_date', prevStartIso)
     .lte('activity_date', endIso);
@@ -195,11 +252,23 @@ export async function fetchMonthChartData(userId: string, userName: string): Pro
     }
   }
 
-  const { data: heroData } = await supabase.rpc('find_hero_rank', {
-    target_user_id: userId, time_axis: 'month',
-  });
+  const [{ data: heroData }, { data: profileData }, quote] = await Promise.all([
+    supabase.rpc('find_hero_rank', { target_user_id: userId, time_axis: 'month' }),
+    supabase.from('profiles').select('region_si,region_gu,country_code,handle,display_name').eq('id', userId).single(),
+    fetchRandomQuote('ko').catch(() => null),
+  ]);
   const hero = Array.isArray(heroData) ? heroData[0] : null;
   const rankLine = rankLineFromHero(hero, '이번 달');
+
+  const thisMonthRows = activities.filter(a =>
+    a.activity_date && a.activity_date >= startIso && a.activity_date <= endIso
+  );
+  const routes = extractRoutes(thisMonthRows);
+
+  const profile = (profileData ?? null) as ProfileRow | null;
+  const firstCoord: [number, number] | null = routes[0]?.[0] ?? null;
+  const regionLabel = detectRegionLabel(firstCoord, profile);
+  const userHandle = profile?.handle ? `@${profile.handle}` : `@${userName}`;
 
   const periodLabel = `${yy}년 ${mm + 1}월`;
 
@@ -216,6 +285,10 @@ export async function fetchMonthChartData(userId: string, userName: string): Pro
       avgPaceSec: paceCount > 0 ? Math.round(paceSum / paceCount) : null,
       runs,
       rankLine,
+      quote: quote ? { text: quote.text, author: quote.author ?? '' } : null,
+      routes,
+      regionLabel,
+      userHandle,
     },
   };
 }

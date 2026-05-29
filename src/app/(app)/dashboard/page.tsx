@@ -32,7 +32,6 @@ import LazyMount from '@/components/LazyMount';
 import { useI18n } from '@/lib/i18n';
 import AppLogo from '@/components/AppLogo';
 import HomeRankingHero from '@/components/home/HomeRankingHero';
-import TrackStartCTA from '@/components/home/TrackStartCTA';
 import SharePeriodEntry from '@/components/home/SharePeriodEntry';
 import SeasonRecapCard from '@/components/home/SeasonRecapCard';
 import StreakWarningCard from '@/components/home/StreakWarningCard';
@@ -577,11 +576,19 @@ export default function DashboardPage() {
   return (
     <PullToRefresh onRefresh={handleRefresh}>
     <div className="max-w-lg mx-auto pb-8 bg-[var(--background)] min-h-screen">
-    {/* Sticky Header — 히스토리 칩은 #23 기간별 상세 통계 카드 헤더로 이동 (build 100 재배치) */}
+    {/* Sticky Header — build 208 #6-2: 좌 Home 로고/타이틀, 우 컴팩트 START 칩 고정. */}
     <header className="sticky top-0 z-20 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
       <div className="px-4 py-3 flex items-center gap-2">
         <AppLogo size={28} />
         <h1 className="text-xl font-extrabold tracking-tight">{t('home.title')}</h1>
+        <Link
+          href="/track"
+          className="ml-auto inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-bold text-sm shadow-md shadow-emerald-500/30 active:scale-95 transition"
+          aria-label={tt('달리기 시작하기')}
+        >
+          <MapPin size={14} />
+          <span className="leading-none">{locale === 'en' ? 'Start' : '시작'}</span>
+        </Link>
       </div>
     </header>
       {syncToast && (
@@ -675,9 +682,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* 6 달리기 시작 CTA (build 207 이동) — hero stats 바로 아래 prominent 위치.
-            상단 알림(SyncStaleBadge 등) 으로 밀려도 hero 다음 자리라 항상 첫 화면 안. */}
-        <TrackStartCTA />
+        {/* 6 달리기 시작 — build 208 #6-2: sticky header 우상단 START 칩으로 이동. 기존 큰 카드 제거. */}
 
         {/* 6.1 이달 목표 */}
         <div className={`mx-4 card p-5 relative overflow-hidden ${goalKm > 0 && goalProgress >= 100 ? 'goal-achieved' : ''}`}>

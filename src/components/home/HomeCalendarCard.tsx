@@ -335,29 +335,29 @@ export default function HomeCalendarCard() {
             <p className="text-xs text-[var(--muted)] text-center mb-5">
               {locale === 'en' ? 'Pick a period to share' : '기간을 골라주세요'}
             </p>
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               <button
                 onClick={() => { setPeriodPickerOpen(false); setShareCardOpen(true); }}
                 disabled={periodLoading !== null}
-                className="w-full py-3.5 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base shadow-md shadow-emerald-500/30 active:scale-[0.98] disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                className="w-full py-5 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-lg shadow-md shadow-emerald-500/30 active:scale-[0.98] disabled:opacity-50 inline-flex items-center justify-center gap-2.5"
               >
-                <Share2 size={16} />
+                <Share2 size={20} />
                 {locale === 'en' ? 'Today' : '오늘'}
               </button>
               <button
                 onClick={() => openPeriod('week')}
                 disabled={periodLoading !== null}
-                className="w-full py-3.5 rounded-2xl bg-[var(--card)] border-2 border-emerald-500/40 text-[var(--foreground)] font-extrabold text-base active:scale-[0.98] disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                className="w-full py-5 rounded-2xl bg-[var(--card)] border-2 border-emerald-500/50 text-[var(--foreground)] font-extrabold text-lg active:scale-[0.98] disabled:opacity-50 inline-flex items-center justify-center gap-2.5"
               >
-                {periodLoading === 'week' ? <span className="animate-spin">⏳</span> : null}
+                {periodLoading === 'week' ? <span className="animate-spin text-xl">⏳</span> : null}
                 {locale === 'en' ? 'This week' : '이번 주'}
               </button>
               <button
                 onClick={() => openPeriod('month')}
                 disabled={periodLoading !== null}
-                className="w-full py-3.5 rounded-2xl bg-[var(--card)] border-2 border-emerald-500/40 text-[var(--foreground)] font-extrabold text-base active:scale-[0.98] disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                className="w-full py-5 rounded-2xl bg-[var(--card)] border-2 border-emerald-500/50 text-[var(--foreground)] font-extrabold text-lg active:scale-[0.98] disabled:opacity-50 inline-flex items-center justify-center gap-2.5"
               >
-                {periodLoading === 'month' ? <span className="animate-spin">⏳</span> : null}
+                {periodLoading === 'month' ? <span className="animate-spin text-xl">⏳</span> : null}
                 {locale === 'en' ? 'This month' : '이번 달'}
               </button>
             </div>

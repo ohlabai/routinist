@@ -281,25 +281,27 @@ function drawCard(
       ctx.stroke();
     }
 
-    // 지역 라벨 — 지도 상단 좌측 (build 136). "서울 강남" 또는 "중국 항저우" 형태.
-    if (regionLabel) {
-      ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'alphabetic';
-      const labelText = `📍 ${regionLabel}`;
-      const padX = 18;
-      const textW = ctx.measureText(labelText).width;
-      const labelX = padding;
-      const labelY = mapY + 8;
-      // 반투명 알약 배경
-      ctx.fillStyle = bgImage ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.18)';
-      ctx.beginPath();
-      ctx.roundRect(labelX, labelY, textW + padX * 2, 44, 22);
-      ctx.fill();
-      ctx.fillStyle = '#ffffff';
-      ctx.fillText(labelText, labelX + padX, labelY + 30);
-      ctx.textAlign = 'center';
-    }
+    // 지역 라벨 — build 208 #6-3: 지도 좌상단(경로 가림) → 카드 최상단 center 알약으로 이동.
+    // 아래 quote 영역 (y=200~) 위 안전 공간에 표시.
+  }
+  if (regionLabel) {
+    ctx.font = 'bold 30px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    const labelText = `📍 ${regionLabel}`;
+    const padX = 22;
+    const textW = ctx.measureText(labelText).width;
+    const pillW = textW + padX * 2;
+    const pillH = 50;
+    const labelX = (W - pillW) / 2;
+    const labelY = 110;
+    ctx.fillStyle = bgImage ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.18)';
+    ctx.beginPath();
+    ctx.roundRect(labelX, labelY, pillW, pillH, 25);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(labelText, labelX + padX, labelY + 35);
+    ctx.textAlign = 'center';
   }
 
   const mainColor = bgImage ? '#ffffff' : theme.textMain;

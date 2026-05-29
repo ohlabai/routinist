@@ -21,6 +21,14 @@ export interface PeriodChartData {
   avgPaceSec: number | null;      // 이번 기간 평균 페이스
   runs: number;
   rankLine: string | null;        // 옵션 D — "8위 · 강남구 50명" 또는 "우리 동네 최초!" 또는 null
+  // build 208 #1: 일간 ShareCard 와 동일 폼 — quote + map + region + handle 추가.
+  // 모든 필드 optional → 데이터 없으면 그냥 해당 영역 skip (기존 로직과 호환).
+  quote?: { text: string; author: string } | null;
+  routes?: Array<Array<[number, number]>>;  // 기간 내 모든 활동 GPS 경로 합성 ([lng, lat])
+  regionLabel?: string | null;             // "서울 강남 · 1위" 등 (rankLine 의 핵심부)
+  userHandle?: string | null;              // "@hans" 풋터용
+  totalCalories?: number;                  // 4-stat 칼로리 컬럼용
+  totalDays?: number;                      // 4-stat 일수 컬럼용
 }
 
 const W = 1080;
@@ -76,92 +84,249 @@ function drawBackground(c: FrameContext) {
   ctx.fillRect(0, 0, W, H);
 }
 
-function drawHeader(c: FrameContext) {
+function drawRegionPill(c: FrameContext) {
+  // build 208 #1: 일간 ShareCard 와 동일 — 카드 최상단 center 알약.
+  // rankLine 에 "강남구 50대 남성 이번 주 1위 ✨" 풀텍스트가 있으면 그걸 표시,
+  // 없으면 regionLabel + periodLabel 폴백.
   const { ctx, data, p } = c;
-  const alpha = Math.min(1, p / 0.15);  // 0~0.15 fade in
+  const alpha = Math.min(1, p / 0.15);
   ctx.globalAlpha = alpha;
 
-  // 기간 라벨 (작게, 상단)
-  ctx.fillStyle = C.emeraldLight;
-  ctx.font = '700 38px system-ui, -apple-system, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText(data.periodLabel.toUpperCase(), W / 2, 140);
-
-  // 사용자 이름 + "의 기록"
+  const labelText = data.rankLine
+    ? `📍 ${data.rankLine}`
+    : data.regionLabel
+      ? `📍 ${data.regionLabel}`
+      : `📍 ${data.periodLabel}`;
+  ctx.font = 'bold 30px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  const padX = 22;
+  const textW = ctx.measureText(labelText).width;
+  const pillW = textW + padX * 2;
+  const pillH = 50;
+  const labelX = (W - pillW) / 2;
+  const labelY = 110;
+  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  ctx.beginPath();
+  ctx.roundRect(labelX, labelY, pillW, pillH, 25);
+  ctx.fill();
   ctx.fillStyle = C.white;
-  ctx.font = '800 80px system-ui, -apple-system, sans-serif';
-  const periodWord = data.period === 'week' ? '이번 주' : '이번 달';
-  ctx.fillText(`${data.userName}님의 ${periodWord}`, W / 2, 240);
+  ctx.fillText(labelText, labelX + padX, labelY + 35);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.globalAlpha = 1;
+}
+
+function drawQuote(c: FrameContext) {
+  // 일간 ShareCard 와 동일 layout — quote 본문 + author. y=200 부근, 3줄 wrap.
+  const { ctx, data, p } = c;
+  if (!data.quote) return;
+  const alpha = Math.min(1, Math.max(0, (p - 0.05) / 0.15));
+  ctx.globalAlpha = alpha;
+
+  const quoteText = `"${data.quote.text}"`;
+  ctx.font = 'italic 600 44px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+  ctx.fillStyle = C.white;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  const maxW = W - 140;
+
+  // wrap: word → char fallback
+  const splitByGraphemes = (text: string): string[] => {
+    const out: string[] = [];
+    let cur = '';
+    for (const ch of text) {
+      const tst = cur + ch;
+      if (ctx.measureText(tst).width > maxW && cur) {
+        out.push(cur); cur = ch;
+      } else cur = tst;
+    }
+    if (cur) out.push(cur);
+    return out;
+  };
+  const words = quoteText.split(' ');
+  const wordLines: string[] = [];
+  let cur = '';
+  for (const w of words) {
+    const t = cur ? `${cur} ${w}` : w;
+    if (ctx.measureText(t).width > maxW && cur) { wordLines.push(cur); cur = w; }
+    else cur = t;
+  }
+  if (cur) wordLines.push(cur);
+  const allLines: string[] = [];
+  for (const line of wordLines) {
+    if (ctx.measureText(line).width > maxW) allLines.push(...splitByGraphemes(line));
+    else allLines.push(line);
+  }
+  const lines = allLines.slice(0, 3);
+  const lineH = 58;
+  const startY = 220;
+  lines.forEach((ln, i) => ctx.fillText(ln, W / 2, startY + i * lineH));
+
+  if (data.quote.author) {
+    ctx.font = '500 30px -apple-system, system-ui, sans-serif';
+    ctx.fillStyle = C.muted;
+    ctx.fillText(`— ${data.quote.author}`, W / 2, startY + lines.length * lineH + 16);
+  }
+
+  ctx.globalAlpha = 1;
+}
+
+function drawMap(c: FrameContext) {
+  // build 208 #1: 기간 내 모든 활동 경로를 한 지도에 합성.
+  // bounding box = 모든 점의 min/max. 각 route 를 emerald 라인으로 그림.
+  const { ctx, data, p } = c;
+  const routes = data.routes;
+  if (!routes || routes.length === 0) return;
+
+  const alpha = Math.min(1, Math.max(0, (p - 0.1) / 0.2));
+  ctx.globalAlpha = alpha;
+
+  const padding = 120;
+  const mapW = W - padding * 2;
+  const mapH = 420;
+  const mapY = 460;
+
+  // bbox 모든 점에서 계산
+  let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+  for (const r of routes) {
+    for (const [lng, lat] of r) {
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+      if (lng < minLng) minLng = lng;
+      if (lng > maxLng) maxLng = lng;
+    }
+  }
+  if (!Number.isFinite(minLat) || !Number.isFinite(minLng)) { ctx.globalAlpha = 1; return; }
+
+  const dLng = (maxLng - minLng) || 0.001;
+  const dLat = (maxLat - minLat) || 0.001;
+  const scale = Math.min(mapW / dLng, mapH / dLat);
+  const offsetX = padding + (mapW - dLng * scale) / 2;
+  const offsetY = mapY + (mapH - dLat * scale) / 2;
+
+  // 각 route 그리기 (그림자 + 본체)
+  for (const route of routes) {
+    if (route.length < 2) continue;
+    // 그림자
+    ctx.beginPath();
+    route.forEach(([lng, lat], i) => {
+      const x = offsetX + (lng - minLng) * scale;
+      const y = offsetY + mapH - (lat - minLat) * scale;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.lineWidth = 14;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+    // 본체
+    ctx.beginPath();
+    route.forEach(([lng, lat], i) => {
+      const x = offsetX + (lng - minLng) * scale;
+      const y = offsetY + mapH - (lat - minLat) * scale;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = C.emerald;
+    ctx.lineWidth = 7;
+    ctx.stroke();
+
+    // 시작점 (작은 dot)
+    const [sLng, sLat] = route[0];
+    const sx = offsetX + (sLng - minLng) * scale;
+    const sy = offsetY + mapH - (sLat - minLat) * scale;
+    ctx.fillStyle = '#22C55E';
+    ctx.beginPath(); ctx.arc(sx, sy, 8, 0, Math.PI * 2); ctx.fill();
+  }
+
   ctx.globalAlpha = 1;
 }
 
 function drawHero(c: FrameContext) {
+  // build 208 #1: 일간 카드와 동일 — 0.00 / KILOMETERS / 4-stat row.
   const { ctx, data, p } = c;
-  // 0.1~0.7 진행률에서 숫자 카운트업
+  // 카운트업 (0.1~0.7)
   const t = Math.max(0, Math.min(1, (p - 0.1) / 0.6));
   const animKm = data.totalKm * easeOutCubic(t);
 
   const alpha = Math.min(1, p / 0.2);
   ctx.globalAlpha = alpha;
 
-  // 큰 거리 숫자. 자릿수에 따라 폰트 사이즈 + km 위치 동적 조정 (build 207 #13 fix).
-  // "173.7" 5글자처럼 길면 220px 폰트는 km 와 겹침 — 200px 로 줄이고 km 위치 우측 끝 +12 로 계산.
-  const kmStr = animKm.toFixed(1);
-  const fontSize = kmStr.length >= 5 ? 200 : 220;
+  // KM hero — 일간 형식과 동일하게 dot-anchored 중앙 정렬.
+  const distY = 1020;
+  const kmFont = 'bold 180px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+  ctx.font = kmFont;
   ctx.fillStyle = C.white;
-  ctx.font = `900 ${fontSize}px system-ui, -apple-system, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(kmStr, W / 2, 470);
-  // 'km' 라벨 위치 — 측정한 텍스트 너비 기준으로 우측에 12px 간격
-  const kmTextWidth = ctx.measureText(kmStr).width;
-  const kmRightEdge = W / 2 + kmTextWidth / 2;
-  ctx.fillStyle = C.emeraldLight;
-  ctx.font = '700 60px system-ui, -apple-system, sans-serif';
+  ctx.textBaseline = 'alphabetic';
+  const finalKmText = data.totalKm.toFixed(2);
+  const finalDotIdx = finalKmText.indexOf('.');
+  const finalIntPart = finalDotIdx >= 0 ? finalKmText.slice(0, finalDotIdx) : finalKmText;
+  const finalTotalWidth = ctx.measureText(finalKmText).width;
+  const finalIntWidth = ctx.measureText(finalIntPart).width;
+  const dotX = W / 2 - finalTotalWidth / 2 + finalIntWidth;
+  const kmText = animKm.toFixed(2);
+  const dotIdx = kmText.indexOf('.');
+  const intPart = dotIdx >= 0 ? kmText.slice(0, dotIdx) : kmText;
+  const fracPart = dotIdx >= 0 ? kmText.slice(dotIdx) : '';
+  ctx.textAlign = 'right';
+  ctx.fillText(intPart, dotX, distY);
   ctx.textAlign = 'left';
-  ctx.fillText('km', kmRightEdge + 16, 490);
+  ctx.fillText(fracPart, dotX, distY);
+  ctx.textAlign = 'center';
 
-  // 보조 stats (runs, 시간, 평균 페이스)
+  ctx.font = 'bold 56px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+  ctx.fillStyle = C.emeraldLight;
+  ctx.fillText('KILOMETERS', W / 2, distY + 60);
+
+  // 구분선
+  const lineY = distY + 110;
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(W * 0.2, lineY);
+  ctx.lineTo(W * 0.8, lineY);
+  ctx.stroke();
+
+  // 4-stat row — 시간 / 페이스 / 횟수 / (주/달 라벨)
   const hh = Math.floor(data.totalDurationSec / 3600);
   const mm = Math.floor((data.totalDurationSec % 3600) / 60);
-  const timeStr = hh > 0 ? `${hh}시간 ${mm}분` : `${mm}분`;
+  const ss = data.totalDurationSec % 60;
+  const timeStr = hh > 0
+    ? `${hh}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`
+    : `${mm}:${String(ss).padStart(2, '0')}`;
   const paceStr = data.avgPaceSec
     ? `${Math.floor(data.avgPaceSec / 60)}'${Math.floor(data.avgPaceSec % 60).toString().padStart(2, '0')}"`
-    : '—';
+    : '--';
+  const periodLabelShort = data.period === 'week' ? '이번 주' : '이번 달';
+  const runsValueStr = String(data.runs);
 
-  ctx.font = '700 42px system-ui, -apple-system, sans-serif';
-  ctx.fillStyle = C.muted;
-  ctx.textBaseline = 'top';
-  const stats = [`${data.runs}회 러닝`, timeStr, `평균 ${paceStr}`];
-  const statY = 620;
-  const gap = 70;
-  let totalW = 0;
-  const widths = stats.map(s => {
-    const w = ctx.measureText(s).width;
-    totalW += w;
-    return w;
-  });
-  totalW += gap * (stats.length - 1);
-  let x = (W - totalW) / 2;
-  stats.forEach((s, i) => {
+  const statsY = lineY + 100;
+  const stats: Array<{ label: string; value: string }> = [
+    { label: '시간', value: timeStr },
+    { label: '페이스', value: paceStr },
+    { label: '횟수', value: `${runsValueStr}회` },
+    { label: periodLabelShort, value: `${data.totalKm.toFixed(1)}km` },
+  ];
+  ctx.textBaseline = 'alphabetic';
+  stats.forEach((stat, i) => {
+    const x = W / 2 + (i - 1.5) * 220;
+    ctx.font = 'bold 48px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+    ctx.fillStyle = C.white;
+    ctx.textAlign = 'center';
+    ctx.fillText(stat.value, x, statsY);
+    ctx.font = '26px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
     ctx.fillStyle = C.muted;
-    ctx.textAlign = 'left';
-    ctx.fillText(s, x, statY);
-    x += widths[i];
-    if (i < stats.length - 1) {
-      ctx.fillStyle = C.emeraldDark;
-      ctx.fillText('·', x + gap / 2 - 10, statY);
-      x += gap;
-    }
+    ctx.fillText(stat.label, x, statsY + 42);
   });
   ctx.globalAlpha = 1;
 }
 
 function drawVerticalBars(c: FrameContext) {
   const { ctx, data, p } = c;
-  // 막대 영역: y 800 ~ 1300 (높이 500)
-  const top = 800;
-  const bottom = 1300;
+  // build 208 #1: 일간 폼 통일 — 하단으로 이동 (y 1340 ~ 1560, 높이 220).
+  // 위쪽 자리는 quote(220-360) + map(460-880) + km hero(950-1180) + 구분선/stats(1290) 가 차지.
+  const top = 1340;
+  const bottom = 1560;
   const areaH = bottom - top;
   const left = 80;
   const right = W - 80;
@@ -239,9 +404,9 @@ function drawVerticalBars(c: FrameContext) {
 
 function drawHorizontalBar(c: FrameContext) {
   const { ctx, data, p } = c;
-  // 1430 부근 — 가로 막대 (이전 vs 현재 누적)
-  const y = 1430;
-  const barH = 56;
+  // build 208 #1: 세로 막대 하단 이동에 맞춰 가로 막대 y=1640 으로 동조.
+  const y = 1640;
+  const barH = 48;
   const left = 80;
   const right = W - 80;
   const areaW = right - left;
@@ -365,24 +530,24 @@ function drawHorizontalBar(c: FrameContext) {
 }
 
 function drawFooter(c: FrameContext) {
+  // build 208 #1: 일간 ShareCard 와 동일 — "@handle | Routinist" + "Run Your Routine."
+  // rankLine 은 이미 상단 region pill 로 이동했으므로 footer 에서는 생략.
   const { ctx, data, p } = c;
   const alpha = Math.min(1, Math.max(0, (p - 0.4) / 0.2));
   ctx.globalAlpha = alpha;
 
-  // 랭킹 라인
-  if (data.rankLine) {
-    ctx.fillStyle = C.white;
-    ctx.font = '800 44px system-ui, -apple-system, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillText(data.rankLine, W / 2, 1620);
-  }
-
-  // 워터마크
-  ctx.fillStyle = C.muted;
-  ctx.font = '700 32px system-ui, -apple-system, sans-serif';
+  const handleLine = data.userHandle
+    ? `${data.userHandle} | Routinist`
+    : `@${data.userName} | Routinist`;
+  ctx.fillStyle = C.white;
+  ctx.font = '800 36px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('Routinist', W / 2, 1820);
+  ctx.textBaseline = 'top';
+  ctx.fillText(handleLine, W / 2, 1790);
+
+  ctx.fillStyle = C.muted;
+  ctx.font = '500 26px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+  ctx.fillText('Run Your Routine.', W / 2, 1840);
 
   ctx.globalAlpha = 1;
 }
@@ -392,7 +557,9 @@ export function drawPeriodFrame(canvas: HTMLCanvasElement, data: PeriodChartData
   if (!ctx) return;
   const frameCtx: FrameContext = { ctx, data, p: progress };
   drawBackground(frameCtx);
-  drawHeader(frameCtx);
+  drawRegionPill(frameCtx);
+  drawQuote(frameCtx);
+  drawMap(frameCtx);
   drawHero(frameCtx);
   drawVerticalBars(frameCtx);
   drawHorizontalBar(frameCtx);

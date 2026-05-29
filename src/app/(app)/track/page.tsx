@@ -9,6 +9,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Pause, Play, Check, MapPin, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
+import { useI18n } from '@/lib/i18n';
 import { loadGoogleMaps, API_KEY as MAPS_KEY } from '@/lib/google-maps';
 import {
   type TrackingState,
@@ -24,6 +25,7 @@ type PermState = 'unknown' | 'prompt' | 'granted' | 'denied';
 export default function TrackPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const { tt, locale } = useI18n();
 
   const [perm, setPerm] = useState<PermState>('unknown');
   // lazy initializer 로 진행 중인 트래킹 복원 — useEffect 안 setState 보다 cleaner.
@@ -199,8 +201,10 @@ export default function TrackPage() {
   const handleFinish = () => {
     if (!state) return;
     if (state.distanceMeters < 50) {
-      // 50m 미만은 저장 안 함 (실수 방지) — 확인 다이얼로그 대신 toast 후 종료
-      if (!window.confirm('이동 거리가 너무 짧아요. 그래도 저장할까요?')) return;
+      const msg = locale === 'en'
+        ? 'Distance is too short. Save anyway?'
+        : '이동 거리가 너무 짧아요. 그래도 저장할까요?';
+      if (!window.confirm(msg)) return;
     }
     const finalState: TrackingState = { ...state, status: 'idle' };
     setFinished(finalState);
@@ -210,7 +214,10 @@ export default function TrackPage() {
 
   const handleAbort = () => {
     if (!state) return;
-    if (!window.confirm('트래킹을 종료할까요? 기록은 저장되지 않습니다.')) return;
+    const msg = locale === 'en'
+      ? 'Stop tracking? Your run will not be saved.'
+      : '트래킹을 종료할까요? 기록은 저장되지 않습니다.';
+    if (!window.confirm(msg)) return;
     setState(null);
     clearState();
     router.back();
@@ -223,14 +230,19 @@ export default function TrackPage() {
         <div className="w-20 h-20 mx-auto mb-5 rounded-full bg-rose-50 dark:bg-rose-950/30 flex items-center justify-center">
           <AlertCircle size={40} className="text-rose-500" />
         </div>
-        <h1 className="text-xl font-extrabold mb-2">위치 권한이 필요해요</h1>
+        <h1 className="text-xl font-extrabold mb-2">{tt('위치 권한이 필요해요')}</h1>
         <p className="text-sm text-[var(--muted)] max-w-xs mx-auto break-keep mb-6">
-          러닝 경로를 기록하려면 위치 권한이 있어야 해요.<br />
-          설정 → Routinist → 위치에서 &quot;항상&quot; 또는 &quot;앱 사용 중&quot; 으로 바꿔주세요.
+          {locale === 'en' ? (
+            <>To record your running route, location permission is required.<br />
+            Go to Settings → Routinist → Location and pick &quot;Always&quot; or &quot;While Using App&quot;.</>
+          ) : (
+            <>러닝 경로를 기록하려면 위치 권한이 있어야 해요.<br />
+            설정 → Routinist → 위치에서 &quot;항상&quot; 또는 &quot;앱 사용 중&quot; 으로 바꿔주세요.</>
+          )}
         </p>
         <button onClick={() => router.back()}
           className="px-5 py-3 rounded-2xl bg-emerald-500 text-white text-sm font-extrabold active:scale-95">
-          돌아가기
+          {tt('돌아가기')}
         </button>
       </div>
     );
@@ -238,79 +250,130 @@ export default function TrackPage() {
 
   // 시작 전 안내 화면 (state 가 아직 없을 때)
   const hasState = state !== null;
+  const isActive = hasState && state!.status === 'active';
+  const isPaused = hasState && state!.status === 'paused';
+
+  // build 208 #2: Garmin/Nike 스타일 — 시작됨 표시 명확.
+  // - 상단 헤더에 펄스 LIVE 배지 (active 일 때만)
+  // - 시간 hero (5xl) + 거리 secondary (4xl)
+  // - 페이스 추가 (현재까지 평균) — 가민 스타일 핵심 정보
+  const paceSec = hasState && state!.distanceMeters > 50
+    ? Math.round((state!.elapsedSeconds / (state!.distanceMeters / 1000)))
+    : 0;
+  const paceLabel = paceSec > 0
+    ? `${Math.floor(paceSec / 60)}'${String(paceSec % 60).padStart(2, '0')}"`
+    : '--';
 
   return (
     <div className="fixed inset-0 bg-[var(--background)] flex flex-col">
-      {/* 상단 헤더 */}
+      {/* 상단 헤더 — 펄스 LIVE 배지 (active 일 때) */}
       <header className="flex items-center gap-2 px-3 py-3 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30 z-10">
         <button onClick={hasState ? handleAbort : () => router.back()}
-          aria-label="뒤로"
+          aria-label={tt('뒤로')}
           className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90">
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-base font-extrabold tracking-tight">
-          {hasState ? (state!.status === 'paused' ? '일시정지' : '달리는 중') : '달리기 준비'}
+          {hasState ? (isPaused ? tt('일시정지') : tt('달리는 중')) : tt('달리기 준비')}
         </h1>
+        {isActive && (
+          <div className="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30">
+            <span className="relative flex w-2 h-2">
+              <span className="absolute inset-0 rounded-full bg-emerald-500 opacity-75 animate-ping" />
+              <span className="relative rounded-full w-2 h-2 bg-emerald-500" />
+            </span>
+            <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 tracking-widest">
+              {locale === 'en' ? 'LIVE' : '기록 중'}
+            </span>
+          </div>
+        )}
+        {isPaused && (
+          <div className="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30">
+            <span className="w-2 h-2 rounded-full bg-amber-500" />
+            <span className="text-[10px] font-extrabold text-amber-600 dark:text-amber-400 tracking-widest">
+              {locale === 'en' ? 'PAUSED' : '일시정지'}
+            </span>
+          </div>
+        )}
       </header>
 
       {/* 지도 영역 */}
       <div ref={mapEl} className="flex-1 relative">
         {!MAPS_KEY && (
           <div className="absolute inset-0 flex items-center justify-center text-sm text-[var(--muted)]">
-            지도를 불러올 수 없어요
+            {tt('지도를 불러올 수 없어요')}
           </div>
         )}
       </div>
 
-      {/* 데이터 + CTA 영역 (안 3: 시간 + 거리만, 페이스 숨김) */}
+      {/* 데이터 + CTA 영역 — Garmin/Nike 스타일 hero stats */}
       <div className="bg-[var(--background)] border-t border-[var(--card-border)]/30 px-5 pt-5 pb-7 shadow-[0_-8px_24px_rgba(0,0,0,0.06)]">
         {!hasState ? (
           <div className="text-center">
-            <p className="text-sm text-[var(--muted)] mb-1">준비됐어요? 시작하면 자동으로 경로를 기록해요</p>
+            <p className="text-sm text-[var(--muted)] mb-1">
+              {locale === 'en' ? 'Ready? Tap to auto-record your route.' : '준비됐어요? 시작하면 자동으로 경로를 기록해요'}
+            </p>
             <p className="text-[11px] text-[var(--muted)]/80 mb-5 break-keep">
-              잠금 화면 상태에서도 GPS 가 계속 측정돼요. 트래킹을 종료하면 즉시 중단됩니다.
+              {locale === 'en'
+                ? 'GPS keeps measuring while the screen is locked. Tracking stops as soon as you finish.'
+                : '잠금 화면 상태에서도 GPS 가 계속 측정돼요. 트래킹을 종료하면 즉시 중단됩니다.'}
             </p>
             <button onClick={startTracking}
               className="w-full py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-lg active:scale-[0.98] shadow-md shadow-emerald-500/30 inline-flex items-center justify-center gap-2">
               <MapPin size={20} />
-              달리기 시작
+              {tt('달리기 시작')}
             </button>
           </div>
         ) : (
           <>
-            {/* 시간 + 거리 (페이스 숨김) */}
-            <div className="grid grid-cols-2 gap-3 mb-5">
+            {/* 시간 hero — 5xl, 큰 초시계 명확. tabular-nums 로 흔들림 없음. */}
+            <div className="text-center mb-4">
+              <p className="text-[10px] font-extrabold text-[var(--muted)] tracking-[0.2em] uppercase mb-1">
+                {locale === 'en' ? 'TIME' : '시간'}
+              </p>
+              <p className="text-6xl font-extrabold tracking-tight text-[var(--foreground)] tabular-nums leading-none">
+                {formatDuration(state!.elapsedSeconds)}
+              </p>
+            </div>
+
+            {/* 거리 + 페이스 — 2-col secondary */}
+            <div className="grid grid-cols-2 gap-3 mb-5 pb-4 border-b border-[var(--card-border)]/40">
               <div className="text-center">
-                <p className="text-[10px] font-extrabold text-[var(--muted)] tracking-widest uppercase mb-1">시간</p>
-                <p className="text-4xl font-extrabold tracking-tight text-[var(--foreground)] tabular-nums">
-                  {formatDuration(state!.elapsedSeconds)}
+                <p className="text-[10px] font-extrabold text-[var(--muted)] tracking-widest uppercase mb-1">
+                  {locale === 'en' ? 'DISTANCE' : '거리'}
+                </p>
+                <p className="text-3xl font-extrabold tracking-tight text-emerald-600 tabular-nums leading-none">
+                  {formatDistanceKm(state!.distanceMeters)}
+                  <span className="text-sm text-[var(--muted)] ml-1 font-bold">km</span>
                 </p>
               </div>
               <div className="text-center">
-                <p className="text-[10px] font-extrabold text-[var(--muted)] tracking-widest uppercase mb-1">거리</p>
-                <p className="text-4xl font-extrabold tracking-tight text-emerald-600 tabular-nums">
-                  {formatDistanceKm(state!.distanceMeters)}
-                  <span className="text-base text-[var(--muted)] ml-1">km</span>
+                <p className="text-[10px] font-extrabold text-[var(--muted)] tracking-widest uppercase mb-1">
+                  {locale === 'en' ? 'PACE' : '페이스'}
+                </p>
+                <p className="text-3xl font-extrabold tracking-tight text-[var(--foreground)] tabular-nums leading-none">
+                  {paceLabel}
+                  <span className="text-sm text-[var(--muted)] ml-1 font-bold">/km</span>
                 </p>
               </div>
             </div>
 
             {/* 일시정지 / 완료 */}
             <div className="grid grid-cols-2 gap-2.5">
-              {state!.status === 'active' ? (
+              {isActive ? (
                 <button onClick={handlePause}
                   className="py-4 rounded-2xl bg-[var(--card)] border-2 border-[var(--card-border)] text-[var(--foreground)] font-extrabold text-base active:scale-[0.98] inline-flex items-center justify-center gap-1.5">
-                  <Pause size={18} /> 일시정지
+                  <Pause size={18} /> {tt('일시정지')}
                 </button>
               ) : (
                 <button onClick={handleResume}
                   className="py-4 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-white font-extrabold text-base active:scale-[0.98] inline-flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/30">
-                  <Play size={18} /> 재개
+                  <Play size={18} /> {tt('재개')}
                 </button>
               )}
               <button onClick={handleFinish}
                 className="py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base active:scale-[0.98] inline-flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/30">
-                <Check size={18} /> 완료
+                <Check size={18} /> {tt('완료')}
               </button>
             </div>
           </>

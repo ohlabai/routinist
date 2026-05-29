@@ -12,6 +12,7 @@ import { getSupabase } from '@/lib/supabase';
 import { logClientInfo, logClientWarn } from '@/lib/error-logger';
 import { dataCache, CACHE_KEYS, onCacheInvalidated } from '@/lib/data-cache';
 import { useI18n, formatRank, rankSuffix, type TranslationKey } from '@/lib/i18n';
+import { readRankingFilters, onRankingFiltersChanged, type RankingFilters } from '@/lib/ranking-filters';
 
 // build 171 #4: 홈 hero axis 도 랭킹 페이지처럼 today → week. 의미 부족한 today 제거.
 type TimeAxis = 'week' | 'month' | 'year';
@@ -62,15 +63,23 @@ export default function HomeRankingHero() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
+  // build 208 #3: /ranking 탭과 필터 공유. 변경되면 즉시 재호출.
+  const [filters, setFilters] = useState<RankingFilters>(() => readRankingFilters());
 
   const hasDemographics = !!(profile?.region_gu || profile?.birth_year || profile?.gender);
+
+  useEffect(() => {
+    const off = onRankingFiltersChanged((f) => setFilters(f));
+    return off;
+  }, []);
 
   useEffect(() => {
     if (!user) return;
     if (!hasDemographics) { setLoading(false); return; }
     let cancelled = false;
 
-    const cacheKey = CACHE_KEYS.heroRank(user.id, axis);
+    const filterKey = `${filters.country?1:0}${filters.region_si?1:0}${filters.region_gu?1:0}${filters.gender?1:0}${filters.decade?1:0}${filters.starter?1:0}`;
+    const cacheKey = `${CACHE_KEYS.heroRank(user.id, axis)}:${filterKey}`;
     const cached = dataCache.get<HeroRank | null>(cacheKey);
     const hasCached = !!cached;
 
@@ -95,18 +104,35 @@ export default function HomeRankingHero() {
     (async () => {
       try {
         const supabase = getSupabase();
-        const { data, error: rpcError } = await supabase.rpc('find_hero_rank', {
+        // build 208 #3: find_hero_rank (자동) → find_my_combined_ranking (필터 적용).
+        // /ranking 탭 RankingBreakdown 과 동일 RPC + 동일 filters → 결과 동기화.
+        const { data, error: rpcError } = await supabase.rpc('find_my_combined_ranking', {
           target_user_id: user.id,
           time_axis: axis,
+          use_country: filters.country,
+          use_region_si: filters.region_si,
+          use_region_gu: filters.region_gu,
+          use_gender: filters.gender,
+          use_decade: filters.decade,
+          use_starter: filters.starter,
         });
         if (cancelled) return;
         clearTimeout(timeoutId);
         if (rpcError) throw rpcError;
         const row = Array.isArray(data) ? data[0] : data;
-        const value = row ? (row as HeroRank) : null;
+        const value: HeroRank | null = row ? {
+          scope_label: row.scope_label ?? '',
+          scope_type: row.scope_type ?? 'region',
+          rank_position: Number(row.rank_position) || 0,
+          total_in_scope: Number(row.total_in_scope) || 0,
+          my_km: Number(row.my_km) || 0,
+          km_to_next: Number(row.km_to_next) || 0,
+          target_rank: Number(row.target_rank) || 1,
+          time_axis_out: axis,
+        } : null;
         setRank(value);
         dataCache.set(cacheKey, value);
-        logClientInfo('HomeRankingHero', 'RPC ok', { ms: Date.now() - t0, hasRow: !!row, axis });
+        logClientInfo('HomeRankingHero', 'RPC ok', { ms: Date.now() - t0, hasRow: !!row, axis, filterKey });
       } catch (e) {
         const reason = e instanceof Error ? e.message : String(e);
         logClientWarn('HomeRankingHero', 'RPC fail', { reason, ms: Date.now() - t0, axis, hasCached });
@@ -116,7 +142,7 @@ export default function HomeRankingHero() {
       }
     })();
     return () => { cancelled = true; clearTimeout(timeoutId); };
-  }, [user, axis, retryKey, hasDemographics]);
+  }, [user, axis, retryKey, hasDemographics, filters]);
 
   useEffect(() => {
     const off = onCacheInvalidated((prefix) => {

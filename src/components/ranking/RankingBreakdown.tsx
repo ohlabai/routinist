@@ -12,6 +12,7 @@ import { getSupabase } from '@/lib/supabase';
 import { Globe, MapPin, Cake, Sparkles, Trophy, ChevronRight, Users, Star } from 'lucide-react';
 import CohortLeaderboardInline from './CohortLeaderboardInline';
 import { useI18n, formatRank, rankSuffix, type TranslationKey } from '@/lib/i18n';
+import { readRankingFilters, writeRankingFilters, onRankingFiltersChanged } from '@/lib/ranking-filters';
 
 type TimeAxis = 'today' | 'week' | 'month' | 'year';
 
@@ -101,15 +102,12 @@ export default function RankingBreakdown({ axis }: Props) {
   const [loading, setLoading] = useState(true);
 
   // build 205: 회원 1천명 미만 단계 — 디폴트는 국가+도시(시/도) 2단계만 ON.
-  // 너무 좁게 시작하면 모두 1~2위로 신뢰성 떨어짐. 사용자가 별 칩을 직접 켜서 좁힐 수 있음.
-  const [filters, setFilters] = useState<Record<FilterKey, boolean>>({
-    country: true,
-    region_si: true,
-    region_gu: false,
-    gender: false,
-    decade: false,
-    starter: false,
-  });
+  // build 208 #3: 동일 필터를 HomeRankingHero 와 공유 (localStorage 기반).
+  const [filters, setFilters] = useState<Record<FilterKey, boolean>>(() => readRankingFilters());
+  useEffect(() => {
+    const off = onRankingFiltersChanged((f) => setFilters(f));
+    return off;
+  }, []);
   const [combined, setCombined] = useState<CombinedRank | null>(null);
   const [combinedLoading, setCombinedLoading] = useState(true);
 
@@ -185,7 +183,11 @@ export default function RankingBreakdown({ axis }: Props) {
   }, [combined]);
 
   const toggleFilter = (key: FilterKey) => {
-    setFilters(prev => ({ ...prev, [key]: !prev[key] }));
+    setFilters(prev => {
+      const next = { ...prev, [key]: !prev[key] };
+      writeRankingFilters(next);
+      return next;
+    });
   };
 
   // build 207: scope_label 은 한국어 토큰 (e.g. "전국 50대 남성") — 영어 locale 일 땐
