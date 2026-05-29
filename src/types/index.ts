@@ -98,6 +98,11 @@ export interface Profile {
   this_month_distance_km?: number;
   this_month_runs?: number;
   this_month_updated_at?: string | null;
+  // build 198: 러닝 코치 (AI) opt-in. weight/max_hr/resting_hr 는 본인만 보임 (랭킹·비교 X).
+  weight_kg?: number | null;
+  max_hr?: number | null;
+  resting_hr?: number | null;
+  coach_opt_in?: boolean;
 }
 
 export interface Activity {

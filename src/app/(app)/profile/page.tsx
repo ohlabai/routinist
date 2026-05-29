@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ChevronRight, HelpCircle, Shield, Heart, Award, LogOut, MapPin,
-  MessageCircle, Coins, Gift, Sun, Moon, Monitor, Settings,
+  MessageCircle, Coins, Gift, Sun, Moon, Monitor, Settings, Activity as ActivityIcon,
   AlertTriangle, X, FileText, Bell, BellOff, PenLine, Camera,
 } from 'lucide-react';
 import { useEffect } from 'react';
@@ -303,6 +303,26 @@ export default function ProfilePage() {
             )}
           </div>
         </div>
+
+        {/* 러닝 코치 (AI) 진입 — build 198. opt-in 사용자 / 미가입자 모두 입장 가능 */}
+        <Link
+          href="/coach"
+          className="mt-4 flex items-center justify-between px-4 py-3.5 rounded-2xl bg-gradient-to-br from-violet-50 to-fuchsia-50 dark:from-violet-950/30 dark:to-fuchsia-950/20 border border-violet-200/50 dark:border-violet-900/40 active:scale-[0.98] transition group"
+        >
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center">
+              <ActivityIcon size={15} className="text-violet-600" />
+            </div>
+            <div>
+              <p className="text-sm font-extrabold text-violet-800 dark:text-violet-200">러닝 코치 (AI)</p>
+              <p className="text-[10px] text-violet-600/80 dark:text-violet-400/80">오늘 컨디션 · 자기 기록 분석</p>
+            </div>
+          </div>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="text-[10px] font-extrabold text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded bg-violet-100 dark:bg-violet-900/40">NEW</span>
+            <ChevronRight size={16} className="text-violet-500/70 group-active:translate-x-0.5 transition" />
+          </span>
+        </Link>
 
         {/* 마일리지 잔액 칩 — 에메랄드 그라데이션 */}
         <Link
