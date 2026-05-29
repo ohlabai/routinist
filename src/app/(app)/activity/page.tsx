@@ -7,6 +7,7 @@ import { useUserData } from '@/components/UserDataProvider';
 import { formatPace, formatDuration, fetchActivityRoute } from '@/lib/routinist-data';
 import CommentSection from '@/components/social/CommentSection';
 import ShareCard from '@/components/activity/ShareCard';
+import BestSplitsCard from '@/components/activity/BestSplitsCard';
 import { Share2 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { Suspense } from 'react';
@@ -21,6 +22,11 @@ function ActivityDetail() {
   const { activities } = useUserData();
   const { t, locale } = useI18n();
   const id = searchParams.get('id');
+  const newPbRaw = searchParams.get('new_pb');
+  const newPbDistances = useMemo<number[]>(() => {
+    if (!newPbRaw) return [];
+    try { return JSON.parse(decodeURIComponent(newPbRaw)) as number[]; } catch { return []; }
+  }, [newPbRaw]);
 
   const [showShare, setShowShare] = useState(false);
   // build 161 #12-1: UserDataProvider 의 활동은 route_data 가 없는 lite 버전 (첫 로그인 가속).
@@ -128,6 +134,16 @@ function ActivityDetail() {
           </div>
         )}
       </div>
+
+      {/* build 197: Best Splits + PB. GPS route 있을 때만 노출. */}
+      {activity.route_data && activity.activity_type === 'running' && activity.user_id === user?.id && (
+        <BestSplitsCard
+          userId={activity.user_id}
+          activityId={activity.id}
+          routeData={activity.route_data}
+          newPBDistances={newPbDistances}
+        />
+      )}
 
       {/* 상세 정보 */}
       <div className="card p-5 space-y-3">

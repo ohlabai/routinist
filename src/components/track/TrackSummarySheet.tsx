@@ -15,6 +15,7 @@ import {
 } from '@/lib/gps-tracking';
 import RouteMap from '@/components/map/RouteMap';
 import type { GeoJSONLineString } from '@/types';
+import { syncPBsFromActivity } from '@/lib/best-splits';
 
 interface Props {
   finalState: TrackingState;
@@ -109,6 +110,20 @@ export default function TrackSummarySheet({ finalState, userId, onClose }: Props
       if (insertErr) throw insertErr;
       const activityId = data?.id as string | undefined;
       if (!activityId) throw new Error('저장 후 id 없음');
+
+      // build 197: PB 갱신 확인. 실패해도 저장은 성공으로 처리.
+      try {
+        const newPBs = await syncPBsFromActivity(activityId, routeData.coordinates, endedAt);
+        if (newPBs.length > 0) {
+          // 신규 PB 가 있으면 활동 상세에 query string 으로 전달 → 거기서 축하 toast 표시.
+          const pbParam = encodeURIComponent(JSON.stringify(newPBs.map(p => p.distanceMeters)));
+          onClose();
+          router.push(`/activity?id=${activityId}&new_pb=${pbParam}`);
+          return;
+        }
+      } catch (e) {
+        console.warn('[track/summary] PB sync 실패 (저장은 정상)', e);
+      }
 
       // 활동 상세로 이동 (sheet 닫고 navigate)
       onClose();
