@@ -10,6 +10,7 @@ import Image from 'next/image';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import { ChevronRight, UserCircle2, type LucideIcon } from 'lucide-react';
+import { useI18n, formatRank } from '@/lib/i18n';
 
 type CohortScope = 'region' | 'decade' | 'gender' | 'starter';
 type TimeAxis = 'today' | 'week' | 'month' | 'year';
@@ -39,6 +40,7 @@ const ME_WINDOW_AFTER = 10;       // 내 위치 아래로 10명
 
 export default function CohortLeaderboardInline({ scope, axis, title, subtitle, Icon }: Props) {
   const { user } = useAuth();
+  const { tt, locale } = useI18n();
   const [allRows, setAllRows] = useState<CohortRow[] | null>(null);
   const [view, setView] = useState<'top' | 'me'>('top');
 
@@ -98,7 +100,7 @@ export default function CohortLeaderboardInline({ scope, axis, title, subtitle, 
           </div>
         </div>
         <span className="inline-flex items-center text-[11px] font-bold text-emerald-700 dark:text-emerald-400 flex-shrink-0">
-          전체 <ChevronRight size={11} />
+          {tt('전체')} <ChevronRight size={11} />
         </span>
       </Link>
 
@@ -124,7 +126,7 @@ export default function CohortLeaderboardInline({ scope, axis, title, subtitle, 
                 : 'text-[var(--muted)]'
             }`}
           >
-            내 위치 {myRow && myRow.rank_position <= TOP_VIEW_COUNT ? '' : `(${myRow!.rank_position}위)`}
+            {tt('내 위치')} {myRow && myRow.rank_position <= TOP_VIEW_COUNT ? '' : `(${formatRank(myRow!.rank_position, locale)})`}
           </button>
         </div>
       )}
@@ -157,7 +159,7 @@ export default function CohortLeaderboardInline({ scope, axis, title, subtitle, 
                   )}
                 </div>
                 <p className={`flex-1 min-w-0 text-sm truncate ${r.is_me ? 'font-extrabold text-emerald-700 dark:text-emerald-400' : 'font-semibold text-[var(--foreground)]'}`}>
-                  {r.display_name}{r.is_me && <span className="ml-0.5">(나)</span>}
+                  {r.display_name}{r.is_me && <span className="ml-0.5">{tt('(나)')}</span>}
                 </p>
                 <span className="text-sm font-extrabold tabular-nums text-[var(--foreground)]">
                   {Number(r.km).toFixed(1)}<span className="text-[10px] font-bold text-[var(--muted)] ml-0.5">km</span>

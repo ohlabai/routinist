@@ -4,7 +4,9 @@
 // 좌우 swipe / 화살표 / 키보드. 풀스크린.
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 
 export interface LightboxPhoto {
   photo_id: string;
@@ -26,6 +28,7 @@ interface Props {
 
 export default function PhotoLightbox({ photos, initialIndex = 0, onClose, showProfileLink = false }: Props) {
   const [index, setIndex] = useState(Math.max(0, Math.min(initialIndex, photos.length - 1)));
+  const { tt } = useI18n();
   const startX = useRef<number | null>(null);
   const deltaX = useRef(0);
 
@@ -136,12 +139,15 @@ export default function PhotoLightbox({ photos, initialIndex = 0, onClose, showP
               <p className="text-xs text-white/85 mt-1 line-clamp-3 italic break-keep">{current.caption}</p>
             )}
             {showProfileLink && current.user_id && (
-              <a
-                href={`/social/user?id=${current.user_id}`}
+              // build 207 #14 fix: <a href> 는 trailingSlash + static export 환경에서 /social/user 매칭 실패.
+              // Next.js Link 로 SPA 라우팅 + 명시적 trailing slash 보장.
+              <Link
+                href={{ pathname: '/social/user/', query: { id: current.user_id } }}
+                onClick={(e) => { e.stopPropagation(); onClose(); }}
                 className="mt-2.5 block w-full text-center px-4 py-2 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-extrabold transition active:scale-95"
               >
-                프로필 보기 →
-              </a>
+                {tt('프로필 보기 →')}
+              </Link>
             )}
           </div>
         )}

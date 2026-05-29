@@ -11,7 +11,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import { Globe, MapPin, Cake, Sparkles, Trophy, ChevronRight, Users, Star } from 'lucide-react';
 import CohortLeaderboardInline from './CohortLeaderboardInline';
-import { useI18n, type TranslationKey } from '@/lib/i18n';
+import { useI18n, formatRank, rankSuffix, type TranslationKey } from '@/lib/i18n';
 
 type TimeAxis = 'today' | 'week' | 'month' | 'year';
 
@@ -96,7 +96,7 @@ function motivationText(
 
 export default function RankingBreakdown({ axis }: Props) {
   const { user } = useAuth();
-  const { t } = useI18n();
+  const { t, tt, locale } = useI18n();
   const [rows, setRows] = useState<RankBreakdown[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -188,6 +188,17 @@ export default function RankingBreakdown({ axis }: Props) {
     setFilters(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
+  // build 207: scope_label 은 한국어 토큰 (e.g. "전국 50대 남성") — 영어 locale 일 땐
+  // 토큰별로 tt 매핑 후 " · " 로 join. 단일 토큰이면 그대로 tt.
+  const localizeScopeLabel = (label: string | null | undefined): string => {
+    if (!label) return '';
+    if (locale === 'ko') return label;
+    // 공백 분리 후 토큰별 tt. 매핑 없는 토큰은 원문 유지.
+    const tokens = label.split(/\s+/).filter(Boolean);
+    if (tokens.length <= 1) return tt(label);
+    return tokens.map(tk => tt(tk)).join(' · ');
+  };
+
   // build 152 fix: 최초 로딩만 전체 skeleton — 칩 토글 시엔 hero 만 dim (다른 카드는 유지).
   const isInitialLoad = loading && rows.length === 0 && !combined;
   if (isInitialLoad) {
@@ -251,7 +262,7 @@ export default function RankingBreakdown({ axis }: Props) {
                   }`}
                 >
                   <Star size={14} fill={active ? 'white' : 'none'} strokeWidth={active ? 0 : 2} />
-                  {c.label}
+                  {tt(c.label)}
                 </button>
               );
             })}
@@ -261,13 +272,13 @@ export default function RankingBreakdown({ axis }: Props) {
         {combined && (
           <div className="relative text-center">
             <p className="text-[11px] font-bold text-[var(--muted)] uppercase tracking-wide mb-1">
-              {combined.scope_label}
+              {localizeScopeLabel(combined.scope_label)}
             </p>
             <div className="flex items-baseline justify-center gap-1.5 mb-1">
               <span className="text-6xl font-extrabold leading-none tabular-nums tracking-tight text-emerald-600 dark:text-emerald-400">
                 {combined.rank_position}
               </span>
-              <span className="text-2xl font-extrabold text-[var(--foreground)]">{t('ranking.rank')}</span>
+              <span className="text-2xl font-extrabold text-[var(--foreground)]">{rankSuffix(combined.rank_position, locale)}</span>
             </div>
             <p className="text-xs text-[var(--muted)] font-bold mb-2">
               {t('rankingHero.peopleSlash').replace('{n}', combined.total_in_scope.toLocaleString())} · {Number(combined.my_km).toFixed(1)}km
@@ -276,7 +287,7 @@ export default function RankingBreakdown({ axis }: Props) {
             {!isTop && Number(combined.km_to_top10) > 0 && combined.rank_position > 10 && (
               <div className="mt-3">
                 <div className="flex items-center justify-between mb-1 text-[11px]">
-                  <span className="font-semibold text-[var(--muted)]">{combined.rank_position}{t('ranking.rank')}</span>
+                  <span className="font-semibold text-[var(--muted)]">{formatRank(combined.rank_position, locale)}</span>
                   <span className="font-extrabold text-emerald-700 dark:text-emerald-400">
                     {t('rankingHero.toTop10').replace('{km}', Number(combined.km_to_top10).toFixed(1))}
                   </span>
@@ -322,13 +333,13 @@ export default function RankingBreakdown({ axis }: Props) {
               >
                 <div className="flex items-center gap-1.5 mb-1.5">
                   <meta.Icon size={12} className={meta.iconColor} />
-                  <p className="text-[10px] font-bold text-[var(--muted)] truncate">{r.scope_label}</p>
+                  <p className="text-[10px] font-bold text-[var(--muted)] truncate">{localizeScopeLabel(r.scope_label)}</p>
                 </div>
                 <div className="flex items-baseline gap-0.5 mb-1">
                   <span className={`text-3xl font-extrabold leading-none tabular-nums ${isTopHere ? meta.iconColor : 'text-[var(--foreground)]'}`}>
                     {r.rank_position}
                   </span>
-                  <span className="text-base font-bold text-[var(--foreground)]">{t('ranking.rank')}</span>
+                  <span className="text-base font-bold text-[var(--foreground)]">{rankSuffix(r.rank_position, locale)}</span>
                   <span className="ml-auto text-[10px] text-[var(--muted)] font-bold">
                     / {r.total_in_scope.toLocaleString()}
                   </span>

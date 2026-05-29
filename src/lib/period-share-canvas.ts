@@ -104,17 +104,22 @@ function drawHero(c: FrameContext) {
   const alpha = Math.min(1, p / 0.2);
   ctx.globalAlpha = alpha;
 
-  // 큰 거리 숫자
+  // 큰 거리 숫자. 자릿수에 따라 폰트 사이즈 + km 위치 동적 조정 (build 207 #13 fix).
+  // "173.7" 5글자처럼 길면 220px 폰트는 km 와 겹침 — 200px 로 줄이고 km 위치 우측 끝 +12 로 계산.
+  const kmStr = animKm.toFixed(1);
+  const fontSize = kmStr.length >= 5 ? 200 : 220;
   ctx.fillStyle = C.white;
-  ctx.font = '900 220px system-ui, -apple-system, sans-serif';
+  ctx.font = `900 ${fontSize}px system-ui, -apple-system, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(animKm.toFixed(1), W / 2, 470);
-
-  // km 단위
+  ctx.fillText(kmStr, W / 2, 470);
+  // 'km' 라벨 위치 — 측정한 텍스트 너비 기준으로 우측에 12px 간격
+  const kmTextWidth = ctx.measureText(kmStr).width;
+  const kmRightEdge = W / 2 + kmTextWidth / 2;
   ctx.fillStyle = C.emeraldLight;
   ctx.font = '700 60px system-ui, -apple-system, sans-serif';
-  ctx.fillText('km', W / 2 + 280, 490);
+  ctx.textAlign = 'left';
+  ctx.fillText('km', kmRightEdge + 16, 490);
 
   // 보조 stats (runs, 시간, 평균 페이스)
   const hh = Math.floor(data.totalDurationSec / 3600);
@@ -288,21 +293,60 @@ function drawHorizontalBar(c: FrameContext) {
     ctx.fillText(`지난 ${data.period === 'week' ? '주' : '달'}: ${data.prevTotalKm.toFixed(1)}km`, left + prevW, y - 24);
   }
 
-  // 현재 진행 fill
-  const colorT = Math.max(0, Math.min(1, (p - 0.85) / 0.15));
-  const fillColor = lerpColor(C.emerald, C.white, colorT);
-  ctx.fillStyle = fillColor;
-  const fillW = curW + bounceAmt;
-  ctx.beginPath();
-  ctx.moveTo(left + r, y);
-  ctx.lineTo(left + Math.max(r, fillW - r), y);
-  ctx.quadraticCurveTo(left + fillW, y, left + fillW, y + r);
-  ctx.quadraticCurveTo(left + fillW, y + barH, left + Math.max(r, fillW - r), y + barH);
-  ctx.lineTo(left + r, y + barH);
-  ctx.quadraticCurveTo(left, y + barH, left, y + barH - r);
-  ctx.quadraticCurveTo(left, y, left + r, y);
-  ctx.closePath();
-  ctx.fill();
+  // build 207 #10: 이전 누적 부분은 항상 흰색(baseline), 새로 추가된 부분만 에메랄드 차오름 → bounce → 흰색.
+  // (1) 이전 누적 (prevW) — 항상 흰색
+  if (prevW > 0) {
+    ctx.fillStyle = C.white;
+    ctx.beginPath();
+    const pw = prevW;
+    ctx.moveTo(left + r, y);
+    ctx.lineTo(left + Math.max(r, pw - r), y);
+    ctx.quadraticCurveTo(left + pw, y, left + pw, y + r);
+    ctx.quadraticCurveTo(left + pw, y + barH, left + Math.max(r, pw - r), y + barH);
+    ctx.lineTo(left + r, y + barH);
+    ctx.quadraticCurveTo(left, y + barH, left, y + barH - r);
+    ctx.quadraticCurveTo(left, y, left + r, y);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // (2) 새로 추가된 부분 (prevW → curW) — 0~0.85 에메랄드, 0.85~1 흰색으로 페이드 → 최종 흰색
+  const addStart = prevW;
+  const addEnd = curW + bounceAmt;
+  if (addEnd > addStart) {
+    const colorT = Math.max(0, Math.min(1, (p - 0.85) / 0.15));
+    const fillColor = lerpColor(C.emerald, C.white, colorT);
+    ctx.fillStyle = fillColor;
+    // rounded right edge only if extends to full width's roundness
+    ctx.beginPath();
+    const startX = left + addStart;
+    const endX = left + addEnd;
+    const leftIsRound = addStart <= r; // 시작이 0 근처면 둥근 왼쪽
+    const rightIsRound = addEnd >= areaW - r; // 끝이 끝 근처면 둥근 오른쪽
+    if (leftIsRound) {
+      ctx.moveTo(left + r, y);
+    } else {
+      ctx.moveTo(startX, y);
+    }
+    if (rightIsRound) {
+      ctx.lineTo(left + areaW - r, y);
+      ctx.quadraticCurveTo(left + areaW, y, left + areaW, y + r);
+      ctx.quadraticCurveTo(left + areaW, y + barH, left + areaW - r, y + barH);
+    } else {
+      ctx.lineTo(endX, y);
+      ctx.lineTo(endX, y + barH);
+    }
+    if (leftIsRound) {
+      ctx.lineTo(left + r, y + barH);
+      ctx.quadraticCurveTo(left, y + barH, left, y + barH - r);
+      ctx.quadraticCurveTo(left, y, left + r, y);
+    } else {
+      ctx.lineTo(startX, y + barH);
+      ctx.lineTo(startX, y);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
 
   // 라벨 (총 km)
   ctx.fillStyle = C.emeraldLight;

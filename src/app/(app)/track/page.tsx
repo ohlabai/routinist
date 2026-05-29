@@ -92,8 +92,16 @@ export default function TrackPage() {
         youMarkerRef.current?.setPosition(last);
         return;
       }
-      // 진행 중인 트래킹 없을 때만 현재 위치로 이동 시도. 권한 다이얼로그는 띄우지 않음 (checkPermissions only).
-      const permState = await checkLocationPermission();
+      // 진행 중인 트래킹 없을 때만 현재 위치로 이동 시도.
+      // build 207 #7: permission state 별 분기 명확화 + 권한 prompt 시 자동 요청까지.
+      //   - granted: 즉시 fetch
+      //   - prompt (iOS 첫 진입): 다이얼로그 띄움 → 사용자 응답 후 granted 면 fetch
+      //   - denied: 시청 fallback 유지
+      let permState = await checkLocationPermission();
+      if (permState === 'prompt') {
+        permState = await requestLocationPermission();
+      }
+      if (cancelled) return;
       setPerm(permState);
       if (permState === 'granted') {
         const here = await getCurrentLocation();

@@ -92,12 +92,35 @@ export async function checkLocationPermission(): Promise<'granted' | 'denied' | 
   } catch { return 'prompt'; }
 }
 
-// build 205 #3: 한 번 위치 fetch (워처 없이). 시작 전 지도 중심 이동용.
+// build 207 #7: getCurrentLocation 회복 시도. build 205 fix 에도 서울 시청 그대로 표시되는 사용자
+// 보고. 가능한 원인:
+//   (a) checkPermissions 가 'prompt' 반환 → getCurrentLocation 호출 안 됨
+//   (b) maximumAge 30s 캐시가 없는 첫 호출에서 enableHighAccuracy 타임아웃 (도심 빌딩가)
+//   (c) Google Maps 로드보다 GPS fix 가 늦어 panTo 가 호출되어도 view 가 아직 업데이트 안 됨
+// fix: 2단계 시도 — 저정밀 fast (4s) → 고정밀 fallback (10s). maximumAge=0 강제 fresh.
 export async function getCurrentLocation(): Promise<{ lat: number; lng: number } | null> {
+  // 1단계: 저정밀 / 빠른 응답 — Wi-Fi/셀 기반 ~100m 정확도면 충분히 사용자 위치 표시 가능
   try {
-    const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 });
+    const pos = await Geolocation.getCurrentPosition({
+      enableHighAccuracy: false,
+      timeout: 4000,
+      maximumAge: 0,
+    });
     return { lat: pos.coords.latitude, lng: pos.coords.longitude };
-  } catch { return null; }
+  } catch {
+    // 폴백
+  }
+  // 2단계: 고정밀 (GPS 안테나 활성). 도심/실내에선 더 오래 걸릴 수 있음.
+  try {
+    const pos = await Geolocation.getCurrentPosition({
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0,
+    });
+    return { lat: pos.coords.latitude, lng: pos.coords.longitude };
+  } catch {
+    return null;
+  }
 }
 
 export interface WatcherHandle { clear: () => Promise<void>; }

@@ -425,7 +425,7 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'home.regionNotSetSub': '프로필에서 시/구/동을 선택해보세요',
     'home.set': '설정',
     'home.goalAchieved': '{km}km 목표 달성!',
-    'home.goalLabel': '/ {km}km 목표',
+    'home.goalLabel': '/ {km} 목표',
     'home.goalRemaining': '남은 {remain}km · 하루 {daily}km',
     'home.totalSummary': '통산 {km}km · {runs}회 러닝',
     'home.todayKm': '오늘 km',
@@ -758,9 +758,9 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'home.connectHealthCta': 'Connect health app →',
     'home.regionNotSet': 'Set your region to join the ranking!',
     'home.regionNotSetSub': 'Pick city / district in your profile',
-    'home.set': 'Set',
+    'home.set': 'Set up',
     'home.goalAchieved': '{km}km goal reached!',
-    'home.goalLabel': '/ {km}km goal',
+    'home.goalLabel': '/ {km} goal',
     'home.goalRemaining': '{remain}km left · {daily}km/day',
     'home.totalSummary': 'Total {km}km · {runs} runs',
     'home.todayKm': 'Today km',
@@ -1297,6 +1297,167 @@ const EXTRAS_EN: Record<string, string> = {
   // RichTextEditor
   '이미지 업로드 실패': 'Image upload failed',
   '링크 주소': 'Link URL',
+
+  // build 207 — 프로필 라이트박스
+  '프로필 보기 →': 'View profile →',
+
+  // build 207 — home dashboard
+  '연속 달리기 스트릭': 'Running streak',
+  '현재 연속일': 'Current streak',
+  '최장 연속일': 'Longest streak',
+  '총 러닝': 'Total runs',
+  '🔥 최장 기록 갱신 중!': '🔥 Breaking your record!',
+  '개인 베스트': 'Personal best',
+  '누적': 'All-time',
+  '최장 거리': 'Longest distance',
+  '최빠 페이스': 'Fastest pace',
+  '최장 시간': 'Longest duration',
+  '최다 칼로리': 'Most calories',
+  '일별 거리 추이': 'Daily distance trend',
+  '최근 12주 러닝': 'Last 12 weeks',
+  '전년 동기 첫 기록 🎉': 'First record vs last year 🎉',
+  '페이스 추이 (최근 12개월)': 'Pace trend (last 12 months)',
+  '아래로 갈수록 빠른 페이스': 'Lower means faster pace',
+  '요일별 러닝 패턴': 'Day-of-week pattern',
+  '러닝 횟수': 'Run count',
+  '시간대별 러닝 분포': 'Time-of-day distribution',
+  '기간별 상세 통계': 'Detailed stats by period',
+  '히스토리': 'History',
+  '막대': 'Bar',
+  '선': 'Line',
+  '주간': 'Weekly',
+  '월간': 'Monthly',
+  '분기': 'Quarterly',
+  '반기': 'Half-year',
+  '연간': 'Yearly',
+  '통계 로딩 중...': 'Loading stats...',
+  '지역을 자동 등록했어요': 'Region auto-registered',
+  '확인': 'OK',
+  '내 정보': 'My profile',
+
+  // build 207 — ranking
+  // 칩 라벨 (RankingBreakdown)
+  '대한민국': 'Korea',
+  '서울특별시': 'Seoul',
+  '부산광역시': 'Busan',
+  '대구광역시': 'Daegu',
+  '인천광역시': 'Incheon',
+  '광주광역시': 'Gwangju',
+  '대전광역시': 'Daejeon',
+  '울산광역시': 'Ulsan',
+  '세종특별자치시': 'Sejong',
+  '경기도': 'Gyeonggi',
+  '강원특별자치도': 'Gangwon',
+  '강원도': 'Gangwon',
+  '충청북도': 'Chungbuk',
+  '충청남도': 'Chungnam',
+  '전북특별자치도': 'Jeonbuk',
+  '전라북도': 'Jeonbuk',
+  '전라남도': 'Jeonnam',
+  '경상북도': 'Gyeongbuk',
+  '경상남도': 'Gyeongnam',
+  '제주특별자치도': 'Jeju',
+  '남성': 'Male',
+  '여성': 'Female',
+  '10대': '10s',
+  '20대': '20s',
+  '30대': '30s',
+  '40대': '40s',
+  '50대': '50s',
+  '60대': '60s',
+  '70대': '70s',
+  '80대': '80s',
+  '90대': '90s',
+  '신규 러너': 'New runners',
+  '동기 러너': 'Same start',
+  // RankingTimeline
+  '내 순위 시계열': 'My rank over time',
+  '아직 시계열 데이터가 부족해요': 'Not enough timeline data yet',
+  '몇 주만 더 달리면 그래프가 채워져요': 'A few more weeks and the chart fills up',
+  '순위': 'Rank',
+  '주간 (12주)': 'Weekly (12w)',
+  '월간 (12개월)': 'Monthly (12mo)',
+  '연간 (5년)': 'Yearly (5y)',
+  '전국': 'All Korea',
+  '내 지역': 'My region',
+  '내 또래': 'My age',
+  '동기': 'Same start',
+  '같은 성별': 'Same gender',
+  '위로 갈수록 좋은 순위 · 1위가 최상단': 'Higher = better rank · #1 at top',
+  '기간별 내 거리 합계': 'Distance total per period',
+  '거리': 'Distance',
+  // MileageRankingTab
+  '우리 동네': 'My neighborhood',
+  '우리 또래': 'My age group',
+  '지역(시·구)': 'Region (city/district)',
+  '출생연도·성별': 'Birth year & gender',
+  ' 정보를 입력하면 표시됩니다': ' info required to display',
+  '내 프로필 편집 →': 'Edit my profile →',
+  '아직 마일리지를 모은 러너가 없어요': 'No mileage runners yet',
+  '달리고 첫 번째 1위가 되세요!': 'Run and be the first #1!',
+  '마일': 'mileage',
+  '(나)': '(me)',
+  // CohortLeaderboardInline
+  '내 위치': 'My position',
+  // WorldTab
+  '챌린지 시리즈': 'Challenge series',
+  '한국 도전': 'Korea challenges',
+  '자세히 →': 'Details →',
+  '자세히': 'Details',
+  '달리는 중': 'Running',
+  '🏃 달리는 중': '🏃 Running',
+  '새 코스': 'New courses',
+  '아시아': 'Asia',
+  '유럽': 'Europe',
+  '미주': 'Americas',
+  '오세아니아': 'Oceania',
+  '아프리카': 'Africa',
+  '글로벌': 'Global',
+  '아직 등록된 코스가 없어요': 'No courses registered yet',
+  '곧 추가될 예정이에요': 'More coming soon',
+  '세계': 'World',
+  ' 마일리지': ' mileage',
+  '도전하기 →': 'Take the challenge →',
+  '완주 후 도전 가능': 'Available after finishing',
+  '진행 중인 코스를 완주한 후에 새 도전을 시작할 수 있어요 🏃': 'Finish your current course before starting a new one 🏃',
+  '취소': 'Cancel',
+  '출발! 🚀': 'Start! 🚀',
+  '차감 중…': 'Charging…',
+  '코스': 'course',
+  '🏃 {name} 참가중이에요 — 바로 진입할게요!': '🏃 {name} already joined — entering now!',
+  '🎉 출발! {fee} 마일리지 차감 (잔액 {bal})': '🎉 Start! {fee} mileage charged (balance {bal})',
+  '출발 준비!': 'Ready to start!',
+  '참가비': 'Entry fee',
+  '차감하고 시작할게요.': 'will be charged.',
+  '지금부터 달리는 모든 km 이 이 코스에 쌓여요.': 'Every km you run from now adds to this course.',
+  '완주하면 디지털 인증서와 실물 메달이 기다리고 있어요! 🏅': 'Finish to earn a digital certificate and physical medal! 🏅',
+  '시작에 실패했어요. 잠시 후 다시 시도해주세요': 'Failed to start. Please try again later',
+  '남은 거리 ': 'Remaining ',
+  '🎉 완주했어요! 메달이 기다려요': '🎉 Finished! Your medal is waiting',
+  // 마라톤 고유명사
+  '보스턴 마라톤': 'Boston Marathon',
+  '뉴욕 마라톤': 'New York Marathon',
+  '시카고 마라톤': 'Chicago Marathon',
+  '런던 마라톤': 'London Marathon',
+  '베를린 마라톤': 'Berlin Marathon',
+  '도쿄 마라톤': 'Tokyo Marathon',
+  '서울 마라톤': 'Seoul Marathon',
+  '춘천 마라톤': 'Chuncheon Marathon',
+  '제주 국제 마라톤': 'Jeju International Marathon',
+  // 국가명
+  '미국': 'USA',
+  '영국': 'UK',
+  '독일': 'Germany',
+  '일본': 'Japan',
+  '한국': 'Korea',
+  '프랑스': 'France',
+  '이탈리아': 'Italy',
+  '중국': 'China',
+  '캐나다': 'Canada',
+  '호주': 'Australia',
+  // 안내문
+  '내 조건 입력하고 랭킹 보기 →': 'Enter your info to see rankings →',
+  '지역·출생년도·성별을 설정하면 4가지 축으로 내 위치가 보여요': 'Set region, birth year, gender to see your rank across 4 axes',
 };
 
 export function I18nProvider({ children }: { children: ReactNode }) {
@@ -1331,4 +1492,24 @@ export function formatKrw(amount: number, locale: Locale): string {
   if (amount == null || isNaN(amount)) return locale === 'en' ? '₩0' : '0원';
   const formatted = amount.toLocaleString();
   return locale === 'en' ? `₩${formatted}` : `${formatted}원`;
+}
+
+// build 207: 서수 포맷 — 한국어 "3위" / 영어 "3rd". 빌드 205 부터 단순 'th' 회귀로 "3th" 표시.
+// 영어 ordinal 규칙: 11/12/13 은 th, 그 외엔 1→st 2→nd 3→rd 4~9→th, 21/22/23 도 st/nd/rd.
+export function formatRank(rank: number, locale: Locale): string {
+  if (rank == null || isNaN(rank) || rank < 1) return '—';
+  return `${rank}${rankSuffix(rank, locale)}`;
+}
+
+// 숫자와 접미사를 분리 렌더하는 UI 용 (큰 숫자 + 작은 접미사 디자인). "위" 또는 "st/nd/rd/th".
+export function rankSuffix(rank: number, locale: Locale): string {
+  if (locale === 'ko') return '위';
+  if (rank == null || isNaN(rank) || rank < 1) return '';
+  const lastTwo = rank % 100;
+  const lastOne = rank % 10;
+  if (lastTwo >= 11 && lastTwo <= 13) return 'th';
+  if (lastOne === 1) return 'st';
+  if (lastOne === 2) return 'nd';
+  if (lastOne === 3) return 'rd';
+  return 'th';
 }

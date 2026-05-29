@@ -10,6 +10,7 @@ import { X, Coins, Footprints, Gift, ShoppingCart, Calendar, Clock, ChevronRight
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import { fetchMileageTransactions, txTypeLabel } from '@/lib/mileage-data';
+import { useI18n, formatRank } from '@/lib/i18n';
 import type { MileageTransaction } from '@/types';
 
 interface Summary {
@@ -34,6 +35,7 @@ interface Props {
 
 export default function MileageBreakdownModal({ userId, rank, onClose }: Props) {
   const { user } = useAuth();
+  const { locale } = useI18n();
   const isMe = user?.id === userId;
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -132,7 +134,7 @@ export default function MileageBreakdownModal({ userId, rank, onClose }: Props) 
                       {summary.display_name}{isMe && <span className="ml-1 text-emerald-600">(나)</span>}
                     </p>
                     <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-                      <span className="font-bold text-emerald-700 dark:text-emerald-400">{rank}위</span>
+                      <span className="font-bold text-emerald-700 dark:text-emerald-400">{formatRank(rank, locale)}</span>
                       {summary.region_gu && <><span>·</span><span>{summary.region_gu}</span></>}
                       <span>·</span>
                       <span>가입 {summary.signup_days}일</span>

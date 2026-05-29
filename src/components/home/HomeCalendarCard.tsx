@@ -12,6 +12,9 @@ import { useUserData } from '@/components/UserDataProvider';
 import { getSupabase } from '@/lib/supabase';
 import ShareCard from '@/components/activity/ShareCard';
 import { useI18n } from '@/lib/i18n';
+import { fetchWeekChartData, fetchMonthChartData } from '@/lib/period-share-data';
+import type { PeriodChartData } from '@/lib/period-share-canvas';
+import PeriodShareCard from '@/components/share/PeriodShareCard';
 
 function distanceColor(km: number, dateStr: string): string {
   if (km <= 0) {
@@ -42,7 +45,27 @@ export default function HomeCalendarCard() {
   // 한 번 onError 발생한 URL 은 set 에 저장 → 같은 URL 재시도 안 함 (무한 onError 루프 방지).
   const [brokenUrls, setBrokenUrls] = useState<Set<string>>(new Set());
   // build 136: 캘린더 셀 탭 없이 바로 공유카드 만들기 — 최근 활동으로 진입.
+  // build 207 #15: 공유카드 진입점 통합 — 옵션 선택 시트 (오늘 / 이번 주 / 이번 달).
   const [shareCardOpen, setShareCardOpen] = useState(false);
+  const [periodPickerOpen, setPeriodPickerOpen] = useState(false);
+  const [periodData, setPeriodData] = useState<PeriodChartData | null>(null);
+  const [periodLoading, setPeriodLoading] = useState<'week' | 'month' | null>(null);
+
+  const openPeriod = async (period: 'week' | 'month') => {
+    if (!user || periodLoading) return;
+    setPeriodLoading(period);
+    try {
+      const fn = period === 'week' ? fetchWeekChartData : fetchMonthChartData;
+      const userName = profile?.display_name ?? user.email?.split('@')[0] ?? tt('러너');
+      const { data } = await fn(user.id, userName);
+      setPeriodData(data);
+      setPeriodPickerOpen(false);
+    } catch (e) {
+      console.warn('[share-period] fetch fail', e);
+    } finally {
+      setPeriodLoading(null);
+    }
+  };
 
   const monthlyActivities = useMemo(
     () =>
@@ -288,16 +311,58 @@ export default function HomeCalendarCard() {
         <span className="ml-1">3 · 7 · 10 · 15+</span>
       </div>
 
-      {/* 공유카드 만들기 — 캘린더 셀 탭 없이 바로 진입 (build 136 사용자 피드백 #2).
-          가장 최근 활동을 자동 선택. 활동이 없으면 버튼 비표시. */}
+      {/* 공유카드 만들기 — build 207 #15: 옵션 선택 시트 (오늘 / 이번 주 / 이번 달) 통합 진입점. */}
       {activities.length > 0 && (
         <button
-          onClick={() => setShareCardOpen(true)}
-          className="mt-3 w-full inline-flex items-center justify-center gap-2 py-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-sm shadow-sm active:scale-[0.98] transition"
+          onClick={() => setPeriodPickerOpen(true)}
+          className="mt-3 w-full inline-flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base shadow-md shadow-emerald-500/30 active:scale-[0.98] transition"
         >
-          <Share2 size={16} />
+          <Share2 size={18} />
           {locale === 'en' ? 'Make share card' : '공유카드 만들기'}
         </button>
+      )}
+
+      {/* 옵션 선택 시트 */}
+      {periodPickerOpen && (
+        <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/55 backdrop-blur-sm animate-[fadeIn_0.15s_ease-out]"
+          onClick={() => !periodLoading && setPeriodPickerOpen(false)}>
+          <div className="bg-[var(--background)] w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-5 shadow-2xl"
+            onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 rounded-full bg-[var(--card-border)] mx-auto mb-4 sm:hidden" />
+            <h3 className="text-lg font-extrabold text-center mb-1">
+              {locale === 'en' ? 'Share card' : '공유카드 만들기'}
+            </h3>
+            <p className="text-xs text-[var(--muted)] text-center mb-5">
+              {locale === 'en' ? 'Pick a period to share' : '기간을 골라주세요'}
+            </p>
+            <div className="space-y-2.5">
+              <button
+                onClick={() => { setPeriodPickerOpen(false); setShareCardOpen(true); }}
+                disabled={periodLoading !== null}
+                className="w-full py-3.5 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base shadow-md shadow-emerald-500/30 active:scale-[0.98] disabled:opacity-50 inline-flex items-center justify-center gap-2"
+              >
+                <Share2 size={16} />
+                {locale === 'en' ? 'Today' : '오늘'}
+              </button>
+              <button
+                onClick={() => openPeriod('week')}
+                disabled={periodLoading !== null}
+                className="w-full py-3.5 rounded-2xl bg-[var(--card)] border-2 border-emerald-500/40 text-[var(--foreground)] font-extrabold text-base active:scale-[0.98] disabled:opacity-50 inline-flex items-center justify-center gap-2"
+              >
+                {periodLoading === 'week' ? <span className="animate-spin">⏳</span> : null}
+                {locale === 'en' ? 'This week' : '이번 주'}
+              </button>
+              <button
+                onClick={() => openPeriod('month')}
+                disabled={periodLoading !== null}
+                className="w-full py-3.5 rounded-2xl bg-[var(--card)] border-2 border-emerald-500/40 text-[var(--foreground)] font-extrabold text-base active:scale-[0.98] disabled:opacity-50 inline-flex items-center justify-center gap-2"
+              >
+                {periodLoading === 'month' ? <span className="animate-spin">⏳</span> : null}
+                {locale === 'en' ? 'This month' : '이번 달'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {shareCardOpen && activities.length > 0 && (
@@ -307,6 +372,8 @@ export default function HomeCalendarCard() {
           onClose={() => setShareCardOpen(false)}
         />
       )}
+
+      {periodData && <PeriodShareCard data={periodData} onClose={() => setPeriodData(null)} />}
     </div>
   );
 }

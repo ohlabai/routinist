@@ -16,6 +16,8 @@ import ContestTab from '@/components/contest/ContestTab';
 import WorldTab from '@/components/world/WorldTab';
 import { useI18n, type TranslationKey } from '@/lib/i18n';
 
+// build 207 — 영문화 누락 fix (#2): "내 조건 입력하고 랭킹 보기" / "지역·출생년도·성별..." 안내 카드 tt 처리.
+
 // build 143: 친선런 메뉴 숨김 (사용량 0건, 사용자 결정). 코드/ContestTab/DB 는 유지 — 필요 시 복원.
 type SubTab = 'me' | 'mileage' | 'contest' | 'world';
 // build 169 #11: '오늘' 제거 (의미 작음·미달리기 사용자가 0km 동률 → 혼란). week/month/year 3축으로 축소.
@@ -23,7 +25,7 @@ type TimeAxis = 'week' | 'month' | 'year';
 
 function RankingInner() {
   const { profile } = useAuth();
-  const { t } = useI18n();
+  const { t, tt } = useI18n();
   const searchParams = useSearchParams();
   const initialTab = (searchParams.get('tab') as SubTab) ?? 'me';
   const [activeSub, setActiveSub] = useState<SubTab>(
@@ -93,8 +95,8 @@ function RankingInner() {
             </>
           ) : (
             <Link href="/profile/edit" className="block rounded-3xl bg-gradient-to-br from-emerald-100/80 to-emerald-50/40 p-6 shadow-sm border border-emerald-200/60">
-              <p className="text-lg font-bold text-[var(--foreground)]">내 조건 입력하고 랭킹 보기 →</p>
-              <p className="text-sm text-[var(--muted)] mt-1">지역·출생년도·성별을 설정하면 4가지 축으로 내 위치가 보여요</p>
+              <p className="text-lg font-bold text-[var(--foreground)]">{tt('내 조건 입력하고 랭킹 보기 →')}</p>
+              <p className="text-sm text-[var(--muted)] mt-1">{tt('지역·출생년도·성별을 설정하면 4가지 축으로 내 위치가 보여요')}</p>
             </Link>
           )}
 

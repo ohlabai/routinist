@@ -11,7 +11,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import { logClientInfo, logClientWarn } from '@/lib/error-logger';
 import { dataCache, CACHE_KEYS, onCacheInvalidated } from '@/lib/data-cache';
-import { useI18n, type TranslationKey } from '@/lib/i18n';
+import { useI18n, formatRank, rankSuffix, type TranslationKey } from '@/lib/i18n';
 
 // build 171 #4: 홈 hero axis 도 랭킹 페이지처럼 today → week. 의미 부족한 today 제거.
 type TimeAxis = 'week' | 'month' | 'year';
@@ -281,7 +281,7 @@ export default function HomeRankingHero() {
               >
                 1
               </span>
-              <span className="text-3xl font-extrabold text-[var(--foreground)] self-end pb-2">{t('ranking.rank')}</span>
+              <span className="text-3xl font-extrabold text-[var(--foreground)] self-end pb-2">{rankSuffix(1, locale)}</span>
             </div>
             <p className={`text-sm font-extrabold ${style.accent} mt-1`}>{t('homeHero.holdSpot')}</p>
           </div>
@@ -301,7 +301,7 @@ export default function HomeRankingHero() {
                 >
                   {rank.rank_position}
                 </span>
-                <span className="text-3xl font-extrabold text-[var(--foreground)] ml-1">{t('ranking.rank')}</span>
+                <span className="text-3xl font-extrabold text-[var(--foreground)] ml-1">{rankSuffix(rank.rank_position, locale)}</span>
               </div>
             </div>
             <p className="mt-1 text-xs text-[var(--muted)] font-bold">
@@ -319,7 +319,7 @@ export default function HomeRankingHero() {
         {!isTopRank && kmToNext > 0 && (
           <div className="mt-4">
             <div className="flex items-center justify-between mb-1.5 text-[11px]">
-              <span className="font-semibold text-[var(--muted)]">{rank.rank_position}{t('ranking.rank')}</span>
+              <span className="font-semibold text-[var(--muted)]">{formatRank(rank.rank_position, locale)}</span>
               <span className={`font-extrabold ${style.accent}`}>
                 <span className="font-black">{t('homeHero.kmMore').replace('{km}', kmToNext.toFixed(1))}</span> {t('homeHero.toRankAbbr').replace('{rank}', String(rank.target_rank))}
               </span>

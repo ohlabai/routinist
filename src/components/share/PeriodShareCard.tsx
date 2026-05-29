@@ -30,16 +30,16 @@ export default function PeriodShareCard({ data, onClose }: Props) {
     drawPeriodFrame(canvas, data, previewProgress);
   }, [data, previewProgress]);
 
-  // 미리보기 loop — 입장 시 한 번 8초 애니메이션 재생 후 정지
+  // 미리보기 loop — 주간 12s, 월간 16s (build 207 #12, #13). 데이터가 많을수록 더 천천히.
+  const previewDur = data.period === 'week' ? 12000 : 16000;
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     let raf: number;
-    const dur = 8000;
     const start = performance.now();
     const tick = () => {
       const elapsed = performance.now() - start;
-      const p = Math.min(1, elapsed / dur);
+      const p = Math.min(1, elapsed / previewDur);
       setPreviewProgress(p);
       if (p < 1) raf = requestAnimationFrame(tick);
     };
@@ -52,11 +52,10 @@ export default function PeriodShareCard({ data, onClose }: Props) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     let raf: number;
-    const dur = 8000;
     const start = performance.now();
     const tick = () => {
       const elapsed = performance.now() - start;
-      const p = Math.min(1, elapsed / dur);
+      const p = Math.min(1, elapsed / previewDur);
       setPreviewProgress(p);
       if (p < 1) raf = requestAnimationFrame(tick);
     };
@@ -87,11 +86,13 @@ export default function PeriodShareCard({ data, onClose }: Props) {
     try {
       const canvas = canvasRef.current;
       if (!canvas) throw new Error('canvas 없음');
-      // 8초 영상: 7초 애니메이션 + 1초 hold
+      // build 207 #12, #13: 주간 12s (10초 애니 + 2초 hold), 월간 16s (14초 애니 + 2초 hold).
+      // 데이터 양이 많을수록 시청자가 따라가기 좋게.
+      const animMs = data.period === 'week' ? 10000 : 14000;
       const result = await captureCanvasAnimation(
         canvas,
         (p) => drawPeriodFrame(canvas, data, p),
-        { durationMs: 7000, holdMs: 1000, fps: 30, bitsPerSecond: 8_000_000 },
+        { durationMs: animMs, holdMs: 2000, fps: 30, bitsPerSecond: 8_000_000 },
       );
       await downloadOrShare(result.blob, `routinist-${data.period}-${Date.now()}.${result.extension}`, result.mimeType);
     } catch (e) {

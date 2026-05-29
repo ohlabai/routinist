@@ -21,6 +21,7 @@ import {
 import AppToast from '@/components/AppToast';
 import CourseDetailSheet from './CourseDetailSheet';
 import { useI18n } from '@/lib/i18n';
+// build 207: 영문화 — 챌린지 시리즈/자세히/달리는 중/도전하기/대륙/마라톤·국가명 등 tt wrap.
 import { Coins } from 'lucide-react';
 import { track } from '@/lib/analytics';
 import NextLink from 'next/link';
@@ -119,7 +120,7 @@ function CoursePreview({ path, progress }: { path: PreviewPoint[] | null; progre
 }
 
 export default function WorldTab() {
-  const { t } = useI18n();
+  const { t, tt } = useI18n();
   const { user } = useAuth();
   const [mine, setMine] = useState<MyCourse[]>([]);
   const [available, setAvailable] = useState<VirtualCourse[]>([]);
@@ -209,13 +210,18 @@ export default function WorldTab() {
     setStarting(courseId);
     try {
       const r = await startCourse(courseId);
-      const name = confirmStart?.name ?? available.find(c => c.id === courseId)?.name ?? '코스';
+      const name = confirmStart?.name ?? available.find(c => c.id === courseId)?.name ?? tt('코스');
+      const localName = tt(name);
       if (r.already_started) {
-        showToast(`🏃 ${name} 참가중이에요 — 바로 진입할게요!`);
+        showToast(tt('🏃 {name} 참가중이에요 — 바로 진입할게요!').replace('{name}', localName));
       } else {
         track('world_course_start', { course_id: courseId, course_name: name });
         // build 164 #3: 친근한·재미있는 출발 멘트.
-        showToast(`🎉 출발! ${r.fee_charged.toLocaleString()} 마일리지 차감 (잔액 ${r.balance.toLocaleString()})`);
+        showToast(
+          tt('🎉 출발! {fee} 마일리지 차감 (잔액 {bal})')
+            .replace('{fee}', r.fee_charged.toLocaleString())
+            .replace('{bal}', r.balance.toLocaleString())
+        );
       }
       // build 166 #1: handleStart 가 성공하면 (already_started 든 fee_charged 든) localStorage 에 영구 저장.
       // fetchMyCourses 가 RLS / network 이슈로 빈 결과를 줘도 "달리는 중" 표시가 유지됨.
@@ -268,7 +274,7 @@ export default function WorldTab() {
                 <div className="w-14 h-14 rounded-full mx-auto mb-1.5 bg-gradient-to-br from-amber-300 to-orange-500 flex items-center justify-center shadow-lg">
                   {c.has_medal ? <Trophy size={26} className="text-white" /> : <Sparkles size={22} className="text-white" />}
                 </div>
-                <p className="text-xs font-extrabold truncate">{c.name}</p>
+                <p className="text-xs font-extrabold truncate">{tt(c.name)}</p>
                 <p className="text-[10px] text-[var(--muted)]">{c.distance_km.toFixed(1)}km</p>
               </div>
             ))}
@@ -281,10 +287,10 @@ export default function WorldTab() {
         <section>
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-sm font-extrabold inline-flex items-center gap-1.5">
-              <Trophy size={14} className="text-amber-500" /> 챌린지 시리즈
+              <Trophy size={14} className="text-amber-500" /> {tt('챌린지 시리즈')}
             </h2>
             {seriesFilter && (
-              <button onClick={() => setSeriesFilter(null)} className="text-[11px] font-bold text-emerald-600 active:scale-95">전체</button>
+              <button onClick={() => setSeriesFilter(null)} className="text-[11px] font-bold text-emerald-600 active:scale-95">{tt('전체')}</button>
             )}
           </div>
           <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mx-1 px-1">
@@ -300,8 +306,8 @@ export default function WorldTab() {
                 >
                   <button onClick={() => setSeriesFilter(active ? null : s.series_id)} className="w-full text-left active:scale-[0.98] transition">
                     <div className="text-2xl mb-1">{s.emoji ?? '🏆'}</div>
-                    <p className={`text-sm font-extrabold ${active ? 'text-white' : 'text-[var(--foreground)]'}`}>{s.name}</p>
-                    <p className={`text-[10px] mt-0.5 line-clamp-2 ${active ? 'text-white/90' : 'text-[var(--muted)]'}`}>{s.description}</p>
+                    <p className={`text-sm font-extrabold ${active ? 'text-white' : 'text-[var(--foreground)]'}`}>{tt(s.name)}</p>
+                    <p className={`text-[10px] mt-0.5 line-clamp-2 ${active ? 'text-white/90' : 'text-[var(--muted)]'}`}>{s.description ? tt(s.description) : ''}</p>
                     <div className="mt-2 flex items-center gap-2 text-[11px] font-extrabold">
                       <span className={active ? 'text-white' : 'text-emerald-600'}>{s.my_completed}/{s.course_count}</span>
                       <div className={`flex-1 h-1.5 rounded-full overflow-hidden ${active ? 'bg-white/30' : 'bg-[var(--card-border)]/30'}`}>
@@ -312,7 +318,7 @@ export default function WorldTab() {
                   <NextLink href={`/world/series?slug=${s.slug}`} className={`mt-2 block text-center py-1 rounded-lg text-[10px] font-extrabold ${
                     active ? 'bg-white/25 text-white' : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300'
                   }`}>
-                    자세히 →
+                    {tt('자세히 →')}
                   </NextLink>
                 </div>
               );
@@ -334,14 +340,14 @@ export default function WorldTab() {
                   : 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--muted)]'
               }`}
             >
-              {c === 'all' ? '전체' : `${CONTINENT_EMOJI[c]} ${CONTINENT_LABEL[c]}`}
+              {c === 'all' ? tt('전체') : `${CONTINENT_EMOJI[c]} ${tt(CONTINENT_LABEL[c])}`}
             </button>
           ))}
         </div>
       </section>
 
       {/* 시작 가능한 코스 */}
-      <Section title="새 코스" icon={<Globe size={14} className="text-emerald-500" />}>
+      <Section title={tt('새 코스')} icon={<Globe size={14} className="text-emerald-500" />}>
         {loading ? (
           <div className="space-y-2">
             {[0, 1, 2].map(i => <div key={i} className="card p-4 animate-pulse h-24" />)}
@@ -349,8 +355,8 @@ export default function WorldTab() {
         ) : available.length === 0 && mine.length === 0 ? (
           <div className="card p-6 text-center">
             <Globe size={28} className="mx-auto text-[var(--muted)] mb-2" />
-            <p className="text-sm font-bold">아직 등록된 코스가 없어요</p>
-            <p className="text-xs text-[var(--muted)] mt-1">곧 추가될 예정이에요</p>
+            <p className="text-sm font-bold">{tt('아직 등록된 코스가 없어요')}</p>
+            <p className="text-xs text-[var(--muted)] mt-1">{tt('곧 추가될 예정이에요')}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -378,43 +384,43 @@ export default function WorldTab() {
                 </button>
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-2 mb-1">
-                    <h3 className="text-base font-extrabold truncate">{c.name}</h3>
+                    <h3 className="text-base font-extrabold truncate">{tt(c.name)}</h3>
                     <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex-shrink-0">
                       {c.distance_km.toFixed(1)}km
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-xs">
                     <span className="text-[var(--muted)] inline-flex items-center gap-1 font-semibold">
-                      <MapPin size={11} /> {c.country ?? '세계'}
+                      <MapPin size={11} /> {c.country ? tt(c.country) : tt('세계')}
                     </span>
                     <span className="text-amber-700 dark:text-amber-300 inline-flex items-center gap-0.5 font-extrabold">
-                      <Coins size={11} /> {c.entry_fee_p.toLocaleString()} 마일리지
+                      <Coins size={11} /> {c.entry_fee_p.toLocaleString()}{tt(' 마일리지')}
                     </span>
                   </div>
                   {c.description && (
-                    <p className="text-[13px] text-[var(--foreground)] mt-2 leading-relaxed break-keep line-clamp-3">{c.description}</p>
+                    <p className="text-[13px] text-[var(--foreground)] mt-2 leading-relaxed break-keep line-clamp-3">{tt(c.description)}</p>
                   )}
                   <div className="mt-3 flex gap-2">
                     <button
                       onClick={() => setDetailCourseId(c.id)}
                       className="flex-1 py-3 rounded-xl bg-[var(--card)] border-2 border-[var(--card-border)] font-bold text-sm active:scale-[0.99]"
                     >
-                      자세히
+                      {tt('자세히')}
                     </button>
                     {joined ? (
                       <button
                         onClick={() => setDetailCourseId(c.id)}
                         className="flex-1 py-3 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white font-extrabold text-sm active:scale-[0.99] shadow-md shadow-amber-500/25"
                       >
-                        🏃 달리는 중
+                        {tt('🏃 달리는 중')}
                       </button>
                     ) : hasActiveCourse ? (
                       // build 167 #5: 진행 중인 다른 코스가 있으면 도전 차단. 친근 안내.
                       <button
-                        onClick={() => showToast('진행 중인 코스를 완주한 후에 새 도전을 시작할 수 있어요 🏃', 'warn')}
+                        onClick={() => showToast(tt('진행 중인 코스를 완주한 후에 새 도전을 시작할 수 있어요 🏃'), 'warn')}
                         className="flex-1 py-3 rounded-xl bg-[var(--card-border)]/30 text-[var(--muted)] font-bold text-sm active:scale-[0.99] cursor-not-allowed"
                       >
-                        완주 후 도전 가능
+                        {tt('완주 후 도전 가능')}
                       </button>
                     ) : (
                       <button
@@ -424,7 +430,7 @@ export default function WorldTab() {
                       >
                         {/* build 164 #3: "도전 시작" 누르면 바로 결제 다이얼로그가 뜨는 게 거친 흐름.
                             먼저 코스 상세를 보고, 거기서 결제 버튼을 누르는 흐름으로 매끄럽게. */}
-                        도전하기 →
+                        {tt('도전하기 →')}
                       </button>
                     )}
                   </div>
@@ -444,11 +450,11 @@ export default function WorldTab() {
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-50 dark:from-emerald-900/40 dark:to-emerald-950/40 flex items-center justify-center">
                 <Coins size={24} className="text-emerald-600" />
               </div>
-              <h3 className="text-base font-extrabold text-center">🏃 {confirmStart.name} 출발 준비!</h3>
+              <h3 className="text-base font-extrabold text-center">🏃 {tt(confirmStart.name)} {tt('출발 준비!')}</h3>
               <p className="text-sm text-[var(--muted)] text-center leading-relaxed">
-                참가비 <span className="font-extrabold text-emerald-600">{confirmStart.entry_fee_p.toLocaleString()} 마일리지</span> 차감하고 시작할게요.
-                <br />지금부터 달리는 모든 km 이 이 코스에 쌓여요.
-                <br />완주하면 디지털 인증서와 실물 메달이 기다리고 있어요! 🏅
+                {tt('참가비')} <span className="font-extrabold text-emerald-600">{confirmStart.entry_fee_p.toLocaleString()}{tt(' 마일리지')}</span> {tt('차감하고 시작할게요.')}
+                <br />{tt('지금부터 달리는 모든 km 이 이 코스에 쌓여요.')}
+                <br />{tt('완주하면 디지털 인증서와 실물 메달이 기다리고 있어요! 🏅')}
               </p>
             </div>
             <div className="flex gap-2">
@@ -457,14 +463,14 @@ export default function WorldTab() {
                 disabled={starting === confirmStart.id}
                 className="flex-1 py-3 rounded-xl bg-[var(--card-border)]/30 font-semibold text-sm disabled:opacity-50"
               >
-                취소
+                {tt('취소')}
               </button>
               <button
                 onClick={() => handleStart(confirmStart.id)}
                 disabled={starting === confirmStart.id}
                 className="flex-1 py-3 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-sm disabled:opacity-50 active:scale-95"
               >
-                {starting === confirmStart.id ? '차감 중…' : '출발! 🚀'}
+                {starting === confirmStart.id ? tt('차감 중…') : tt('출발! 🚀')}
               </button>
             </div>
           </div>
@@ -495,6 +501,8 @@ function Section({ title, icon, children }: { title: string; icon: React.ReactNo
 }
 
 function ProgressCard({ course, path }: { course: MyCourse; path: PreviewPoint[] | null }) {
+  // build 207: locale-aware 라벨. tt 는 useI18n hook 안에서만 — 직접 useI18n 사용.
+  const { tt } = useI18n();
   const pct = Math.min(100, (course.progress_km / course.distance_km) * 100);
   const remain = Math.max(0, course.distance_km - course.progress_km);
   const ratio = Math.min(1, course.progress_km / course.distance_km);
@@ -509,8 +517,8 @@ function ProgressCard({ course, path }: { course: MyCourse; path: PreviewPoint[]
       <CoursePreview path={path} progress={ratio} />
       <div className="p-4">
         <div className="flex items-baseline justify-between gap-2 mb-0.5">
-          <p className="text-base font-extrabold truncate">{course.name}</p>
-          <span className="text-xs text-[var(--muted)] flex-shrink-0 font-semibold">{course.country ?? ''}</span>
+          <p className="text-base font-extrabold truncate">{tt(course.name)}</p>
+          <span className="text-xs text-[var(--muted)] flex-shrink-0 font-semibold">{course.country ? tt(course.country) : ''}</span>
         </div>
         <p className="text-xs text-[var(--muted)] font-semibold">
           {course.progress_km.toFixed(1)} / {course.distance_km.toFixed(1)} km
@@ -521,7 +529,7 @@ function ProgressCard({ course, path }: { course: MyCourse; path: PreviewPoint[]
           <div className="mt-3 flex flex-col gap-2">
             <div className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-md shadow-amber-500/30">
               <Trophy size={18} className="drop-shadow" />
-              <span className="text-sm font-extrabold drop-shadow">🎉 완주했어요! 메달이 기다려요</span>
+              <span className="text-sm font-extrabold drop-shadow">{tt('🎉 완주했어요! 메달이 기다려요')}</span>
             </div>
           </div>
         ) : (
@@ -531,7 +539,7 @@ function ProgressCard({ course, path }: { course: MyCourse; path: PreviewPoint[]
             </div>
             <div className="flex items-center justify-between mt-1.5 text-xs">
               <span className="text-emerald-600 font-extrabold">{pct.toFixed(0)}%</span>
-              <span className="text-[var(--muted)] font-semibold">남은 거리 {remain.toFixed(1)}km</span>
+              <span className="text-[var(--muted)] font-semibold">{tt('남은 거리 ')}{remain.toFixed(1)}km</span>
             </div>
           </div>
         )}

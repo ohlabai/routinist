@@ -29,6 +29,7 @@ import { logClientWarn } from '@/lib/error-logger';
 import { daysAgoStr, toLocalMonthStr, toLocalDateStr } from '@/lib/kst';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { dataCache, CACHE_KEYS } from '@/lib/data-cache';
+import { useI18n, formatRank } from '@/lib/i18n';
 import dynamic from 'next/dynamic';
 import { X as XIcon } from 'lucide-react';
 import type { GeoJSONLineString } from '@/types';
@@ -78,6 +79,7 @@ function UserProfileContent() {
   const searchParams = useSearchParams();
   const userId = searchParams.get('id') ?? '';
   const { user } = useAuth();
+  const { locale } = useI18n();
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [stats, setStats] = useState<MonthStats>({ monthly_km: 0, run_count: 0 });
@@ -805,6 +807,7 @@ function FriendCalendarCard({ userId }: { userId: string }) {
 // find_hero_rank RPC 로 현재 이번 달 랭킹 + monthly_goals 테이블에서 목표 거리 조회.
 // 친구 프로필에 "혼자만의 숫자" 가 아니라 "사회적 맥락" 추가.
 function FriendRankingBlock({ userId, monthlyKm }: { userId: string; monthlyKm: number }) {
+  const { locale } = useI18n();
   const [rank, setRank] = useState<{ scope_label: string; rank_position: number; total_in_scope: number } | null>(null);
   const [goalKm, setGoalKm] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -844,7 +847,7 @@ function FriendRankingBlock({ userId, monthlyKm }: { userId: string; monthlyKm: 
           <div>
             <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">이달 랭킹</p>
             <p className="text-lg font-extrabold text-[var(--foreground)] mt-0.5">
-              <span className="text-emerald-600">{rank.rank_position}위</span>
+              <span className="text-emerald-600">{formatRank(rank.rank_position, locale)}</span>
               <span className="text-xs font-medium text-[var(--muted)] ml-1.5">/ {rank.total_in_scope}명</span>
             </p>
             <p className="text-[11px] text-[var(--muted)] mt-0.5">{rank.scope_label}</p>

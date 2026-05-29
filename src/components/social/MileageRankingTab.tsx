@@ -10,6 +10,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import { dataCache, onCacheInvalidated } from '@/lib/data-cache';
 import MileageBreakdownModal from './MileageBreakdownModal';
+import { useI18n } from '@/lib/i18n';
 
 type Scope = 'all' | 'gu' | 'age';
 
@@ -31,6 +32,7 @@ const TABS: { id: Scope; label: string }[] = [
 
 export default function MileageRankingTab() {
   const { user, profile } = useAuth();
+  const { tt } = useI18n();
   const [scope, setScope] = useState<Scope>('all');
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -116,7 +118,7 @@ export default function MileageRankingTab() {
                 : 'bg-[var(--card)] text-[var(--muted)] border border-[var(--card-border)]'
             }`}
           >
-            {t.label}
+            {tt(t.label)}
           </button>
         ))}
       </div>
@@ -124,10 +126,10 @@ export default function MileageRankingTab() {
       {cantUseScope && (
         <div className="card p-4 text-center">
           <p className="text-sm text-[var(--muted)] mb-3">
-            {scope === 'gu' ? '지역(시·구)' : '출생연도·성별'} 정보를 입력하면 표시됩니다
+            {scope === 'gu' ? tt('지역(시·구)') : tt('출생연도·성별')}{tt(' 정보를 입력하면 표시됩니다')}
           </p>
           <Link href="/profile/edit" className="text-sm font-semibold text-emerald-600">
-            내 프로필 편집 →
+            {tt('내 프로필 편집 →')}
           </Link>
         </div>
       )}
@@ -141,8 +143,8 @@ export default function MileageRankingTab() {
       {!cantUseScope && !loading && rows.length === 0 && (
         <div className="card p-6 text-center">
           <Trophy size={28} className="mx-auto text-[var(--muted)] opacity-40 mb-2" />
-          <p className="text-sm text-[var(--muted)]">아직 마일리지를 모은 러너가 없어요</p>
-          <p className="text-xs text-[var(--muted)] mt-1">달리고 첫 번째 1위가 되세요!</p>
+          <p className="text-sm text-[var(--muted)]">{tt('아직 마일리지를 모은 러너가 없어요')}</p>
+          <p className="text-xs text-[var(--muted)] mt-1">{tt('달리고 첫 번째 1위가 되세요!')}</p>
         </div>
       )}
 
@@ -169,7 +171,7 @@ export default function MileageRankingTab() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-[var(--foreground)] truncate">
-                    {r.display_name}{isMe && <span className="ml-1 text-emerald-600">(나)</span>}
+                    {r.display_name}{isMe && <span className="ml-1 text-emerald-600">{tt('(나)')}</span>}
                   </p>
                   {r.region_gu && (
                     <p className="text-xs text-[var(--muted)] flex items-center gap-1">
@@ -179,7 +181,7 @@ export default function MileageRankingTab() {
                 </div>
                 <div className="text-right">
                   <p className="text-base font-bold text-emerald-600 tabular-nums">{r.mileage_balance.toLocaleString()}</p>
-                  <p className="text-[10px] text-[var(--muted)]">마일</p>
+                  <p className="text-[10px] text-[var(--muted)]">{tt('마일')}</p>
                 </div>
               </button>
             );

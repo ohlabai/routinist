@@ -566,15 +566,29 @@ function drawCard(
     ctx.roundRect(goalBarPadX, goalBarTop, goalBarW, goalBarH, radius);
     ctx.fill();
 
-    // 진행 — 컬러: 0.85 이전엔 emerald, 이후엔 흰색으로 전환. bounce 는 가로 너비에 살짝 over.
-    const finalFillHex = '#ffffff';
-    const animFillColor = colorMixT >= 1 ? finalFillHex : lerpHex('#10b981', finalFillHex, colorMixT);
-    ctx.fillStyle = animFillColor;
+    // build 207 #10: 어제까지 누적은 항상 흰색 baseline, 오늘 추가분만 emerald 차오름 → bounce → 완료시 흰색.
+    // (1) 어제까지 누적 = 흰색 (항상 표시)
+    const baselineW = Math.max(goalBarH * 0, goalBarW * baselineProgress);
+    if (baselineW > 0) {
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.roundRect(goalBarPadX, goalBarTop, Math.max(goalBarH, baselineW), goalBarH, radius);
+      ctx.fill();
+    }
+    // (2) 오늘 추가분 = baseline → today. 0~0.85 emerald, 0.85~1 흰색
     const baseFillW = Math.max(goalBarH, goalBarW * progress);
     const fillW = Math.min(goalBarW, baseFillW + (bouncePx > 0 ? bouncePx * 0.6 : 0));
-    ctx.beginPath();
-    ctx.roundRect(goalBarPadX, goalBarTop, fillW, goalBarH, radius);
-    ctx.fill();
+    if (fillW > baselineW + 0.5) {
+      const finalFillHex = '#ffffff';
+      const animFillColor = colorMixT >= 1 ? finalFillHex : lerpHex('#10b981', finalFillHex, colorMixT);
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(goalBarPadX, goalBarTop, fillW, goalBarH, radius);
+      ctx.clip();
+      ctx.fillStyle = animFillColor;
+      ctx.fillRect(goalBarPadX + baselineW, goalBarTop, fillW - baselineW, goalBarH);
+      ctx.restore();
+    }
 
     // build 170 #3: 라벨 겹침 fix — 두 라벨이 같은 라인에 있어 progress 가 100% 가까울 때
     // 5/30 + 199.9/200km 가 겹침. 5/21 라벨은 막대 **위**(작게), 누적 km 는 막대 **아래** 우측.

@@ -76,7 +76,7 @@ const PERIOD_OPTIONS: { id: PeriodMode; label: string }[] = [
 ];
 
 export default function DashboardPage() {
-  const { t } = useI18n();
+  const { t, tt, locale } = useI18n();
   const { user, profile } = useAuth();
   const { activities, goals, loading: userDataLoading, refresh, lastUpdated } = useUserData();
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -104,6 +104,9 @@ export default function DashboardPage() {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
+  // build 207: month 라벨 — 영문 모드는 영문 월명, 한국어는 "5월"
+  const MONTH_NAMES_EN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const monthLabel = locale === 'en' ? MONTH_NAMES_EN[month - 1] : `${month}월`;
   // 폰 timezone 기준 YYYY-MM-DD — toISOString().split('T')[0] 은 UTC 라 KST 새벽에 어제로 표시되는 버그
   const todayStr = (() => {
     try {
@@ -416,7 +419,9 @@ export default function DashboardPage() {
   // build 152: dayStats/hourStats 를 activities 기반 useMemo 로 derive — 토글 변경 시 즉시 갱신.
   // 이전엔 fetchDayOfWeekStats RPC 호출 + 1000건 제한이라 누적 정확도 떨어짐.
   const dayStats = useMemo<DayOfWeekStat[]>(() => {
-    const days = ['일','월','화','수','목','금','토'];
+    const days = locale === 'en'
+      ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+      : ['일','월','화','수','목','금','토'];
     const stats: DayOfWeekStat[] = days.map((day, i) => ({ day, dayIndex: i, runCount: 0, totalDistance: 0, avgDistance: 0 }));
     const filtered = dayScope === 'year'
       ? activities.filter(a => new Date(a.activity_date).getFullYear() === year)
@@ -428,12 +433,12 @@ export default function DashboardPage() {
     });
     stats.forEach(s => { s.avgDistance = s.runCount > 0 ? Math.round(s.totalDistance / s.runCount * 10) / 10 : 0; });
     return stats;
-  }, [activities, dayScope, year]);
+  }, [activities, dayScope, year, locale]);
 
   const hourStats = useMemo<HourOfDayStat[]>(() => {
     const hours: HourOfDayStat[] = [];
     for (let h = 0; h < 24; h++) {
-      hours.push({ hour: h, label: `${h}시`, runCount: 0 });
+      hours.push({ hour: h, label: locale === 'en' ? `${h}h` : `${h}시`, runCount: 0 });
     }
     const filtered = hourScope === 'year'
       ? activities.filter(a => a.started_at && new Date(a.started_at).getFullYear() === year)
@@ -444,9 +449,14 @@ export default function DashboardPage() {
       hours[hour].runCount++;
     });
     return hours;
-  }, [activities, hourScope, year]);
+  }, [activities, hourScope, year, locale]);
 
-  const hourGroups = [
+  const hourGroups = locale === 'en' ? [
+    { label: 'Dawn (0–6)', count: hourStats.slice(0, 6).reduce((s, h) => s + h.runCount, 0) },
+    { label: 'Morning (6–12)', count: hourStats.slice(6, 12).reduce((s, h) => s + h.runCount, 0) },
+    { label: 'Afternoon (12–18)', count: hourStats.slice(12, 18).reduce((s, h) => s + h.runCount, 0) },
+    { label: 'Evening (18–24)', count: hourStats.slice(18, 24).reduce((s, h) => s + h.runCount, 0) },
+  ] : [
     { label: '새벽 (0~6시)', count: hourStats.slice(0, 6).reduce((s, h) => s + h.runCount, 0) },
     { label: '오전 (6~12시)', count: hourStats.slice(6, 12).reduce((s, h) => s + h.runCount, 0) },
     { label: '오후 (12~18시)', count: hourStats.slice(12, 18).reduce((s, h) => s + h.runCount, 0) },
@@ -610,7 +620,7 @@ export default function DashboardPage() {
             <h2 className="text-xl font-bold text-[var(--foreground)]">
               {t('home.userMonthTitle')
                 .replace('{name}', profile?.display_name ?? t('profile.runner'))
-                .replace('{month}', String(month))}
+                .replace('{month}', monthLabel)}
             </h2>
             <div className="flex items-center gap-2 mt-0.5">
               <p className="text-xs text-[var(--muted)]">
@@ -630,19 +640,19 @@ export default function DashboardPage() {
               {userDataLoading && activities.length === 0 ? (
                 <p className="text-2xl font-extrabold text-[var(--accent)] opacity-30">···</p>
               ) : (
-                <p className="text-2xl font-extrabold text-[var(--accent)]">{todayKm.toFixed(1)}</p>
+                <p className="text-3xl font-extrabold text-[var(--accent)]">{todayKm.toFixed(1)}</p>
               )}
-              <p className="text-xs text-[var(--muted)] mt-0.5">{t('home.todayKm')}</p>
+              <p className="text-sm font-medium text-[var(--muted)] mt-1">{t('home.todayKm')}</p>
             </div>
             <div>
               {userDataLoading && activities.length === 0 ? (
                 <p className="text-2xl font-extrabold text-[var(--foreground)] opacity-30">···</p>
               ) : (
-                <p className="text-2xl font-extrabold text-[var(--foreground)]">
+                <p className="text-3xl font-extrabold text-[var(--foreground)]">
                   {todayPaceSec ? formatPace(todayPaceSec) : recentPace ? formatPace(recentPace.pace) : '-'}
                 </p>
               )}
-              <p className="text-xs text-[var(--muted)] mt-0.5">
+              <p className="text-sm font-medium text-[var(--muted)] mt-1">
                 {todayPaceSec ? t('home.todayPace') : recentPace ? t('home.recentPace') : t('home.todayPace')}
               </p>
             </div>
@@ -650,29 +660,33 @@ export default function DashboardPage() {
               {userDataLoading && activities.length === 0 && !profileMonthCacheValid ? (
                 <p className="text-2xl font-extrabold text-green-600 opacity-30">···</p>
               ) : (
-                <p className="text-2xl font-extrabold text-green-600">{monthlyDistance.toFixed(1)}</p>
+                <p className="text-3xl font-extrabold text-green-600">{monthlyDistance.toFixed(1)}</p>
               )}
-              <p className="text-xs text-[var(--muted)] mt-0.5">{t('home.monthKm')}</p>
+              <p className="text-sm font-medium text-[var(--muted)] mt-1">{t('home.monthKm')}</p>
             </div>
             <div>
               {userDataLoading && activities.length === 0 && !profileMonthCacheValid ? (
                 <p className="text-2xl font-extrabold text-lime-600 dark:text-lime-500 opacity-30">···</p>
               ) : (
-                <p className="text-2xl font-extrabold text-lime-600 dark:text-lime-500">{monthlyRunDays}</p>
+                <p className="text-3xl font-extrabold text-lime-600 dark:text-lime-500">{monthlyRunDays}</p>
               )}
-              <p className="text-xs text-[var(--muted)] mt-0.5">{t('home.monthDays')}</p>
+              <p className="text-sm font-medium text-[var(--muted)] mt-1">{t('home.monthDays')}</p>
             </div>
           </div>
         </div>
 
-        {/* 6 이달 목표 */}
+        {/* 6 달리기 시작 CTA (build 207 이동) — hero stats 바로 아래 prominent 위치.
+            상단 알림(SyncStaleBadge 등) 으로 밀려도 hero 다음 자리라 항상 첫 화면 안. */}
+        <TrackStartCTA />
+
+        {/* 6.1 이달 목표 */}
         <div className={`mx-4 card p-5 relative overflow-hidden ${goalKm > 0 && goalProgress >= 100 ? 'goal-achieved' : ''}`}>
           {goalKm > 0 && goalProgress >= 100 && (
             <div className="absolute inset-0 achievement-shimmer pointer-events-none" />
           )}
           <div className="relative">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-base font-semibold text-[var(--foreground)]">{t('home.monthGoal').replace('{month}', String(month))}</h3>
+              <h3 className="text-base font-semibold text-[var(--foreground)]">{t('home.monthGoal').replace('{month}', monthLabel)}</h3>
               <Link href="/goals" className="text-sm text-[var(--accent)] font-semibold flex items-center gap-0.5">
                 {t('home.set')} <ChevronRight size={14} />
               </Link>
@@ -733,11 +747,8 @@ export default function DashboardPage() {
         {/* 6.7 친구 활동 스토리 — build 143: 300ms defer (secondary) */}
         {secondaryMounted && <HomeFriendStories />}
 
-        {/* 6.9 달리기 시작 CTA (build 194 미니멀 트래킹 진입점) — 랭킹 hero 위 */}
-        <TrackStartCTA />
-
-        {/* 6.95 공유카드 — 이번 주/이번 달 (build 195). 활동 1건 이상일 때만 노출 */}
-        <SharePeriodEntry activities={activities} />
+        {/* build 207 #15: SharePeriodEntry 제거 — HomeCalendarCard 안 "공유카드 만들기"로 통합.
+            오늘/이번 주/이번 달 3옵션을 시트로 선택. */}
 
         {/* 6.97 시즌 결산 (build 199 / Phase 3) — 분기말 ±7일에만 노출 */}
         <SeasonRecapCard />
@@ -787,30 +798,30 @@ export default function DashboardPage() {
       <div className="card p-5">
         <div className="flex items-center gap-2 mb-3">
           <Flame size={16} className="text-orange-500" />
-          <h3 className="text-base font-semibold text-[var(--foreground)]">연속 달리기 스트릭</h3>
+          <h3 className="text-base font-semibold text-[var(--foreground)]">{tt('연속 달리기 스트릭')}</h3>
         </div>
         <div className="grid grid-cols-3 gap-2 text-center">
           <div>
             <p className="text-3xl font-extrabold text-orange-500">{streak}</p>
-            <p className="text-xs text-[var(--muted)] mt-0.5">현재 연속일</p>
+            <p className="text-xs text-[var(--muted)] mt-0.5">{tt('현재 연속일')}</p>
           </div>
           <div className="border-x border-[var(--card-border)]">
             <p className="text-3xl font-extrabold text-purple-500">{maxStreak}</p>
-            <p className="text-xs text-[var(--muted)] mt-0.5">최장 연속일</p>
+            <p className="text-xs text-[var(--muted)] mt-0.5">{tt('최장 연속일')}</p>
           </div>
           <div>
             <p className="text-3xl font-extrabold text-[var(--foreground)]">{totalRuns}</p>
-            <p className="text-xs text-[var(--muted)] mt-0.5">총 러닝</p>
+            <p className="text-xs text-[var(--muted)] mt-0.5">{tt('총 러닝')}</p>
           </div>
         </div>
         {isRecordBreaking && maxStreak >= 2 && (
           <p className="text-center text-xs font-bold text-orange-500 mt-3 achievement-shimmer rounded-lg py-1.5">
-            🔥 최장 기록 갱신 중!
+            {tt('🔥 최장 기록 갱신 중!')}
           </p>
         )}
         {daysToRecord > 0 && daysToRecord <= 3 && (
           <p className="text-center text-xs font-semibold text-[var(--accent)] mt-3">
-            역대 최장 기록까지 {daysToRecord}일!
+            {locale === 'en' ? `${daysToRecord} day${daysToRecord === 1 ? '' : 's'} to your all-time record!` : `역대 최장 기록까지 ${daysToRecord}일!`}
           </p>
         )}
       </div>
@@ -843,7 +854,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Trophy size={16} className="text-yellow-500" />
-              <h3 className="text-base font-semibold text-[var(--foreground)]">개인 베스트</h3>
+              <h3 className="text-base font-semibold text-[var(--foreground)]">{tt('개인 베스트')}</h3>
             </div>
             <div className="flex items-center gap-1 bg-[var(--card-border)]/30 rounded-lg p-0.5">
               <button
@@ -856,38 +867,38 @@ export default function DashboardPage() {
                 onClick={() => setPbScope('all')}
                 className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${pbScope === 'all' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)]'}`}
               >
-                누적
+                {tt('누적')}
               </button>
             </div>
           </div>
           {pbScope === 'year' && !yearHasData ? (
-            <p className="text-sm text-[var(--muted)] text-center py-6">{year}년 기록이 아직 없어요</p>
+            <p className="text-sm text-[var(--muted)] text-center py-6">{locale === 'en' ? `No records for ${year} yet` : `${year}년 기록이 아직 없어요`}</p>
           ) : (
             <div className="grid grid-cols-2 gap-3">
               {pb.longestRun && (
                 <div className="bg-[var(--card-border)]/30 rounded-xl p-3">
-                  <p className="text-xs text-[var(--muted)] mb-1">최장 거리</p>
+                  <p className="text-xs text-[var(--muted)] mb-1">{tt('최장 거리')}</p>
                   <p className="text-2xl font-extrabold text-[var(--foreground)]">{pb.longestRun.distance_km.toFixed(2)}km</p>
                   <p className="text-xs text-[var(--muted)]">{pb.longestRun.date}</p>
                 </div>
               )}
               {pb.fastestPace && (
                 <div className="bg-[var(--card-border)]/30 rounded-xl p-3">
-                  <p className="text-xs text-[var(--muted)] mb-1">최빠 페이스</p>
+                  <p className="text-xs text-[var(--muted)] mb-1">{tt('최빠 페이스')}</p>
                   <p className="text-2xl font-extrabold text-[var(--foreground)]">{formatPace(pb.fastestPace.pace)}/km</p>
                   <p className="text-xs text-[var(--muted)]">{pb.fastestPace.date} ({pb.fastestPace.distance_km.toFixed(1)}km)</p>
                 </div>
               )}
               {pb.longestDuration && (
                 <div className="bg-[var(--card-border)]/30 rounded-xl p-3">
-                  <p className="text-xs text-[var(--muted)] mb-1">최장 시간</p>
+                  <p className="text-xs text-[var(--muted)] mb-1">{tt('최장 시간')}</p>
                   <p className="text-2xl font-extrabold text-[var(--foreground)]">{formatDuration(pb.longestDuration.duration)}</p>
                   <p className="text-xs text-[var(--muted)]">{pb.longestDuration.date}</p>
                 </div>
               )}
               {pb.mostCalories && pb.mostCalories.calories > 0 && (
                 <div className="bg-[var(--card-border)]/30 rounded-xl p-3">
-                  <p className="text-xs text-[var(--muted)] mb-1">최다 칼로리</p>
+                  <p className="text-xs text-[var(--muted)] mb-1">{tt('최다 칼로리')}</p>
                   <p className="text-2xl font-extrabold text-[var(--foreground)]">{pb.mostCalories.calories}kcal</p>
                   <p className="text-xs text-[var(--muted)]">{pb.mostCalories.date}</p>
                 </div>
@@ -903,8 +914,8 @@ export default function DashboardPage() {
       <LazyMount minHeight={260}>
       <div className="card p-5">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-base font-semibold text-[var(--foreground)]">일별 거리 추이</h3>
-          <span className="text-xs text-[var(--muted)]">최근 30일 · 총 {daily30Total.toFixed(1)}km</span>
+          <h3 className="text-base font-semibold text-[var(--foreground)]">{tt('일별 거리 추이')}</h3>
+          <span className="text-xs text-[var(--muted)]">{locale === 'en' ? `Last 30 days · ${daily30Total.toFixed(1)}km total` : `최근 30일 · 총 ${daily30Total.toFixed(1)}km`}</span>
         </div>
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={dailyData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
@@ -939,7 +950,7 @@ export default function DashboardPage() {
         <LazyMount minHeight={240}>
         <div className="card p-5">
           <div className="flex items-baseline justify-between mb-3">
-            <h3 className="text-base font-bold text-[var(--foreground)]">최근 12주 러닝</h3>
+            <h3 className="text-base font-bold text-[var(--foreground)]">{tt('최근 12주 러닝')}</h3>
             {(() => {
               const nowMs = Date.now();
               const _12wMs = 12 * 7 * 24 * 60 * 60 * 1000;
@@ -953,13 +964,13 @@ export default function DashboardPage() {
               const diff = thisSum - lastSum;
               if (lastSum < 0.5 && thisSum < 0.5) return null;
               if (lastSum < 0.5) {
-                return <span className="text-xs font-semibold text-emerald-600">전년 동기 첫 기록 🎉</span>;
+                return <span className="text-xs font-semibold text-emerald-600">{tt('전년 동기 첫 기록 🎉')}</span>;
               }
               const sign = diff >= 0 ? '+' : '';
               const color = diff >= 0 ? 'text-emerald-600' : 'text-rose-500';
               return (
                 <span className={`text-xs font-semibold ${color}`}>
-                  전년 동기 {sign}{diff.toFixed(0)}km
+                  {locale === 'en' ? `vs last year ${sign}${diff.toFixed(0)}km` : `전년 동기 ${sign}${diff.toFixed(0)}km`}
                 </span>
               );
             })()}
@@ -991,7 +1002,7 @@ export default function DashboardPage() {
       {paceTrend.some(p => p.avgPace !== null) && (
         <LazyMount minHeight={260}>
         <div className="card p-5">
-          <h3 className="text-base font-bold text-[var(--foreground)] mb-3">페이스 추이 (최근 12개월)</h3>
+          <h3 className="text-base font-bold text-[var(--foreground)] mb-3">{tt('페이스 추이 (최근 12개월)')}</h3>
           <ResponsiveContainer width="100%" height={180}>
             <AreaChart data={paceTrend.filter(p => p.avgPace !== null)} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
               <defs>
@@ -1011,12 +1022,12 @@ export default function DashboardPage() {
               />
               <Tooltip
                 contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 12 }}
-                formatter={(value) => [formatPace(Number(value)), '평균 페이스']}
+                formatter={(value) => [formatPace(Number(value)), tt('평균 페이스')]}
               />
               <Area type="monotone" dataKey="avgPace" stroke="#10B981" strokeWidth={2.5} fill="url(#homePaceGrad)" dot={{ r: 4, fill: '#10B981' }} animationDuration={chartStyle.animationDuration} />
             </AreaChart>
           </ResponsiveContainer>
-          <p className="text-xs text-[var(--muted)] mt-2 text-center">아래로 갈수록 빠른 페이스</p>
+          <p className="text-xs text-[var(--muted)] mt-2 text-center">{tt('아래로 갈수록 빠른 페이스')}</p>
         </div>
         </LazyMount>
       )}
@@ -1028,7 +1039,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Calendar size={16} className="text-blue-500" />
-              <h3 className="text-base font-semibold text-[var(--foreground)]">요일별 러닝 패턴</h3>
+              <h3 className="text-base font-semibold text-[var(--foreground)]">{tt('요일별 러닝 패턴')}</h3>
             </div>
             <div className="flex items-center gap-1 bg-[var(--card-border)]/30 rounded-lg p-0.5">
               <button
@@ -1038,17 +1049,21 @@ export default function DashboardPage() {
               <button
                 onClick={() => setDayScope('all')}
                 className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${dayScope === 'all' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)]'}`}
-              >누적</button>
+              >{tt('누적')}</button>
             </div>
           </div>
           <p className="text-xs text-[var(--muted)] mb-3">
-            주로 <span className="font-semibold text-[var(--accent)]">{maxDay.day}요일</span>에 달려요 ({maxDay.runCount}회)
+            {locale === 'en' ? (
+              <>You mostly run on <span className="font-semibold text-[var(--accent)]">{maxDay.day}</span> ({maxDay.runCount} runs)</>
+            ) : (
+              <>주로 <span className="font-semibold text-[var(--accent)]">{maxDay.day}요일</span>에 달려요 ({maxDay.runCount}회)</>
+            )}
           </p>
           <ResponsiveContainer width="100%" height={220}>
             <RadarChart data={dayStats}>
               <PolarGrid stroke="var(--card-border)" strokeDasharray={chartStyle.gridDash} />
               <PolarAngleAxis dataKey="day" tick={{ fontSize: 13, fill: 'var(--muted)', fontWeight: 600 }} />
-              <Radar name="러닝 횟수" dataKey="runCount" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.2} strokeWidth={2.5} dot={{ r: 4, fill: '#3B82F6' }} animationDuration={chartStyle.animationDuration} />
+              <Radar name={tt('러닝 횟수')} dataKey="runCount" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.2} strokeWidth={2.5} dot={{ r: 4, fill: '#3B82F6' }} animationDuration={chartStyle.animationDuration} />
             </RadarChart>
           </ResponsiveContainer>
           <div className="grid grid-cols-7 gap-1 mt-3 text-center">
@@ -1071,7 +1086,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Clock size={16} className="text-orange-500" />
-              <h3 className="text-base font-semibold text-[var(--foreground)]">시간대별 러닝 분포</h3>
+              <h3 className="text-base font-semibold text-[var(--foreground)]">{tt('시간대별 러닝 분포')}</h3>
             </div>
             <div className="flex items-center gap-1 bg-[var(--card-border)]/30 rounded-lg p-0.5">
               <button
@@ -1081,11 +1096,15 @@ export default function DashboardPage() {
               <button
                 onClick={() => setHourScope('all')}
                 className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${hourScope === 'all' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)]'}`}
-              >누적</button>
+              >{tt('누적')}</button>
             </div>
           </div>
           <p className="text-xs text-[var(--muted)] mb-3">
-            주로 <span className="font-semibold text-[var(--accent)]">{maxHourGroup.label}</span>에 달려요
+            {locale === 'en' ? (
+              <>You mostly run in the <span className="font-semibold text-[var(--accent)]">{maxHourGroup.label}</span></>
+            ) : (
+              <>주로 <span className="font-semibold text-[var(--accent)]">{maxHourGroup.label}</span>에 달려요</>
+            )}
           </p>
           <div className="space-y-2">
             {hourGroups.map((g, i) => {
@@ -1101,7 +1120,7 @@ export default function DashboardPage() {
                       style={{ width: `${Math.max(barWidth, 2)}%`, backgroundColor: colors[i] }}
                     />
                   </div>
-                  <span className="text-sm font-semibold text-[var(--foreground)] w-8 text-right">{g.count}회</span>
+                  <span className="text-sm font-semibold text-[var(--foreground)] w-8 text-right">{locale === 'en' ? g.count : `${g.count}회`}</span>
                 </div>
               );
             })}
@@ -1114,9 +1133,9 @@ export default function DashboardPage() {
       <LazyMount minHeight={420}>
       <div className="card p-5">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-base font-bold text-[var(--foreground)]">기간별 상세 통계</h3>
+          <h3 className="text-base font-bold text-[var(--foreground)]">{tt('기간별 상세 통계')}</h3>
           <Link href="/history" className="text-xs font-bold text-emerald-600 inline-flex items-center gap-0.5 active:scale-95 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30">
-            히스토리 <ChevronRight size={12} />
+            {tt('히스토리')} <ChevronRight size={12} />
           </Link>
         </div>
 
@@ -1134,13 +1153,21 @@ export default function DashboardPage() {
             const isUp = diff >= 0;
             const sign = isUp ? '+' : '';
             const color = isUp ? 'text-emerald-600' : 'text-rose-500';
-            const periodLabel =
+            const periodLabel = locale === 'en' ? (
+              periodMode === 'monthly' ? 'vs same period last year' :
+              periodMode === 'quarterly' ? `vs last year (through Q${Math.floor(new Date().getMonth() / 3) + 1})` :
+              periodMode === 'half' ? 'vs last year (through current half)' :
+              periodMode === 'weekly' ? 'vs last year (12 weeks)' :
+              periodMode === 'yearly' ? `vs last year (through ${new Date().getMonth() + 1}/${new Date().getDate()})` :
+              'vs last year'
+            ) : (
               periodMode === 'monthly' ? '전년 동기간' :
               periodMode === 'quarterly' ? '전년 동기간 (Q' + (Math.floor(new Date().getMonth() / 3) + 1) + '까지)' :
               periodMode === 'half' ? '전년 동기간 (현 반기까지)' :
               periodMode === 'weekly' ? '전년 동기 (12주)' :
               periodMode === 'yearly' ? `전년 동기간 (${new Date().getMonth() + 1}/${new Date().getDate()}까지)` :
-              '전년';
+              '전년'
+            );
             return (
               <p className={`text-sm mt-1 font-semibold ${color}`}>
                 {periodLabel} {sign}{diff.toFixed(1)}km ({sign}{pct.toFixed(0)}%)
@@ -1158,7 +1185,7 @@ export default function DashboardPage() {
                 periodMode === opt.id ? 'bg-[var(--accent)] text-white' : 'bg-[var(--card-border)]/50 text-[var(--muted)]'
               }`}
             >
-              {opt.label}
+              {tt(opt.label)}
             </button>
           ))}
         </div>
@@ -1170,7 +1197,7 @@ export default function DashboardPage() {
               chartType === 'bar' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--card-border)]/50 text-[var(--muted)]'
             }`}
           >
-            <BarChart3 size={14} /> 막대
+            <BarChart3 size={14} /> {tt('막대')}
           </button>
           <button
             onClick={() => setChartType('line')}
@@ -1178,7 +1205,7 @@ export default function DashboardPage() {
               chartType === 'line' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--card-border)]/50 text-[var(--muted)]'
             }`}
           >
-            <TrendingUp size={14} /> 선
+            <TrendingUp size={14} /> {tt('선')}
           </button>
         </div>
 
@@ -1205,9 +1232,9 @@ export default function DashboardPage() {
                   cursor={{ fill: 'var(--card-border)', opacity: 0.3 }}
                 />
                 {hasDetailPrev && (
-                  <Bar dataKey="prevDistance" name={`${detailYear - 1}년`} fill="#CBD5E1" radius={chartStyle.barRadius} animationDuration={chartStyle.animationDuration} />
+                  <Bar dataKey="prevDistance" name={locale === 'en' ? String(detailYear - 1) : `${detailYear - 1}년`} fill="#CBD5E1" radius={chartStyle.barRadius} animationDuration={chartStyle.animationDuration} />
                 )}
-                <Bar dataKey="distance" name={`${detailYear}년`} fill="url(#homeDetailGrad)" radius={chartStyle.barRadius} animationDuration={chartStyle.animationDuration} />
+                <Bar dataKey="distance" name={locale === 'en' ? String(detailYear) : `${detailYear}년`} fill="url(#homeDetailGrad)" radius={chartStyle.barRadius} animationDuration={chartStyle.animationDuration} />
                 {hasDetailPrev && <Legend wrapperStyle={{ fontSize: 13 }} />}
               </BarChart>
             ) : (
@@ -1226,9 +1253,9 @@ export default function DashboardPage() {
                   formatter={(value) => [`${value}km`]}
                 />
                 {hasDetailPrev && (
-                  <Area type="monotone" dataKey="prevDistance" name={`${detailYear - 1}년`} stroke="#94a3b8" strokeWidth={2} fill="none" dot={{ r: 3, fill: '#94a3b8' }} animationDuration={chartStyle.animationDuration} />
+                  <Area type="monotone" dataKey="prevDistance" name={locale === 'en' ? String(detailYear - 1) : `${detailYear - 1}년`} stroke="#94a3b8" strokeWidth={2} fill="none" dot={{ r: 3, fill: '#94a3b8' }} animationDuration={chartStyle.animationDuration} />
                 )}
-                <Area type="monotone" dataKey="distance" name={`${detailYear}년`} stroke="#3B82F6" strokeWidth={chartStyle.strokeWidth} fill="url(#homeDetailAreaGrad)" dot={{ r: chartStyle.dotRadius, fill: '#3B82F6' }} activeDot={{ r: chartStyle.activeDotRadius, strokeWidth: 2 }} animationDuration={chartStyle.animationDuration} />
+                <Area type="monotone" dataKey="distance" name={locale === 'en' ? String(detailYear) : `${detailYear}년`} stroke="#3B82F6" strokeWidth={chartStyle.strokeWidth} fill="url(#homeDetailAreaGrad)" dot={{ r: chartStyle.dotRadius, fill: '#3B82F6' }} activeDot={{ r: chartStyle.activeDotRadius, strokeWidth: 2 }} animationDuration={chartStyle.animationDuration} />
                 {hasDetailPrev && <Legend wrapperStyle={{ fontSize: 13 }} />}
               </AreaChart>
             )}
@@ -1324,7 +1351,7 @@ export default function DashboardPage() {
                     )}
                   </p>
                   <p className="text-xs text-[var(--muted)]">
-                    {new Date(a.activity_date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' })}
+                    {new Date(a.activity_date).toLocaleDateString(locale === 'en' ? 'en-US' : 'ko-KR', { month: 'short', day: 'numeric', weekday: 'short' })}
                     {a.pace_avg_sec_per_km ? ` · ${formatPace(a.pace_avg_sec_per_km)}/km` : ''}
                   </p>
                 </div>
@@ -1337,7 +1364,7 @@ export default function DashboardPage() {
       </LazyMount>
 
       {statsLoading && monthlyData.length === 0 && (
-        <p className="text-center text-xs text-[var(--muted)]">통계 로딩 중...</p>
+        <p className="text-center text-xs text-[var(--muted)]">{tt('통계 로딩 중...')}</p>
       )}
       </div>
 
@@ -1352,21 +1379,25 @@ export default function DashboardPage() {
           <div className="w-full max-w-sm bg-[var(--background)] rounded-3xl p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="text-center space-y-3">
               <div className="mx-auto w-16 h-16 rounded-full bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center text-3xl">📍</div>
-              <h3 className="text-lg font-extrabold text-[var(--foreground)]">지역을 자동 등록했어요</h3>
+              <h3 className="text-lg font-extrabold text-[var(--foreground)]">{tt('지역을 자동 등록했어요')}</h3>
               <p className="text-sm text-[var(--muted)] leading-relaxed">
-                러닝 GPS 정보로 추정한 지역이에요.
+                {locale === 'en' ? 'Region estimated from your run GPS.' : '러닝 GPS 정보로 추정한 지역이에요.'}
                 <br />
                 <span className="text-emerald-600 dark:text-emerald-400 font-bold">{regionAutoNotice.display}</span>
               </p>
               <p className="text-xs text-[var(--muted)] leading-relaxed">
-                정확하지 않다면 <Link href="/profile/edit" className="text-emerald-600 underline font-semibold" onClick={() => setRegionAutoNotice(null)}>내 정보</Link> 에서 직접 수정할 수 있어요.
+                {locale === 'en' ? (
+                  <>If it&apos;s incorrect, you can edit it in <Link href="/profile/edit" className="text-emerald-600 underline font-semibold" onClick={() => setRegionAutoNotice(null)}>{tt('내 정보')}</Link>.</>
+                ) : (
+                  <>정확하지 않다면 <Link href="/profile/edit" className="text-emerald-600 underline font-semibold" onClick={() => setRegionAutoNotice(null)}>{tt('내 정보')}</Link> 에서 직접 수정할 수 있어요.</>
+                )}
               </p>
             </div>
             <button
               onClick={() => setRegionAutoNotice(null)}
               className="mt-5 w-full py-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-sm active:scale-[0.98]"
             >
-              확인
+              {tt('확인')}
             </button>
           </div>
         </div>

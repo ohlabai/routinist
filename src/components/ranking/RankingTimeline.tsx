@@ -11,6 +11,7 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { TrendingUp, BarChart3 } from 'lucide-react';
+import { useI18n, formatRank } from '@/lib/i18n';
 
 type PeriodType = 'weekly' | 'monthly' | 'yearly';
 type Scope = 'nation' | 'region' | 'decade' | 'starter' | 'gender';
@@ -42,6 +43,7 @@ const SCOPE_OPTIONS: { id: Scope; label: string }[] = [
 
 export default function RankingTimeline() {
   const { user } = useAuth();
+  const { tt, locale } = useI18n();
   const [period, setPeriod] = useState<PeriodType>('weekly');
   const [scope, setScope] = useState<Scope>('nation');
   const [mode, setMode] = useState<Mode>('rank');
@@ -96,8 +98,8 @@ export default function RankingTimeline() {
     return (
       <div className="card p-5 text-center">
         <TrendingUp size={28} className="mx-auto text-[var(--muted)] opacity-40 mb-2" />
-        <p className="text-sm font-semibold text-[var(--foreground)]">아직 시계열 데이터가 부족해요</p>
-        <p className="text-xs text-[var(--muted)] mt-1">몇 주만 더 달리면 그래프가 채워져요</p>
+        <p className="text-sm font-semibold text-[var(--foreground)]">{tt('아직 시계열 데이터가 부족해요')}</p>
+        <p className="text-xs text-[var(--muted)] mt-1">{tt('몇 주만 더 달리면 그래프가 채워져요')}</p>
       </div>
     );
   }
@@ -107,7 +109,7 @@ export default function RankingTimeline() {
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-base font-bold text-[var(--foreground)] inline-flex items-center gap-1.5">
           <TrendingUp size={16} className="text-emerald-500" />
-          내 순위 시계열
+          {tt('내 순위 시계열')}
         </h3>
         {/* mode 토글 — rank / km */}
         <div className="inline-flex bg-[var(--card-border)]/30 rounded-lg p-0.5">
@@ -117,7 +119,7 @@ export default function RankingTimeline() {
               mode === 'rank' ? 'bg-emerald-500 text-white shadow-sm' : 'text-[var(--muted)]'
             }`}
           >
-            <TrendingUp size={11} /> 순위
+            <TrendingUp size={11} /> {tt('순위')}
           </button>
           <button
             onClick={() => setMode('km')}
@@ -140,7 +142,7 @@ export default function RankingTimeline() {
               period === p.id ? 'bg-emerald-500 text-white' : 'bg-[var(--card-border)]/30 text-[var(--muted)]'
             }`}
           >
-            {p.label}
+            {tt(p.label)}
           </button>
         ))}
       </div>
@@ -155,7 +157,7 @@ export default function RankingTimeline() {
               scope === s.id ? 'bg-[var(--foreground)] text-[var(--background)]' : 'bg-[var(--card-border)]/20 text-[var(--muted)]'
             }`}
           >
-            {s.label}
+            {tt(s.label)}
           </button>
         ))}
       </div>
@@ -177,9 +179,10 @@ export default function RankingTimeline() {
                 contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 12 }}
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 formatter={(value: any, _name: any, props: any) => {
-                  if (value == null) return ['—', '순위'];
+                  const rankLabel = tt('순위');
+                  if (value == null) return ['—', rankLabel];
                   const total = (props?.payload as RankPoint | undefined)?.total_in_scope ?? 0;
-                  return [`${value}위 / ${total}명`, '순위'];
+                  return [`${formatRank(Number(value), locale)} / ${total.toLocaleString()}`, rankLabel];
                 }}
               />
               <Line
@@ -205,7 +208,7 @@ export default function RankingTimeline() {
               />
             </LineChart>
           </ResponsiveContainer>
-          <p className="text-[10px] text-[var(--muted)] mt-2 text-center">위로 갈수록 좋은 순위 · 1위가 최상단</p>
+          <p className="text-[10px] text-[var(--muted)] mt-2 text-center">{tt('위로 갈수록 좋은 순위 · 1위가 최상단')}</p>
         </>
       ) : (
         <>
@@ -227,13 +230,13 @@ export default function RankingTimeline() {
               <Tooltip
                 contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 12 }}
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                formatter={(value: any) => [`${Number(value).toFixed(1)}km`, '거리']}
+                formatter={(value: any) => [`${Number(value).toFixed(1)}km`, tt('거리')]}
                 cursor={{ fill: 'var(--card-border)', opacity: 0.3 }}
               />
               <Bar dataKey="my_km" fill="url(#kmBarGrad)" radius={[6, 6, 0, 0]} animationDuration={600} />
             </BarChart>
           </ResponsiveContainer>
-          <p className="text-[10px] text-[var(--muted)] mt-2 text-center">기간별 내 거리 합계</p>
+          <p className="text-[10px] text-[var(--muted)] mt-2 text-center">{tt('기간별 내 거리 합계')}</p>
         </>
       )}
     </div>
