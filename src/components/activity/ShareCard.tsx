@@ -210,9 +210,12 @@ function drawCard(
       const scale = Math.min(mapW / dLng, mapH / dLat);
       const offsetX = padding + (mapW - dLng * scale) / 2;
       const offsetY = mapY + (mapH - dLat * scale) / 2;
+
+      // build 212: 주간/월간도 일간처럼 routeProgress 따라 그림. 모든 경로가 누적 거리로 정렬되어
+      // 하나의 timeline 처럼 차오름 → 마지막 진행점에 펄스 그린닷, 완료 시 빨간 dot.
+      // 1) 모든 경로 그림자 (항상 전체 표시 — 사용자가 한 주/한 달의 전체 모습 인지 가능)
       for (const route of extraRoutes!) {
         if (route.length < 2) continue;
-        // 그림자
         ctx.beginPath();
         route.forEach(([lng, lat], i) => {
           const x = offsetX + (lng - minLng) * scale;
@@ -224,9 +227,59 @@ function drawCard(
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.stroke();
-        // 본체
+      }
+
+      // 2) 경로 누적 거리 (haversine 근사) 로 timeline 구성
+      const routeCums: number[][] = [];
+      let grandTotal = 0;
+      const offsets: number[] = [];
+      for (const route of extraRoutes!) {
+        offsets.push(grandTotal);
+        const cum: number[] = new Array(route.length).fill(0);
+        for (let i = 1; i < route.length; i++) {
+          const [lng1, lat1] = route[i - 1];
+          const [lng2, lat2] = route[i];
+          const meanLat = (lat1 + lat2) / 2 * Math.PI / 180;
+          const dx = (lng2 - lng1) * Math.cos(meanLat);
+          const dy = lat2 - lat1;
+          cum[i] = cum[i - 1] + Math.hypot(dx, dy);
+        }
+        routeCums.push(cum);
+        grandTotal += cum[cum.length - 1] || 0;
+      }
+      const targetM = grandTotal * Math.min(1, Math.max(0, routeProgress));
+
+      // 3) 각 경로를 진행도까지 emerald 솔리드로 다시 그림
+      let lastDrawnX: number | null = null, lastDrawnY: number | null = null;
+      let lastRouteIdxDrawn = -1;
+      for (let ri = 0; ri < extraRoutes!.length; ri++) {
+        const route = extraRoutes![ri];
+        if (route.length < 2) continue;
+        const cum = routeCums[ri];
+        const routeStartM = offsets[ri];
+        const routeEndM = routeStartM + cum[cum.length - 1];
+        if (targetM <= routeStartM) continue;       // 아직 시작 안 함
+        const localTarget = Math.min(targetM, routeEndM) - routeStartM;
+        // cutIdx — localTarget 까지의 점 개수
+        let cutIdx = route.length;
+        for (let i = 0; i < cum.length; i++) {
+          if (cum[i] >= localTarget) { cutIdx = Math.max(2, i + 1); break; }
+        }
+        const sliced: [number, number][] = route.slice(0, cutIdx).map(([lng, lat]) => [lng, lat]);
+        // 마지막 점 보간
+        if (cutIdx < route.length && cutIdx > 0 && localTarget < routeEndM - routeStartM) {
+          const prevM = cum[cutIdx - 1];
+          const segM = cum[cutIdx] - prevM;
+          const ratio = segM > 0 ? Math.min(1, Math.max(0, (localTarget - prevM) / segM)) : 0;
+          const [lng1, lat1] = route[cutIdx - 1];
+          const [lng2, lat2] = route[cutIdx];
+          sliced[sliced.length - 1] = [
+            lng1 + (lng2 - lng1) * ratio,
+            lat1 + (lat2 - lat1) * ratio,
+          ];
+        }
         ctx.beginPath();
-        route.forEach(([lng, lat], i) => {
+        sliced.forEach(([lng, lat], i) => {
           const x = offsetX + (lng - minLng) * scale;
           const y = offsetY + mapH - (lat - minLat) * scale;
           if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
@@ -234,8 +287,31 @@ function drawCard(
         ctx.strokeStyle = bgImage ? '#ffffff' : theme.routeColor;
         ctx.lineWidth = 7;
         ctx.stroke();
-        // 첫 경로의 출발점에 빨간 핀 + 도시명 (#1 와 동일 패턴)
+        // 마지막 점 좌표 저장 — 펄스 dot 위치
+        const last = sliced[sliced.length - 1];
+        lastDrawnX = offsetX + (last[0] - minLng) * scale;
+        lastDrawnY = offsetY + mapH - (last[1] - minLat) * scale;
+        lastRouteIdxDrawn = ri;
       }
+
+      // 4) 진행 점 dot — 애니메이션 중에는 펄스 그린, 완료 시 빨간 dot 마지막 경로 끝점에
+      if (lastDrawnX !== null && lastDrawnY !== null) {
+        if (routeProgress >= 1) {
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath(); ctx.arc(lastDrawnX, lastDrawnY, 12, 0, Math.PI * 2); ctx.fill();
+          ctx.strokeStyle = '#1f2937';
+          ctx.lineWidth = 4;
+          ctx.stroke();
+        } else {
+          const pulse = 1 + 0.2 * Math.sin(routeProgress * Math.PI * 6);
+          ctx.fillStyle = '#22C55E';
+          ctx.beginPath(); ctx.arc(lastDrawnX, lastDrawnY, 12 * pulse, 0, Math.PI * 2); ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 4;
+          ctx.stroke();
+        }
+      }
+      void lastRouteIdxDrawn;
       // 첫 경로의 시작점에 빨간 핀
       const first = extraRoutes![0];
       if (first && first.length >= 1) {
