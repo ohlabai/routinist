@@ -57,12 +57,12 @@ export default function ProfilePage() {
       const url = await uploadAvatar(user.id, file);
       await updateProfile(user.id, { avatar_url: url });
       await refreshProfile();
-      setToast({ text: '프로필 사진을 변경했어요 ✨', tone: 'ok' });
+      setToast({ text: tt('프로필 사진을 변경했어요 ✨'), tone: 'ok' });
       setTimeout(() => setToast(null), 2500);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       logClientWarn('ProfilePage', '아바타 업로드 실패', { reason: msg });
-      setToast({ text: `사진 업로드 실패 — ${msg.slice(0, 80)}`, tone: 'warn' });
+      setToast({ text: `${tt('사진 업로드 실패')} — ${msg.slice(0, 80)}`, tone: 'warn' });
       setTimeout(() => setToast(null), 4000);
     } finally {
       setAvatarUploading(false);
@@ -152,7 +152,7 @@ export default function ProfilePage() {
   }, [activities]);
 
   const { mode, setMode } = useTheme();
-  const { locale, setLocale, t } = useI18n();
+  const { locale, setLocale, t, tt } = useI18n();
 
   // 배지 계산 — 누적 거리/횟수 기반 성취 (label 은 unit 만 locale 무관하게 표시)
   const badges: { icon: string; label: string; gradient: string }[] = [];
@@ -206,7 +206,7 @@ export default function ProfilePage() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       logClientWarn('ProfilePage', 'delete_my_account 실패', { reason: msg });
-      setDeleteToast({ text: `탈퇴 실패 — ${msg.slice(0, 100)}`, tone: 'warn' });
+      setDeleteToast({ text: `${tt('탈퇴 실패')} — ${msg.slice(0, 100)}`, tone: 'warn' });
       setDeleting(false);
     }
   };
@@ -258,7 +258,7 @@ export default function ProfilePage() {
           <button
             onClick={handleAvatarTap}
             disabled={avatarUploading}
-            aria-label="프로필 사진 변경"
+            aria-label={tt('프로필 사진 변경')}
             className="relative w-16 h-16 rounded-full bg-[var(--card-border)] overflow-hidden flex-shrink-0 active:scale-95 transition disabled:opacity-60"
           >
             {profile?.avatar_url ? (
@@ -316,8 +316,8 @@ export default function ProfilePage() {
               <ActivityIcon size={15} className="text-violet-600" />
             </div>
             <div>
-              <p className="text-sm font-extrabold text-violet-800 dark:text-violet-200">러닝 코치 (AI)</p>
-              <p className="text-[10px] text-violet-600/80 dark:text-violet-400/80">오늘 컨디션 · 자기 기록 분석</p>
+              <p className="text-sm font-extrabold text-violet-800 dark:text-violet-200">{tt('러닝 코치 (AI)')}</p>
+              <p className="text-[10px] text-violet-600/80 dark:text-violet-400/80">{tt('오늘 컨디션 · 자기 기록 분석')}</p>
             </div>
           </div>
           <span className="inline-flex items-center gap-1.5">
@@ -543,14 +543,14 @@ export default function ProfilePage() {
                 <AlertTriangle size={24} className="text-red-500" />
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-bold text-[var(--foreground)]">정말 탈퇴할까요?</h3>
+                <h3 className="text-lg font-bold text-[var(--foreground)]">{tt('정말 탈퇴할까요?')}</h3>
                 <p className="text-sm text-[var(--muted)] mt-1 leading-relaxed">
-                  탈퇴하면 러닝 기록·사진·친구·마일리지 등 <span className="font-semibold text-red-500">모든 데이터가 영구 삭제</span>되며 복구할 수 없어요.
+                  {tt('탈퇴하면 러닝 기록·사진·친구·마일리지 등 모든 데이터가 영구 삭제되며 복구할 수 없어요.')}
                 </p>
               </div>
               <button
                 onClick={() => { if (!deleting) { setShowDeleteDialog(false); setDeleteConfirmText(''); } }}
-                aria-label="닫기"
+                aria-label={tt('닫기')}
                 className="text-[var(--muted)] -mr-1 -mt-1 p-1"
               >
                 <X size={18} />
@@ -558,18 +558,18 @@ export default function ProfilePage() {
             </div>
 
             <div className="bg-red-50 dark:bg-red-950/30 rounded-xl p-3 mb-4 text-sm text-red-700 dark:text-red-300 space-y-1">
-              <p>• 통산 {totalKm.toFixed(0)}km · {totalRuns}회 러닝 기록</p>
-              <p>• 업로드한 사진과 캘린더</p>
-              <p>• 친구·쪽지·응원 내역</p>
-              <p>• 적립한 마일리지</p>
+              <p>• {locale === 'en' ? `${totalKm.toFixed(0)}km · ${totalRuns} runs total` : `통산 ${totalKm.toFixed(0)}km · ${totalRuns}회 러닝 기록`}</p>
+              <p>• {locale === 'en' ? 'Uploaded photos and calendar' : '업로드한 사진과 캘린더'}</p>
+              <p>• {locale === 'en' ? 'Friends · messages · cheers' : '친구·쪽지·응원 내역'}</p>
+              <p>• {locale === 'en' ? 'Earned mileage' : '적립한 마일리지'}</p>
             </div>
 
-            <p className="text-xs text-[var(--muted)] mb-2">계속하려면 아래에 <span className="font-bold text-red-500">탈퇴</span> 라고 입력해주세요</p>
+            <p className="text-xs text-[var(--muted)] mb-2">{tt('계속하려면 아래에 ')}<span className="font-bold text-red-500">{tt('탈퇴')}</span>{tt(' 라고 입력해주세요')}</p>
             <input
               type="text"
               value={deleteConfirmText}
               onChange={(e) => setDeleteConfirmText(e.target.value)}
-              placeholder="탈퇴"
+              placeholder={tt('탈퇴')}
               disabled={deleting}
               className="w-full px-4 py-3 mb-4 rounded-xl bg-[var(--card-border)]/30 border border-[var(--card-border)] text-base text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent"
               autoComplete="off"
@@ -583,20 +583,20 @@ export default function ProfilePage() {
                 disabled={deleting}
                 className="flex-1 py-3 rounded-xl bg-[var(--card-border)]/30 text-[var(--foreground)] font-semibold disabled:opacity-50"
               >
-                취소
+                {locale === 'en' ? 'Cancel' : '취소'}
               </button>
               <button
                 onClick={handleDeleteAccount}
-                disabled={deleting || deleteConfirmText.trim() !== '탈퇴'}
+                disabled={deleting || (locale === 'en' ? deleteConfirmText.trim().toLowerCase() !== 'delete' : deleteConfirmText.trim() !== '탈퇴')}
                 className="flex-1 py-3 rounded-xl bg-red-500 text-white font-bold disabled:opacity-30 active:scale-95 transition-transform flex items-center justify-center gap-2"
               >
                 {deleting ? (
                   <>
                     <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    탈퇴 처리 중...
+                    {tt('탈퇴 처리 중...')}
                   </>
                 ) : (
-                  '탈퇴하기'
+                  locale === 'en' ? 'Delete account' : '탈퇴하기'
                 )}
               </button>
             </div>

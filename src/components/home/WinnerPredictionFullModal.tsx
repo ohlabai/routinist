@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import { X, Check, Trophy } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 
 interface Candidate {
   user_id: string;
@@ -26,6 +27,7 @@ interface Props {
 }
 
 export default function WinnerPredictionFullModal({ roundId, myPick, isClosed, onClose, onPick }: Props) {
+  const { tt, locale } = useI18n();
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [picking, setPicking] = useState<string | null>(null);
@@ -77,12 +79,12 @@ export default function WinnerPredictionFullModal({ roundId, myPick, isClosed, o
         <div className="sticky top-0 z-10 bg-[var(--background)]/95 backdrop-blur-lg border-b border-[var(--card-border)] px-5 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
             <Trophy size={20} className="text-emerald-600 flex-shrink-0" />
-            <h2 className="text-base font-extrabold text-[var(--foreground)] truncate">우승자 맞히기 — 전체 후보</h2>
+            <h2 className="text-base font-extrabold text-[var(--foreground)] truncate">{tt('우승자 맞히기 — 전체 후보')}</h2>
           </div>
           <button
             onClick={onClose}
             className="w-9 h-9 rounded-full bg-[var(--card-border)]/40 flex items-center justify-center active:scale-95 transition flex-shrink-0"
-            aria-label="닫기"
+            aria-label={locale === 'en' ? 'Close' : '닫기'}
           >
             <X size={18} className="text-[var(--foreground)]" />
           </button>
@@ -91,8 +93,8 @@ export default function WinnerPredictionFullModal({ roundId, myPick, isClosed, o
         {/* 안내 */}
         <div className="px-5 py-3 bg-emerald-50/50 dark:bg-emerald-950/10 border-b border-emerald-100 dark:border-emerald-900/30">
           <p className="text-xs text-[var(--muted)] leading-relaxed">
-            전국 이번 주 거리 상위 후보들이에요. 1명만 응원할 수 있고, 변경은 불가능합니다.
-            {myPick && <span className="block mt-1 font-bold text-emerald-600">이미 픽한 후보가 있어요.</span>}
+            {tt('전국 이번 주 거리 상위 후보들이에요. 1명만 응원할 수 있고, 변경은 불가능합니다.')}
+            {myPick && <span className="block mt-1 font-bold text-emerald-600">{locale === 'en' ? 'You already have a pick.' : '이미 픽한 후보가 있어요.'}</span>}
           </p>
         </div>
 
@@ -103,7 +105,7 @@ export default function WinnerPredictionFullModal({ roundId, myPick, isClosed, o
               <div className="animate-spin w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full" />
             </div>
           ) : candidates.length === 0 ? (
-            <p className="text-center text-sm text-[var(--muted)] py-12">아직 이번 주에 달린 사람이 없어요</p>
+            <p className="text-center text-sm text-[var(--muted)] py-12">{tt('아직 이번 주에 달린 사람이 없어요')}</p>
           ) : (
             <ul className="space-y-1.5 py-2">
               {candidates.map((c, i) => {
@@ -159,7 +161,7 @@ export default function WinnerPredictionFullModal({ roundId, myPick, isClosed, o
         </div>
 
         <div className="border-t border-[var(--card-border)] px-5 py-3 text-center">
-          <p className="text-[11px] text-[var(--muted)]">일요일 자정 결과 공개 · 맞추면 +10점 + 예측왕 뱃지</p>
+          <p className="text-[11px] text-[var(--muted)]">{tt('일요일 자정 결과 공개 · 맞추면 +10점 + 예측왕 뱃지')}</p>
         </div>
       </div>
     </div>

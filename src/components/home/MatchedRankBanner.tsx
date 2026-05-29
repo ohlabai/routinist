@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { ChevronRight, Trophy, UserPlus } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 
 interface MatchedRank {
   scope_label: string;
@@ -20,6 +21,7 @@ interface MatchedRank {
 
 export default function MatchedRankBanner() {
   const { user, profile } = useAuth();
+  const { tt, locale } = useI18n();
   const [rank, setRank] = useState<MatchedRank | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -62,10 +64,10 @@ export default function MatchedRankBanner() {
           </div>
           <div className="flex-1">
             <p className="text-sm font-bold text-[var(--foreground)]">
-              내 랭킹 보기
+              {tt('내 랭킹 보기')}
             </p>
             <p className="text-xs text-[var(--muted)] mt-0.5">
-              지역·나이·성별을 입력하면 비슷한 러너들 사이 내 순위를 보여드려요
+              {tt('지역·나이·성별을 입력하면 비슷한 러너들 사이 내 순위를 보여드려요')}
             </p>
           </div>
           <ChevronRight size={18} className="text-[var(--muted)]" />
@@ -77,7 +79,7 @@ export default function MatchedRankBanner() {
   // Top 10 = 메달, 50 이내 = 축하, 그 이상 = 담백
   const isTop10 = rank.rank_position <= 10;
   const isTop3 = rank.rank_position <= 3;
-  const name = profile?.display_name ?? '나';
+  const name = profile?.display_name ?? (locale === 'en' ? 'You' : '나');
 
   return (
     <Link
@@ -100,11 +102,23 @@ export default function MatchedRankBanner() {
             {rank.scope_label}
           </p>
           <p className="text-base font-bold text-[var(--foreground)] leading-tight mt-0.5">
-            <span className="text-[var(--accent)]">{name}</span>님은 현재{' '}
-            <span className={isTop10 ? 'text-amber-600 dark:text-amber-400' : 'text-[var(--foreground)]'}>
-              {rank.rank_position}위
-            </span>
-            {' '}/ {rank.total_in_scope}명
+            {locale === 'en' ? (
+              <>
+                <span className="text-[var(--accent)]">{name}</span> is currently{' '}
+                <span className={isTop10 ? 'text-amber-600 dark:text-amber-400' : 'text-[var(--foreground)]'}>
+                  #{rank.rank_position}
+                </span>
+                {' '}/ {rank.total_in_scope}
+              </>
+            ) : (
+              <>
+                <span className="text-[var(--accent)]">{name}</span>님은 현재{' '}
+                <span className={isTop10 ? 'text-amber-600 dark:text-amber-400' : 'text-[var(--foreground)]'}>
+                  {rank.rank_position}위
+                </span>
+                {' '}/ {rank.total_in_scope}명
+              </>
+            )}
           </p>
         </div>
         <ChevronRight size={18} className="text-[var(--muted)] flex-shrink-0" />

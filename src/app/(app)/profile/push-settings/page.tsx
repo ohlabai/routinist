@@ -9,23 +9,28 @@ import { ArrowLeft, Bell, Trophy, Users, Award, MessageSquare, TrendingUp, Megap
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import AppToast from '@/components/AppToast';
+import { useI18n } from '@/lib/i18n';
 
 type CategoryKey = 'chat_message' | 'mileage_gift' | 'feedback_reply' | 'likes' | 'friend_overtake' | 'milestone' | 'contest' | 'club_course' | 'weekly_recap' | 'marketing';
 
 // build 175 #5: 핵심 알림 4종을 상단에 노출 — 채팅·선물·답글·좋아요. 기본 ON.
 // 친선런(contest) 은 메뉴 숨김 (build 144) 과 동일하게 알림 설정에서도 표시 안 함.
 // DB 의 contest 키는 그대로 유지 — 추후 부활 시 1줄로 복구.
-const CATEGORIES: { key: CategoryKey; label: string; description: string; Icon: typeof Bell }[] = [
-  { key: 'chat_message', label: '채팅 메시지', description: '새 쪽지·채팅이 도착했을 때', Icon: MessageSquare },
-  { key: 'mileage_gift', label: '마일리지 선물', description: '다른 러너에게 선물을 받았을 때', Icon: Award },
-  { key: 'feedback_reply', label: '운영자 답글', description: '내 제안에 운영자가 답글을 달았을 때', Icon: MessageSquare },
-  { key: 'likes', label: '좋아요·응원', description: '내 사진·한 줄·활동에 좋아요/응원이 도착했을 때', Icon: Users },
-  { key: 'friend_overtake', label: '친구 추월', description: '친구가 내 km 를 추월하거나 내가 추월했을 때', Icon: Users },
-  { key: 'milestone', label: '나의 기록', description: '1위 등극, 최장 거리 갱신 등', Icon: TrendingUp },
-  { key: 'club_course', label: '클럽 마라톤', description: '클럽 코스 시작·완주 알림', Icon: Flag },
-  { key: 'weekly_recap', label: '주간 회고', description: '매주 내 러닝 요약', Icon: Award },
-  { key: 'marketing', label: '이벤트·마케팅', description: '신기능, 쇼핑 할인 등 (기본 OFF)', Icon: Megaphone },
-];
+type CategoryDef = { key: CategoryKey; label: string; description: string; Icon: typeof Bell };
+
+function getCategories(tt: (ko: string) => string, locale: 'ko' | 'en'): CategoryDef[] {
+  return [
+    { key: 'chat_message', label: tt('채팅 메시지'), description: tt('새 쪽지·채팅이 도착했을 때'), Icon: MessageSquare },
+    { key: 'mileage_gift', label: tt('마일리지 선물'), description: tt('다른 러너에게 선물을 받았을 때'), Icon: Award },
+    { key: 'feedback_reply', label: tt('운영자 답글'), description: tt('내 제안에 운영자가 답글을 달았을 때'), Icon: MessageSquare },
+    { key: 'likes', label: tt('좋아요·응원'), description: locale === 'en' ? 'When someone likes or cheers your photo, note, or activity' : '내 사진·한 줄·활동에 좋아요/응원이 도착했을 때', Icon: Users },
+    { key: 'friend_overtake', label: locale === 'en' ? 'Friend overtake' : '친구 추월', description: locale === 'en' ? 'When a friend passes your km, or you pass theirs' : '친구가 내 km 를 추월하거나 내가 추월했을 때', Icon: Users },
+    { key: 'milestone', label: locale === 'en' ? 'My records' : '나의 기록', description: locale === 'en' ? 'Reaching #1, longest distance, etc.' : '1위 등극, 최장 거리 갱신 등', Icon: TrendingUp },
+    { key: 'club_course', label: locale === 'en' ? 'Club marathon' : '클럽 마라톤', description: locale === 'en' ? 'Club course start and finish alerts' : '클럽 코스 시작·완주 알림', Icon: Flag },
+    { key: 'weekly_recap', label: locale === 'en' ? 'Weekly recap' : '주간 회고', description: locale === 'en' ? 'Weekly running summary' : '매주 내 러닝 요약', Icon: Award },
+    { key: 'marketing', label: locale === 'en' ? 'Events & marketing' : '이벤트·마케팅', description: locale === 'en' ? 'New features, shop discounts, etc. (default OFF)' : '신기능, 쇼핑 할인 등 (기본 OFF)', Icon: Megaphone },
+  ];
+}
 
 const DEFAULTS: Record<CategoryKey, boolean> = {
   chat_message: true,
@@ -43,6 +48,8 @@ const DEFAULTS: Record<CategoryKey, boolean> = {
 export default function PushSettingsPage() {
   const router = useRouter();
   const { user, profile, loading: authLoading } = useAuth();
+  const { tt, locale } = useI18n();
+  const CATEGORIES = getCategories(tt, locale);
   const [settings, setSettings] = useState<Record<CategoryKey, boolean>>(DEFAULTS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -67,8 +74,8 @@ export default function PushSettingsPage() {
       const { data } = await supabase.from('profiles').select('push_settings').eq('id', user.id).maybeSingle();
       const stored = (data?.push_settings as Record<string, boolean> | null) ?? {};
       const merged: Record<CategoryKey, boolean> = { ...DEFAULTS };
-      CATEGORIES.forEach(c => {
-        if (c.key in stored) merged[c.key] = stored[c.key];
+      (Object.keys(DEFAULTS) as CategoryKey[]).forEach(k => {
+        if (k in stored) merged[k] = stored[k];
       });
       setSettings(merged);
     } catch (e) {
@@ -92,9 +99,9 @@ export default function PushSettingsPage() {
       const { error } = await supabase.rpc('update_push_settings', { p_settings: settings });
       if (error) throw error;
       setDirty(false);
-      showToast('✨ 저장됨');
+      showToast(tt('✨ 저장됨'));
     } catch (e) {
-      showToast(e instanceof Error ? e.message : '저장 실패', 'warn');
+      showToast(e instanceof Error ? e.message : tt('저장 실패'), 'warn');
     } finally {
       setSaving(false);
     }
@@ -110,16 +117,18 @@ export default function PushSettingsPage() {
             <ArrowLeft size={20} />
           </Link>
           <h1 className="text-xl font-extrabold tracking-tight inline-flex items-center gap-1.5">
-            <Bell size={18} className="text-emerald-500" /> 알림 설정
+            <Bell size={18} className="text-emerald-500" /> {locale === 'en' ? 'Notifications' : '알림 설정'}
           </h1>
         </div>
       </header>
 
       <div className="p-4 space-y-3">
         <div className="rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 p-4 shadow-md shadow-emerald-500/30">
-          <p className="text-sm font-extrabold text-white">필요한 알림만 받으세요</p>
+          <p className="text-sm font-extrabold text-white">{tt('필요한 알림만 받으세요')}</p>
           <p className="text-xs text-white/85 mt-1 leading-relaxed">
-            카테고리별로 켜고 끌 수 있어요. 시스템 알림은 iOS 설정 &gt; 알림 &gt; Routinist 에서 전체 차단할 수도 있어요.
+            {locale === 'en'
+              ? 'Toggle each category. System notifications can also be fully blocked in iOS Settings > Notifications > Routinist.'
+              : '카테고리별로 켜고 끌 수 있어요. 시스템 알림은 iOS 설정 > 알림 > Routinist 에서 전체 차단할 수도 있어요.'}
           </p>
         </div>
 
@@ -159,7 +168,7 @@ export default function PushSettingsPage() {
             disabled={saving}
             className="w-full max-w-lg mx-auto py-3.5 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-sm disabled:opacity-50 active:scale-[0.98] shadow-xl shadow-emerald-500/40 inline-flex items-center justify-center gap-1.5 pointer-events-auto"
           >
-            {saving ? '저장 중…' : <><Save size={16} /> 변경사항 저장</>}
+            {saving ? tt('저장 중…') : <><Save size={16} /> {locale === 'en' ? 'Save changes' : '변경사항 저장'}</>}
           </button>
         </div>
       )}

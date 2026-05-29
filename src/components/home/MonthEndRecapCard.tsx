@@ -9,6 +9,7 @@ import { Trophy, Sparkles, Share2 } from 'lucide-react';
 import type { Activity } from '@/types';
 import ShareCard from '@/components/activity/ShareCard';
 import { useAuth } from '@/components/AuthProvider';
+import { useI18n } from '@/lib/i18n';
 
 interface Props {
   activities: Activity[];
@@ -23,6 +24,7 @@ function paceLabel(sec: number | null | undefined): string {
 
 export default function MonthEndRecapCard({ activities }: Props) {
   const { profile } = useAuth();
+  const { tt, locale } = useI18n();
   const [showShare, setShowShare] = useState(false);
 
   // KST 기준 오늘.
@@ -63,12 +65,15 @@ export default function MonthEndRecapCard({ activities }: Props) {
     !best || Number(a.distance_km) > Number(best.distance_km) ? a : best,
   null);
 
+  const monthName = locale === 'en'
+    ? new Date(targetYear, targetMonth - 1, 1).toLocaleString('en-US', { month: 'long' })
+    : `${targetMonth}월`;
   const headline = isEndOfMonth
-    ? `🌟 ${targetMonth}월이 거의 끝나가요`
-    : `🎉 ${targetMonth}월 정산이 도착했어요!`;
+    ? (locale === 'en' ? `🌟 ${monthName} is almost over` : `🌟 ${monthName}이 거의 끝나가요`)
+    : (locale === 'en' ? `🎉 ${monthName} recap is here!` : `🎉 ${monthName} 정산이 도착했어요!`);
   const sub = isEndOfMonth
-    ? '한 달 동안 정말 잘 달렸어요. 마지막까지 달려봐요'
-    : '한 달 동안 정말 수고 많으셨어요';
+    ? tt('한 달 동안 정말 잘 달렸어요. 마지막까지 달려봐요')
+    : (locale === 'en' ? 'Great job this month' : '한 달 동안 정말 수고 많으셨어요');
 
   return (
     <>
@@ -86,19 +91,19 @@ export default function MonthEndRecapCard({ activities }: Props) {
         <div className="grid grid-cols-4 gap-2 text-center bg-white/50 dark:bg-black/20 rounded-xl py-3">
           <div>
             <p className="text-lg font-extrabold text-amber-700 dark:text-amber-300">{totalKm.toFixed(1)}</p>
-            <p className="text-[10px] text-[var(--muted)] mt-0.5">총 km</p>
+            <p className="text-[10px] text-[var(--muted)] mt-0.5">{locale === 'en' ? 'Total km' : '총 km'}</p>
           </div>
           <div>
             <p className="text-lg font-extrabold text-[var(--foreground)]">{runDays}</p>
-            <p className="text-[10px] text-[var(--muted)] mt-0.5">달린 일</p>
+            <p className="text-[10px] text-[var(--muted)] mt-0.5">{locale === 'en' ? 'Days run' : '달린 일'}</p>
           </div>
           <div>
             <p className="text-lg font-extrabold text-[var(--foreground)]">{paceLabel(bestPace)}</p>
-            <p className="text-[10px] text-[var(--muted)] mt-0.5">베스트 페이스</p>
+            <p className="text-[10px] text-[var(--muted)] mt-0.5">{locale === 'en' ? 'Best pace' : '베스트 페이스'}</p>
           </div>
           <div>
             <p className="text-lg font-extrabold text-[var(--foreground)]">{longestRun ? Number(longestRun.distance_km).toFixed(1) : '—'}</p>
-            <p className="text-[10px] text-[var(--muted)] mt-0.5">최장 km</p>
+            <p className="text-[10px] text-[var(--muted)] mt-0.5">{locale === 'en' ? 'Longest km' : '최장 km'}</p>
           </div>
         </div>
 
@@ -108,7 +113,7 @@ export default function MonthEndRecapCard({ activities }: Props) {
             className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-sm shadow-md shadow-amber-500/30 active:scale-[0.99]"
           >
             <Share2 size={14} />
-            {targetMonth}월 베스트 러닝 공유하기
+            {locale === 'en' ? `Share ${monthName} best run` : `${monthName} 베스트 러닝 공유하기`}
           </button>
         )}
       </div>
@@ -116,7 +121,7 @@ export default function MonthEndRecapCard({ activities }: Props) {
       {showShare && longestRun && (
         <ShareCard
           activity={longestRun}
-          displayName={profile?.display_name ?? '러너'}
+          displayName={profile?.display_name ?? tt('러너')}
           onClose={() => setShowShare(false)}
         />
       )}

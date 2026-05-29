@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Crown, MapPin, Zap } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 
 interface RunOfTheDay {
   pick_date: string;
@@ -28,6 +29,7 @@ function paceLabel(sec: number | null): string {
 }
 
 export default function RunOfTheDayCard() {
+  const { tt } = useI18n();
   const [pick, setPick] = useState<RunOfTheDay | null>(null);
 
   useEffect(() => {
@@ -69,7 +71,7 @@ export default function RunOfTheDayCard() {
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-extrabold text-[var(--foreground)] truncate">{pick.display_name ?? '러너'}</p>
+          <p className="text-sm font-extrabold text-[var(--foreground)] truncate">{pick.display_name ?? tt('러너')}</p>
           <div className="flex items-center gap-2 mt-0.5 text-[11px] text-[var(--muted)]">
             <span className="font-bold text-amber-600 dark:text-amber-400">{pick.distance_km.toFixed(2)}km</span>
             <span className="inline-flex items-center gap-0.5">

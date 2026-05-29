@@ -10,6 +10,7 @@ import Link from '@tiptap/extension-link';
 import { useRef } from 'react';
 import { Bold, Italic, Heading2, List, ListOrdered, ImagePlus, Link2, Quote, Undo2, Redo2 } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 
 interface Props {
   value: string;
@@ -19,6 +20,7 @@ interface Props {
 
 export default function RichTextEditor({ value, onChange, placeholder }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const { tt } = useI18n();
 
   const editor = useEditor({
     extensions: [
@@ -43,7 +45,7 @@ export default function RichTextEditor({ value, onChange, placeholder }: Props) 
     const ext = file.name.split('.').pop() || 'jpg';
     const path = `editor/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
     const { error } = await sb.storage.from('product-images').upload(path, file, { upsert: false, contentType: file.type });
-    if (error) { alert('이미지 업로드 실패: ' + error.message); return; }
+    if (error) { alert(tt('이미지 업로드 실패') + ': ' + error.message); return; }
     const { data } = sb.storage.from('product-images').getPublicUrl(path);
     editor.chain().focus().setImage({ src: data.publicUrl }).run();
   };
@@ -83,7 +85,7 @@ export default function RichTextEditor({ value, onChange, placeholder }: Props) 
           <ListOrdered size={16} />
         </Btn>
         <Btn label="Link" active={editor.isActive('link')} onClick={() => {
-          const url = window.prompt('링크 주소', editor.getAttributes('link').href ?? 'https://');
+          const url = window.prompt(tt('링크 주소'), editor.getAttributes('link').href ?? 'https://');
           if (url === null) return;
           if (url === '') { editor.chain().focus().unsetLink().run(); return; }
           editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();

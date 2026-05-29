@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Camera } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 
 interface GalleryPhoto {
   photo_id: string;
@@ -23,6 +24,7 @@ interface GalleryPhoto {
 }
 
 export default function RoutinistGallery() {
+  const { tt, locale } = useI18n();
   const [photos, setPhotos] = useState<GalleryPhoto[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -47,7 +49,7 @@ export default function RoutinistGallery() {
   if (loading) {
     return (
       <div className="mt-6 px-4">
-        <h3 className="text-sm font-bold text-[var(--foreground)] mb-2">루티니스트 갤러리</h3>
+        <h3 className="text-sm font-bold text-[var(--foreground)] mb-2">{tt('루티니스트 갤러리')}</h3>
         <div className="grid grid-cols-3 gap-1">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="aspect-square rounded-md bg-[var(--card)] animate-pulse" />
@@ -61,15 +63,15 @@ export default function RoutinistGallery() {
     return (
       <div className="mt-6 mx-4 rounded-2xl border border-dashed border-[var(--card-border)] p-6 text-center">
         <Camera size={28} className="mx-auto text-[var(--muted)] mb-2" />
-        <p className="text-sm font-medium text-[var(--foreground)]">루티니스트 갤러리</p>
+        <p className="text-sm font-medium text-[var(--foreground)]">{tt('루티니스트 갤러리')}</p>
         <p className="text-xs text-[var(--muted)] mt-1">
-          러닝 사진을 공유하면 이곳에 표시돼요
+          {tt('러닝 사진을 공유하면 이곳에 표시돼요')}
         </p>
         <Link
           href="/calendar"
           className="inline-block mt-3 px-4 py-2 rounded-full bg-[var(--accent)] text-white text-xs font-medium"
         >
-          내 기록에 사진 추가
+          {tt('내 기록에 사진 추가')}
         </Link>
       </div>
     );
@@ -78,9 +80,9 @@ export default function RoutinistGallery() {
   return (
     <div className="mt-6 pb-4">
       <div className="flex items-center justify-between px-4 mb-2">
-        <h3 className="text-sm font-bold text-[var(--foreground)]">루티니스트 갤러리</h3>
+        <h3 className="text-sm font-bold text-[var(--foreground)]">{tt('루티니스트 갤러리')}</h3>
         <Link href="/gallery" className="text-xs text-[var(--accent)] font-medium">
-          더보기
+          {locale === 'en' ? 'See all' : '더보기'}
         </Link>
       </div>
       <div className="grid grid-cols-3 gap-1 px-4">

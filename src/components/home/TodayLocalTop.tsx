@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import { dataCache, CACHE_KEYS, onCacheInvalidated } from '@/lib/data-cache';
+import { useI18n } from '@/lib/i18n';
 
 interface LocalRunner {
   user_id: string;
@@ -19,6 +20,7 @@ interface LocalRunner {
 
 export default function TodayLocalTop() {
   const { profile } = useAuth();
+  const { tt, locale } = useI18n();
   const [runners, setRunners] = useState<LocalRunner[]>([]);
   const [loading, setLoading] = useState(true);
   const [retryKey, setRetryKey] = useState(0);
@@ -74,10 +76,12 @@ export default function TodayLocalTop() {
     return (
       <div className="mx-4 mt-3 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4">
         <p className="text-sm font-bold text-[var(--foreground)]">
-          오늘 {profile.region_gu} 러닝 기록
+          {locale === 'en' ? `Today's ${profile.region_gu} runs` : `오늘 ${profile.region_gu} 러닝 기록`}
         </p>
         <p className="text-xs text-[var(--muted)] mt-1">
-          아직 오늘 기록한 사람이 없어요. 가장 먼저 기록해보세요!
+          {locale === 'en'
+            ? `No one logged today yet. ${tt('가장 먼저 기록해보세요')}!`
+            : `아직 오늘 기록한 사람이 없어요. ${tt('가장 먼저 기록해보세요')}!`}
         </p>
       </div>
     );
@@ -87,10 +91,12 @@ export default function TodayLocalTop() {
     <div className="mt-4">
       <div className="flex items-center justify-between px-4 mb-2">
         <h3 className="text-sm font-bold text-[var(--foreground)]">
-          오늘 {profile.region_gu} TOP {Math.min(runners.length, 10)}
+          {locale === 'en'
+            ? `Today's ${profile.region_gu} TOP ${Math.min(runners.length, 10)}`
+            : `오늘 ${profile.region_gu} TOP ${Math.min(runners.length, 10)}`}
         </h3>
         <Link href="/social/rankings" className="text-xs text-[var(--accent)] font-medium">
-          전체 랭킹
+          {locale === 'en' ? 'Full ranking' : '전체 랭킹'}
         </Link>
       </div>
       <div className="flex gap-3 overflow-x-auto px-4 pb-2 scrollbar-hide">

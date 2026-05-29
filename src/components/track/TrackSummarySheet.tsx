@@ -16,6 +16,7 @@ import {
 import RouteMap from '@/components/map/RouteMap';
 import type { GeoJSONLineString } from '@/types';
 import { syncPBsFromActivity } from '@/lib/best-splits';
+import { useI18n } from '@/lib/i18n';
 
 interface Props {
   finalState: TrackingState;
@@ -63,6 +64,7 @@ function todayLocal(): string {
 
 export default function TrackSummarySheet({ finalState, userId, onClose }: Props) {
   const router = useRouter();
+  const { tt } = useI18n();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,7 +111,7 @@ export default function TrackSummarySheet({ finalState, userId, onClose }: Props
 
       if (insertErr) throw insertErr;
       const activityId = data?.id as string | undefined;
-      if (!activityId) throw new Error('저장 후 id 없음');
+      if (!activityId) throw new Error(tt('저장 후 id 없음'));
 
       // build 197: PB 갱신 확인. 실패해도 저장은 성공으로 처리.
       try {
@@ -130,14 +132,14 @@ export default function TrackSummarySheet({ finalState, userId, onClose }: Props
       router.push(`/activity?id=${activityId}`);
     } catch (e) {
       console.warn('[track/summary] save fail', e);
-      setError(e instanceof Error ? e.message : '저장 실패');
+      setError(e instanceof Error ? e.message : tt('저장 실패'));
     } finally {
       setSaving(false);
     }
   };
 
   const handleDiscard = () => {
-    if (!window.confirm('이번 기록을 저장하지 않고 버릴까요?')) return;
+    if (!window.confirm(tt('이번 기록을 저장하지 않고 버릴까요?'))) return;
     onClose();
     router.replace('/dashboard');
   };
@@ -149,9 +151,9 @@ export default function TrackSummarySheet({ finalState, userId, onClose }: Props
         <div className="sticky top-0 bg-[var(--background)]/95 backdrop-blur-lg border-b border-[var(--card-border)]/30 px-4 py-3 flex items-center justify-between z-10">
           <div className="flex items-center gap-2">
             <CheckCircle size={18} className="text-emerald-500" />
-            <h2 className="text-base font-extrabold">달리기 완료!</h2>
+            <h2 className="text-base font-extrabold">{tt('달리기 완료!')}</h2>
           </div>
-          <button onClick={onClose} aria-label="닫기"
+          <button onClick={onClose} aria-label={tt('닫기')}
             className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90">
             <X size={18} />
           </button>
@@ -170,13 +172,13 @@ export default function TrackSummarySheet({ finalState, userId, onClose }: Props
             <div className="grid grid-cols-2 gap-3">
               <div className="text-center">
                 <div className="inline-flex items-center gap-1 text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest mb-1">
-                  <Clock size={11} /> 시간
+                  <Clock size={11} /> {tt('시간')}
                 </div>
                 <p className="text-2xl font-extrabold tabular-nums">{formatDuration(elapsedSeconds)}</p>
               </div>
               <div className="text-center">
                 <div className="inline-flex items-center gap-1 text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest mb-1">
-                  <Activity size={11} /> 평균 페이스
+                  <Activity size={11} /> {tt('평균 페이스')}
                 </div>
                 <p className="text-2xl font-extrabold tabular-nums">{formatPace(avgPaceSec)}</p>
               </div>
@@ -188,7 +190,7 @@ export default function TrackSummarySheet({ finalState, userId, onClose }: Props
         <div className="px-5 pb-3">
           <div className="flex items-center gap-1.5 mb-2">
             <MapPin size={14} className="text-emerald-500" />
-            <h3 className="text-xs font-extrabold uppercase tracking-widest text-[var(--muted)]">경로</h3>
+            <h3 className="text-xs font-extrabold uppercase tracking-widest text-[var(--muted)]">{tt('경로')}</h3>
           </div>
           <RouteMap routeData={routeData} height="220px" />
         </div>
@@ -196,7 +198,7 @@ export default function TrackSummarySheet({ finalState, userId, onClose }: Props
         {/* km splits */}
         {splits.length > 0 && (
           <div className="px-5 pb-3">
-            <h3 className="text-xs font-extrabold uppercase tracking-widest text-[var(--muted)] mb-2">구간별 페이스</h3>
+            <h3 className="text-xs font-extrabold uppercase tracking-widest text-[var(--muted)] mb-2">{tt('구간별 페이스')}</h3>
             <div className="card divide-y divide-[var(--card-border)]/40">
               {splits.map(s => (
                 <div key={s.km} className="px-4 py-2.5 flex items-center justify-between">
@@ -216,7 +218,7 @@ export default function TrackSummarySheet({ finalState, userId, onClose }: Props
 
         {/* CTA */}
         <div className="px-5 pt-2 pb-7 grid grid-cols-[auto_1fr] gap-2.5">
-          <button onClick={handleDiscard} disabled={saving} aria-label="버리기"
+          <button onClick={handleDiscard} disabled={saving} aria-label={tt('버리기')}
             className="w-14 py-4 rounded-2xl border-2 border-[var(--card-border)] text-[var(--muted)] active:scale-95 disabled:opacity-50 inline-flex items-center justify-center">
             <Trash2 size={18} />
           </button>
@@ -225,12 +227,12 @@ export default function TrackSummarySheet({ finalState, userId, onClose }: Props
             {saving ? (
               <>
                 <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
-                저장 중…
+                {tt('저장 중…')}
               </>
             ) : (
               <>
                 <CheckCircle size={18} />
-                저장하기
+                {tt('저장하기')}
               </>
             )}
           </button>

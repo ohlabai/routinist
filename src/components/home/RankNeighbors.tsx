@@ -9,6 +9,7 @@ import { ChevronRight, Zap } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import { dataCache, CACHE_KEYS, onCacheInvalidated } from '@/lib/data-cache';
+import { useI18n } from '@/lib/i18n';
 
 interface Neighbor {
   user_id: string;
@@ -22,6 +23,7 @@ interface Neighbor {
 
 export default function RankNeighbors() {
   const { user, profile } = useAuth();
+  const { tt, locale } = useI18n();
   const [rows, setRows] = useState<Neighbor[]>([]);
   const [loading, setLoading] = useState(true);
   const [retryKey, setRetryKey] = useState(0);
@@ -96,8 +98,8 @@ export default function RankNeighbors() {
     <div className="mx-4 mt-4 rounded-3xl bg-gradient-to-br from-emerald-50 via-white to-emerald-50/30 dark:from-emerald-950/30 dark:via-zinc-900 dark:to-emerald-950/10 border border-emerald-200/60 dark:border-emerald-900/30 p-4 shadow-sm">
       <div className="flex items-center gap-1.5 mb-3">
         <Zap size={18} className="text-emerald-600" />
-        <h3 className="text-base font-bold text-[var(--foreground)]">이번 주 내 주변 러너</h3>
-        <span className="text-xs text-[var(--muted)] ml-auto">월요일 기준</span>
+        <h3 className="text-base font-bold text-[var(--foreground)]">{tt('이번 주 내 주변 러너')}</h3>
+        <span className="text-xs text-[var(--muted)] ml-auto">{locale === 'en' ? 'Since Monday' : '월요일 기준'}</span>
       </div>
 
       {/* 따라잡기 타겟 (바로 앞) */}
@@ -105,8 +107,17 @@ export default function RankNeighbors() {
         <div className="mb-2 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 flex items-center gap-2">
           <span className="text-sm">🎯</span>
           <p className="text-xs font-semibold text-[var(--foreground)] flex-1">
-            <span className="text-amber-600 font-extrabold">{kmToTarget.toFixed(1)}km</span> 더 달리면{' '}
-            <span className="font-bold">{target.display_name}</span>님을 제칠 수 있어요!
+            {locale === 'en' ? (
+              <>
+                Run <span className="text-amber-600 font-extrabold">{kmToTarget.toFixed(1)}km</span> more to pass{' '}
+                <span className="font-bold">{target.display_name}</span>!
+              </>
+            ) : (
+              <>
+                <span className="text-amber-600 font-extrabold">{kmToTarget.toFixed(1)}km</span> 더 달리면{' '}
+                <span className="font-bold">{target.display_name}</span>님을 제칠 수 있어요!
+              </>
+            )}
           </p>
         </div>
       )}
@@ -134,7 +145,7 @@ export default function RankNeighbors() {
               )}
             </div>
             <span className={`flex-1 text-xs truncate ${r.is_me ? 'font-extrabold text-emerald-700 dark:text-emerald-400' : 'font-medium text-[var(--foreground)]'}`}>
-              {r.display_name}{r.is_me ? ' (나)' : ''}
+              {r.display_name}{r.is_me ? (locale === 'en' ? ' (You)' : ' (나)') : ''}
             </span>
             <span className="text-xs text-[var(--muted)] font-semibold">
               {r.weekly_km.toFixed(1)}km
@@ -148,8 +159,17 @@ export default function RankNeighbors() {
         <div className="mt-2 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/20 flex items-center gap-2">
           <span className="text-sm">⚠️</span>
           <p className="text-xs font-semibold text-[var(--foreground)] flex-1">
-            <span className="font-bold">{chaser.display_name}</span>님이{' '}
-            <span className="text-rose-600 font-extrabold">{kmFromChaser.toFixed(1)}km</span> 차이로 쫓고 있어요
+            {locale === 'en' ? (
+              <>
+                <span className="font-bold">{chaser.display_name}</span> is chasing you,{' '}
+                <span className="text-rose-600 font-extrabold">{kmFromChaser.toFixed(1)}km</span> behind
+              </>
+            ) : (
+              <>
+                <span className="font-bold">{chaser.display_name}</span>님이{' '}
+                <span className="text-rose-600 font-extrabold">{kmFromChaser.toFixed(1)}km</span> 차이로 쫓고 있어요
+              </>
+            )}
           </p>
         </div>
       )}
@@ -158,7 +178,7 @@ export default function RankNeighbors() {
         href="/social?tab=friends"
         className="mt-3 flex items-center justify-center gap-0.5 text-xs font-semibold text-emerald-600"
       >
-        전체 랭킹 보기 <ChevronRight size={14} />
+        {tt('전체 랭킹 보기')} <ChevronRight size={14} />
       </Link>
     </div>
   );

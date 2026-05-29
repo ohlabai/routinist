@@ -13,11 +13,13 @@ import {
 import { fetchOrder, cancelOrder, orderStatusLabel, orderStatusColor, trackingUrl } from '@/lib/shop-data';
 import AppToast from '@/components/AppToast';
 import BusinessFooter from '@/components/shop/BusinessFooter';
+import { useI18n, formatKrw } from '@/lib/i18n';
 import type { Order, OrderItem, ShopPayment } from '@/types';
 
 function OrderDetailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { tt, locale } = useI18n();
   const id = searchParams.get('id') ?? '';
 
   const [order, setOrder] = useState<Order | null>(null);
@@ -61,11 +63,11 @@ function OrderDetailContent() {
 
   const handleCancel = async () => {
     if (!order) return;
-    if (!confirm('정말 주문을 취소하시겠어요?\n결제 완료된 주문은 환불 처리됩니다.')) return;
+    if (!confirm(tt('정말 주문을 취소하시겠어요?\n결제 완료된 주문은 환불 처리됩니다.'))) return;
     setCancelling(true);
     try {
-      await cancelOrder(order.id, '사용자 요청');
-      setToast({ text: '취소 요청 완료. 환불은 영업일 3-5일 소요돼요', tone: 'ok' });
+      await cancelOrder(order.id, locale === 'en' ? 'User request' : '사용자 요청');
+      setToast({ text: tt('취소 요청 완료. 환불은 영업일 3-5일 소요돼요'), tone: 'ok' });
       setTimeout(() => setToast(null), 3500);
       const res = await fetchOrder(order.id);
       if (res) {
@@ -74,7 +76,7 @@ function OrderDetailContent() {
         setPayments(res.payments);
       }
     } catch (e) {
-      const msg = e instanceof Error ? e.message : '취소 실패';
+      const msg = e instanceof Error ? e.message : tt('취소 실패');
       setToast({ text: msg, tone: 'warn' });
       setTimeout(() => setToast(null), 3000);
     } finally {
@@ -99,9 +101,9 @@ function OrderDetailContent() {
         <div className="w-20 h-20 rounded-full bg-emerald-50 dark:bg-emerald-950/30 mx-auto mb-4 flex items-center justify-center">
           <Receipt size={36} className="text-emerald-500" />
         </div>
-        <p className="text-base font-bold mb-1">주문을 찾을 수 없어요</p>
+        <p className="text-base font-bold mb-1">{locale === 'en' ? "Order not found" : '주문을 찾을 수 없어요'}</p>
         <Link href="/shop/orders" className="inline-flex mt-5 px-5 py-2.5 rounded-full bg-emerald-500 text-white text-sm font-bold active:scale-95">
-          주문 내역 보기
+          {locale === 'en' ? 'View orders' : '주문 내역 보기'}
         </Link>
       </div>
     );
@@ -125,7 +127,7 @@ function OrderDetailContent() {
           <button onClick={() => router.back()} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition">
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-xl font-extrabold tracking-tight">주문 상세</h1>
+          <h1 className="text-xl font-extrabold tracking-tight">{tt('주문 상세')}</h1>
         </div>
       </header>
 
@@ -146,11 +148,11 @@ function OrderDetailContent() {
                 {orderStatusLabel(order.status)}
               </p>
               <p className="text-[11px] text-[var(--muted)]">
-                {new Date(order.created_at).toLocaleString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                {new Date(order.created_at).toLocaleString(locale === 'en' ? 'en-US' : 'ko-KR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
           </div>
-          <p className="text-xs text-[var(--muted)] mt-2">주문번호 · <span className="font-bold text-[var(--foreground)]">{order.order_no ?? order.id.slice(0, 8)}</span></p>
+          <p className="text-xs text-[var(--muted)] mt-2">{locale === 'en' ? 'Order #' : '주문번호 ·'} <span className="font-bold text-[var(--foreground)]">{order.order_no ?? order.id.slice(0, 8)}</span></p>
           {order.tracking_no && (() => {
             const url = trackingUrl(order.tracking_carrier, order.tracking_no);
             const inner = (
@@ -181,7 +183,7 @@ function OrderDetailContent() {
       </div>
 
       {/* 주문 상품 */}
-      <Section title={`주문 상품 ${items.length}`} icon={<Package size={16} className="text-emerald-500" />}>
+      <Section title={locale === 'en' ? `Items ${items.length}` : `주문 상품 ${items.length}`} icon={<Package size={16} className="text-emerald-500" />}>
         <div className="card p-4 space-y-3.5">
           {items.map(it => (
             <div key={it.id} className="flex gap-3 items-start">
@@ -198,10 +200,10 @@ function OrderDetailContent() {
                 {it.variant_label && (
                   <p className="text-[10px] text-[var(--muted)] mt-0.5 inline-block px-1.5 py-0.5 rounded bg-[var(--card-border)]/40">{it.variant_label}</p>
                 )}
-                <p className="text-xs text-[var(--muted)] mt-0.5">{it.quantity}개 × {it.unit_price_krw.toLocaleString()}원</p>
+                <p className="text-xs text-[var(--muted)] mt-0.5">{locale === 'en' ? `${it.quantity} × ${formatKrw(it.unit_price_krw, locale)}` : `${it.quantity}개 × ${it.unit_price_krw.toLocaleString()}원`}</p>
               </div>
               <p className="text-sm font-extrabold text-[var(--foreground)] flex-shrink-0">
-                {(it.subtotal_krw ?? it.unit_price_krw * it.quantity).toLocaleString()}원
+                {formatKrw(it.subtotal_krw ?? it.unit_price_krw * it.quantity, locale)}
               </p>
             </div>
           ))}
@@ -209,7 +211,7 @@ function OrderDetailContent() {
       </Section>
 
       {/* 배송지 */}
-      <Section title="배송지" icon={<MapPin size={16} className="text-emerald-500" />}>
+      <Section title={tt('배송지')} icon={<MapPin size={16} className="text-emerald-500" />}>
         <div className="card p-4">
           <p className="text-sm font-extrabold text-[var(--foreground)]">{order.shipping_name}</p>
           <p className="text-xs text-[var(--muted)] mt-0.5">{order.shipping_phone}</p>
@@ -219,26 +221,26 @@ function OrderDetailContent() {
             {order.shipping_address_line2 && ` ${order.shipping_address_line2}`}
           </p>
           {order.shipping_memo && (
-            <p className="text-[11px] text-[var(--muted)] mt-2 italic">메모: {order.shipping_memo}</p>
+            <p className="text-[11px] text-[var(--muted)] mt-2 italic">{locale === 'en' ? 'Note:' : '메모:'} {order.shipping_memo}</p>
           )}
         </div>
       </Section>
 
       {/* 결제 정보 */}
-      <Section title="결제 정보" icon={<CreditCard size={16} className="text-emerald-500" />}>
+      <Section title={locale === 'en' ? 'Payment summary' : '결제 정보'} icon={<CreditCard size={16} className="text-emerald-500" />}>
         <div className="card p-5 space-y-2.5 bg-gradient-to-br from-emerald-50/30 to-transparent dark:from-emerald-950/10">
-          <Row label="상품 금액" value={`${order.subtotal_krw.toLocaleString()}원`} />
-          <Row label="배송비" value={order.shipping_fee_krw === 0 ? '무료 🎉' : `${order.shipping_fee_krw.toLocaleString()}원`} highlight={order.shipping_fee_krw === 0} />
+          <Row label={locale === 'en' ? 'Subtotal' : '상품 금액'} value={formatKrw(order.subtotal_krw, locale)} />
+          <Row label={locale === 'en' ? 'Shipping' : '배송비'} value={order.shipping_fee_krw === 0 ? tt('무료 🎉') : formatKrw(order.shipping_fee_krw, locale)} highlight={order.shipping_fee_krw === 0} />
           {order.mileage_used > 0 && (
-            <Row label="마일리지 사용" value={`-${order.mileage_used.toLocaleString()}P`} negative />
+            <Row label={locale === 'en' ? 'Mileage used' : '마일리지 사용'} value={`-${order.mileage_used.toLocaleString()}P`} negative />
           )}
           <div className="pt-3 border-t border-emerald-200/40 dark:border-emerald-900/30 flex justify-between items-baseline">
-            <span className="text-sm font-bold">총 결제 금액</span>
-            <span className="text-2xl font-extrabold text-emerald-600">{order.total_krw.toLocaleString()}원</span>
+            <span className="text-sm font-bold">{locale === 'en' ? 'Total' : '총 결제 금액'}</span>
+            <span className="text-2xl font-extrabold text-emerald-600">{formatKrw(order.total_krw, locale)}</span>
           </div>
           {latestPayment && latestPayment.approved_at && (
             <p className="text-[11px] text-[var(--muted)] mt-1">
-              {latestPayment.method ?? '카드'} · {new Date(latestPayment.approved_at).toLocaleString('ko-KR')}
+              {latestPayment.method ?? (locale === 'en' ? 'Card' : '카드')} · {new Date(latestPayment.approved_at).toLocaleString(locale === 'en' ? 'en-US' : 'ko-KR')}
             </p>
           )}
           {(() => {
@@ -250,7 +252,7 @@ function OrderDetailContent() {
                 href={url} target="_blank" rel="noopener noreferrer"
                 className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 active:scale-95"
               >
-                <Receipt size={12} /> 영수증 보기 <ExternalLink size={11} />
+                <Receipt size={12} /> {locale === 'en' ? 'View receipt' : '영수증 보기'} <ExternalLink size={11} />
               </a>
             );
           })()}
@@ -265,10 +267,10 @@ function OrderDetailContent() {
             disabled={cancelling}
             className="w-full py-3.5 rounded-2xl border-2 border-red-200 dark:border-red-900/40 bg-red-50/50 dark:bg-red-950/20 text-red-600 text-sm font-bold disabled:opacity-50 active:scale-[0.98]"
           >
-            {cancelling ? '처리 중…' : (order.status === 'pending' ? '주문 취소' : '결제 취소·환불')}
+            {cancelling ? (locale === 'en' ? 'Processing…' : '처리 중…') : (order.status === 'pending' ? tt('주문 취소') : tt('결제 취소·환불'))}
           </button>
           {order.status === 'pending' && (
-            <p className="text-[11px] text-[var(--muted)] mt-2 text-center">결제 미완료 상태라 즉시 취소돼요</p>
+            <p className="text-[11px] text-[var(--muted)] mt-2 text-center">{locale === 'en' ? 'Cancels immediately (unpaid)' : '결제 미완료 상태라 즉시 취소돼요'}</p>
           )}
         </div>
       )}
@@ -278,10 +280,12 @@ function OrderDetailContent() {
             href={`mailto:routinist@openhan.kr?subject=${encodeURIComponent(`반품·환불 요청 (${order.order_no ?? order.id.slice(0,8)})`)}&body=${encodeURIComponent(`주문번호: ${order.order_no}\n사유: \n\n수령일로부터 7일 이내 청약철회 가능합니다.`)}`}
             className="w-full py-3.5 rounded-2xl border-2 border-amber-200 dark:border-amber-900/40 bg-amber-50/60 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300 text-sm font-bold inline-flex items-center justify-center gap-2 active:scale-[0.98]"
           >
-            <RotateCcw size={15} /> 반품·환불 신청
+            <RotateCcw size={15} /> {tt('반품·환불 신청')}
           </a>
           <p className="text-[11px] text-[var(--muted)] text-center break-keep">
-            수령일로부터 7일 이내, 단순 변심 시 왕복 배송비 부담
+            {locale === 'en'
+              ? 'Within 7 days of delivery. Return shipping at buyer\'s cost for change of mind.'
+              : '수령일로부터 7일 이내, 단순 변심 시 왕복 배송비 부담'}
           </p>
         </div>
       )}

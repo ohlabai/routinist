@@ -12,6 +12,7 @@ import { detectRegion } from '@/lib/geo';
 import ImageCropModal from '@/components/ImageCropModal';
 import { useDisplayNameCheck } from '@/lib/useDisplayNameCheck';
 import DisplayNameStatusHint from '@/components/DisplayNameStatusHint';
+import { useI18n } from '@/lib/i18n';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const BIRTH_YEARS = Array.from({ length: 80 }, (_, i) => CURRENT_YEAR - 14 - i);
@@ -20,6 +21,7 @@ export default function ProfileEditPage() {
   const { user, profile, refreshProfile } = useAuth();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { tt, locale } = useI18n();
 
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
   const [bio, setBio] = useState(profile?.bio ?? '');
@@ -90,9 +92,9 @@ export default function ProfileEditPage() {
         if (r.si) setSido(r.si);
         if (r.gu) setGu(r.gu);
       }
-      setMessage(`현재 위치: ${r.display}`);
+      setMessage(`${tt('현재 위치: ')}${r.display}`);
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : '위치 감지 실패');
+      setMessage(e instanceof Error ? e.message : tt('위치 감지 실패'));
     } finally {
       setDetecting(false);
     }
@@ -101,7 +103,7 @@ export default function ProfileEditPage() {
   const handleSave = async () => {
     if (!user || !displayName.trim()) return;
     if (!displayNameCheck.isValid) {
-      setMessage(displayNameCheck.message || '닉네임을 다시 확인해주세요');
+      setMessage(displayNameCheck.message || tt('닉네임을 다시 확인해주세요'));
       return;
     }
     setSaving(true);
@@ -158,7 +160,7 @@ export default function ProfileEditPage() {
       const result = await Promise.race([
         updatePromise,
         new Promise<{ error: { message: string } }>((resolve) =>
-          setTimeout(() => resolve({ error: { message: '저장 요청 15초 초과 — 네트워크 확인 후 다시 시도해주세요' } }), 15000)
+          setTimeout(() => resolve({ error: { message: tt('저장 요청 15초 초과 — 네트워크 확인 후 다시 시도해주세요') } }), 15000)
         ),
       ]);
 
@@ -173,7 +175,7 @@ export default function ProfileEditPage() {
           err: e instanceof Error ? e.message : String(e),
         });
       }
-      setMessage('저장되었습니다!');
+      setMessage(tt('저장되었습니다!'));
       setTimeout(() => router.back(), 800);
     } catch (e) {
       const msg = e instanceof Error
@@ -182,7 +184,7 @@ export default function ProfileEditPage() {
           ? String((e as { message: unknown }).message)
           : String(e);
       logClientError('profile-edit', 'save 실패', { err: msg, totalMs: Date.now() - t0 });
-      setMessage(`저장 실패: ${msg}`);
+      setMessage(`${tt('저장 실패')}: ${msg}`);
     } finally {
       setSaving(false);
     }
@@ -202,7 +204,7 @@ export default function ProfileEditPage() {
           <Link href="/profile" className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition">
             <ArrowLeft size={20} />
           </Link>
-          <h1 className="text-xl font-extrabold tracking-tight">프로필 편집</h1>
+          <h1 className="text-xl font-extrabold tracking-tight">{tt('프로필 편집')}</h1>
         </div>
       </header>
       <div className="px-4 pt-4">
@@ -233,7 +235,7 @@ export default function ProfileEditPage() {
 
       <div className="space-y-4">
         <div>
-          <label className="block text-base font-semibold text-[var(--foreground)] mb-1.5">닉네임</label>
+          <label className="block text-base font-semibold text-[var(--foreground)] mb-1.5">{locale === 'en' ? 'Nickname' : '닉네임'}</label>
           <input
             type="text"
             value={displayName}
@@ -248,13 +250,13 @@ export default function ProfileEditPage() {
         </div>
 
         <div>
-          <label className="block text-base font-semibold text-[var(--foreground)] mb-1.5">소개</label>
+          <label className="block text-base font-semibold text-[var(--foreground)] mb-1.5">{locale === 'en' ? 'Bio' : '소개'}</label>
           <textarea
             value={bio}
             onChange={(e) => setBio(e.target.value)}
             maxLength={100}
             rows={3}
-            placeholder="한 줄 소개를 입력해주세요"
+            placeholder={tt('한 줄 소개를 입력해주세요')}
             className="w-full px-4 py-3.5 rounded-xl bg-[var(--card)] border border-[var(--card-border)] text-[var(--foreground)] text-base focus:outline-none focus:ring-2 focus:ring-[var(--accent)] resize-none"
           />
           <p className="text-xs text-[var(--muted)] mt-1">{bio.length}/100</p>
@@ -262,19 +264,19 @@ export default function ProfileEditPage() {
 
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <label className="block text-sm font-medium text-[var(--foreground)]">지역</label>
+            <label className="block text-sm font-medium text-[var(--foreground)]">{locale === 'en' ? 'Region' : '지역'}</label>
             <button
               onClick={handleDetectRegion}
               disabled={detecting}
               className="flex items-center gap-1 text-xs text-[var(--accent)] font-medium disabled:opacity-50"
             >
               <MapPin size={14} />
-              {detecting ? '감지 중...' : '현재 위치로 자동 선택'}
+              {detecting ? tt('감지 중...') : tt('현재 위치로 자동 선택')}
             </button>
           </div>
 
           <div>
-            <p className="text-xs text-[var(--muted)] mb-1">국가</p>
+            <p className="text-xs text-[var(--muted)] mb-1">{locale === 'en' ? 'Country' : '국가'}</p>
             <select
               value={country}
               onChange={(e) => {
@@ -291,7 +293,7 @@ export default function ProfileEditPage() {
           </div>
 
           <div>
-            <p className="text-xs text-[var(--muted)] mb-1">시/도</p>
+            <p className="text-xs text-[var(--muted)] mb-1">{locale === 'en' ? 'Province / City' : '시/도'}</p>
             <select
               value={sido}
               onChange={(e) => {
@@ -301,7 +303,7 @@ export default function ProfileEditPage() {
               disabled={!isKorea}
               className="w-full px-4 py-3 rounded-xl bg-[var(--card)] border border-[var(--card-border)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)] disabled:opacity-50"
             >
-              <option value="">선택 안함</option>
+              <option value="">{locale === 'en' ? 'Not selected' : '선택 안함'}</option>
               {KR_SIDO_LIST.map(s => (
                 <option key={s} value={s}>{s}</option>
               ))}
@@ -309,14 +311,14 @@ export default function ProfileEditPage() {
           </div>
 
           <div>
-            <p className="text-xs text-[var(--muted)] mb-1">구/군</p>
+            <p className="text-xs text-[var(--muted)] mb-1">{locale === 'en' ? 'District' : '구/군'}</p>
             <select
               value={gu}
               onChange={(e) => setGu(e.target.value)}
               disabled={!isKorea || !sido}
               className="w-full px-4 py-3 rounded-xl bg-[var(--card)] border border-[var(--card-border)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)] disabled:opacity-50"
             >
-              <option value="">선택 안함</option>
+              <option value="">{locale === 'en' ? 'Not selected' : '선택 안함'}</option>
               {guList.map(g => (
                 <option key={g} value={g}>{g}</option>
               ))}
@@ -328,34 +330,34 @@ export default function ProfileEditPage() {
         <div className="border-t border-[var(--card-border)] pt-4 space-y-3">
           <div>
             <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
-              랭킹 매칭 정보 <span className="text-xs text-[var(--muted)]">(선택)</span>
+              {locale === 'en' ? 'Ranking match info' : '랭킹 매칭 정보'} <span className="text-xs text-[var(--muted)]">{locale === 'en' ? '(optional)' : '(선택)'}</span>
             </label>
             <p className="text-xs text-[var(--muted)] mb-3">
-              비슷한 조건의 러너와 나를 비교해서 재미있는 순위를 보여드려요. 언제든 수정·삭제 가능합니다.
+              {tt('비슷한 조건의 러너와 나를 비교해서 재미있는 순위를 보여드려요.')} {locale === 'en' ? 'Editable anytime.' : '언제든 수정·삭제 가능합니다.'}
             </p>
           </div>
 
           <div>
-            <p className="text-xs text-[var(--muted)] mb-1">출생 연도</p>
+            <p className="text-xs text-[var(--muted)] mb-1">{locale === 'en' ? 'Birth year' : '출생 연도'}</p>
             <select
               value={birthYear}
               onChange={(e) => setBirthYear(e.target.value)}
               className="w-full px-4 py-3 rounded-xl bg-[var(--card)] border border-[var(--card-border)] text-[var(--foreground)] text-sm"
             >
-              <option value="">선택 안함</option>
+              <option value="">{locale === 'en' ? 'Not selected' : '선택 안함'}</option>
               {BIRTH_YEARS.map(y => (
-                <option key={y} value={y}>{y}년</option>
+                <option key={y} value={y}>{locale === 'en' ? String(y) : `${y}년`}</option>
               ))}
             </select>
           </div>
 
           <div>
-            <p className="text-xs text-[var(--muted)] mb-1">성별</p>
+            <p className="text-xs text-[var(--muted)] mb-1">{locale === 'en' ? 'Gender' : '성별'}</p>
             <div className="grid grid-cols-3 gap-3">
               {[
-                { v: 'male', label: '남성' },
-                { v: 'female', label: '여성' },
-                { v: 'other', label: '기타' },
+                { v: 'male', label: locale === 'en' ? 'Male' : '남성' },
+                { v: 'female', label: locale === 'en' ? 'Female' : '여성' },
+                { v: 'other', label: locale === 'en' ? 'Other' : '기타' },
               ].map(opt => (
                 <button
                   key={opt.v}
@@ -379,13 +381,13 @@ export default function ProfileEditPage() {
                   onChange={(e) => setShowGender(e.target.checked)}
                   className="w-4 h-4 accent-emerald-500"
                 />
-                <span className="text-xs text-[var(--muted)]">프로필에 성별 아이콘(♂/♀) 표시</span>
+                <span className="text-xs text-[var(--muted)]">{locale === 'en' ? 'Show gender icon (♂/♀) on profile' : '프로필에 성별 아이콘(♂/♀) 표시'}</span>
               </label>
             )}
           </div>
 
           <div>
-            <p className="text-xs text-[var(--muted)] mb-1">러닝 시작 시점</p>
+            <p className="text-xs text-[var(--muted)] mb-1">{locale === 'en' ? 'Running since' : '러닝 시작 시점'}</p>
             <input
               type="month"
               value={runningSince ? runningSince.slice(0, 7) : ''}
@@ -405,7 +407,7 @@ export default function ProfileEditPage() {
             disabled={saving || !displayName.trim() || !displayNameCheck.isValid}
             className="w-full py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base disabled:opacity-50 active:scale-[0.98] shadow-md shadow-emerald-500/30"
           >
-            {saving ? '저장 중…' : '저장'}
+            {saving ? tt('저장 중…') : tt('저장')}
           </button>
           {message && (
             <p className={`text-center text-xs mt-2 font-bold ${message.includes('오류') || message.includes('실패') || message.includes('거부') ? 'text-red-500' : 'text-emerald-600'}`}>

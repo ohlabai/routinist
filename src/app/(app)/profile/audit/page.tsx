@@ -10,6 +10,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { getSupabase, resetSupabaseClient } from '@/lib/supabase';
 import { syncHealthData, syncRouteData, isNativeApp, getPlatform } from '@/lib/health-sync';
 import { signOut } from '@/lib/auth';
+import { useI18n } from '@/lib/i18n';
 
 interface AuditRow {
   month: string;
@@ -32,6 +33,7 @@ interface DiagnosticResult {
 
 export default function DataAuditPage() {
   const { user } = useAuth();
+  const { tt, locale } = useI18n();
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [resyncing, setResyncing] = useState(false);
@@ -72,7 +74,7 @@ export default function DataAuditPage() {
   const handleResync = async () => {
     if (!user) return;
     setResyncing(true);
-    setResyncMsg('Apple Health 다시 동기화 중...');
+    setResyncMsg(tt('Apple Health 다시 동기화 중...'));
     try {
       const r = await withTimeout(syncHealthData(user.id), 30000, 'Apple Health sync');
       setResyncMsg(`${r.message} (총 ${r.meta?.totalFromHealth ?? '?'}건 조회, 새 ${r.synced}건 저장)`);
@@ -135,7 +137,7 @@ export default function DataAuditPage() {
     } finally {
       setResyncing(false);
       if (!finalMsg) {
-        setResyncMsg('결과를 받지 못했어요. 잠시 후 다시 시도해주세요.');
+        setResyncMsg(tt('결과를 받지 못했어요. 잠시 후 다시 시도해주세요.'));
       }
     }
   };
@@ -290,11 +292,13 @@ export default function DataAuditPage() {
     <div className="max-w-lg mx-auto px-4 py-6">
       <div className="flex items-center gap-3 mb-4">
         <Link href="/profile" className="text-[var(--muted)]"><ArrowLeft size={24} /></Link>
-        <h1 className="text-xl font-bold text-[var(--foreground)]">데이터 점검</h1>
+        <h1 className="text-xl font-bold text-[var(--foreground)]">{tt('데이터 점검')}</h1>
       </div>
 
       <p className="text-sm text-[var(--muted)] mb-4 leading-relaxed">
-        실제로 달렸는데 기록이 안 보이는 경우 여기서 월별 활동 수를 확인하고, Apple Health 와 다시 동기화할 수 있어요.
+        {locale === 'en'
+          ? "If a run doesn't show up, check monthly counts here and re-sync with Apple Health."
+          : '실제로 달렸는데 기록이 안 보이는 경우 여기서 월별 활동 수를 확인하고, Apple Health 와 다시 동기화할 수 있어요.'}
       </p>
 
       {native && (
@@ -305,7 +309,7 @@ export default function DataAuditPage() {
             className="w-full py-3 rounded-xl bg-emerald-500 text-white font-bold flex items-center justify-center gap-2 disabled:opacity-50"
           >
             <RefreshCw size={16} className={resyncing ? 'animate-spin' : ''} />
-            {resyncing ? '동기화 중...' : 'Apple Health 다시 동기화 (90일)'}
+            {resyncing ? (locale === 'en' ? 'Syncing...' : '동기화 중...') : tt('Apple Health 다시 동기화 (90일)')}
           </button>
           <button
             onClick={handleResyncRoutes}
@@ -313,7 +317,7 @@ export default function DataAuditPage() {
             className="w-full py-3 rounded-xl bg-blue-500 text-white font-bold flex items-center justify-center gap-2 disabled:opacity-50"
           >
             <RefreshCw size={16} className={resyncing ? 'animate-spin' : ''} />
-            {resyncing ? '...' : 'GPS 경로 다시 불러오기 (3년)'}
+            {resyncing ? '...' : (locale === 'en' ? 'Re-fetch GPS routes (3 years)' : 'GPS 경로 다시 불러오기 (3년)')}
           </button>
           <button
             onClick={runDiagnostic}
@@ -321,21 +325,21 @@ export default function DataAuditPage() {
             className="w-full py-3 rounded-xl bg-purple-500 text-white font-bold flex items-center justify-center gap-2 disabled:opacity-50"
           >
             <Stethoscope size={16} className={diagRunning ? 'animate-pulse' : ''} />
-            {diagRunning ? '진단 중...' : '권한 + 데이터 진단 (30일)'}
+            {diagRunning ? (locale === 'en' ? 'Diagnosing...' : '진단 중...') : tt('권한 + 데이터 진단 (30일)')}
           </button>
           <button
             onClick={openHealthSettings}
             className="w-full py-3 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-bold flex items-center justify-center gap-2"
           >
             <ExternalLink size={16} />
-            iOS 설정 → 앱 권한 열기
+            {tt('iOS 설정 → 앱 권한 열기')}
           </button>
           <button
             onClick={forceFreshLogin}
             className="w-full py-3 rounded-xl bg-rose-500 text-white font-bold flex items-center justify-center gap-2"
           >
             <LogOut size={16} />
-            강제 로그아웃 + 다시 로그인 (모든 데이터 로딩 실패 시)
+            {locale === 'en' ? 'Force sign out + re-login (last resort)' : '강제 로그아웃 + 다시 로그인 (모든 데이터 로딩 실패 시)'}
           </button>
           {resyncMsg && (
             <div className={`text-sm whitespace-pre-line p-3 rounded-xl border ${
@@ -349,25 +353,25 @@ export default function DataAuditPage() {
 
           {diag && (
             <div className="card p-4 space-y-2 text-sm">
-              <p className="font-bold text-[var(--foreground)]">진단 결과 (지난 30일)</p>
+              <p className="font-bold text-[var(--foreground)]">{locale === 'en' ? 'Diagnosis (last 30 days)' : '진단 결과 (지난 30일)'}</p>
               <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
-                <span className="text-[var(--muted)]">HealthKit 사용 가능</span>
+                <span className="text-[var(--muted)]">{locale === 'en' ? 'HealthKit available' : 'HealthKit 사용 가능'}</span>
                 <span className="font-bold">{diag.available === true ? '✅' : diag.available === false ? '❌' : '?'}</span>
 
-                <span className="text-[var(--muted)]">Apple Health 러닝</span>
-                <span className="font-bold">{diag.hkRunning30d ?? '?'} 건</span>
+                <span className="text-[var(--muted)]">{locale === 'en' ? 'Apple Health runs' : 'Apple Health 러닝'}</span>
+                <span className="font-bold">{diag.hkRunning30d ?? '?'} {locale === 'en' ? '' : '건'}</span>
 
-                <span className="text-[var(--muted)]">Apple Health 걷기</span>
-                <span className="font-bold">{diag.hkWalking30d ?? '?'} 건</span>
+                <span className="text-[var(--muted)]">{locale === 'en' ? 'Apple Health walks' : 'Apple Health 걷기'}</span>
+                <span className="font-bold">{diag.hkWalking30d ?? '?'} {locale === 'en' ? '' : '건'}</span>
 
-                <span className="text-[var(--muted)]">DB 활동 (총)</span>
-                <span className="font-bold">{diag.dbActivities30d ?? '?'} 건</span>
+                <span className="text-[var(--muted)]">{locale === 'en' ? 'DB activities (total)' : 'DB 활동 (총)'}</span>
+                <span className="font-bold">{diag.dbActivities30d ?? '?'} {locale === 'en' ? '' : '건'}</span>
 
-                <span className="text-[var(--muted)]">Apple Health GPS 경로</span>
-                <span className="font-bold">{diag.hkRoutes30d ?? '?'} 건</span>
+                <span className="text-[var(--muted)]">{locale === 'en' ? 'Apple Health GPS routes' : 'Apple Health GPS 경로'}</span>
+                <span className="font-bold">{diag.hkRoutes30d ?? '?'} {locale === 'en' ? '' : '건'}</span>
 
-                <span className="text-[var(--muted)]">DB GPS 매칭</span>
-                <span className="font-bold">{diag.dbWithRoute30d ?? '?'} 건</span>
+                <span className="text-[var(--muted)]">{locale === 'en' ? 'DB GPS matched' : 'DB GPS 매칭'}</span>
+                <span className="font-bold">{diag.dbWithRoute30d ?? '?'} {locale === 'en' ? '' : '건'}</span>
               </div>
 
               {diag.hkRunning30d === 0 && diag.hkWalking30d === 0 && (
@@ -406,14 +410,14 @@ export default function DataAuditPage() {
             <div className="animate-spin w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full" />
           </div>
         ) : rows.length === 0 ? (
-          <p className="text-center text-sm text-[var(--muted)] py-10">활동 기록이 없습니다.</p>
+          <p className="text-center text-sm text-[var(--muted)] py-10">{tt('활동 기록이 없습니다.')}</p>
         ) : (
           rows.map(row => (
             <div key={row.month} className="p-4">
               <div className="flex items-baseline justify-between mb-1">
                 <span className="text-base font-bold text-[var(--foreground)]">{row.month}</span>
                 <span className="text-sm text-[var(--muted)]">
-                  {row.run_count}회 · {row.total_km}km
+                  {locale === 'en' ? `${row.run_count} runs · ${row.total_km}km` : `${row.run_count}회 · ${row.total_km}km`}
                 </span>
               </div>
               {row.source_breakdown && Object.keys(row.source_breakdown).length > 0 && (
@@ -427,8 +431,8 @@ export default function DataAuditPage() {
               )}
               {row.last_activity_date && (
                 <p className="text-xs text-[var(--muted)] mt-1">
-                  최근: {row.last_activity_date}
-                  {row.last_started_at && ` (${new Date(row.last_started_at).toLocaleString('ko-KR', { hour: '2-digit', minute: '2-digit' })})`}
+                  {locale === 'en' ? 'Last: ' : '최근: '}{row.last_activity_date}
+                  {row.last_started_at && ` (${new Date(row.last_started_at).toLocaleString(locale === 'en' ? 'en-US' : 'ko-KR', { hour: '2-digit', minute: '2-digit' })})`}
                 </p>
               )}
             </div>

@@ -11,6 +11,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
 import { getSupabase } from '@/lib/supabase';
 import ShareCard from '@/components/activity/ShareCard';
+import { useI18n } from '@/lib/i18n';
 
 function distanceColor(km: number, dateStr: string): string {
   if (km <= 0) {
@@ -30,6 +31,7 @@ function distanceColor(km: number, dateStr: string): string {
 export default function HomeCalendarCard() {
   const { user, profile } = useAuth();
   const { activities } = useUserData();
+  const { tt, locale } = useI18n();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -167,20 +169,24 @@ export default function HomeCalendarCard() {
       <div className="flex items-center justify-between mb-3">
         <button
           onClick={prev}
-          aria-label="이전 달"
+          aria-label={locale === 'en' ? 'Previous month' : '이전 달'}
           className="w-9 h-9 rounded-xl flex items-center justify-center active:bg-[var(--card-border)] transition-colors"
         >
           <ChevronLeft size={18} />
         </button>
         <div className="flex items-baseline gap-2">
-          <span className="text-base font-bold text-[var(--foreground)]">{year}년 {month}월</span>
+          <span className="text-base font-bold text-[var(--foreground)]">
+            {locale === 'en'
+              ? new Date(year, month - 1, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' })
+              : `${year}년 ${month}월`}
+          </span>
           <span className="text-xs text-[var(--muted)]">
-            {totalKm.toFixed(1)}km · {runDays}일
+            {locale === 'en' ? `${totalKm.toFixed(1)}km · ${runDays} days` : `${totalKm.toFixed(1)}km · ${runDays}일`}
           </span>
         </div>
         <button
           onClick={next}
-          aria-label="다음 달"
+          aria-label={locale === 'en' ? 'Next month' : '다음 달'}
           className="w-9 h-9 rounded-xl flex items-center justify-center active:bg-[var(--card-border)] transition-colors"
         >
           <ChevronRight size={18} />
@@ -188,9 +194,12 @@ export default function HomeCalendarCard() {
       </div>
 
       <div className="grid grid-cols-7 gap-1 text-center text-xs mb-1">
-        {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
+        {(locale === 'en'
+          ? ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+          : ['일', '월', '화', '수', '목', '금', '토']
+        ).map((d, i) => (
           <span
-            key={d}
+            key={`${i}-${d}`}
             className={`py-1 font-semibold ${
               i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-[var(--muted)]'
             }`}
@@ -287,14 +296,14 @@ export default function HomeCalendarCard() {
           className="mt-3 w-full inline-flex items-center justify-center gap-2 py-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-sm shadow-sm active:scale-[0.98] transition"
         >
           <Share2 size={16} />
-          공유카드 만들기
+          {locale === 'en' ? 'Make share card' : '공유카드 만들기'}
         </button>
       )}
 
       {shareCardOpen && activities.length > 0 && (
         <ShareCard
           activity={activities[0]}
-          displayName={profile?.display_name ?? '러너'}
+          displayName={profile?.display_name ?? tt('러너')}
           onClose={() => setShareCardOpen(false)}
         />
       )}

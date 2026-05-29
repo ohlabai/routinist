@@ -18,12 +18,14 @@ import { useAuth } from '@/components/AuthProvider';
 import AppToast from '@/components/AppToast';
 import ProductReviews from '@/components/shop/ProductReviews';
 import DOMPurify from 'isomorphic-dompurify';
+import { useI18n, formatKrw } from '@/lib/i18n';
 import type { Product, ProductVariant } from '@/types';
 
 function ProductDetailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user } = useAuth();
+  const { tt, locale } = useI18n();
   const productId = searchParams.get('id') ?? '';
 
   const [product, setProduct] = useState<Product | null>(null);
@@ -103,15 +105,15 @@ function ProductDetailContent() {
   // BottomSheet 내 confirm — 모드별 분기
   const confirmAddToCart = async () => {
     if (!product) return;
-    if (variants.length > 0 && !selectedVariantId) { showToast('옵션을 선택해주세요', 'warn'); return; }
-    if (availableStock < quantity) { showToast('재고가 부족해요', 'warn'); return; }
+    if (variants.length > 0 && !selectedVariantId) { showToast(tt('옵션을 선택해주세요'), 'warn'); return; }
+    if (availableStock < quantity) { showToast(tt('재고가 부족해요'), 'warn'); return; }
     setSubmitting(true);
     try {
       await addToCart(product.id, selectedVariantId, quantity);
-      showToast('장바구니에 담았어요 🛒');
+      showToast(tt('장바구니에 담았어요 🛒'));
       setBottomSheetOpen(false);
     } catch (e) {
-      showToast(e instanceof Error ? e.message : '담기 실패', 'warn', 3000);
+      showToast(e instanceof Error ? e.message : tt('담기 실패'), 'warn', 3000);
     } finally {
       setSubmitting(false);
     }
@@ -119,11 +121,11 @@ function ProductDetailContent() {
 
   const confirmBuyNow = () => {
     if (!product) return;
-    if (variants.length > 0 && !selectedVariantId) { showToast('옵션을 선택해주세요', 'warn'); return; }
-    if (availableStock < quantity) { showToast('재고가 부족해요', 'warn'); return; }
+    if (variants.length > 0 && !selectedVariantId) { showToast(tt('옵션을 선택해주세요'), 'warn'); return; }
+    if (availableStock < quantity) { showToast(tt('재고가 부족해요'), 'warn'); return; }
     // 토스 가맹키 도착 전까지 결제 비활성화 — 친근 안내 (사용자 피드백).
     if (!process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY) {
-      showToast('조금만 기다려주세요\n다음주 정식 런칭 후 살 수 있어요 ✨', 'warn', 3500);
+      showToast(tt('조금만 기다려주세요\n다음주 정식 런칭 후 살 수 있어요 ✨'), 'warn', 3500);
       return;
     }
     sessionStorage.setItem('buyNowItem', JSON.stringify({
@@ -137,10 +139,10 @@ function ProductDetailContent() {
     const url = `https://app.routinist.kr/shop/product?id=${product.id}`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: product.name, text: `${product.name} - ${product.price_krw.toLocaleString()}원`, url });
+        await navigator.share({ title: product.name, text: `${product.name} - ${formatKrw(product.price_krw, locale)}`, url });
       } else {
         await navigator.clipboard.writeText(url);
-        showToast('링크를 복사했어요 📋');
+        showToast(tt('링크를 복사했어요 📋'));
       }
     } catch {}
   };
@@ -162,15 +164,15 @@ function ProductDetailContent() {
     return (
       <div className="max-w-lg mx-auto px-4 py-12 text-center">
         <button onClick={() => router.back()} className="inline-flex items-center gap-1 text-[var(--muted)] mb-8 active:scale-95">
-          <ArrowLeft size={20} /> 뒤로
+          <ArrowLeft size={20} /> {locale === 'en' ? 'Back' : '뒤로'}
         </button>
         <div className="w-20 h-20 rounded-full bg-emerald-50 dark:bg-emerald-950/30 mx-auto mb-4 flex items-center justify-center">
           <Package size={36} className="text-emerald-500" />
         </div>
-        <p className="text-base font-semibold mb-1">상품을 찾을 수 없어요</p>
-        <p className="text-sm text-[var(--muted)]">삭제됐거나 잘못된 링크일 수 있어요</p>
+        <p className="text-base font-semibold mb-1">{tt('상품을 찾을 수 없어요')}</p>
+        <p className="text-sm text-[var(--muted)]">{locale === 'en' ? 'It may have been deleted or the link is invalid' : '삭제됐거나 잘못된 링크일 수 있어요'}</p>
         <Link href="/shop" className="inline-flex mt-6 px-5 py-2.5 rounded-full bg-emerald-500 text-white text-sm font-bold active:scale-95">
-          쇼핑하러 가기
+          {locale === 'en' ? 'Go shopping' : '쇼핑하러 가기'}
         </Link>
       </div>
     );
@@ -192,7 +194,7 @@ function ProductDetailContent() {
           <button
             onClick={() => router.back()}
             className="w-10 h-10 flex items-center justify-center rounded-full bg-white/85 dark:bg-zinc-900/85 backdrop-blur-md shadow-sm active:scale-90 transition"
-            aria-label="뒤로"
+            aria-label={locale === 'en' ? 'Back' : '뒤로'}
           >
             <ArrowLeft size={20} className="text-[var(--foreground)]" />
           </button>
@@ -200,14 +202,14 @@ function ProductDetailContent() {
             <button
               onClick={handleShare}
               className="w-10 h-10 flex items-center justify-center rounded-full bg-white/85 dark:bg-zinc-900/85 backdrop-blur-md shadow-sm active:scale-90 transition"
-              aria-label="공유"
+              aria-label={locale === 'en' ? 'Share' : '공유'}
             >
               <Share2 size={18} className="text-[var(--foreground)]" />
             </button>
             <Link
               href="/shop/cart"
               className="w-10 h-10 flex items-center justify-center rounded-full bg-white/85 dark:bg-zinc-900/85 backdrop-blur-md shadow-sm active:scale-90 transition"
-              aria-label="장바구니"
+              aria-label={locale === 'en' ? 'Cart' : '장바구니'}
             >
               <ShoppingCart size={18} className="text-[var(--foreground)]" />
             </Link>
@@ -228,7 +230,7 @@ function ProductDetailContent() {
                     key={i}
                     onClick={() => setImageIdx(i)}
                     className={`w-1.5 h-1.5 rounded-full transition-all ${i === imageIdx ? 'bg-white w-5' : 'bg-white/50'}`}
-                    aria-label={`이미지 ${i + 1}`}
+                    aria-label={locale === 'en' ? `Image ${i + 1}` : `이미지 ${i + 1}`}
                   />
                 ))}
               </div>
@@ -274,14 +276,14 @@ function ProductDetailContent() {
               ))}
             </div>
             <span className="text-sm font-bold text-[var(--foreground)]">{(product.rating_avg ?? 0).toFixed(1)}</span>
-            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold underline">리뷰 {product.rating_count}개 →</span>
+            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold underline">{locale === 'en' ? `${product.rating_count} reviews \u2192` : `리뷰 ${product.rating_count}개 \u2192`}</span>
           </button>
         )}
 
         {/* 재고 긴급 안내 */}
         {!isSoldOut && availableStock > 0 && availableStock <= 5 && (
           <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 text-[11px] font-extrabold mb-2.5 animate-pulse">
-            🔥 마지막 {availableStock}개 남음
+            🔥 {locale === 'en' ? `Only ${availableStock} left` : `마지막 ${availableStock}개 남음`}
           </div>
         )}
 
@@ -291,8 +293,17 @@ function ProductDetailContent() {
             <span className="text-base font-extrabold text-red-500">{discount}%</span>
           )}
           <span className="text-3xl font-extrabold text-[var(--foreground)]">
-            {product.price_krw.toLocaleString()}
-            <span className="text-lg font-bold ml-0.5">원</span>
+            {locale === 'en' ? (
+              <>
+                <span className="text-lg font-bold mr-0.5">₩</span>
+                {product.price_krw.toLocaleString()}
+              </>
+            ) : (
+              <>
+                {product.price_krw.toLocaleString()}
+                <span className="text-lg font-bold ml-0.5">원</span>
+              </>
+            )}
           </span>
           {product.compare_price_krw && product.compare_price_krw > product.price_krw && (
             <span className="text-sm text-[var(--muted)] line-through">
@@ -320,8 +331,8 @@ function ProductDetailContent() {
               <Truck size={16} className="text-emerald-600" />
             </div>
             <div>
-              <p className="text-[10px] text-[var(--muted)] font-medium">무조건</p>
-              <p className="text-xs font-bold text-[var(--foreground)]">당일 출고</p>
+              <p className="text-[10px] text-[var(--muted)] font-medium">{locale === 'en' ? 'Always' : '무조건'}</p>
+              <p className="text-xs font-bold text-[var(--foreground)]">{locale === 'en' ? 'Same-day shipping' : '당일 출고'}</p>
             </div>
           </div>
           <div className="card p-3 flex items-center gap-2.5 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 border-emerald-200/50 dark:border-emerald-900/30">
@@ -329,8 +340,8 @@ function ProductDetailContent() {
               <ShieldCheck size={16} className="text-emerald-600" />
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] text-[var(--muted)] font-medium whitespace-nowrap">1만원 이상</p>
-              <p className="text-xs font-bold text-[var(--foreground)] whitespace-nowrap">무료 배송</p>
+              <p className="text-[10px] text-[var(--muted)] font-medium whitespace-nowrap">{locale === 'en' ? 'Over ₩10,000' : '1만원 이상'}</p>
+              <p className="text-xs font-bold text-[var(--foreground)] whitespace-nowrap">{locale === 'en' ? 'Free shipping' : '무료 배송'}</p>
             </div>
           </div>
         </div>
@@ -356,7 +367,7 @@ function ProductDetailContent() {
           <div className="px-4 py-5 mt-2 border-t border-[var(--card-border)]/40">
             <h2 className="text-sm font-extrabold text-[var(--foreground)] mb-3 inline-flex items-center gap-1.5">
               <ChevronRight size={14} className="text-emerald-500" />
-              상품 설명
+              {locale === 'en' ? 'Description' : '상품 설명'}
             </h2>
             {hasHtml ? (
               <div
@@ -377,7 +388,7 @@ function ProductDetailContent() {
         <div className="px-4 py-5 border-t border-[var(--card-border)]/40 space-y-3">
           <h2 className="text-sm font-extrabold text-[var(--foreground)] mb-1 inline-flex items-center gap-1.5">
             <ChevronRight size={14} className="text-emerald-500" />
-            상세 이미지
+            {locale === 'en' ? 'Detail images' : '상세 이미지'}
           </h2>
           {galleryImages.slice(1).map((url, i) => (
             // eslint-disable-next-line @next/next/no-img-element
@@ -407,10 +418,10 @@ function ProductDetailContent() {
               setLiked(!prev);  // optimistic
               try {
                 await toggleWishlist(product.id, prev);
-                showToast(prev ? '찜 해제했어요' : '찜했어요 ❤️');
+                showToast(prev ? tt('찜 해제했어요') : tt('찜했어요 ❤️'));
               } catch {
                 setLiked(prev);
-                showToast('잠시 후 다시 시도해주세요', 'warn');
+                showToast(tt('잠시 후 다시 시도해주세요'), 'warn');
               }
             }}
             className={`w-12 h-12 flex items-center justify-center rounded-2xl border-2 transition active:scale-90 ${
@@ -418,7 +429,7 @@ function ProductDetailContent() {
                 ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900/40'
                 : 'bg-[var(--card)] border-[var(--card-border)]'
             }`}
-            aria-label="위시리스트"
+            aria-label={locale === 'en' ? 'Wishlist' : '위시리스트'}
           >
             <Heart size={20} className={liked ? 'text-red-500 fill-red-500' : 'text-[var(--muted)]'} />
           </button>
@@ -428,14 +439,14 @@ function ProductDetailContent() {
             className="flex-1 py-3.5 rounded-2xl bg-[var(--card)] border-2 border-emerald-200 dark:border-emerald-900/40 text-sm font-bold text-emerald-700 dark:text-emerald-300 active:scale-[0.98] disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
           >
             <ShoppingCart size={17} />
-            장바구니
+            {locale === 'en' ? 'Cart' : '장바구니'}
           </button>
           <button
             onClick={handleBuyNow}
             disabled={submitting || isSoldOut}
             className="flex-[1.3] py-3.5 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-sm font-extrabold active:scale-[0.98] disabled:opacity-50 shadow-md shadow-emerald-500/30"
           >
-            {isSoldOut ? '품절' : '바로 구매'}
+            {isSoldOut ? tt('품절') : tt('바로 구매')}
           </button>
         </div>
       </div>
@@ -449,7 +460,7 @@ function ProductDetailContent() {
           <div className="w-full max-w-lg mx-auto bg-[var(--background)] rounded-t-3xl max-h-[85vh] overflow-y-auto animate-[slideUp_0.25s_ease-out]">
             <div className="sticky top-0 bg-[var(--background)] px-5 py-4 border-b border-[var(--card-border)]/40 flex items-center justify-between">
               <div>
-                <h3 className="text-base font-extrabold">옵션 선택</h3>
+                <h3 className="text-base font-extrabold">{locale === 'en' ? 'Choose options' : '옵션 선택'}</h3>
                 <p className="text-xs text-[var(--muted)] mt-0.5 line-clamp-1">{product.name}</p>
               </div>
               <button
@@ -463,7 +474,7 @@ function ProductDetailContent() {
               {variants.length > 0 && (
                 <div>
                   <label className="block text-sm font-bold text-[var(--foreground)] mb-2.5">
-                    {variants[0].option_name ?? '옵션'}
+                    {variants[0].option_name ?? (locale === 'en' ? 'Option' : '옵션')}
                   </label>
                   <div className="grid grid-cols-3 gap-2">
                     {variants.map(v => {
@@ -494,7 +505,7 @@ function ProductDetailContent() {
               )}
 
               <div>
-                <label className="block text-sm font-bold text-[var(--foreground)] mb-2.5">수량</label>
+                <label className="block text-sm font-bold text-[var(--foreground)] mb-2.5">{locale === 'en' ? 'Quantity' : '수량'}</label>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <button
@@ -512,14 +523,14 @@ function ProductDetailContent() {
                       <Plus size={18} />
                     </button>
                   </div>
-                  <span className="text-xs text-[var(--muted)]">최대 {maxQty}개 가능</span>
+                  <span className="text-xs text-[var(--muted)]">{locale === 'en' ? `Max ${maxQty}` : `최대 ${maxQty}개 가능`}</span>
                 </div>
               </div>
 
               <div className="pt-4 border-t border-[var(--card-border)]/40 flex justify-between items-baseline">
-                <span className="text-sm text-[var(--muted)]">총 결제 금액</span>
+                <span className="text-sm text-[var(--muted)]">{locale === 'en' ? 'Total' : '총 결제 금액'}</span>
                 <span className="text-2xl font-extrabold text-emerald-600">
-                  {(unitPrice * quantity).toLocaleString()}원
+                  {formatKrw(unitPrice * quantity, locale)}
                 </span>
               </div>
 
@@ -531,7 +542,7 @@ function ProductDetailContent() {
                   className="w-full py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base active:scale-[0.98] disabled:opacity-50 inline-flex items-center justify-center gap-2 shadow-md shadow-emerald-500/30"
                 >
                   <Check size={18} />
-                  바로 구매하기
+                  {locale === 'en' ? 'Buy now' : '바로 구매하기'}
                 </button>
               ) : (
                 <button
@@ -540,7 +551,7 @@ function ProductDetailContent() {
                   className="w-full py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base active:scale-[0.98] disabled:opacity-50 inline-flex items-center justify-center gap-2 shadow-md shadow-emerald-500/30"
                 >
                   <Check size={18} />
-                  {submitting ? '담는 중…' : '장바구니에 담기'}
+                  {submitting ? (locale === 'en' ? 'Adding…' : '담는 중…') : (locale === 'en' ? 'Add to cart' : '장바구니에 담기')}
                 </button>
               )}
             </div>

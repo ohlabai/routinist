@@ -7,11 +7,14 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { XCircle, ShoppingBag, Home } from 'lucide-react';
 import { cancelOrder } from '@/lib/shop-data';
+import { useI18n } from '@/lib/i18n';
 
 function PaymentFailContent() {
   const searchParams = useSearchParams();
+  const { tt, locale } = useI18n();
   const code = searchParams.get('code') ?? '';
-  const message = searchParams.get('message') ?? '결제가 취소되었거나 실패했어요';
+  const rawMessage = searchParams.get('message');
+  const message = rawMessage ?? tt('결제가 취소되었거나 실패했어요');
   const orderUuid = searchParams.get('orderUuid') ?? '';
 
   useEffect(() => {
@@ -36,11 +39,11 @@ function PaymentFailContent() {
             <XCircle size={56} className="text-white" strokeWidth={2} />
           </div>
         </div>
-        <h1 className="text-2xl font-extrabold text-[var(--foreground)] mb-2">결제 실패</h1>
+        <h1 className="text-2xl font-extrabold text-[var(--foreground)] mb-2">{tt('결제 실패')}</h1>
         <p className="text-sm text-[var(--foreground)] max-w-xs mx-auto break-keep mb-1">{message}</p>
         {code && <p className="text-[10px] text-[var(--muted)]/70 font-mono mb-5">[{code}]</p>}
         <p className="text-xs text-[var(--muted)] mb-8 max-w-xs mx-auto break-keep">
-          다시 시도하시거나, 다른 결제 수단으로 진행해주세요
+          {tt('다시 시도하시거나, 다른 결제 수단으로 진행해주세요')}
         </p>
       </div>
 
@@ -50,14 +53,14 @@ function PaymentFailContent() {
           className="w-full py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base active:scale-[0.98] shadow-md shadow-emerald-500/30 inline-flex items-center justify-center gap-2"
         >
           <ShoppingBag size={18} />
-          장바구니로 돌아가기
+          {locale === 'en' ? 'Back to cart' : '장바구니로 돌아가기'}
         </Link>
         <Link
           href="/shop"
           className="w-full py-3.5 rounded-2xl bg-[var(--card)] border-2 border-[var(--card-border)] text-[var(--foreground)] font-bold text-sm active:scale-[0.98] inline-flex items-center justify-center gap-1.5"
         >
           <Home size={15} />
-          쇼핑 계속하기
+          {locale === 'en' ? 'Keep shopping' : '쇼핑 계속하기'}
         </Link>
       </div>
     </div>

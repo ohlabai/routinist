@@ -9,6 +9,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import AppToast from '@/components/AppToast';
 import WinnerPredictionFullModal from './WinnerPredictionFullModal';
+import { useI18n } from '@/lib/i18n';
 
 interface Round {
   id: string;
@@ -31,6 +32,7 @@ interface Candidate {
 
 export default function WinnerPredictionWidget() {
   const { user } = useAuth();
+  const { tt, locale } = useI18n();
   const [round, setRound] = useState<Round | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,7 +77,7 @@ export default function WinnerPredictionWidget() {
   const pick = async (userId: string) => {
     if (!round || !user) return;
     if (round.my_pick) {
-      setToast('이미 픽했습니다 (변경 불가)');
+      setToast(tt('이미 픽했습니다 (변경 불가)'));
       setTimeout(() => setToast(null), 2000);
       return;
     }
@@ -97,13 +99,13 @@ export default function WinnerPredictionWidget() {
         // rollback
         setRound(previousRound);
         if (error.code === '23505') {
-          setToast('이미 픽했습니다');
+          setToast(locale === 'en' ? 'Already picked' : '이미 픽했습니다');
           await load(); // 진실값으로 동기화
         } else {
-          setToast('픽 실패: ' + error.message);
+          setToast((locale === 'en' ? 'Pick failed: ' : '픽 실패: ') + error.message);
         }
       } else {
-        setToast('픽 완료! 일요일 자정에 결과 공개');
+        setToast(tt('픽 완료! 일요일 자정에 결과 공개'));
         // 낙관적 값이 정답에 가까우니 background 로 reload (UI 깜빡임 없음)
         void load();
       }
@@ -118,7 +120,9 @@ export default function WinnerPredictionWidget() {
   const closesIn = new Date(round.closes_at).getTime() - Date.now();
   const hoursLeft = Math.max(0, Math.floor(closesIn / 3600_000));
   const daysLeft = Math.floor(hoursLeft / 24);
-  const timeLabel = daysLeft > 0 ? `${daysLeft}일 ${hoursLeft % 24}시간 남음` : hoursLeft > 0 ? `${hoursLeft}시간 남음` : '곧 마감';
+  const timeLabel = locale === 'en'
+    ? (daysLeft > 0 ? `${daysLeft}d ${hoursLeft % 24}h left` : hoursLeft > 0 ? `${hoursLeft}h left` : tt('곧 마감'))
+    : (daysLeft > 0 ? `${daysLeft}일 ${hoursLeft % 24}시간 남음` : hoursLeft > 0 ? `${hoursLeft}시간 남음` : '곧 마감');
   const isClosed = closesIn <= 0 || round.state !== 'open';
 
   return (
@@ -127,21 +131,23 @@ export default function WinnerPredictionWidget() {
       <div className="flex items-center justify-between mb-3">
         <div>
           <p className="text-base font-bold text-[var(--foreground)] flex items-center gap-1.5">
-            🏆 이번 주 우승자 맞히기
+            {tt('🏆 이번 주 우승자 맞히기')}
           </p>
           <p className="text-xs text-[var(--muted)] mt-0.5">
-            {isClosed ? '마감됨 — 일요일 자정 결과 공개' : timeLabel} · {round.total_picks}명 참여
+            {(isClosed
+              ? (locale === 'en' ? 'Closed — results Sunday midnight' : '마감됨 — 일요일 자정 결과 공개')
+              : timeLabel)} · {locale === 'en' ? `${round.total_picks} picks` : `${round.total_picks}명 참여`}
           </p>
         </div>
         {round.my_pick && (
           <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
-            <Check size={14} /> 픽 완료
+            <Check size={14} /> {locale === 'en' ? 'Picked' : '픽 완료'}
           </span>
         )}
       </div>
 
       {candidates.length === 0 ? (
-        <p className="text-xs text-[var(--muted)] text-center py-4">아직 이번 주에 달린 사람이 없어요</p>
+        <p className="text-xs text-[var(--muted)] text-center py-4">{tt('아직 이번 주에 달린 사람이 없어요')}</p>
       ) : (
         <div className="grid grid-cols-2 gap-2">
           {candidates.slice(0, 4).map(c => {
@@ -152,18 +158,22 @@ export default function WinnerPredictionWidget() {
             const handleClick = () => {
               if (picking !== null) return;
               if (isMyPick) {
-                setToast('이미 응원하고 있어요! 일요일 자정에 결과 공개 🏆');
+                setToast(locale === 'en'
+                  ? 'Already cheering them on! Results Sunday midnight 🏆'
+                  : '이미 응원하고 있어요! 일요일 자정에 결과 공개 🏆');
                 setTimeout(() => setToast(null), 2500);
                 return;
               }
               if (isClosed) {
-                setToast('이번 주 픽은 마감됐어요. 일요일 자정 결과 공개를 기대해주세요 ✨');
+                setToast(locale === 'en'
+                  ? "This week's picks are closed. Look forward to Sunday midnight results ✨"
+                  : '이번 주 픽은 마감됐어요. 일요일 자정 결과 공개를 기대해주세요 ✨');
                 setTimeout(() => setToast(null), 3000);
                 return;
               }
               if (alreadyPicked) {
                 // 다정한 안내 (build 63: 사용자 신고 #1-1.C)
-                setToast('한 번 정한 응원 픽은 일요일까지! 다음 주에 다시 만나요 ✨');
+                setToast(tt('한 번 정한 응원 픽은 일요일까지! 다음 주에 다시 만나요 ✨'));
                 setTimeout(() => setToast(null), 3000);
                 return;
               }
@@ -207,7 +217,7 @@ export default function WinnerPredictionWidget() {
           className="mt-3 w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/80 dark:bg-zinc-900/60 border border-emerald-200/60 dark:border-emerald-800/40 text-xs font-extrabold text-emerald-700 dark:text-emerald-400 active:scale-[0.98] transition"
         >
           <Users size={14} />
-          <span>전체 후보 30명 보기</span>
+          <span>{locale === 'en' ? 'See all 30 candidates' : '전체 후보 30명 보기'}</span>
           <ChevronRight size={12} />
         </button>
       )}

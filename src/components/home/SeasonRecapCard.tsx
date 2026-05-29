@@ -10,30 +10,33 @@ import { useAuth } from '@/components/AuthProvider';
 import { fetchMonthChartData } from '@/lib/period-share-data';
 import type { PeriodChartData } from '@/lib/period-share-canvas';
 import PeriodShareCard from '@/components/share/PeriodShareCard';
+import { useI18n, type Locale } from '@/lib/i18n';
 
 // 시즌 표시 조건 — 분기말 ±7일.
-function getActiveSeason(today: Date): { kind: 'Q' | 'H' | 'Y'; label: string } | null {
+function getActiveSeason(today: Date, locale: Locale): { kind: 'Q' | 'H' | 'Y'; label: string } | null {
   const m = today.getMonth() + 1;     // 1~12
   const d = today.getDate();
   // 분기말: 3/4월·6/7월·9/10월·12/1월 경계 ±7일.
   // 반기: 6/7월 경계 + 12/1월 경계.
   // 연말: 12월 25 이후 + 1월 1~7일.
-  if ((m === 12 && d >= 25) || (m === 1 && d <= 7)) return { kind: 'Y', label: '한 해 결산' };
-  if ((m === 6 && d >= 24) || (m === 7 && d <= 7)) return { kind: 'H', label: '상반기 결산' };
-  if ((m === 3 && d >= 24) || (m === 4 && d <= 7)) return { kind: 'Q', label: '1분기 결산' };
-  if ((m === 9 && d >= 24) || (m === 10 && d <= 7)) return { kind: 'Q', label: '3분기 결산' };
+  const isEn = locale === 'en';
+  if ((m === 12 && d >= 25) || (m === 1 && d <= 7)) return { kind: 'Y', label: isEn ? 'Year recap' : '한 해 결산' };
+  if ((m === 6 && d >= 24) || (m === 7 && d <= 7)) return { kind: 'H', label: isEn ? 'H1 recap' : '상반기 결산' };
+  if ((m === 3 && d >= 24) || (m === 4 && d <= 7)) return { kind: 'Q', label: isEn ? 'Q1 recap' : '1분기 결산' };
+  if ((m === 9 && d >= 24) || (m === 10 && d <= 7)) return { kind: 'Q', label: isEn ? 'Q3 recap' : '3분기 결산' };
   return null;
 }
 
 export default function SeasonRecapCard() {
   const { user, profile } = useAuth();
+  const { tt, locale } = useI18n();
   const [loading, setLoading] = useState(false);
   const [shareData, setShareData] = useState<PeriodChartData | null>(null);
 
-  const season = getActiveSeason(new Date());
+  const season = getActiveSeason(new Date(), locale);
   if (!season || !user) return null;
 
-  const userName = profile?.display_name ?? user.email?.split('@')[0] ?? '러너';
+  const userName = profile?.display_name ?? user.email?.split('@')[0] ?? tt('러너');
 
   const handleOpen = async () => {
     if (loading) return;
@@ -61,7 +64,7 @@ export default function SeasonRecapCard() {
             <Sparkles size={12} className="text-white/85 ml-auto" />
           </div>
           <p className="text-lg font-extrabold">{season.label}</p>
-          <p className="text-xs text-white/85 mt-0.5">9:16 영상 카드로 공유해보세요</p>
+          <p className="text-xs text-white/85 mt-0.5">{locale === 'en' ? 'Share as a 9:16 video card' : '9:16 영상 카드로 공유해보세요'}</p>
         </button>
       </div>
       {shareData && <PeriodShareCard data={shareData} onClose={() => setShareData(null)} />}

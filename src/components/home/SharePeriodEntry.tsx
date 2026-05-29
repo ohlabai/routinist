@@ -10,17 +10,19 @@ import { fetchWeekChartData, fetchMonthChartData } from '@/lib/period-share-data
 import type { PeriodChartData } from '@/lib/period-share-canvas';
 import PeriodShareCard from '@/components/share/PeriodShareCard';
 import type { Activity } from '@/types';
+import { useI18n } from '@/lib/i18n';
 
 interface Props { activities: Activity[]; }
 
 export default function SharePeriodEntry({ activities }: Props) {
   const { user, profile } = useAuth();
+  const { tt } = useI18n();
   const [loading, setLoading] = useState<'week' | 'month' | null>(null);
   const [shareData, setShareData] = useState<PeriodChartData | null>(null);
 
   if (!user || activities.length === 0) return null;
 
-  const userName = profile?.display_name ?? user.email?.split('@')[0] ?? '러너';
+  const userName = profile?.display_name ?? user.email?.split('@')[0] ?? tt('러너');
 
   const open = async (period: 'week' | 'month') => {
     if (loading) return;
@@ -42,13 +44,13 @@ export default function SharePeriodEntry({ activities }: Props) {
         <div className="card p-4 bg-gradient-to-br from-emerald-50/40 via-transparent to-transparent dark:from-emerald-950/15">
           <div className="flex items-center gap-2 mb-3">
             <Share2 size={16} className="text-emerald-500" />
-            <h3 className="text-sm font-extrabold">공유카드</h3>
+            <h3 className="text-sm font-extrabold">{tt('공유카드')}</h3>
             <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/40">
               NEW
             </span>
           </div>
           <p className="text-xs text-[var(--muted)] mb-3 leading-relaxed">
-            한 주·한 달 기록을 8초 영상 또는 9:16 이미지로 친구에게 자랑하세요
+            {tt('한 주·한 달 기록을 8초 영상 또는 9:16 이미지로 친구에게 자랑하세요')}
           </p>
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -57,7 +59,7 @@ export default function SharePeriodEntry({ activities }: Props) {
               className="py-3 rounded-xl bg-[var(--background)] border-2 border-emerald-500/40 text-[var(--foreground)] font-extrabold text-sm active:scale-[0.98] disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
             >
               {loading === 'week' ? <Loader2 size={14} className="animate-spin text-emerald-500" /> : <Calendar size={14} className="text-emerald-500" />}
-              이번 주
+              {tt('이번 주')}
             </button>
             <button
               onClick={() => open('month')}
@@ -65,7 +67,7 @@ export default function SharePeriodEntry({ activities }: Props) {
               className="py-3 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-sm active:scale-[0.98] disabled:opacity-50 shadow-md shadow-emerald-500/25 inline-flex items-center justify-center gap-1.5"
             >
               {loading === 'month' ? <Loader2 size={14} className="animate-spin" /> : <CalendarDays size={14} />}
-              이번 달
+              {tt('이번 달')}
             </button>
           </div>
         </div>

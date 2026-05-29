@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { Clock, Sparkles } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 
 interface OnThisDayActivity {
   activity_id: string;
@@ -20,6 +21,7 @@ interface OnThisDayActivity {
 
 export default function OnThisDayCard() {
   const { user } = useAuth();
+  const { locale } = useI18n();
   const [activity, setActivity] = useState<OnThisDayActivity | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -96,15 +98,20 @@ export default function OnThisDayCard() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1 text-xs font-bold text-purple-600 dark:text-purple-400">
             <Sparkles size={12} />
-            {activity.years_ago === 1 ? '작년' : `${activity.years_ago}년 전`} 오늘의 러닝
+            {locale === 'en'
+              ? (activity.years_ago === 1 ? 'A year ago today' : `${activity.years_ago} years ago today`)
+              : `${activity.years_ago === 1 ? '작년' : `${activity.years_ago}년 전`} 오늘의 러닝`}
           </div>
           <p className="text-lg font-extrabold text-[var(--foreground)] mt-0.5">
-            {activity.distance_km.toFixed(2)}km 달렸어요
+            {locale === 'en'
+              ? `Ran ${activity.distance_km.toFixed(2)}km`
+              : `${activity.distance_km.toFixed(2)}km 달렸어요`}
             {activity.years_ago === 1 && ' 🎉'}
           </p>
           <p className="text-[11px] text-[var(--muted)]">
-            {activity.activity_date.slice(0, 4)}년 {parseInt(activity.activity_date.split('-')[1])}월{' '}
-            {parseInt(activity.activity_date.split('-')[2])}일
+            {locale === 'en'
+              ? `${activity.activity_date.slice(0, 4)}-${activity.activity_date.split('-')[1]}-${activity.activity_date.split('-')[2]}`
+              : `${activity.activity_date.slice(0, 4)}년 ${parseInt(activity.activity_date.split('-')[1])}월 ${parseInt(activity.activity_date.split('-')[2])}일`}
           </p>
         </div>
       </div>

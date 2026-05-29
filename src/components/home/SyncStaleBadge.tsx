@@ -7,8 +7,10 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw, AlertCircle } from 'lucide-react';
 import { isNativeApp, getPlatform } from '@/lib/health-sync';
+import { useI18n } from '@/lib/i18n';
 
 export default function SyncStaleBadge() {
+  const { locale } = useI18n();
   const [lastSyncMs, setLastSyncMs] = useState<number | null>(null);
   const [now, setNow] = useState(Date.now());
   const [show, setShow] = useState(false);
@@ -42,15 +44,19 @@ export default function SyncStaleBadge() {
   let tone: 'fresh' | 'stale' | 'very_stale';
   if (ageMs < DAY) {
     const hours = Math.floor(ageMs / HOUR);
-    label = `${hours}시간 전 동기화`;
+    label = locale === 'en' ? `Synced ${hours}h ago` : `${hours}시간 전 동기화`;
     tone = 'fresh';
   } else if (ageMs < 3 * DAY) {
     const days = Math.floor(ageMs / DAY);
-    label = `${days}일 전 동기화 — 새로고침 필요`;
+    label = locale === 'en'
+      ? `Synced ${days}d ago — refresh needed`
+      : `${days}일 전 동기화 — 새로고침 필요`;
     tone = 'stale';
   } else {
     const days = Math.floor(ageMs / DAY);
-    label = `${days}일째 동기화 안 됨 — 권한 확인 필요`;
+    label = locale === 'en'
+      ? `Not synced for ${days}d — check permissions`
+      : `${days}일째 동기화 안 됨 — 권한 확인 필요`;
     tone = 'very_stale';
   }
 

@@ -11,6 +11,7 @@ import { getSupabase } from '@/lib/supabase';
 import type { Profile } from '@/types';
 import { Users, ChevronRight, X } from 'lucide-react';
 import { startOfWeekStr } from '@/lib/kst';
+import { useI18n, type Locale } from '@/lib/i18n';
 
 interface Row {
   user_id: string;
@@ -24,7 +25,7 @@ function startOfWeek(): string {
   return startOfWeekStr();
 }
 
-function FriendRow({ row, rank, maxKm }: { row: Row; rank: number; maxKm: number }) {
+function FriendRow({ row, rank, maxKm, locale }: { row: Row; rank: number; maxKm: number; locale: Locale }) {
   return (
     <Link
       href={row.isMe ? '/profile' : `/social/user?id=${row.user_id}`}
@@ -54,7 +55,7 @@ function FriendRow({ row, rank, maxKm }: { row: Row; rank: number; maxKm: number
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline justify-between">
           <span className={`text-sm truncate ${row.isMe ? 'font-bold text-emerald-700 dark:text-emerald-400' : 'font-semibold text-[var(--foreground)]'}`}>
-            {row.display_name}{row.isMe ? ' (나)' : ''}
+            {row.display_name}{row.isMe ? (locale === 'en' ? ' (You)' : ' (나)') : ''}
           </span>
           <span className="text-xs text-[var(--muted)] ml-2 font-semibold tabular-nums">{row.km.toFixed(1)}km</span>
         </div>
@@ -71,6 +72,7 @@ function FriendRow({ row, rank, maxKm }: { row: Row; rank: number; maxKm: number
 
 export default function FriendsLeaderboard() {
   const { user, profile } = useAuth();
+  const { tt, locale } = useI18n();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -107,7 +109,7 @@ export default function FriendsLeaderboard() {
         const all: Row[] = [
           {
             user_id: user.id,
-            display_name: profile?.display_name ?? '나',
+            display_name: profile?.display_name ?? (locale === 'en' ? 'You' : '나'),
             avatar_url: profile?.avatar_url ?? null,
             km: kmByUser.get(user.id) ?? 0,
             isMe: true,
@@ -147,10 +149,10 @@ export default function FriendsLeaderboard() {
         className="mx-4 mt-3 block rounded-2xl border border-dashed border-emerald-300/60 dark:border-emerald-700/40 bg-emerald-50/30 dark:bg-emerald-950/15 p-4 text-center active:scale-[0.99] transition"
       >
         <Users size={22} className="mx-auto text-emerald-600 dark:text-emerald-400 mb-1" />
-        <p className="text-sm font-bold text-[var(--foreground)]">친구와 함께 달려보세요</p>
-        <p className="text-xs text-[var(--muted)] mt-1">동네·페이스 비슷한 러너 찾기</p>
+        <p className="text-sm font-bold text-[var(--foreground)]">{tt('친구와 함께 달려보세요')}</p>
+        <p className="text-xs text-[var(--muted)] mt-1">{locale === 'en' ? 'Find runners near you with similar pace' : '동네·페이스 비슷한 러너 찾기'}</p>
         <p className="mt-2 inline-flex items-center gap-0.5 text-[11px] font-extrabold text-emerald-600">
-          친구 찾기 <ChevronRight size={12} />
+          {locale === 'en' ? 'Find friends' : '친구 찾기'} <ChevronRight size={12} />
         </p>
       </Link>
     );
@@ -167,16 +169,16 @@ export default function FriendsLeaderboard() {
       <div className="mx-4 mt-3 rounded-2xl bg-[var(--card)] border border-[var(--card-border)] p-4">
         <div className="flex items-baseline justify-between mb-3">
           <h3 className="text-sm font-bold text-[var(--foreground)]">
-            이번 주 친구 비교
+            {tt('이번 주 친구 비교')}
             <span className="ml-1.5 text-[11px] font-semibold text-[var(--muted)]">
-              · {rows.length}명
+              · {locale === 'en' ? `${rows.length}` : `${rows.length}명`}
             </span>
           </h3>
-          <span className="text-[10px] text-[var(--muted)]">월요일 기준</span>
+          <span className="text-[10px] text-[var(--muted)]">{locale === 'en' ? 'Since Monday' : '월요일 기준'}</span>
         </div>
         <div className="space-y-2.5">
           {visibleRows.map((r, i) => (
-            <FriendRow key={r.user_id} row={r} rank={i + 1} maxKm={maxKm} />
+            <FriendRow key={r.user_id} row={r} rank={i + 1} maxKm={maxKm} locale={locale} />
           ))}
         </div>
 
@@ -186,7 +188,7 @@ export default function FriendsLeaderboard() {
             onClick={() => setSheetOpen(true)}
             className="mt-3 w-full inline-flex items-center justify-center gap-1 py-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-xs font-bold active:scale-95 transition"
           >
-            친구 모두 보기 (+{remainingCount}명) <ChevronRight size={12} />
+            {locale === 'en' ? `Show all friends (+${remainingCount})` : `친구 모두 보기 (+${remainingCount}명)`} <ChevronRight size={12} />
           </button>
         )}
       </div>
@@ -207,13 +209,13 @@ export default function FriendsLeaderboard() {
             <div className="flex-shrink-0 px-4 py-3 flex items-center justify-between border-b border-[var(--card-border)]/40">
               <div>
                 <h2 className="text-base font-extrabold text-[var(--foreground)]">
-                  친구 비교 · {rows.length}명
+                  {locale === 'en' ? `Friends · ${rows.length}` : `친구 비교 · ${rows.length}명`}
                 </h2>
-                <p className="text-[11px] text-[var(--muted)] mt-0.5">월요일 기준 · km 합계 정렬</p>
+                <p className="text-[11px] text-[var(--muted)] mt-0.5">{locale === 'en' ? 'Since Monday · sorted by total km' : '월요일 기준 · km 합계 정렬'}</p>
               </div>
               <button
                 onClick={() => setSheetOpen(false)}
-                aria-label="닫기"
+                aria-label={locale === 'en' ? 'Close' : '닫기'}
                 className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--card-border)]/30 active:scale-90 transition"
               >
                 <X size={18} />
@@ -226,7 +228,7 @@ export default function FriendsLeaderboard() {
               style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 60px)' }}
             >
               {rows.map((r, i) => (
-                <FriendRow key={r.user_id} row={r} rank={i + 1} maxKm={maxKm} />
+                <FriendRow key={r.user_id} row={r} rank={i + 1} maxKm={maxKm} locale={locale} />
               ))}
             </div>
 
@@ -240,7 +242,7 @@ export default function FriendsLeaderboard() {
                 onClick={() => setSheetOpen(false)}
                 className="w-full inline-flex items-center justify-center gap-1 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-bold active:scale-95 transition"
               >
-                친구 관리 <ChevronRight size={14} />
+                {tt('친구 관리')} <ChevronRight size={14} />
               </Link>
             </div>
           </div>

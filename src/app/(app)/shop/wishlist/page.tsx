@@ -11,11 +11,13 @@ import {
 import { fetchWishlist, removeFromWishlist, addToCart } from '@/lib/shop-data';
 import { useAuth } from '@/components/AuthProvider';
 import AppToast from '@/components/AppToast';
+import { useI18n, formatKrw } from '@/lib/i18n';
 import type { Product } from '@/types';
 
 export default function WishlistPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const { tt, locale } = useI18n();
   const [items, setItems] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -41,7 +43,7 @@ export default function WishlistPage() {
       await removeFromWishlist(productId);
       setItems(prev => prev.filter(p => p.id !== productId));
     } catch {
-      showToast('잠시 후 다시 시도해주세요', 'warn');
+      showToast(tt('잠시 후 다시 시도해주세요'), 'warn');
     } finally {
       setBusy(null);
     }
@@ -51,9 +53,9 @@ export default function WishlistPage() {
     setBusy(productId);
     try {
       await addToCart(productId, null, 1);
-      showToast('장바구니에 담았어요 🛒');
+      showToast(tt('장바구니에 담았어요 🛒'));
     } catch (e) {
-      showToast(e instanceof Error ? e.message : '담기 실패', 'warn');
+      showToast(e instanceof Error ? e.message : tt('담기 실패'), 'warn');
     } finally {
       setBusy(null);
     }
@@ -67,7 +69,7 @@ export default function WishlistPage() {
             <ArrowLeft size={20} />
           </button>
           <h1 className="text-xl font-extrabold tracking-tight">
-            찜 <span className="text-emerald-500">{items.length}</span>
+            {locale === 'en' ? 'Favorites' : '찜'} <span className="text-emerald-500">{items.length}</span>
           </h1>
         </div>
       </header>
@@ -86,13 +88,13 @@ export default function WishlistPage() {
           <div className="w-24 h-24 rounded-full bg-emerald-50 dark:bg-emerald-950/30 mx-auto mb-5 flex items-center justify-center">
             <Heart size={42} className="text-emerald-500" />
           </div>
-          <p className="text-lg font-extrabold mb-1.5">아직 찜한 상품이 없어요</p>
-          <p className="text-sm text-[var(--muted)] mb-7">관심있는 상품에 ♥ 를 눌러보세요</p>
+          <p className="text-lg font-extrabold mb-1.5">{tt('아직 찜한 상품이 없어요')}</p>
+          <p className="text-sm text-[var(--muted)] mb-7">{locale === 'en' ? 'Tap ♥ on items you like' : '관심있는 상품에 ♥ 를 눌러보세요'}</p>
           <Link
             href="/shop"
             className="inline-flex items-center gap-1.5 px-6 py-3 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-bold shadow-md shadow-emerald-500/30 active:scale-95"
           >
-            <Sparkles size={16} /> 쇼핑하러 가기
+            <Sparkles size={16} /> {locale === 'en' ? 'Go shopping' : '쇼핑하러 가기'}
           </Link>
         </div>
       ) : (
@@ -121,7 +123,7 @@ export default function WishlistPage() {
                       onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRemove(p.id); }}
                       disabled={busy === p.id}
                       className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow-sm active:scale-90 transition disabled:opacity-50"
-                      aria-label="찜 해제"
+                      aria-label={locale === 'en' ? 'Remove from favorites' : '찜 해제'}
                     >
                       <X size={13} className="text-zinc-600" />
                     </button>
@@ -136,7 +138,7 @@ export default function WishlistPage() {
                       <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">{p.brand}</p>
                     )}
                     <p className="text-sm font-medium text-[var(--foreground)] line-clamp-2 leading-snug mt-0.5">{p.name}</p>
-                    <p className="mt-1 text-base font-extrabold text-[var(--foreground)]">{p.price_krw.toLocaleString()}원</p>
+                    <p className="mt-1 text-base font-extrabold text-[var(--foreground)]">{formatKrw(p.price_krw, locale)}</p>
                   </div>
                 </Link>
                 {!isSoldOut && (
@@ -145,7 +147,7 @@ export default function WishlistPage() {
                     disabled={busy === p.id}
                     className="mt-2 w-full py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold inline-flex items-center justify-center gap-1 active:scale-[0.97] disabled:opacity-50"
                   >
-                    <ShoppingCart size={12} /> 장바구니
+                    <ShoppingCart size={12} /> {locale === 'en' ? 'Cart' : '장바구니'}
                   </button>
                 )}
               </div>

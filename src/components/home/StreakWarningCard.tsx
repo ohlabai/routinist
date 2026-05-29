@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { Flame } from 'lucide-react';
 import { todayStr } from '@/lib/kst';
 import type { Activity } from '@/types';
+import { useI18n } from '@/lib/i18n';
 
 interface Props {
   activities: Activity[];
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export default function StreakWarningCard({ activities, streak }: Props) {
+  const { tt, locale } = useI18n();
   // 1분 간격 tick 으로 hour 변화 감지 — 사용자가 17:55 에 mount 후 18:00 넘어가도 표시.
   const [hour, setHour] = useState(() => new Date().getHours());
   useEffect(() => {
@@ -39,10 +41,14 @@ export default function StreakWarningCard({ activities, streak }: Props) {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-bold text-[var(--foreground)]">
-          오늘 안 달리면 {streak}일 연속이 끊겨요
+          {locale === 'en'
+            ? `Don't run today and your ${streak}-day streak breaks`
+            : `오늘 안 달리면 ${streak}일 연속이 끊겨요`}
         </p>
         <p className="text-xs text-[var(--muted)] mt-0.5">
-          짧게라도 1km 만 달려보세요 — 연속 유지가 가장 큰 동력이에요
+          {locale === 'en'
+            ? `${tt('짧게라도 1km 만 달려보세요')} — keeping the streak is the strongest motivator`
+            : `${tt('짧게라도 1km 만 달려보세요')} — 연속 유지가 가장 큰 동력이에요`}
         </p>
       </div>
     </div>

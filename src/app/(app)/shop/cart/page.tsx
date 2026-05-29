@@ -12,11 +12,13 @@ import { fetchCart, updateCartQuantity, removeFromCart } from '@/lib/shop-data';
 import { useAuth } from '@/components/AuthProvider';
 import AppToast from '@/components/AppToast';
 import BusinessFooter from '@/components/shop/BusinessFooter';
+import { useI18n, formatKrw } from '@/lib/i18n';
 import type { CartItem } from '@/types';
 
 export default function CartPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const { tt, locale } = useI18n();
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
@@ -60,7 +62,7 @@ export default function CartPage() {
         const item = items.find(i => i.id === itemId);
         const stock = item?.variant?.stock ?? item?.product?.stock ?? 99;
         if (next > stock) {
-          showToast(`재고가 부족해요 (최대 ${stock}개)`);
+          showToast(`${tt('재고가 부족해요')} (max ${stock})`);
           return;
         }
         await updateCartQuantity(itemId, next);
@@ -68,14 +70,14 @@ export default function CartPage() {
       }
     } catch (e) {
       console.warn('[cart] update fail', e);
-      showToast('실패했어요. 다시 시도해주세요');
+      showToast(tt('실패했어요. 다시 시도해주세요'));
     } finally {
       setBusy(null);
     }
   };
 
   const handleRemove = async (itemId: string) => {
-    if (!confirm('장바구니에서 빼시겠어요?')) return;
+    if (!confirm(tt('장바구니에서 빼시겠어요?'))) return;
     setBusy(itemId);
     try {
       await removeFromCart(itemId);
@@ -135,7 +137,7 @@ export default function CartPage() {
             <ArrowLeft size={20} className="text-[var(--foreground)]" />
           </button>
           <h1 className="text-xl font-extrabold tracking-tight text-[var(--foreground)]">
-            장바구니 <span className="text-emerald-500">{items.length}</span>
+            {tt('장바구니')} <span className="text-emerald-500">{items.length}</span>
           </h1>
         </div>
       </header>
@@ -145,13 +147,13 @@ export default function CartPage() {
           <div className="w-24 h-24 rounded-full bg-emerald-50 dark:bg-emerald-950/30 mx-auto mb-5 flex items-center justify-center">
             <ShoppingBag size={42} className="text-emerald-500" />
           </div>
-          <p className="text-lg font-extrabold text-[var(--foreground)] mb-1.5">장바구니가 비어있어요</p>
-          <p className="text-sm text-[var(--muted)] mb-7">관심있는 상품을 담아보세요</p>
+          <p className="text-lg font-extrabold text-[var(--foreground)] mb-1.5">{tt('장바구니가 비어있어요')}</p>
+          <p className="text-sm text-[var(--muted)] mb-7">{tt('관심있는 상품을 담아보세요')}</p>
           <Link
             href="/shop"
             className="inline-flex items-center gap-1.5 px-6 py-3 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-bold shadow-md shadow-emerald-500/30 active:scale-95"
           >
-            <Sparkles size={16} /> 쇼핑하러 가기
+            <Sparkles size={16} /> {tt('쇼핑하러 가기')}
           </Link>
         </div>
       ) : (
@@ -162,7 +164,11 @@ export default function CartPage() {
               <div className="card p-4 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 border-emerald-200/50 dark:border-emerald-900/30">
                 <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300 mb-2 inline-flex items-center gap-1.5">
                   <Sparkles size={12} className="text-emerald-500" />
-                  <span>{progressToFreeShipping.remaining.toLocaleString()}원 더 담으면 무료배송!</span>
+                  <span>
+                    {locale === 'en'
+                      ? `Add ₩${progressToFreeShipping.remaining.toLocaleString()} more for free shipping!`
+                      : `${progressToFreeShipping.remaining.toLocaleString()}원 더 담으면 무료배송!`}
+                  </span>
                 </p>
                 <div className="w-full h-2 rounded-full bg-emerald-100 dark:bg-emerald-950/40 overflow-hidden">
                   <div
@@ -198,7 +204,7 @@ export default function CartPage() {
                           <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">{it.product.brand}</p>
                         )}
                         <p className="text-sm font-semibold text-[var(--foreground)] line-clamp-2 leading-snug">
-                          {it.product?.name ?? '(상품 없음)'}
+                          {it.product?.name ?? (locale === 'en' ? '(no product)' : '(상품 없음)')}
                         </p>
                         {it.variant?.option_value && (
                           <p className="text-[11px] text-[var(--muted)] mt-0.5 inline-block px-1.5 py-0.5 rounded bg-[var(--card-border)]/40">
@@ -234,7 +240,7 @@ export default function CartPage() {
                         </button>
                       </div>
                       <span className="text-base font-extrabold text-[var(--foreground)]">
-                        {(unit * it.quantity).toLocaleString()}원
+                        {formatKrw(unit * it.quantity, locale)}
                       </span>
                     </div>
                   </div>
@@ -249,7 +255,7 @@ export default function CartPage() {
               href="/shop"
               className="block text-center py-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 text-sm font-bold active:scale-[0.98] inline-flex items-center justify-center gap-1 w-full"
             >
-              계속 쇼핑하기 <ChevronRight size={14} />
+              {locale === 'en' ? 'Keep shopping' : '계속 쇼핑하기'} <ChevronRight size={14} />
             </Link>
           </div>
 
@@ -257,18 +263,18 @@ export default function CartPage() {
           <div className="px-4 mt-5">
             <div className="card p-5 space-y-2.5 bg-gradient-to-br from-emerald-50/30 to-transparent dark:from-emerald-950/10">
               <div className="flex justify-between text-sm">
-                <span className="text-[var(--muted)]">상품 금액</span>
-                <span className="text-[var(--foreground)] font-bold">{totals.subtotal.toLocaleString()}원</span>
+                <span className="text-[var(--muted)]">{locale === 'en' ? 'Subtotal' : '상품 금액'}</span>
+                <span className="text-[var(--foreground)] font-bold">{formatKrw(totals.subtotal, locale)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-[var(--muted)]">배송비</span>
+                <span className="text-[var(--muted)]">{locale === 'en' ? 'Shipping' : '배송비'}</span>
                 <span className={`font-bold ${totals.shipping === 0 ? 'text-emerald-600' : 'text-[var(--foreground)]'}`}>
-                  {totals.shipping === 0 ? '무료 🎉' : `${totals.shipping.toLocaleString()}원`}
+                  {totals.shipping === 0 ? tt('무료 🎉') : formatKrw(totals.shipping, locale)}
                 </span>
               </div>
               <div className="pt-3 border-t border-emerald-200/40 dark:border-emerald-900/30 flex justify-between items-baseline">
-                <span className="text-sm font-bold">총 결제 금액</span>
-                <span className="text-2xl font-extrabold text-emerald-600">{totals.total.toLocaleString()}원</span>
+                <span className="text-sm font-bold">{locale === 'en' ? 'Total' : '총 결제 금액'}</span>
+                <span className="text-2xl font-extrabold text-emerald-600">{formatKrw(totals.total, locale)}</span>
               </div>
             </div>
           </div>
@@ -282,7 +288,7 @@ export default function CartPage() {
                 onClick={handleCheckout}
                 className="w-full py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base active:scale-[0.98] shadow-md shadow-emerald-500/30 inline-flex items-center justify-center gap-2"
               >
-                {totals.total.toLocaleString()}원 결제하기
+                {locale === 'en' ? `Pay ${formatKrw(totals.total, locale)}` : `${totals.total.toLocaleString()}원 결제하기`}
                 <ChevronRight size={18} />
               </button>
             </div>

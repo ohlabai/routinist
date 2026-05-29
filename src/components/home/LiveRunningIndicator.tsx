@@ -7,9 +7,11 @@ import { useEffect, useState } from 'react';
 import { Radio } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 
 export default function LiveRunningIndicator() {
   const { user, profile } = useAuth();
+  const { locale } = useI18n();
   const [count, setCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
 
@@ -51,7 +53,15 @@ export default function LiveRunningIndicator() {
         <span className="absolute inset-0 rounded-full bg-green-400 animate-ping opacity-60" />
       </div>
       <p className="text-xs font-semibold text-green-700 dark:text-green-300">
-        지금 <span className="font-extrabold">{count}명</span>의 러너가 달리는 중이에요 🏃‍♂️
+        {locale === 'en' ? (
+          <>
+            <span className="font-extrabold">{count}</span> runners are running right now 🏃‍♂️
+          </>
+        ) : (
+          <>
+            지금 <span className="font-extrabold">{count}명</span>의 러너가 달리는 중이에요 🏃‍♂️
+          </>
+        )}
       </p>
     </div>
   );

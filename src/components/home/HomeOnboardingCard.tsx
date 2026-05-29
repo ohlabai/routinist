@@ -16,12 +16,14 @@ import { detectRegion } from '@/lib/geo';
 import { getSupabase } from '@/lib/supabase';
 import { syncHealthData, isNativeApp, getPlatform } from '@/lib/health-sync';
 import { setMonthlyGoal } from '@/lib/routinist-data';
+import { useI18n } from '@/lib/i18n';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const BIRTH_YEARS = Array.from({ length: 80 }, (_, i) => CURRENT_YEAR - 14 - i);
 
 function InlineProfileForm({ onSaved }: { onSaved: () => void }) {
   const { user, profile, refreshProfile } = useAuth();
+  const { tt, locale } = useI18n();
   const [country, setCountry] = useState(profile?.country_code || 'KR');
   const [sido, setSido] = useState(profile?.region_si ?? '');
   const [gu, setGu] = useState(profile?.region_gu ?? '');
@@ -42,12 +44,14 @@ function InlineProfileForm({ onSaved }: { onSaved: () => void }) {
       setGu(r.gu ?? '');
       // build 164 #1: 사용자에게 더 큰 확인 — 어떤 값이 입력칸에 들어갔는지 명시.
       const detected = r.country_code === 'KR'
-        ? `${r.si ?? ''} ${r.gu ?? ''}`.trim() || '한국'
+        ? `${r.si ?? ''} ${r.gu ?? ''}`.trim() || (locale === 'en' ? 'Korea' : '한국')
         : r.display;
-      setMsg(`✓ ${detected} (으)로 입력했어요. 맞으면 저장하기 눌러주세요`);
+      setMsg(locale === 'en'
+        ? `✓ Filled with "${detected}". Tap Save if it's correct`
+        : `✓ ${detected} (으)로 입력했어요. 맞으면 저장하기 눌러주세요`);
       setMsgKind('info');
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : '위치 감지 실패');
+      setMsg(e instanceof Error ? e.message : tt('위치 감지 실패'));
       setMsgKind('error');
     } finally {
       setDetecting(false);
@@ -72,11 +76,11 @@ function InlineProfileForm({ onSaved }: { onSaved: () => void }) {
         .eq('id', user.id);
       if (error) throw error;
       await refreshProfile();
-      setMsg('저장됐어요');
+      setMsg(tt('저장됐어요'));
       setMsgKind('info');
       setTimeout(() => onSaved(), 600);
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : '저장 실패');
+      setMsg(e instanceof Error ? e.message : tt('저장 실패'));
       setMsgKind('error');
     } finally {
       setSaving(false);
@@ -91,11 +95,11 @@ function InlineProfileForm({ onSaved }: { onSaved: () => void }) {
         disabled={detecting}
         className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-sm font-bold disabled:opacity-50"
       >
-        <MapPin size={14} /> {detecting ? '감지 중…' : 'GPS 로 현재 지역 가져오기'}
+        <MapPin size={14} /> {detecting ? tt('감지 중...') : tt('GPS 로 현재 지역 가져오기')}
       </button>
       <div className="grid grid-cols-3 gap-2">
         <div>
-          <label className="text-[10px] text-[var(--muted)] block mb-1 px-0.5">국가</label>
+          <label className="text-[10px] text-[var(--muted)] block mb-1 px-0.5">{locale === 'en' ? 'Country' : '국가'}</label>
           <input
             type="text"
             value={country}
@@ -106,22 +110,22 @@ function InlineProfileForm({ onSaved }: { onSaved: () => void }) {
           />
         </div>
         <div>
-          <label className="text-[10px] text-[var(--muted)] block mb-1 px-0.5">도시·시도</label>
+          <label className="text-[10px] text-[var(--muted)] block mb-1 px-0.5">{locale === 'en' ? 'City' : '도시·시도'}</label>
           <input
             type="text"
             value={sido}
             onChange={(e) => setSido(e.target.value)}
-            placeholder="서울"
+            placeholder={locale === 'en' ? 'Seoul' : '서울'}
             className="w-full px-2.5 py-2.5 rounded-xl border border-[var(--card-border)] bg-[var(--background)] text-sm"
           />
         </div>
         <div>
-          <label className="text-[10px] text-[var(--muted)] block mb-1 px-0.5">구·군</label>
+          <label className="text-[10px] text-[var(--muted)] block mb-1 px-0.5">{locale === 'en' ? 'District' : '구·군'}</label>
           <input
             type="text"
             value={gu}
             onChange={(e) => setGu(e.target.value)}
-            placeholder="강남"
+            placeholder={locale === 'en' ? 'Gangnam' : '강남'}
             className="w-full px-2.5 py-2.5 rounded-xl border border-[var(--card-border)] bg-[var(--background)] text-sm"
           />
         </div>
@@ -132,18 +136,18 @@ function InlineProfileForm({ onSaved }: { onSaved: () => void }) {
           onChange={(e) => setBirthYear(e.target.value)}
           className="px-2.5 py-2.5 rounded-xl border border-[var(--card-border)] bg-[var(--background)] text-sm"
         >
-          <option value="">출생연도</option>
-          {BIRTH_YEARS.map(y => <option key={y} value={y}>{y}년</option>)}
+          <option value="">{locale === 'en' ? 'Birth year' : '출생연도'}</option>
+          {BIRTH_YEARS.map(y => <option key={y} value={y}>{locale === 'en' ? y : `${y}년`}</option>)}
         </select>
         <select
           value={gender}
           onChange={(e) => setGender(e.target.value)}
           className="px-2.5 py-2.5 rounded-xl border border-[var(--card-border)] bg-[var(--background)] text-sm"
         >
-          <option value="">성별</option>
-          <option value="male">남성</option>
-          <option value="female">여성</option>
-          <option value="other">선택안함</option>
+          <option value="">{locale === 'en' ? 'Gender' : '성별'}</option>
+          <option value="male">{locale === 'en' ? 'Male' : '남성'}</option>
+          <option value="female">{locale === 'en' ? 'Female' : '여성'}</option>
+          <option value="other">{locale === 'en' ? 'Prefer not to say' : '선택안함'}</option>
         </select>
       </div>
       <button
@@ -152,7 +156,7 @@ function InlineProfileForm({ onSaved }: { onSaved: () => void }) {
         disabled={saving || (!sido && !birthYear && !gender)}
         className="w-full py-2.5 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-sm font-extrabold disabled:opacity-50"
       >
-        {saving ? '저장 중…' : '저장하기'}
+        {saving ? tt('저장 중…') : tt('저장하기')}
       </button>
       {msg && (
         <p className={`text-[11px] text-center ${msgKind === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
@@ -168,6 +172,7 @@ const GOAL_PRESETS_KM = [30, 50, 100, 150, 200];
 function InlineMonthlyGoalForm({ onSaved }: { onSaved: () => void }) {
   const { user } = useAuth();
   const { refresh } = useUserData();
+  const { tt, locale } = useI18n();
   const [goalKm, setGoalKm] = useState('');
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
@@ -177,7 +182,7 @@ function InlineMonthlyGoalForm({ onSaved }: { onSaved: () => void }) {
     if (!user) return;
     const km = parseFloat(goalKm);
     if (isNaN(km) || km <= 0) {
-      setMsg('목표 거리를 입력해주세요');
+      setMsg(tt('목표 거리를 입력해주세요'));
       setMsgKind('error');
       return;
     }
@@ -187,11 +192,11 @@ function InlineMonthlyGoalForm({ onSaved }: { onSaved: () => void }) {
       const now = new Date();
       await setMonthlyGoal(user.id, now.getFullYear(), now.getMonth() + 1, km);
       await refresh();
-      setMsg('🎯 이달 목표를 설정했어요!');
+      setMsg(tt('🎯 이달 목표를 설정했어요!'));
       setMsgKind('info');
       setTimeout(() => onSaved(), 700);
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : '저장 실패');
+      setMsg(e instanceof Error ? e.message : tt('저장 실패'));
       setMsgKind('error');
     } finally {
       setSaving(false);
@@ -201,7 +206,9 @@ function InlineMonthlyGoalForm({ onSaved }: { onSaved: () => void }) {
   return (
     <div className="mt-2 p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-emerald-200/60 dark:border-emerald-900/40 space-y-2.5">
       <p className="text-[11px] text-[var(--muted)] leading-relaxed">
-        이번 달에 달릴 거리를 정해봐요. 매일 조금씩 채워가는 재미가 쏠쏠해요.
+        {locale === 'en'
+          ? 'Set your distance goal for this month. Filling it up day by day is the fun part.'
+          : '이번 달에 달릴 거리를 정해봐요. 매일 조금씩 채워가는 재미가 쏠쏠해요.'}
       </p>
       <div className="flex gap-1.5 flex-wrap">
         {GOAL_PRESETS_KM.map(km => (
@@ -225,7 +232,7 @@ function InlineMonthlyGoalForm({ onSaved }: { onSaved: () => void }) {
         min="1"
         value={goalKm}
         onChange={(e) => setGoalKm(e.target.value)}
-        placeholder="직접 입력 (km)"
+        placeholder={locale === 'en' ? 'Custom (km)' : '직접 입력 (km)'}
         className="w-full px-3 py-2.5 rounded-xl border border-[var(--card-border)] bg-[var(--background)] text-sm"
       />
       <button
@@ -234,7 +241,7 @@ function InlineMonthlyGoalForm({ onSaved }: { onSaved: () => void }) {
         disabled={saving || !goalKm}
         className="w-full py-2.5 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-sm font-extrabold disabled:opacity-50"
       >
-        {saving ? '저장 중…' : '목표 저장하기'}
+        {saving ? tt('저장 중…') : (locale === 'en' ? 'Save goal' : '목표 저장하기')}
       </button>
       {msg && (
         <p className={`text-[11px] text-center ${msgKind === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
@@ -248,6 +255,7 @@ function InlineMonthlyGoalForm({ onSaved }: { onSaved: () => void }) {
 function InlineHealthConnect({ onSynced }: { onSynced: () => void }) {
   const { user } = useAuth();
   const { refresh } = useUserData();
+  const { tt, locale } = useI18n();
   const [syncing, setSyncing] = useState(false);
   const [msg, setMsg] = useState('');
   const [msgKind, setMsgKind] = useState<'info' | 'error'>('info');
@@ -267,16 +275,18 @@ function InlineHealthConnect({ onSynced }: { onSynced: () => void }) {
         ),
       ]);
       if (r.success) {
-        setMsg(r.synced > 0 ? `${r.synced}건 가져왔어요` : '동기화 완료');
+        setMsg(r.synced > 0
+          ? (locale === 'en' ? `Imported ${r.synced} records` : `${r.synced}건 가져왔어요`)
+          : (locale === 'en' ? 'Sync complete' : '동기화 완료'));
         setMsgKind('info');
         if (r.synced > 0) refresh();
         setTimeout(() => onSynced(), 800);
       } else {
-        setMsg(r.message || '연동 실패');
+        setMsg(r.message || (locale === 'en' ? 'Connection failed' : '연동 실패'));
         setMsgKind('error');
       }
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : '연동 실패');
+      setMsg(e instanceof Error ? e.message : (locale === 'en' ? 'Connection failed' : '연동 실패'));
       setMsgKind('error');
     } finally {
       setSyncing(false);
@@ -286,7 +296,9 @@ function InlineHealthConnect({ onSynced }: { onSynced: () => void }) {
   return (
     <div className="mt-2 p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-emerald-200/60 dark:border-emerald-900/40 space-y-2.5">
       <p className="text-xs text-[var(--muted)] leading-relaxed">
-        Apple 건강 앱과 연결해서 러닝·걷기·심박·GPS 를 자동으로 가져옵니다. 권한 팝업이 뜨면 허용해주세요.
+        {locale === 'en'
+          ? 'Connect with Apple Health to auto-import runs, walks, heart rate, and GPS. Please allow when the permission prompt appears.'
+          : 'Apple 건강 앱과 연결해서 러닝·걷기·심박·GPS 를 자동으로 가져옵니다. 권한 팝업이 뜨면 허용해주세요.'}
       </p>
       <button
         type="button"
@@ -294,7 +306,7 @@ function InlineHealthConnect({ onSynced }: { onSynced: () => void }) {
         disabled={syncing}
         className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-sm font-extrabold disabled:opacity-50"
       >
-        <Heart size={14} /> {syncing ? '동기화 중…' : 'Apple Health 연동하고 가져오기'}
+        <Heart size={14} /> {syncing ? (locale === 'en' ? 'Syncing…' : '동기화 중…') : (locale === 'en' ? 'Connect Apple Health and import' : 'Apple Health 연동하고 가져오기')}
       </button>
       {msg && (
         <p className={`text-[11px] text-center ${msgKind === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
@@ -308,6 +320,7 @@ function InlineHealthConnect({ onSynced }: { onSynced: () => void }) {
 export default function HomeOnboardingCard() {
   const { profile, user } = useAuth();
   const { activities, goals } = useUserData();
+  const { locale } = useI18n();
   const [profileExpanded, setProfileExpanded] = useState(false);
   const [healthExpanded, setHealthExpanded] = useState(false);
   const [goalExpanded, setGoalExpanded] = useState(false);
@@ -350,20 +363,23 @@ export default function HomeOnboardingCard() {
     | { id: string; label: string; done: boolean; href: string };
 
   const items: Item[] = [
-    { id: 'profile', label: '지역·생년·성별 입력', done: profileDone, inline: 'profile' },
+    { id: 'profile', label: locale === 'en' ? 'Enter region, birth year, gender' : '지역·생년·성별 입력', done: profileDone, inline: 'profile' },
   ];
   if (iosNative) {
-    items.push({ id: 'health', label: 'Apple 건강 앱 연동하기', done: healthDone, inline: 'health' });
+    items.push({ id: 'health', label: locale === 'en' ? 'Connect Apple Health' : 'Apple 건강 앱 연동하기', done: healthDone, inline: 'health' });
   } else {
-    items.push({ id: 'first_run', label: '첫 러닝 기록', done: runCount >= 1, href: '/connect' });
+    items.push({ id: 'first_run', label: locale === 'en' ? 'First run' : '첫 러닝 기록', done: runCount >= 1, href: '/connect' });
   }
   // build 166 #2: 사용자 요청 — 친구 1명 추가 → 5월 목표 정하기 순서.
   // (마지막 항목이 완료되면 시작 가이드 카드 자체가 사라지므로, 목표 정하기를 마지막에 둠.)
   const friendDone = typeof window !== 'undefined'
     ? !!window.localStorage.getItem(`first_friend_added:${user.id}`)
     : false;
-  items.push({ id: 'friend', label: '친구 1명 추가', done: friendDone, href: '/social' });
-  items.push({ id: 'goal', label: `${curMonth}월 목표 정하기`, done: goalDone, inline: 'goal' });
+  items.push({ id: 'friend', label: locale === 'en' ? 'Add 1 friend' : '친구 1명 추가', done: friendDone, href: '/social' });
+  const monthShort = locale === 'en'
+    ? new Date(curYear, curMonth - 1, 1).toLocaleString('en-US', { month: 'long' })
+    : `${curMonth}월`;
+  items.push({ id: 'goal', label: locale === 'en' ? `Set ${monthShort} goal` : `${monthShort} 목표 정하기`, done: goalDone, inline: 'goal' });
 
   const doneCount = items.filter(i => i.done).length;
   if (doneCount === items.length) return null;
@@ -372,11 +388,13 @@ export default function HomeOnboardingCard() {
     <div className="mx-4 mt-3 rounded-3xl bg-gradient-to-br from-emerald-100/80 via-emerald-50/40 to-teal-50 dark:from-emerald-950/40 dark:via-emerald-950/20 dark:to-teal-950/20 border border-emerald-200/60 dark:border-emerald-900/40 p-5 shadow-sm">
       <div className="mb-3">
         <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide inline-flex items-center gap-1">
-          <Sparkles size={11} /> 가입 {signupDays + 1}일째
+          <Sparkles size={11} /> {locale === 'en' ? `Day ${signupDays + 1}` : `가입 ${signupDays + 1}일째`}
         </p>
-        <h3 className="text-lg font-extrabold text-[var(--foreground)] mt-0.5">시작 가이드</h3>
+        <h3 className="text-lg font-extrabold text-[var(--foreground)] mt-0.5">{locale === 'en' ? 'Getting started' : '시작 가이드'}</h3>
         <p className="text-xs text-[var(--muted)] mt-0.5">
-          {doneCount}/{items.length} 완료 · 모두 채우면 마일리지 보너스!
+          {locale === 'en'
+            ? `${doneCount}/${items.length} done · Complete all for a mileage bonus!`
+            : `${doneCount}/${items.length} 완료 · 모두 채우면 마일리지 보너스!`}
         </p>
       </div>
       <ul className="space-y-2">

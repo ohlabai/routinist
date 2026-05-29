@@ -12,6 +12,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { fetchRoutesForUser } from '@/lib/map-data';
 import { MapPin, ChevronRight } from 'lucide-react';
 import type { Activity } from '@/types';
+import { useI18n } from '@/lib/i18n';
 
 const VIEWBOX_W = 320;
 const VIEWBOX_H = 140;
@@ -74,6 +75,7 @@ function strokeForIdx(idx: number, total: number) {
 
 export default function HomeMapPreview() {
   const { user } = useAuth();
+  const { tt, locale } = useI18n();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -118,8 +120,8 @@ export default function HomeMapPreview() {
             <MapPin size={20} className="text-emerald-600 dark:text-emerald-400" />
           </div>
           <div className="flex-1">
-            <p className="text-base font-bold text-[var(--foreground)]">나의 러닝 지도</p>
-            <p className="text-xs text-[var(--muted)] mt-0.5">GPS 경로가 모이면 지도가 그려져요</p>
+            <p className="text-base font-bold text-[var(--foreground)]">{tt('나의 러닝 지도')}</p>
+            <p className="text-xs text-[var(--muted)] mt-0.5">{tt('GPS 경로가 모이면 지도가 그려져요')}</p>
           </div>
           <ChevronRight size={16} className="text-[var(--muted)]" />
         </div>
@@ -134,10 +136,10 @@ export default function HomeMapPreview() {
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <MapPin size={16} className="text-emerald-600" />
-          <h3 className="text-sm font-bold text-[var(--foreground)]">최근 7일 러닝 경로</h3>
+          <h3 className="text-sm font-bold text-[var(--foreground)]">{tt('최근 7일 러닝 경로')}</h3>
         </div>
         <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold inline-flex items-center gap-0.5">
-          지도 <ChevronRight size={12} />
+          {locale === 'en' ? 'Map' : '지도'} <ChevronRight size={12} />
         </span>
       </div>
 
@@ -166,7 +168,9 @@ export default function HomeMapPreview() {
       </div>
 
       <p className="text-xs text-[var(--muted)] mt-2">
-        {activities.length}회 · 총 <span className="font-bold text-[var(--foreground)]">{totalKm.toFixed(1)}km</span>
+        {locale === 'en'
+          ? <>{activities.length} runs · total <span className="font-bold text-[var(--foreground)]">{totalKm.toFixed(1)}km</span></>
+          : <>{activities.length}회 · 총 <span className="font-bold text-[var(--foreground)]">{totalKm.toFixed(1)}km</span></>}
       </p>
     </Link>
   );

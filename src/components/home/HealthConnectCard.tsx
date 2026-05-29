@@ -14,24 +14,26 @@ import { Heart, RefreshCw, Check } from 'lucide-react';
 import { useUserData } from '@/components/UserDataProvider';
 import { useAuth } from '@/components/AuthProvider';
 import { syncHealthData, isNativeApp, getPlatform, type SyncProgress } from '@/lib/health-sync';
+import { useI18n, type Locale } from '@/lib/i18n';
 
 type Status = 'unknown' | 'not_connected' | 'connected';
 
-function formatAgo(ts: number, now: number): string {
+function formatAgo(ts: number, now: number, locale: Locale): string {
   const sec = Math.floor((now - ts) / 1000);
-  if (sec < 60) return '방금 동기화됨';
+  if (sec < 60) return locale === 'en' ? 'Just synced' : '방금 동기화됨';
   const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}분 전 동기화`;
+  if (min < 60) return locale === 'en' ? `${min}m ago` : `${min}분 전 동기화`;
   const h = Math.floor(min / 60);
-  if (h < 24) return `${h}시간 전 동기화`;
+  if (h < 24) return locale === 'en' ? `${h}h ago` : `${h}시간 전 동기화`;
   const d = Math.floor(h / 24);
-  return `${d}일 전 동기화`;
+  return locale === 'en' ? `${d}d ago` : `${d}일 전 동기화`;
 }
 
 export default function HealthConnectCard() {
   const router = useRouter();
   const { user } = useAuth();
   const { activities, refresh } = useUserData();
+  const { tt, locale } = useI18n();
   const [status, setStatus] = useState<Status>('unknown');
   const [syncing, setSyncing] = useState(false);
   const [progress, setProgress] = useState<SyncProgress | null>(null);
@@ -98,7 +100,7 @@ export default function HealthConnectCard() {
     window.localStorage.setItem('last_health_sync', new Date(optimisticTs).toISOString());
     window.localStorage.setItem(`first_sync_done:${user.id}`, String(optimisticTs));
     setSyncing(true);
-    setProgress({ stage: 'auth', percent: 0, label: '동기화 시작...' });
+    setProgress({ stage: 'auth', percent: 0, label: tt('동기화 시작...') });
     try {
       const r = await Promise.race([
         syncHealthData(user.id, { onProgress: setProgress }),
@@ -125,14 +127,14 @@ export default function HealthConnectCard() {
         <button
           onClick={handleConnect}
           className="w-full flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-md active:scale-[0.99] transition-transform"
-          aria-label="Apple 건강 앱 연동하기"
+          aria-label={tt('Apple 건강 앱 연동하기')}
         >
           <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
             <Heart size={24} className="text-white" />
           </div>
           <div className="flex-1 text-left">
-            <p className="text-base font-bold">Apple 건강 앱 연동하기</p>
-            <p className="text-xs text-white/85 mt-0.5">러닝·걷기·심박·GPS 자동으로 가져옵니다</p>
+            <p className="text-base font-bold">{tt('Apple 건강 앱 연동하기')}</p>
+            <p className="text-xs text-white/85 mt-0.5">{tt('러닝·걷기·심박·GPS 자동으로 가져옵니다')}</p>
           </div>
           <span className="text-2xl">→</span>
         </button>
@@ -149,14 +151,14 @@ export default function HealthConnectCard() {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-200 flex items-center gap-1">
-            <Check size={11} /> Apple Health 연동됨
+            <Check size={11} /> {tt('Apple Health 연동됨')}
           </p>
           <p className="text-[11px] text-emerald-700/80 dark:text-emerald-300/80 truncate">
             {syncing && progress
               ? `${progress.label} · ${progress.percent}%`
               : lastSyncTs
-                ? formatAgo(lastSyncTs, now)
-                : '동기화 준비됨'}
+                ? formatAgo(lastSyncTs, now, locale)
+                : (locale === 'en' ? 'Ready to sync' : '동기화 준비됨')}
           </p>
         </div>
         <button
@@ -165,7 +167,7 @@ export default function HealthConnectCard() {
           className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-200 text-xs font-semibold border border-emerald-200/60 dark:border-emerald-800 active:scale-95 disabled:opacity-50"
         >
           <RefreshCw size={11} className={syncing ? 'animate-spin' : ''} />
-          동기화
+          {locale === 'en' ? 'Sync' : '동기화'}
         </button>
       </div>
     </div>

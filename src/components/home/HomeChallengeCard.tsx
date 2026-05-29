@@ -8,9 +8,11 @@ import { useMemo } from 'react';
 import { useUserData } from '@/components/UserDataProvider';
 import { startOfWeekStr } from '@/lib/kst';
 import { Target, Trophy } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 
 export default function HomeChallengeCard() {
   const { activities } = useUserData();
+  const { tt, locale } = useI18n();
 
   const challenge = useMemo(() => {
     const weekStart = startOfWeekStr();
@@ -53,11 +55,11 @@ export default function HomeChallengeCard() {
   const { thisWeekKm, target, progress, remaining, achieved } = challenge;
 
   let msg: { emoji: string; text: string };
-  if (achieved) msg = { emoji: '🏆', text: '이번 주 목표 달성! 멋져요' };
-  else if (progress >= 75) msg = { emoji: '🔥', text: `${remaining.toFixed(1)}km 만 더!` };
-  else if (progress >= 50) msg = { emoji: '💪', text: '절반 넘어왔어요. 계속!' };
-  else if (progress >= 25) msg = { emoji: '🚀', text: '좋은 시작이에요' };
-  else msg = { emoji: '👟', text: '이번 주도 한 번 달려볼까요?' };
+  if (achieved) msg = { emoji: '🏆', text: tt('이번 주 목표 달성! 멋져요') };
+  else if (progress >= 75) msg = { emoji: '🔥', text: locale === 'en' ? `Only ${remaining.toFixed(1)}km left!` : `${remaining.toFixed(1)}km 만 더!` };
+  else if (progress >= 50) msg = { emoji: '💪', text: tt('절반 넘어왔어요. 계속!') };
+  else if (progress >= 25) msg = { emoji: '🚀', text: locale === 'en' ? 'Great start' : '좋은 시작이에요' };
+  else msg = { emoji: '👟', text: tt('이번 주도 한 번 달려볼까요?') };
 
   return (
     <div className={`mx-4 card p-5 relative overflow-hidden ${
@@ -67,7 +69,7 @@ export default function HomeChallengeCard() {
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
             <Target size={14} className={achieved ? 'text-amber-600' : 'text-emerald-600'} />
-            <h3 className="text-sm font-extrabold text-[var(--foreground)]">이번 주 도전</h3>
+            <h3 className="text-sm font-extrabold text-[var(--foreground)]">{tt('이번 주 도전')}</h3>
           </div>
           {achieved && <Trophy size={16} className="text-amber-500" />}
         </div>

@@ -9,8 +9,10 @@ import { ChevronRight, Camera, Flame } from 'lucide-react';
 import PhotoCard from '@/components/photos/PhotoCard';
 import PhotoUploader from '@/components/photos/PhotoUploader';
 import { fetchTrendingPhotos, type RoutinePhoto } from '@/lib/routine-photos';
+import { useI18n } from '@/lib/i18n';
 
 export default function RoutinePhotoCarousel() {
+  const { tt, locale } = useI18n();
   const [photos, setPhotos] = useState<RoutinePhoto[]>([]);
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
@@ -44,8 +46,8 @@ export default function RoutinePhotoCarousel() {
             <Camera size={24} className="text-emerald-600" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-base font-bold text-[var(--foreground)]">첫 번째 러닝사진가 되어보세요!</p>
-            <p className="text-sm text-[var(--muted)] mt-0.5">오늘 러닝 사진을 공유하면 여기에 떠요</p>
+            <p className="text-base font-bold text-[var(--foreground)]">{tt('첫 번째 러닝사진가 되어보세요!')}</p>
+            <p className="text-sm text-[var(--muted)] mt-0.5">{locale === 'en' ? 'Share today\u2019s run photo and it appears here' : '오늘 러닝 사진을 공유하면 여기에 떠요'}</p>
           </div>
         </div>
         <PhotoUploader
@@ -53,7 +55,7 @@ export default function RoutinePhotoCarousel() {
           onUploaded={() => setReloadKey(k => k + 1)}
         >
           <Camera size={18} />
-          <span>사진 올리기</span>
+          <span>{tt('사진 올리기')}</span>
         </PhotoUploader>
       </div>
     );
@@ -64,7 +66,7 @@ export default function RoutinePhotoCarousel() {
       <div className="flex items-center justify-between mx-4 mb-2">
         <h3 className="text-lg font-bold text-[var(--foreground)] flex items-center gap-1.5">
           <Flame size={20} className="text-emerald-600" />
-          이번 주 인기 러닝사진
+          {tt('이번 주 인기 러닝사진')}
         </h3>
         <div className="flex items-center gap-2">
           <PhotoUploader
@@ -72,10 +74,10 @@ export default function RoutinePhotoCarousel() {
             onUploaded={() => setReloadKey(k => k + 1)}
           >
             <Camera size={13} />
-            <span>올리기</span>
+            <span>{locale === 'en' ? 'Upload' : '올리기'}</span>
           </PhotoUploader>
           <Link href="/social?tab=photos" className="text-sm font-semibold text-emerald-600 flex items-center gap-0.5">
-            더보기 <ChevronRight size={14} />
+            {locale === 'en' ? 'See all' : '더보기'} <ChevronRight size={14} />
           </Link>
         </div>
       </div>
