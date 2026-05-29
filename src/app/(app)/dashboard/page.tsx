@@ -34,6 +34,7 @@ import AppLogo from '@/components/AppLogo';
 import HomeRankingHero from '@/components/home/HomeRankingHero';
 import TrackStartCTA from '@/components/home/TrackStartCTA';
 import SharePeriodEntry from '@/components/home/SharePeriodEntry';
+import SeasonRecapCard from '@/components/home/SeasonRecapCard';
 import StreakWarningCard from '@/components/home/StreakWarningCard';
 import WeeklyRecapCard from '@/components/home/WeeklyRecapCard';
 import HomeCalendarCard from '@/components/home/HomeCalendarCard';
@@ -737,6 +738,9 @@ export default function DashboardPage() {
 
         {/* 6.95 공유카드 — 이번 주/이번 달 (build 195). 활동 1건 이상일 때만 노출 */}
         <SharePeriodEntry activities={activities} />
+
+        {/* 6.97 시즌 결산 (build 199 / Phase 3) — 분기말 ±7일에만 노출 */}
+        <SeasonRecapCard />
 
         {/* 7 랭킹 Hero — 활성화 핵심 (eager) */}
         <HomeRankingHero />

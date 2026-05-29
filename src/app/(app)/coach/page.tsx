@@ -13,6 +13,7 @@ import {
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import AppToast from '@/components/AppToast';
+import TargetRaceCard from '@/components/coach/TargetRaceCard';
 
 interface CoachingPayload {
   score: number;
@@ -172,6 +173,9 @@ export default function CoachPage() {
             아직 분석할 활동이 부족해요. 2~3km 가볍게 달려보세요.
           </div>
         )}
+
+        {/* 타겟 레이스 카운트다운 (build 199) */}
+        <TargetRaceCard />
 
         {/* 14일 차트 */}
         {trend.length > 0 && (
