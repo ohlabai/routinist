@@ -4,9 +4,13 @@
 
 export type RankingFilterKey = 'country' | 'region_si' | 'region_gu' | 'gender' | 'decade' | 'starter';
 export type RankingFilters = Record<RankingFilterKey, boolean>;
+// build 209 #4-2: axis (time period) 도 동일 storage 로 공유 — 홈 hero ↔ /ranking 탭 한쪽 변경 시 양쪽 sync.
+export type RankingAxis = 'today' | 'week' | 'month' | 'year';
 
 const STORAGE_KEY = 'ranking.filters.v1';
+const AXIS_STORAGE_KEY = 'ranking.axis.v1';
 const EVENT_NAME = 'ranking-filters-changed';
+const AXIS_EVENT_NAME = 'ranking-axis-changed';
 
 export const DEFAULT_FILTERS: RankingFilters = {
   country: true,
@@ -16,6 +20,8 @@ export const DEFAULT_FILTERS: RankingFilters = {
   decade: false,
   starter: false,
 };
+// build 209 #4-2: 기본 axis 'week' — 사용자 요청. 홈+랭킹 동일 default.
+export const DEFAULT_AXIS: RankingAxis = 'week';
 
 export function readRankingFilters(): RankingFilters {
   if (typeof window === 'undefined') return DEFAULT_FILTERS;
@@ -54,6 +60,37 @@ export function onRankingFiltersChanged(handler: (f: RankingFilters) => void): (
   window.addEventListener('storage', onStorage);
   return () => {
     window.removeEventListener(EVENT_NAME, onCustom);
+    window.removeEventListener('storage', onStorage);
+  };
+}
+
+export function readRankingAxis(): RankingAxis {
+  if (typeof window === 'undefined') return DEFAULT_AXIS;
+  try {
+    const raw = localStorage.getItem(AXIS_STORAGE_KEY);
+    if (raw === 'today' || raw === 'week' || raw === 'month' || raw === 'year') return raw;
+  } catch {}
+  return DEFAULT_AXIS;
+}
+
+export function writeRankingAxis(axis: RankingAxis) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(AXIS_STORAGE_KEY, axis);
+    window.dispatchEvent(new CustomEvent(AXIS_EVENT_NAME, { detail: axis }));
+  } catch {}
+}
+
+export function onRankingAxisChanged(handler: (a: RankingAxis) => void): () => void {
+  if (typeof window === 'undefined') return () => {};
+  const onCustom = (e: Event) => handler((e as CustomEvent<RankingAxis>).detail);
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === AXIS_STORAGE_KEY) handler(readRankingAxis());
+  };
+  window.addEventListener(AXIS_EVENT_NAME, onCustom);
+  window.addEventListener('storage', onStorage);
+  return () => {
+    window.removeEventListener(AXIS_EVENT_NAME, onCustom);
     window.removeEventListener('storage', onStorage);
   };
 }

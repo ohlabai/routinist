@@ -140,14 +140,15 @@ function SocialPageInner() {
         <div className="space-y-6">
           {friendsCompare.length > 1 ? (
             <div className="card p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-bold text-[var(--foreground)]">
+              {/* build 209 #5: 이번주/이번달 토글 폰트 크기 대폭 확대 (10px → text-sm) + 패딩도 증가 */}
+              <div className="flex items-center justify-between mb-3 gap-2">
+                <h3 className="text-base font-extrabold text-[var(--foreground)] truncate">
                   {comparePeriod === 'week' ? t('social.weekCompare') : t('social.monthCompare')}
                 </h3>
-                <div className="flex gap-1 bg-[var(--card-border)]/30 rounded-full p-0.5">
+                <div className="flex gap-1 bg-[var(--card-border)]/30 rounded-full p-1 flex-shrink-0">
                   <button
                     onClick={() => setComparePeriod('week')}
-                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition ${
+                    className={`px-4 py-1.5 rounded-full text-sm font-extrabold transition ${
                       comparePeriod === 'week' ? 'bg-emerald-500 text-white shadow-sm' : 'text-[var(--muted)]'
                     }`}
                   >
@@ -155,7 +156,7 @@ function SocialPageInner() {
                   </button>
                   <button
                     onClick={() => setComparePeriod('month')}
-                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition ${
+                    className={`px-4 py-1.5 rounded-full text-sm font-extrabold transition ${
                       comparePeriod === 'month' ? 'bg-emerald-500 text-white shadow-sm' : 'text-[var(--muted)]'
                     }`}
                   >

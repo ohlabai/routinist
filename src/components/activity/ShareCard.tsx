@@ -23,6 +23,12 @@ interface ShareCardProps {
   hideRegister?: boolean;
   /** 등록 성공 시 호출 — 리스트 새로고침용 */
   onRegistered?: () => void;
+  /** build 209 #2/#3: 주간/월간 모드 — 일간 layout 그대로 + 지도/hero KM 만 기간 누적값으로 교체. */
+  periodOverrides?: {
+    extraRoutes?: Array<Array<[number, number]>>;
+    periodWord?: string;
+    title?: string;            // 헤더 타이틀 ("이번 주 공유" 등)
+  };
 }
 
 type Theme = {
@@ -105,6 +111,12 @@ function drawCard(
   routeProgress: number = 1,
   /** build 167 #3: 거리 표시 카운트업. 미지정 시 activity.distance_km 그대로. */
   kmDisplay?: number,
+  /** build 209 #2/#3: 주간/월간 ShareCard 가 일간과 동일 폼을 쓰기 위한 override.
+   *  지정 시 — 지도는 extraRoutes 모두 합성, 헤더 라벨은 periodWord 표시. 그 외 layout 동일. */
+  periodOverrides?: {
+    extraRoutes?: Array<Array<[number, number]>>;
+    periodWord?: string;  // "이번 주" / "이번 달"
+  },
 ) {
   // build 205 #11: 막대 그래프 애니메이션 진행도. routeProgress 와 동일 timeline (0~1).
   // 일간 카드: 오늘 막대 / 가로 누적바가 0 → 목표 까지 차오른 후 bounce → 원래 색.
@@ -167,8 +179,106 @@ function drawCard(
   // 경로 — build 136 (사용자 피드백 #5-C): 지도와 7.19 사이 여백 확대.
   // mapY 290 → 260 위로 + mapH 480 유지. 지역 라벨(regionLabel) 을 지도 위 표시.
   // routeProgress < 1 일 때는 그 비율만큼만 그려 MP4 애니메이션의 한 프레임으로 사용.
-  const hasRoute = activity.route_data?.coordinates?.length;
-  if (hasRoute) {
+  // build 209 #2/#3: periodOverrides.extraRoutes 있으면 주간/월간 모드 — 여러 경로 합성.
+  const extraRoutes = periodOverrides?.extraRoutes;
+  const hasExtraRoutes = Array.isArray(extraRoutes) && extraRoutes.length > 0;
+  const hasRoute = hasExtraRoutes || activity.route_data?.coordinates?.length;
+  if (hasExtraRoutes) {
+    // 주간/월간 — 모든 경로의 bounding box 계산 후 합성 렌더.
+    let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+    for (const r of extraRoutes!) {
+      for (const [lng, lat] of r) {
+        if (lat < minLat) minLat = lat;
+        if (lat > maxLat) maxLat = lat;
+        if (lng < minLng) minLng = lng;
+        if (lng > maxLng) maxLng = lng;
+      }
+    }
+    if (Number.isFinite(minLat) && Number.isFinite(minLng)) {
+      const padding = 120;
+      const mapW = W - padding * 2;
+      const mapH = 480;
+      const mapY = 300;
+      const dLng = (maxLng - minLng) || 0.001;
+      const dLat = (maxLat - minLat) || 0.001;
+      const scale = Math.min(mapW / dLng, mapH / dLat);
+      const offsetX = padding + (mapW - dLng * scale) / 2;
+      const offsetY = mapY + (mapH - dLat * scale) / 2;
+      for (const route of extraRoutes!) {
+        if (route.length < 2) continue;
+        // 그림자
+        ctx.beginPath();
+        route.forEach(([lng, lat], i) => {
+          const x = offsetX + (lng - minLng) * scale;
+          const y = offsetY + mapH - (lat - minLat) * scale;
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.strokeStyle = bgImage ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.35)';
+        ctx.lineWidth = 14;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+        // 본체
+        ctx.beginPath();
+        route.forEach(([lng, lat], i) => {
+          const x = offsetX + (lng - minLng) * scale;
+          const y = offsetY + mapH - (lat - minLat) * scale;
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.strokeStyle = bgImage ? '#ffffff' : theme.routeColor;
+        ctx.lineWidth = 7;
+        ctx.stroke();
+        // 첫 경로의 출발점에 빨간 핀 + 도시명 (#1 와 동일 패턴)
+      }
+      // 첫 경로의 시작점에 빨간 핀
+      const first = extraRoutes![0];
+      if (first && first.length >= 1) {
+        const [sLng, sLat] = first[0];
+        const sx = offsetX + (sLng - minLng) * scale;
+        const sy = offsetY + mapH - (sLat - minLat) * scale;
+        const pinR = 18, pinCenterY = sy - 30;
+        ctx.fillStyle = '#EF4444';
+        ctx.beginPath();
+        ctx.arc(sx, pinCenterY, pinR, Math.PI, 0, false);
+        ctx.lineTo(sx + 6, pinCenterY + 10);
+        ctx.lineTo(sx, sy);
+        ctx.lineTo(sx - 6, pinCenterY + 10);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.arc(sx, pinCenterY, 7, 0, Math.PI * 2); ctx.fill();
+        if (regionLabel) {
+          ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont, sans-serif';
+          const cityText = regionLabel.split(' · ')[0];
+          const cityW = ctx.measureText(cityText).width;
+          const padX = 14, pillH = 38;
+          const wantRight = sx + 28 + cityW + padX * 2 + padding < W;
+          const lx = wantRight ? sx + 24 : sx - 24 - cityW - padX * 2;
+          const ly = pinCenterY - pillH / 2;
+          ctx.fillStyle = 'rgba(0,0,0,0.65)';
+          ctx.beginPath();
+          ctx.roundRect(lx, ly, cityW + padX * 2, pillH, 19);
+          ctx.fill();
+          ctx.fillStyle = '#ffffff';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(cityText, lx + padX, ly + pillH / 2 + 1);
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'alphabetic';
+        }
+      }
+    }
+    // 등수 suffix 하단 표시 (#1 와 동일)
+    if (regionLabel && regionLabel.includes(' · ')) {
+      const rankPart = regionLabel.split(' · ').slice(1).join(' · ');
+      if (rankPart) {
+        ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.fillStyle = bgImage ? '#ffffff' : (theme.accent || '#10b981');
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(rankPart, W / 2, H - 220);
+      }
+    }
+  } else if (hasRoute) {
     const coordsAll = activity.route_data!.coordinates;
     const lats = coordsAll.map(c => c[1]);
     const lngs = coordsAll.map(c => c[0]);
@@ -258,21 +368,68 @@ function drawCard(
     ctx.lineWidth = 8;
     ctx.stroke();
 
-    // 시작점 — 항상 표시
+    // 시작점 — build 209 #1: 초록 dot → 빨간 핀(A) + 도시명 라벨 옆에 표시.
+    // 핀 모양: 위가 둥글고 아래가 뾰족한 teardrop. 사용자 신고 "출발점도 초록이라 어디부터인지 헷갈림" 직접 해결.
     const [sx, sy] = [offsetX + (coordsAll[0][0] - minLng) * scale, offsetY + mapH - (coordsAll[0][1] - minLat) * scale];
-    ctx.fillStyle = '#22C55E';
-    ctx.beginPath(); ctx.arc(sx, sy, 14, 0, Math.PI * 2); ctx.fill();
-    if (bgImage) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.stroke(); }
+    // teardrop pin: 위 원 + 아래 삼각형
+    const pinR = 18;
+    const pinTipY = sy;                     // 핀 끝(좌표)은 실제 시작점
+    const pinCenterY = sy - 30;             // 원 중심은 위쪽 30px
+    ctx.fillStyle = '#EF4444';
+    ctx.beginPath();
+    ctx.arc(W / 2 < sx ? sx : sx, pinCenterY, pinR, Math.PI, 0, false);
+    ctx.lineTo(sx + 6, pinCenterY + 10);
+    ctx.lineTo(sx, pinTipY);
+    ctx.lineTo(sx - 6, pinCenterY + 10);
+    ctx.closePath();
+    ctx.fill();
+    // 핀 안 흰 원
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(sx, pinCenterY, 7, 0, Math.PI * 2); ctx.fill();
+    // 핀 테두리
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(sx, pinCenterY, pinR, Math.PI, 0, false);
+    ctx.lineTo(sx + 6, pinCenterY + 10);
+    ctx.lineTo(sx, pinTipY);
+    ctx.lineTo(sx - 6, pinCenterY + 10);
+    ctx.closePath();
+    ctx.stroke();
+
+    // 도시명 라벨 — 핀 우측 또는 좌측 (지도 가장자리 회피)
+    if (regionLabel) {
+      ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont, sans-serif';
+      const cityText = regionLabel.split(' · ')[0];   // "서울 강남 · 1위" → "서울 강남"
+      const cityW = ctx.measureText(cityText).width;
+      const padX = 14, pillH = 38;
+      // 핀 우측에 둘 공간 부족하면 왼쪽
+      const wantRight = sx + 28 + cityW + padX * 2 + padding < W;
+      const lx = wantRight ? sx + 24 : sx - 24 - cityW - padX * 2;
+      const ly = pinCenterY - pillH / 2;
+      ctx.fillStyle = 'rgba(0,0,0,0.65)';
+      ctx.beginPath();
+      ctx.roundRect(lx, ly, cityW + padX * 2, pillH, 19);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(cityText, lx + padX, ly + pillH / 2 + 1);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+    }
 
     // 끝점 — 라인이 종착하는 위치 (애니메이션 중에는 현재 진행점이 보임)
     const lastCoord = coords[coords.length - 1];
     const [ex, ey] = [offsetX + (lastCoord[0] - minLng) * scale, offsetY + mapH - (lastCoord[1] - minLat) * scale];
     if (routeProgress >= 1) {
-      ctx.fillStyle = '#EF4444';
-      ctx.beginPath(); ctx.arc(ex, ey, 14, 0, Math.PI * 2); ctx.fill();
-      if (bgImage) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.stroke(); }
+      // 끝점: 작은 흰 원 + 검정 테두리 — 시작 핀과 시각적 구분
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(ex, ey, 12, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#1f2937';
+      ctx.lineWidth = 4;
+      ctx.stroke();
     } else {
-      // 애니메이션 진행 중 — 깜빡이는 진행점 (러닝 마커)
       const pulse = 1 + 0.2 * Math.sin(routeProgress * Math.PI * 6);
       ctx.fillStyle = '#22C55E';
       ctx.beginPath(); ctx.arc(ex, ey, 12 * pulse, 0, Math.PI * 2); ctx.fill();
@@ -280,28 +437,18 @@ function drawCard(
       ctx.lineWidth = 4;
       ctx.stroke();
     }
-
-    // 지역 라벨 — build 208 #6-3: 지도 좌상단(경로 가림) → 카드 최상단 center 알약으로 이동.
-    // 아래 quote 영역 (y=200~) 위 안전 공간에 표시.
   }
-  if (regionLabel) {
-    ctx.font = 'bold 30px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'alphabetic';
-    const labelText = `📍 ${regionLabel}`;
-    const padX = 22;
-    const textW = ctx.measureText(labelText).width;
-    const pillW = textW + padX * 2;
-    const pillH = 50;
-    const labelX = (W - pillW) / 2;
-    const labelY = 110;
-    ctx.fillStyle = bgImage ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.18)';
-    ctx.beginPath();
-    ctx.roundRect(labelX, labelY, pillW, pillH, 25);
-    ctx.fill();
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(labelText, labelX + padX, labelY + 35);
-    ctx.textAlign = 'center';
+  // build 209 #1: 등수 suffix 는 카드 최하단 footer 위로 이동 (지도 위 alarm pill 제거).
+  // regionLabel 에 "서울 강남 · 1위" 형식이면 rank 부분만 추출해 별도 표시.
+  if (regionLabel && regionLabel.includes(' · ')) {
+    const rankPart = regionLabel.split(' · ').slice(1).join(' · ');
+    if (rankPart) {
+      ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillStyle = bgImage ? '#ffffff' : (theme.accent || '#10b981');
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(rankPart, W / 2, H - 220);
+    }
   }
 
   const mainColor = bgImage ? '#ffffff' : theme.textMain;
@@ -697,7 +844,7 @@ function downloadBlob(blob: Blob, fileName: string) {
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
-export default function ShareCard({ activity: baseActivity, displayName, onClose, hideRegister, onRegistered }: ShareCardProps) {
+export default function ShareCard({ activity: baseActivity, displayName, onClose, hideRegister, onRegistered, periodOverrides }: ShareCardProps) {
   const { user, profile } = useAuth();
   const { activities, goals } = useUserData();
   // build 167 #1: useUserData() activities 는 route_data 없는 lite. ShareCard 진입 시 단건 lazy fetch.
@@ -864,7 +1011,7 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
 
   const generate = useCallback(() => {
     if (!canvasRef.current) return;
-    drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel ?? undefined, 1);
+    drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel ?? undefined, 1, undefined, periodOverrides);
   }, [activity, displayName, themeIdx, bgImage, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel]);
 
   useEffect(() => { generate(); }, [generate]);
@@ -1110,6 +1257,7 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
               regionLabel ?? undefined,
               progress,
               activity.distance_km * distR,
+              periodOverrides,
             );
           },
           { fps: 30, bitsPerSecond: 5_000_000 },

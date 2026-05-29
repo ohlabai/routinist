@@ -266,8 +266,8 @@ export default function TrackPage() {
 
   return (
     <div className="fixed inset-0 bg-[var(--background)] flex flex-col">
-      {/* 상단 헤더 — 펄스 LIVE 배지 (active 일 때) */}
-      <header className="flex items-center gap-2 px-3 py-3 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30 z-10">
+      {/* 상단 헤더 — 펄스 LIVE 배지 (active 일 때). build 209 #6: safe-area-inset-top 추가 (status bar 회피). */}
+      <header className="flex items-center gap-2 px-3 py-3 pt-[max(env(safe-area-inset-top),12px)] bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30 z-10">
         <button onClick={hasState ? handleAbort : () => router.back()}
           aria-label={tt('뒤로')}
           className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90">

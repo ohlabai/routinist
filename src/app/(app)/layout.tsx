@@ -56,7 +56,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const isProfile = normalizedPath === '/profile';
   const isRanking = normalizedPath === '/ranking';
   const isMap = normalizedPath === '/map';
-  const hideLayoutHeader = isShop || isChat || isHome || isSocial || isProfile || isRanking || isMap;
+  // build 209 #6: /track 도 자체 header (← 뒤로, 달리는 중, LIVE 배지) 가 있으므로 layout header 숨김.
+  const isTrack = normalizedPath === '/track' || normalizedPath.startsWith('/track/');
+  const hideLayoutHeader = isShop || isChat || isHome || isSocial || isProfile || isRanking || isMap || isTrack;
   const lastSyncRef = useRef<number>(0);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
 
@@ -193,7 +195,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* 하단 5탭 네비게이션 — flex-shrink-0 로 고정, sticky 제거.
           채팅 페이지에선 입력창이 가리는 문제로 nav 숨김 (사용자 신고 build 67). */}
-      <nav className={`flex-shrink-0 z-40 border-t border-[var(--card-border)] bg-[var(--header-bg)] backdrop-blur-xl pb-[max(env(safe-area-inset-bottom),4px)] ${isChat ? 'hidden' : ''}`}>
+      <nav className={`flex-shrink-0 z-40 border-t border-[var(--card-border)] bg-[var(--header-bg)] backdrop-blur-xl pb-[max(env(safe-area-inset-bottom),4px)] ${isChat || isTrack ? 'hidden' : ''}`}>
         <div className="flex justify-around items-center h-14">
           {TABS_BASE.map((tab) => {
             const isActive =

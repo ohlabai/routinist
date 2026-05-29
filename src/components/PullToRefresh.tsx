@@ -18,8 +18,22 @@ export default function PullToRefresh({ onRefresh, children }: Props) {
 
   const threshold = 70;
 
+  // build 209 #4-1: PullToRefresh 가 자체 overflow 를 가지면 dashboard 내부 sticky 헤더의
+  // scroll context 가 PullToRefresh 가 되어버려 부모(main) 가 스크롤될 때 sticky 가 안 먹힘.
+  // → 자체 overflow 제거. 대신 가장 가까운 scrolling ancestor 의 scrollTop 으로 "최상단" 판정.
+  const findScrollingParent = (el: HTMLElement | null): HTMLElement | null => {
+    let cur = el?.parentElement ?? null;
+    while (cur) {
+      const style = window.getComputedStyle(cur);
+      if (['auto', 'scroll', 'overlay'].includes(style.overflowY)) return cur;
+      cur = cur.parentElement;
+    }
+    return null;
+  };
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (containerRef.current && containerRef.current.scrollTop === 0) {
+    const sc = findScrollingParent(containerRef.current);
+    const atTop = sc ? sc.scrollTop === 0 : window.scrollY === 0;
+    if (atTop) {
       startY.current = e.touches[0].clientY;
       setPulling(true);
     }
@@ -67,7 +81,7 @@ export default function PullToRefresh({ onRefresh, children }: Props) {
   return (
     <div
       ref={containerRef}
-      className="flex-1 overflow-y-auto relative"
+      className="relative"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}

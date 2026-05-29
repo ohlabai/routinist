@@ -583,11 +583,11 @@ export default function DashboardPage() {
         <h1 className="text-xl font-extrabold tracking-tight">{t('home.title')}</h1>
         <Link
           href="/track"
-          className="ml-auto inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-bold text-sm shadow-md shadow-emerald-500/30 active:scale-95 transition"
+          className="ml-auto inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base shadow-md shadow-emerald-500/30 active:scale-95 transition"
           aria-label={tt('달리기 시작하기')}
         >
-          <MapPin size={14} />
-          <span className="leading-none">{locale === 'en' ? 'Start' : '시작'}</span>
+          <MapPin size={18} />
+          <span className="leading-none">{locale === 'en' ? 'Start Run' : '달리기 시작'}</span>
         </Link>
       </div>
     </header>

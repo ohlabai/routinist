@@ -12,7 +12,7 @@ import { getSupabase } from '@/lib/supabase';
 import { logClientInfo, logClientWarn } from '@/lib/error-logger';
 import { dataCache, CACHE_KEYS, onCacheInvalidated } from '@/lib/data-cache';
 import { useI18n, formatRank, rankSuffix, type TranslationKey } from '@/lib/i18n';
-import { readRankingFilters, onRankingFiltersChanged, type RankingFilters } from '@/lib/ranking-filters';
+import { readRankingFilters, onRankingFiltersChanged, readRankingAxis, writeRankingAxis, onRankingAxisChanged, type RankingFilters } from '@/lib/ranking-filters';
 
 // build 171 #4: 홈 hero axis 도 랭킹 페이지처럼 today → week. 의미 부족한 today 제거.
 type TimeAxis = 'week' | 'month' | 'year';
@@ -58,7 +58,12 @@ export default function HomeRankingHero() {
   const { user, profile } = useAuth();
   const { t, locale } = useI18n();
   const router = useRouter();
-  const [axis, setAxis] = useState<TimeAxis>('month');
+  // build 209 #4-2: 기본 axis localStorage 에서. 'week' 이 디폴트. /ranking 탭과 양방향 동기화.
+  const [axis, setAxisState] = useState<TimeAxis>(() => {
+    const a = readRankingAxis();
+    return a === 'today' ? 'week' : a;  // hero 는 today 미지원 → week 로 폴백
+  });
+  const setAxis = (a: TimeAxis) => { setAxisState(a); writeRankingAxis(a); };
   const [rank, setRank] = useState<HeroRank | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -70,6 +75,13 @@ export default function HomeRankingHero() {
 
   useEffect(() => {
     const off = onRankingFiltersChanged((f) => setFilters(f));
+    return off;
+  }, []);
+  useEffect(() => {
+    const off = onRankingAxisChanged((a) => {
+      const next = a === 'today' ? 'week' : a;
+      setAxisState(next);
+    });
     return off;
   }, []);
 

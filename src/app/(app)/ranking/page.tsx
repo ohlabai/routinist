@@ -3,7 +3,7 @@
 // 랭킹 페이지 (build 100 신규) — 내 랭킹 + 마일리지 2 서브탭.
 // 이전 /social 의 me, mileage 서브탭에서 이전. /social 은 친구/클럽/포토만 유지.
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
@@ -15,6 +15,7 @@ import { Trophy, Coins, Globe } from 'lucide-react';
 import ContestTab from '@/components/contest/ContestTab';
 import WorldTab from '@/components/world/WorldTab';
 import { useI18n, type TranslationKey } from '@/lib/i18n';
+import { readRankingAxis, writeRankingAxis, onRankingAxisChanged } from '@/lib/ranking-filters';
 
 // build 207 — 영문화 누락 fix (#2): "내 조건 입력하고 랭킹 보기" / "지역·출생년도·성별..." 안내 카드 tt 처리.
 
@@ -31,7 +32,19 @@ function RankingInner() {
   const [activeSub, setActiveSub] = useState<SubTab>(
     ['me', 'mileage', 'world'].includes(initialTab) ? initialTab : 'me'
   );
-  const [axis, setAxis] = useState<TimeAxis>('week');
+  // build 209 #4-2: 홈 RankingHero 와 axis 공유. 기본 'week'. 한쪽에서 토글 시 양쪽 sync.
+  const [axis, setAxisState] = useState<TimeAxis>(() => {
+    const a = readRankingAxis();
+    return a === 'today' ? 'week' : a;
+  });
+  const setAxis = (a: TimeAxis) => { setAxisState(a); writeRankingAxis(a); };
+  useEffect(() => {
+    const off = onRankingAxisChanged((a) => {
+      const next = a === 'today' ? 'week' : a;
+      setAxisState(next);
+    });
+    return off;
+  }, []);
 
   const hasDemographics = !!(profile?.region_gu || profile?.birth_year || profile?.gender);
 
