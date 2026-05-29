@@ -303,7 +303,7 @@ export default function AdminUsersPage() {
                 {rows.map(r => (
                   <tr key={r.user_id} className={`hover:bg-emerald-50/40 dark:hover:bg-emerald-950/10 ${!r.is_public ? 'opacity-60' : ''}`}>
                     <Td>
-                      <Link href={`/admin/users/${r.user_id}`} className="font-bold text-emerald-700 dark:text-emerald-300 hover:underline">
+                      <Link href={`/admin/users/detail?id=${r.user_id}`} className="font-bold text-emerald-700 dark:text-emerald-300 hover:underline">
                         {r.display_name ?? '익명'}
                       </Link>
                     </Td>
@@ -349,7 +349,7 @@ export default function AdminUsersPage() {
                           }`}>
                           {r.is_public ? <EyeOff size={12} /> : <Eye size={12} />}
                         </button>
-                        <Link href={`/admin/users/${r.user_id}`}
+                        <Link href={`/admin/users/detail?id=${r.user_id}`}
                           className="px-2 py-1 rounded-lg bg-[var(--card)] border border-[var(--card-border)] text-[10px] font-extrabold hover:bg-emerald-50 dark:hover:bg-emerald-950/20">
                           상세
                         </Link>
