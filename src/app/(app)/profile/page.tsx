@@ -233,12 +233,13 @@ export default function ProfilePage() {
     { href: '/shop/addresses', label: t('profile.menuAddresses'), Icon: HelpCircle },
     // build 205 #15: 셀러 신청 / 셀러 콘솔. 승인 여부 모름 → /seller/products 로 보내고 그 안에서 분기.
     { href: '/seller/products', label: t('profile.menuSeller'), Icon: HelpCircle },
-    ...(isAdmin ? [
-      { href: '/admin', label: t('profile.menuAdmin'), Icon: Settings },
-    ] : []),
     { href: '/support', label: t('profile.menuSupport'), Icon: HelpCircle },
     { href: '/privacy', label: t('profile.menuPrivacy'), Icon: Shield },
     { href: '/terms', label: t('profile.menuTerms'), Icon: FileText },
+    // build 211 #1: 어드민 진입점을 메뉴 최하단으로 이동 (사용자 신고 — 너무 위에 보임).
+    ...(isAdmin ? [
+      { href: '/admin', label: t('profile.menuAdmin'), Icon: Settings },
+    ] : []),
   ];
 
   return (

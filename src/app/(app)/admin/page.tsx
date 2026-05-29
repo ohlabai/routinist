@@ -272,19 +272,40 @@ export default function AdminDashboardPage() {
             </>
           )}
 
-          {/* 어드민 메뉴 */}
-          <Section title="관리 메뉴" icon={<Settings size={16} className="text-emerald-500" />}>
+          {/* 어드민 메뉴 — build 211 #2: 사용자 지정 순서 + 의미별 그룹화 (5 섹션)
+              우선순위: 커머스(매일 보는 핵심) → 회원·보상 → 메달·챌린지 → 콘텐츠·분석 → 개발·점검 */}
+          <Section title="커머스" icon={<ShoppingBag size={16} className="text-emerald-500" />}>
             <div className="grid grid-cols-2 gap-2">
-              <AdminLink href="/admin/analytics" icon={<BarChart3 size={20} />} label="분석 대시보드" />
+              <AdminLink href="/admin/products" icon={<Package size={20} />} label="상품 관리" />
+              <AdminLink href="/admin/orders" icon={<ShoppingBag size={20} />} label="주문 관리" />
+            </div>
+          </Section>
+
+          <Section title="회원 & 보상" icon={<Users size={16} className="text-emerald-500" />}>
+            <div className="grid grid-cols-2 gap-2">
               <AdminLink href="/admin/users" icon={<Users size={20} />} label="회원 관리" />
-              <AdminLink href="/admin/feedback" icon={<MessageSquare size={20} />} label="제안 모더레이션" />
+              <AdminLink href="/admin/mileage" icon={<Coins size={20} />} label="마일리지 정책" />
+            </div>
+          </Section>
+
+          <Section title="메달 & 챌린지" icon={<Award size={16} className="text-emerald-500" />}>
+            <div className="grid grid-cols-2 gap-2">
               <AdminLink href="/admin/medals" icon={<Award size={20} />} label="메달 신청" />
               <AdminLink href="/admin/series-medals" icon={<Trophy size={20} />} label="시리즈 메달" />
               <AdminLink href="/admin/courses" icon={<Globe size={20} />} label="가상 코스" />
               <AdminLink href="/admin/series" icon={<Trophy size={20} />} label="챌린지 시리즈" />
-              <AdminLink href="/admin/orders" icon={<ShoppingBag size={20} />} label="주문 관리" />
-              <AdminLink href="/admin/products" icon={<Package size={20} />} label="상품 관리" />
-              <AdminLink href="/admin/mileage" icon={<Coins size={20} />} label="마일리지 정책" />
+            </div>
+          </Section>
+
+          <Section title="콘텐츠 & 분석" icon={<BarChart3 size={16} className="text-emerald-500" />}>
+            <div className="grid grid-cols-2 gap-2">
+              <AdminLink href="/admin/analytics" icon={<BarChart3 size={20} />} label="분석 대시보드" />
+              <AdminLink href="/admin/feedback" icon={<MessageSquare size={20} />} label="제안 모더레이션" />
+            </div>
+          </Section>
+
+          <Section title="개발 & 점검" icon={<Beaker size={16} className="text-emerald-500" />}>
+            <div className="grid grid-cols-2 gap-2">
               <AdminLink href="/admin/experiments" icon={<Beaker size={20} />} label="A/B 실험" />
               <AdminLink href="/admin/builds" icon={<Package size={20} />} label="Build Dashboard" />
               <AdminLink href="/profile/audit" icon={<Stethoscope size={20} />} label="데이터 점검" />
