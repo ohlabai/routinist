@@ -23,14 +23,13 @@ interface ShareCardProps {
   hideRegister?: boolean;
   /** 등록 성공 시 호출 — 리스트 새로고침용 */
   onRegistered?: () => void;
-  /** build 209 #2/#3: 주간/월간 모드 — 일간 layout 그대로 + 지도/hero KM 만 기간 누적값으로 교체.
-   *  build 210 #3/#4: 막대 애니메이션 범위 확장. */
+  /** build 209~213: 주간/월간 모드 — 일간 layout 그대로 + 지도/hero KM 만 기간 누적값으로 교체. */
   periodOverrides?: {
     extraRoutes?: Array<Array<[number, number]>>;
     periodWord?: string;
-    title?: string;
     highlightDays?: number[];
     horizontalTotalKm?: number;
+    bottomRankLine?: string | null;
   };
 }
 
@@ -114,14 +113,13 @@ function drawCard(
   routeProgress: number = 1,
   /** build 167 #3: 거리 표시 카운트업. 미지정 시 activity.distance_km 그대로. */
   kmDisplay?: number,
-  /** build 209 #2/#3: 주간/월간 ShareCard 가 일간과 동일 폼을 쓰기 위한 override.
-   *  지정 시 — 지도는 extraRoutes 모두 합성, 헤더 라벨은 periodWord 표시. 그 외 layout 동일.
-   *  build 210 #3/#4: highlightDays 로 막대 애니메이션 확장 (일간=오늘만, 주간=주간 7일, 월간=한 달 전체) */
+  /** build 209~213: 주간/월간 ShareCard 가 일간과 동일 폼을 쓰기 위한 override. */
   periodOverrides?: {
     extraRoutes?: Array<Array<[number, number]>>;
-    periodWord?: string;  // "이번 주" / "이번 달"
-    highlightDays?: number[];  // 이 day 번호들이 emerald → bounce → 흰색
-    horizontalTotalKm?: number;  // 가로 막대도 이 km 까지 emerald 애니메이션 (없으면 todayKm)
+    periodWord?: string;
+    highlightDays?: number[];
+    horizontalTotalKm?: number;
+    bottomRankLine?: string | null;
   },
 ) {
   // build 205 #11: 막대 그래프 애니메이션 진행도. routeProgress 와 동일 timeline (0~1).
@@ -349,16 +347,18 @@ function drawCard(
         }
       }
     }
-    // 등수 suffix 하단 표시 (#1 와 동일)
-    if (regionLabel && regionLabel.includes(' · ')) {
-      const rankPart = regionLabel.split(' · ').slice(1).join(' · ');
-      if (rankPart) {
-        ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
-        ctx.fillStyle = bgImage ? '#ffffff' : (theme.accent || '#10b981');
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'alphabetic';
-        ctx.fillText(rankPart, W / 2, H - 220);
-      }
+    // 등수 라인 하단 표시 — build 213 #5: 주간/월간 카드는 data.rankLine (period 랭킹) 우선.
+    // 폴백: regionLabel 의 ` · ` 뒤쪽 (오늘 랭킹).
+    const rankPart = periodOverrides?.bottomRankLine
+      ?? (regionLabel && regionLabel.includes(' · ')
+        ? regionLabel.split(' · ').slice(1).join(' · ')
+        : null);
+    if (rankPart) {
+      ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillStyle = bgImage ? '#ffffff' : (theme.accent || '#10b981');
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(rankPart, W / 2, H - 220);
     }
   } else if (hasRoute) {
     const coordsAll = activity.route_data!.coordinates;

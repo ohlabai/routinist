@@ -32,7 +32,6 @@ import LazyMount from '@/components/LazyMount';
 import { useI18n } from '@/lib/i18n';
 import AppLogo from '@/components/AppLogo';
 import HomeRankingHero from '@/components/home/HomeRankingHero';
-import SharePeriodEntry from '@/components/home/SharePeriodEntry';
 import SeasonRecapCard from '@/components/home/SeasonRecapCard';
 import StreakWarningCard from '@/components/home/StreakWarningCard';
 import WeeklyRecapCard from '@/components/home/WeeklyRecapCard';

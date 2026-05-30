@@ -77,9 +77,9 @@ export default function PeriodShareCard({ data, onClose }: Props) {
       periodOverrides={{
         extraRoutes: data.routes,
         periodWord,
-        title: `${periodWord} 공유`,
         highlightDays,
         horizontalTotalKm: data.totalKm,
+        bottomRankLine: data.rankLine,
       }}
     />
   );

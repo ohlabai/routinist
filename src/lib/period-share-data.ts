@@ -32,16 +32,21 @@ function extractRoutes(rows: ActivityRow[]): Array<Array<[number, number]>> {
     // 길면 down-sample (최대 200점)
     const step = coords.length > 200 ? Math.ceil(coords.length / 200) : 1;
     const pts: Array<[number, number]> = [];
+    let lastPushedIdx = -1;
     for (let i = 0; i < coords.length; i += step) {
       const c = coords[i];
       if (Array.isArray(c) && typeof c[0] === 'number' && typeof c[1] === 'number') {
         pts.push([c[0], c[1]]);
+        lastPushedIdx = i;
       }
     }
-    // 마지막 점 보장
-    const last = coords[coords.length - 1];
-    if (Array.isArray(last) && pts[pts.length - 1] !== last) {
-      pts.push([last[0] as number, last[1] as number]);
+    // 마지막 점 보장 — 이미 loop 안에서 마지막 인덱스를 push 했으면 skip (step=1 일 때 중복 방지).
+    const lastIdx = coords.length - 1;
+    if (lastPushedIdx !== lastIdx) {
+      const last = coords[lastIdx];
+      if (Array.isArray(last) && typeof last[0] === 'number' && typeof last[1] === 'number') {
+        pts.push([last[0], last[1]]);
+      }
     }
     if (pts.length >= 2) out.push(pts);
   }

@@ -16,8 +16,12 @@ import {
   createInitialState, loadState, saveState, clearState,
   requestLocationPermission, checkLocationPermission, getCurrentLocation,
   startWatcher, type WatcherHandle,
-  appendCoord, tickElapsed, formatDuration, formatDistanceKm,
+  appendCoord, tickElapsed, formatDistanceKm,
 } from '@/lib/gps-tracking';
+
+// build 213 #7: 카운트다운 타이밍 상수 — 튜닝 쉽게.
+const COUNTDOWN_TICK_MS = 800;   // 각 숫자 (3, 2, 1) 표시 시간
+const GO_HOLD_MS = 500;          // GO! 표시 후 트래킹 시작까지 hold
 import TrackSummarySheet from '@/components/track/TrackSummarySheet';
 
 type PermState = 'unknown' | 'prompt' | 'granted' | 'denied';
@@ -136,31 +140,37 @@ export default function TrackPage() {
     setState(fresh);
     saveState(fresh);
   }, []);
+  // build 213 #1: countdown 진행 중이거나 이미 active 면 더블탭 무시 (race condition guard).
+  const startingRef = useRef(false);
   const startTracking = useCallback(async () => {
-    const r = await requestLocationPermission();
-    setPerm(r);
-    if (r !== 'granted') return;
-    const here = await getCurrentLocation();
-    if (here && mapRef.current) {
-      mapRef.current.panTo(here);
-      youMarkerRef.current?.setPosition(here);
+    if (startingRef.current || countdown !== null || state !== null) return;
+    startingRef.current = true;
+    try {
+      const r = await requestLocationPermission();
+      setPerm(r);
+      if (r !== 'granted') return;
+      const here = await getCurrentLocation();
+      if (here && mapRef.current) {
+        mapRef.current.panTo(here);
+        youMarkerRef.current?.setPosition(here);
+      }
+      setCountdown(3);
+    } finally {
+      startingRef.current = false;
     }
-    // 카운트다운 트리거
-    setCountdown(3);
-  }, []);
+  }, [countdown, state]);
 
   // 카운트다운 tick (3 → 2 → 1 → GO!)
   useEffect(() => {
     if (countdown === null) return;
     if (countdown <= 0) {
-      // GO! 표시 후 0.5s 뒤 트래킹 시작
       const t = setTimeout(() => {
         setCountdown(null);
         beginTrackingAfterCountdown();
-      }, 500);
+      }, GO_HOLD_MS);
       return () => clearTimeout(t);
     }
-    const t = setTimeout(() => setCountdown(c => (c !== null ? c - 1 : null)), 800);
+    const t = setTimeout(() => setCountdown(c => (c !== null ? c - 1 : null)), COUNTDOWN_TICK_MS);
     return () => clearTimeout(t);
   }, [countdown, beginTrackingAfterCountdown]);
 
