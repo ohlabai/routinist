@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
-import { fetchMessages, sendMessage, markAsRead } from '@/lib/message-data';
+import { fetchMessages, sendMessage, markAsRead, getOrCreateConversation } from '@/lib/message-data';
 import { getSupabase } from '@/lib/supabase';
 import { PUBLIC_PROFILE_FIELDS } from '@/lib/profile-fields';
 import { ArrowLeft, Send, ShieldAlert } from 'lucide-react';
@@ -16,7 +16,28 @@ function ChatView() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user } = useAuth();
-  const conversationId = searchParams.get('id');
+  // build 219 #2: ?user= 로 들어오면 getOrCreateConversation 으로 id 를 부여.
+  // 기존 대화가 있으면 그 채팅을, 없으면 새 대화를 즉시 만들어 빈 채팅 화면 노출.
+  const idParam = searchParams.get('id');
+  const userParam = searchParams.get('user');
+  const [conversationId, setConversationId] = useState<string | null>(idParam);
+  const [convResolving, setConvResolving] = useState(!idParam && !!userParam);
+  const [convError, setConvError] = useState<string | null>(null);
+  useEffect(() => {
+    if (idParam) { setConversationId(idParam); return; }
+    if (!userParam || !user) return;
+    setConvResolving(true);
+    (async () => {
+      try {
+        const conv = await getOrCreateConversation(userParam);
+        setConversationId(conv.id);
+      } catch (e) {
+        setConvError(String(e instanceof Error ? e.message : e));
+      } finally {
+        setConvResolving(false);
+      }
+    })();
+  }, [idParam, userParam, user]);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [otherUser, setOtherUser] = useState<Profile | null>(null);
@@ -106,9 +127,16 @@ function ChatView() {
   };
 
   if (!conversationId) {
+    if (convResolving) {
+      return (
+        <div className="flex justify-center py-20">
+          <div className="animate-spin w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full" />
+        </div>
+      );
+    }
     return (
       <div className="max-w-lg mx-auto px-4 py-6 text-center">
-        <p className="text-[var(--muted)]">대화를 찾을 수 없습니다</p>
+        <p className="text-[var(--muted)]">{convError ?? '대화를 찾을 수 없습니다'}</p>
         <button onClick={() => router.back()} className="text-[var(--accent)] text-sm mt-4">뒤로가기</button>
       </div>
     );

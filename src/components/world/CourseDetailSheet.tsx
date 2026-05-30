@@ -504,20 +504,32 @@ function GoogleLiveTracker({ realPath, runners, myUserId }: {
     markersRef.current.forEach(m => m.setMap(null));
     markersRef.current = [];
 
-    // build 215 #4: 완주자(ratio>=1.0) 표시 강화 — 큰 골드 원 + 👑 + offset.
-    // 이전: 작은 emerald dot 이 finish (orange) 마커 위에 동일 좌표라 안 보임.
-    runners.slice(0, 10).forEach((r, idx) => {
+    // build 219 #11: 참가자 프로필 이미지를 마커로. avatar 가 있으면 원형 이미지,
+    // 없으면 기존 색상 dot fallback. 완주자는 골드 ring + 👑 / 🏁 라벨.
+    runners.slice(0, 12).forEach((r, idx) => {
       const isMe = r.user_id === myUserId;
       const isCompleted = r.ratio >= 1.0;
       const pos = posOf(r.ratio);
-      // 완주자가 여러 명이면 위로 살짝씩 띄워 겹침 회피 (대각선 ↗)
       const offsetPos = isCompleted
         ? { lat: pos.lat + 0.003 * (idx + 1), lng: pos.lng + 0.003 * (idx + 1) }
         : pos;
+
+      // build 219 #11: avatar 가 있으면 PNG dataURL 로 둥근 마커 생성 (서버 round-trip 불필요).
+      // SymbolPath.CIRCLE 은 단색만 가능 — 이미지 사용에는 anchor 있는 url icon 필요.
+      // anchor 는 marker 의 hot point (보통 이미지 중앙). size 는 isMe=44, completed=44, else=36.
+      const size = isCompleted ? 48 : (isMe ? 44 : 36);
+      const iconUrl = r.avatar_url
+        ? buildAvatarMarkerUrl(r.avatar_url, size, isCompleted ? '#f59e0b' : (isMe ? '#10b981' : '#3b82f6'))
+        : null;
+
       const marker = new window.google.maps.Marker({
         position: offsetPos,
         map: mapRef.current!,
-        icon: {
+        icon: iconUrl ? {
+          url: iconUrl,
+          scaledSize: new window.google.maps.Size(size, size),
+          anchor: new window.google.maps.Point(size / 2, size / 2),
+        } : {
           path: window.google.maps.SymbolPath.CIRCLE,
           scale: isCompleted ? 14 : (isMe ? 10 : 7),
           fillColor: isCompleted ? (isMe ? '#f59e0b' : '#0ea5e9') : (isMe ? '#10b981' : '#3b82f6'),
@@ -525,7 +537,7 @@ function GoogleLiveTracker({ realPath, runners, myUserId }: {
           strokeColor: '#ffffff',
           strokeWeight: isCompleted ? 4 : 2.5,
         },
-        label: isCompleted
+        label: !iconUrl && isCompleted
           ? { text: isMe ? '👑' : '🏁', color: '#ffffff', fontWeight: 'bold', fontSize: '12px' }
           : undefined,
         title: `${r.display_name} · ${isCompleted ? '완주!' : `${(r.ratio * 100).toFixed(0)}%`}`,
@@ -556,6 +568,20 @@ function GoogleLiveTracker({ realPath, runners, myUserId }: {
       <div ref={mapDivRef} style={{ height: 240, display: loaded ? 'block' : 'none' }} />
     </div>
   );
+}
+
+// build 219 #11: 프로필 이미지를 colored ring 안에 둥글게 감싼 SVG data URL.
+// foreignObject 로 외부 이미지(http) 렌더 — iOS WKWebView 지원.
+function buildAvatarMarkerUrl(avatarUrl: string, size: number, ringColor: string): string {
+  const r = size / 2;
+  const inner = r - 3;
+  const safeUrl = avatarUrl.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+<defs><clipPath id="c"><circle cx="${r}" cy="${r}" r="${inner}"/></clipPath></defs>
+<circle cx="${r}" cy="${r}" r="${r - 0.5}" fill="${ringColor}" stroke="#ffffff" stroke-width="2.5"/>
+<image href="${safeUrl}" x="${r - inner}" y="${r - inner}" width="${inner * 2}" height="${inner * 2}" clip-path="url(#c)" preserveAspectRatio="xMidYMid slice"/>
+</svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
 // 고도 프로파일 SVG 차트

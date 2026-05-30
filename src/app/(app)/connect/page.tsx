@@ -185,6 +185,16 @@ export default function ConnectPage() {
                     {message}
                   </p>
                 )}
+                {/* build 219 #9: 권한 항목 변경 안내 — iOS 는 앱에서 직접 권한 토글 못 함 */}
+                {connected && (
+                  <div className="mt-1 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40">
+                    <p className="text-xs font-bold text-amber-800 dark:text-amber-200 mb-1.5">권한 항목을 바꾸고 싶다면</p>
+                    <p className="text-[11px] leading-relaxed text-amber-700 dark:text-amber-300">
+                      iPhone <span className="font-extrabold">설정 앱 → 개인정보 보호 및 보안 → 건강 → Routinist</span> 에서<br/>
+                      가져올 데이터(러닝/심박수/칼로리 등)를 다시 선택할 수 있어요
+                    </p>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="mt-3 flex items-start gap-2 text-sm text-[var(--muted)]">

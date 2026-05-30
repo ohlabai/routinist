@@ -804,8 +804,9 @@ function FriendCalendarCard({ userId }: { userId: string }) {
 }
 
 // ── 친구 이달 랭킹·목표 (build 161 #8-2) ─────────────
-// find_hero_rank RPC 로 현재 이번 달 랭킹 + monthly_goals 테이블에서 목표 거리 조회.
-// 친구 프로필에 "혼자만의 숫자" 가 아니라 "사회적 맥락" 추가.
+// build 219 #8: find_hero_rank 가 "구+성별+연령대" 같은 좁은 코호트로 떨어져
+// 사용자 신고 — "성남시 남성 1위 / 1명" 처럼 통계 의미 없는 단일 표본 노출.
+// 글로벌 랭킹 디폴트와 같이 country + region_si 로 스코프 고정.
 function FriendRankingBlock({ userId, monthlyKm }: { userId: string; monthlyKm: number }) {
   const { locale } = useI18n();
   const [rank, setRank] = useState<{ scope_label: string; rank_position: number; total_in_scope: number } | null>(null);
@@ -818,7 +819,16 @@ function FriendRankingBlock({ userId, monthlyKm }: { userId: string; monthlyKm: 
         const supabase = getSupabase();
         const now = new Date();
         const [rankRes, goalRes] = await Promise.all([
-          supabase.rpc('find_hero_rank', { target_user_id: userId, time_axis: 'month' }),
+          supabase.rpc('find_my_combined_ranking', {
+            target_user_id: userId,
+            time_axis: 'month',
+            use_country: true,
+            use_region_si: true,
+            use_region_gu: false,
+            use_gender: false,
+            use_decade: false,
+            use_starter: false,
+          }),
           supabase.rpc('get_user_monthly_goal', {
             target_user_id: userId,
             p_year: now.getFullYear(),
@@ -827,7 +837,13 @@ function FriendRankingBlock({ userId, monthlyKm }: { userId: string; monthlyKm: 
         ]);
         if (rankRes.data && rankRes.data.length > 0) {
           const r = rankRes.data[0];
-          setRank({ scope_label: r.scope_label, rank_position: r.rank_position, total_in_scope: r.total_in_scope });
+          // find_my_combined_ranking 반환: scope_label / rank_position / total_in_scope / ...
+          // scope_label 이 "전체" 면 country + region_si 가 null 인 사용자 → fallback 으로 표시 그대로.
+          setRank({
+            scope_label: r.scope_label || '전체',
+            rank_position: r.rank_position ?? 0,
+            total_in_scope: r.total_in_scope ?? 0,
+          });
         }
         if (goalRes.data) setGoalKm(Number(goalRes.data));
       } catch { /* ignore */ }

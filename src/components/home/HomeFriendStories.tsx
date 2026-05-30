@@ -21,6 +21,9 @@ interface Story {
   activity_date: string;
   distance_km: number;
   created_at: string;
+  // build 219 #3: 좋아요 상태 영속화. lightbox 가 onLikeChange 로 갱신.
+  liked_by_me?: boolean;
+  like_count?: number;
 }
 
 export default function HomeFriendStories() {
@@ -168,10 +171,17 @@ export default function HomeFriendStories() {
             display_name: s.display_name,
             distance_km: s.distance_km,
             user_id: s.user_id,
+            liked_by_me: s.liked_by_me,
+            like_count: s.like_count,
           }))}
           initialIndex={lightboxIndex}
           showProfileLink
           onClose={() => setLightboxIndex(null)}
+          onLikeChange={(photoId, liked, count) => {
+            setStories(prev => prev.map(p => p.photo_id === photoId
+              ? { ...p, liked_by_me: liked, like_count: count }
+              : p));
+          }}
         />
       )}
     </div>

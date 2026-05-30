@@ -29,21 +29,80 @@ interface Props {
   onClose: () => void;
   // 프로필 보기 버튼 노출 (친구 활동 entry 에서만 true).
   showProfileLink?: boolean;
+  // build 219 #3: 좋아요 변경을 부모에 알려 photos prop 의 like_count/liked_by_me 를 영속화.
+  // 부모가 안 받으면 닫았다 다시 열 때 상태가 초기값으로 돌아가 사용자에게 "DB 저장 안 됨" 으로 보임.
+  onLikeChange?: (photoId: string, liked: boolean, count: number) => void;
 }
 
-export default function PhotoLightbox({ photos, initialIndex = 0, onClose, showProfileLink = false }: Props) {
+export default function PhotoLightbox({ photos, initialIndex = 0, onClose, showProfileLink = false, onLikeChange }: Props) {
   const [index, setIndex] = useState(Math.max(0, Math.min(initialIndex, photos.length - 1)));
   const { tt } = useI18n();
   const { user } = useAuth();
   const startX = useRef<number | null>(null);
   const deltaX = useRef(0);
   // build 215 #2: 좋아요 optimistic 상태 — photo_id 별로 추적.
+  // build 219 #3: photos prop 변경 시 초기값을 다시 흡수 (parent 가 like 업데이트 후 photos 를 갱신해 재오픈하면 반영).
   const [likeState, setLikeState] = useState<Map<string, { liked: boolean; count: number }>>(() => {
     const m = new Map<string, { liked: boolean; count: number }>();
     photos.forEach(p => m.set(p.photo_id, { liked: !!p.liked_by_me, count: p.like_count ?? 0 }));
     return m;
   });
+  useEffect(() => {
+    setLikeState(prev => {
+      const m = new Map(prev);
+      photos.forEach(p => {
+        const cur = m.get(p.photo_id);
+        // 이미 optimistic 상태가 있으면 유지, 없을 때만 prop 값 흡수.
+        if (!cur) m.set(p.photo_id, { liked: !!p.liked_by_me, count: p.like_count ?? 0 });
+      });
+      return m;
+    });
+  }, [photos]);
   const [likeBusy, setLikeBusy] = useState(false);
+  // build 219 #3: photos prop 에 like_count 가 누락된 경우 (홈 친구 스토리 등) 마운트 시 fetch.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const needFetch = photos.filter(p => p.like_count == null || p.liked_by_me == null);
+      if (needFetch.length === 0) return;
+      try {
+        const { getSupabase } = await import('@/lib/supabase');
+        const supabase = getSupabase();
+        const ids = needFetch.map(p => p.photo_id);
+        // 누적 카운트
+        const { data: counts } = await supabase
+          .from('photo_likes')
+          .select('photo_id')
+          .in('photo_id', ids);
+        const countMap = new Map<string, number>();
+        (counts ?? []).forEach((r: { photo_id: string }) => {
+          countMap.set(r.photo_id, (countMap.get(r.photo_id) ?? 0) + 1);
+        });
+        // 내가 좋아요한 것
+        const likedIds = new Set<string>();
+        if (user) {
+          const { data: mine } = await supabase
+            .from('photo_likes')
+            .select('photo_id')
+            .eq('user_id', user.id)
+            .in('photo_id', ids);
+          (mine ?? []).forEach((r: { photo_id: string }) => likedIds.add(r.photo_id));
+        }
+        if (cancelled) return;
+        setLikeState(prev => {
+          const m = new Map(prev);
+          ids.forEach(id => {
+            m.set(id, { liked: likedIds.has(id), count: countMap.get(id) ?? 0 });
+          });
+          return m;
+        });
+      } catch {
+        // 조용히 무시
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -89,6 +148,7 @@ export default function PhotoLightbox({ photos, initialIndex = 0, onClose, showP
     });
     try {
       await togglePhotoLike(current.photo_id, cur.liked);
+      onLikeChange?.(current.photo_id, nextLiked, nextCount);
     } catch {
       // rollback
       setLikeState(prev => {
@@ -121,22 +181,19 @@ export default function PhotoLightbox({ photos, initialIndex = 0, onClose, showP
         className="max-w-full max-h-full object-contain rounded-lg select-none pointer-events-none"
       />
 
-      {/* 닫기 */}
-      <button
-        onClick={(e) => { e.stopPropagation(); onClose(); }}
-        className="absolute right-3 w-12 h-12 rounded-full bg-white/20 active:bg-white/30 backdrop-blur flex items-center justify-center active:scale-95 transition z-10"
-        style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
-        aria-label={tt('닫기')}
-      >
-        <X size={26} strokeWidth={2.5} className="text-white" />
-      </button>
-
-      {/* build 215 #2: 좋아요 + 쪽지 액션 — 좌상단 stack */}
+      {/* build 219 #1: 우상단 stack — X (닫기) + 하트 + 쪽지. 오른손 엄지 동선 최적화 */}
       <div
-        className="absolute left-3 flex flex-col gap-2 z-10"
+        className="absolute right-3 flex flex-col gap-2 z-10"
         style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
         onClick={(e) => e.stopPropagation()}
       >
+        <button
+          onClick={(e) => { e.stopPropagation(); onClose(); }}
+          className="w-12 h-12 rounded-full bg-white/20 active:bg-white/30 backdrop-blur flex items-center justify-center active:scale-95 transition"
+          aria-label={tt('닫기')}
+        >
+          <X size={26} strokeWidth={2.5} className="text-white" />
+        </button>
         <button
           onClick={handleLike}
           disabled={likeBusy || !user}

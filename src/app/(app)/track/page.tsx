@@ -7,12 +7,16 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Pause, Play, Check, MapPin, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Pause, Play, Check, MapPin, AlertCircle, Volume2, VolumeX } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { useI18n } from '@/lib/i18n';
 import { loadGoogleMaps, API_KEY as MAPS_KEY } from '@/lib/google-maps';
 import { logClientInfo, logClientWarn } from '@/lib/error-logger';
-import { speakMilestone, getVoiceCueIntervalMeters } from '@/lib/voice-cue';
+import {
+  speakMilestone, getVoiceCueIntervalMeters,
+  isVoiceCueEnabled, setVoiceCueEnabled,
+  setVoiceCueIntervalMeters, speakSample,
+} from '@/lib/voice-cue';
 import {
   type TrackingState,
   createInitialState, loadState, saveState, clearState,
@@ -39,6 +43,19 @@ export default function TrackPage() {
   const [finished, setFinished] = useState<TrackingState | null>(null);
   // build 210 #1: 시작 카운트다운 (3 → 2 → 1 → GO!) — Apple Fitness 패턴 + 차별화 효과
   const [countdown, setCountdown] = useState<number | null>(null);
+  // build 219 #10: 시작 화면에 음성 cue 토글 + 간격 선택 (1km / 500m). build 214 백엔드 존재했으나 UI 미노출.
+  const [voiceOn, setVoiceOn] = useState<boolean>(() => isVoiceCueEnabled());
+  const [voiceInterval, setVoiceInterval] = useState<500 | 1000>(() => (getVoiceCueIntervalMeters() === 500 ? 500 : 1000));
+  const toggleVoice = () => {
+    const next = !voiceOn;
+    setVoiceOn(next);
+    setVoiceCueEnabled(next);
+    if (next) speakSample(locale);
+  };
+  const changeInterval = (m: 500 | 1000) => {
+    setVoiceInterval(m);
+    setVoiceCueIntervalMeters(m);
+  };
 
   // build 214 #1: 스톱워치 포맷 MM:SS.CC (분:초.1/100초). 1시간 넘으면 HH:MM:SS.CC.
   // elapsedSeconds 는 float — tick 100ms 마다 누적되므로 centisecond 정밀도 보존.
@@ -416,11 +433,40 @@ export default function TrackPage() {
             <p className="text-sm text-[var(--muted)] mb-1">
               {locale === 'en' ? 'Ready? Tap to auto-record your route.' : '준비됐어요? 시작하면 자동으로 경로를 기록해요'}
             </p>
-            <p className="text-[11px] text-[var(--muted)]/80 mb-5 break-keep">
+            <p className="text-[11px] text-[var(--muted)]/80 mb-3 break-keep">
               {locale === 'en'
                 ? 'GPS keeps measuring while the screen is locked. Tracking stops as soon as you finish.'
                 : '잠금 화면 상태에서도 GPS 가 계속 측정돼요. 트래킹을 종료하면 즉시 중단됩니다.'}
             </p>
+            {/* build 219 #10: 음성 안내 토글 + 간격 선택 (1km / 500m) */}
+            <div className="mb-4 flex items-center gap-2">
+              <button
+                onClick={toggleVoice}
+                aria-label={voiceOn ? (locale === 'en' ? 'Voice on' : '음성 켜짐') : (locale === 'en' ? 'Voice off' : '음성 꺼짐')}
+                className={`inline-flex items-center gap-1.5 px-3 h-9 rounded-full text-xs font-extrabold transition active:scale-95 ${
+                  voiceOn
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--muted)]'
+                }`}
+              >
+                {voiceOn ? <Volume2 size={14} /> : <VolumeX size={14} />}
+                {voiceOn
+                  ? (locale === 'en' ? 'Voice cue' : '음성 안내')
+                  : (locale === 'en' ? 'Voice off' : '음성 꺼짐')}
+              </button>
+              {voiceOn && (
+                <div className="inline-flex items-center rounded-full bg-[var(--card)] border border-[var(--card-border)] overflow-hidden">
+                  <button
+                    onClick={() => changeInterval(1000)}
+                    className={`h-9 px-3 text-xs font-extrabold transition ${voiceInterval === 1000 ? 'bg-emerald-500 text-white' : 'text-[var(--muted)]'}`}
+                  >1km</button>
+                  <button
+                    onClick={() => changeInterval(500)}
+                    className={`h-9 px-3 text-xs font-extrabold transition ${voiceInterval === 500 ? 'bg-emerald-500 text-white' : 'text-[var(--muted)]'}`}
+                  >500m</button>
+                </div>
+              )}
+            </div>
             <button onClick={startTracking}
               className="w-full py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-lg active:scale-[0.98] shadow-md shadow-emerald-500/30 inline-flex items-center justify-center gap-2">
               <MapPin size={20} />
