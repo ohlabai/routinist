@@ -639,14 +639,42 @@ export async function syncRouteData(
 
       if (match) {
         matchedCount++;
+        // build 217: route.distance 가 매칭 활동의 distance_km 보다 의미있게 크면 함께 보정.
+        // Apple Watch 부분 sync 시 workout.totalDistance 가 GPS route 실측보다 작은 경우 (윤현수 5/29 사례).
+        // 임계값: route 가 +0.3km 이상 또는 15% 이상 차이날 때만 (페이스 jitter 회피).
+        const routeDistKm = (route.distance ?? 0) / 1000;
+        const matchDistKm = Number(match.distance_km) || 0;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const updates: Record<string, any> = {
+          route_data: {
+            type: 'LineString',
+            coordinates: route.coordinates,
+          },
+        };
+        const shouldFixDistance =
+          routeDistKm > 0.5 &&
+          (routeDistKm - matchDistKm > 0.3 || routeDistKm > matchDistKm * 1.15);
+        if (shouldFixDistance) {
+          updates.distance_km = Math.round(routeDistKm * 100) / 100;
+          // pace 재계산 — duration 이 있으면.
+          const { data: rich } = await supabase
+            .from('activities')
+            .select('duration_seconds')
+            .eq('id', match.id)
+            .single();
+          const dur = rich?.duration_seconds;
+          if (dur && dur > 0) {
+            updates.pace_avg_sec_per_km = Math.round(dur / routeDistKm);
+          }
+          logClientInfo('health-sync-route', 'distance 보정', {
+            activity_id: match.id,
+            from_km: matchDistKm,
+            to_km: routeDistKm,
+          });
+        }
         const { error } = await supabase
           .from('activities')
-          .update({
-            route_data: {
-              type: 'LineString',
-              coordinates: route.coordinates,
-            },
-          })
+          .update(updates)
           .eq('id', match.id);
 
         if (!error) updatedCount++;
