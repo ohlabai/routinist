@@ -121,6 +121,8 @@ function drawCard(
     horizontalTotalKm?: number;
     bottomRankLine?: string | null;
   },
+  /** build 218 #3: 영상 배경 (시네마틱). 지정 시 bgImage 대체 — 카드 전체가 video frame 위에 overlay. */
+  videoBgEl?: HTMLVideoElement | null,
 ) {
   // build 205 #11: 막대 그래프 애니메이션 진행도. routeProgress 와 동일 timeline (0~1).
   // 일간 카드: 오늘 막대 / 가로 누적바가 0 → 목표 까지 차오른 후 bounce → 원래 색.
@@ -173,9 +175,24 @@ function drawCard(
   canvas.width = W;
   canvas.height = H;
 
-  // 배경
-  if (bgImage) {
-    // 사진 배경 + 어두운 오버레이
+  // build 218 #3: 배경 — videoBgEl 있으면 영상 프레임 (사진 대체). bgImage 있으면 사진. 둘 다 없으면 테마.
+  const hasMedia = !!videoBgEl || !!bgImage;
+  if (videoBgEl && videoBgEl.readyState >= 2) {
+    const vw = videoBgEl.videoWidth || W;
+    const vh = videoBgEl.videoHeight || H;
+    const vRatio = vw / vh;
+    const cRatio = W / H;
+    let drawW = W, drawH = H, drawX = 0, drawY = 0;
+    if (vRatio > cRatio) { drawW = H * vRatio; drawX = -(drawW - W) / 2; }
+    else { drawH = W / vRatio; drawY = -(drawH - H) / 2; }
+    try { ctx.drawImage(videoBgEl, drawX, drawY, drawW, drawH); } catch { /* video not ready */ }
+    const overlay = ctx.createLinearGradient(0, 0, 0, H);
+    overlay.addColorStop(0, 'rgba(0,0,0,0.3)');
+    overlay.addColorStop(0.4, 'rgba(0,0,0,0.5)');
+    overlay.addColorStop(1, 'rgba(0,0,0,0.7)');
+    ctx.fillStyle = overlay;
+    ctx.fillRect(0, 0, W, H);
+  } else if (bgImage) {
     const imgRatio = bgImage.width / bgImage.height;
     const canvasRatio = W / H;
     let drawW = W, drawH = H, drawX = 0, drawY = 0;
@@ -185,7 +202,6 @@ function drawCard(
       drawH = W / imgRatio; drawY = -(drawH - H) / 2;
     }
     ctx.drawImage(bgImage, drawX, drawY, drawW, drawH);
-    // 오버레이
     const overlay = ctx.createLinearGradient(0, 0, 0, H);
     overlay.addColorStop(0, 'rgba(0,0,0,0.3)');
     overlay.addColorStop(0.4, 'rgba(0,0,0,0.5)');
@@ -307,7 +323,7 @@ function drawCard(
           const y = offsetY + mapH - (lat - minLat) * scale;
           if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         });
-        ctx.strokeStyle = bgImage ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.35)';
+        ctx.strokeStyle = hasMedia ?'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.35)';
         ctx.lineWidth = 14;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
@@ -367,7 +383,7 @@ function drawCard(
           const y = offsetY + mapH - (lat - minLat) * scale;
           if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         });
-        ctx.strokeStyle = bgImage ? '#ffffff' : theme.routeColor;
+        ctx.strokeStyle = hasMedia ?'#ffffff' : theme.routeColor;
         ctx.lineWidth = 7;
         ctx.stroke();
         const last = sliced[sliced.length - 1];
@@ -383,21 +399,41 @@ function drawCard(
         let otherKm = 0;
         for (let i = 1; i < clusters.length; i++) otherKm += clusters[i].totalM / 1000;
         ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, sans-serif';
-        ctx.fillStyle = bgImage ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.75)';
+        ctx.fillStyle = hasMedia ?'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.75)';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'alphabetic';
         const text = `🌍 +${otherCount}개 지역 ${otherKm.toFixed(1)}km 더`;
         ctx.fillText(text, W / 2, mapY + mapH + 28);
       }
 
-      // 5) 영상 모드 + 멀티 cluster 일 때 현재 cluster 번호 표시 (1/3 등)
-      if (isAnimating && clusters.length > 1) {
-        ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, sans-serif';
-        ctx.fillStyle = bgImage ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.6)';
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'alphabetic';
-        ctx.fillText(`${activeClusterIdx + 1} / ${clusters.length}`, W - padding, mapY + 32);
-        ctx.textAlign = 'center';
+      // 5) build 218 #2: 멀티 cluster 일 때 현재 cluster region 이름 + 번호 표시.
+      // 정적: 우상단에 region 라벨 ("서울 강남"). 영상: "1/3 서울 강남" 처럼.
+      if (clusters.length > 1) {
+        const clusterFirst = activeCluster.routes[0]?.[0];
+        const clusterRegion = clusterFirst
+          ? (detectRegionLabel([clusterFirst[0], clusterFirst[1]], null) ?? '')
+          : '';
+        const label = isAnimating
+          ? `${activeClusterIdx + 1} / ${clusters.length}${clusterRegion ? ` · ${clusterRegion}` : ''}`
+          : clusterRegion;
+        if (label) {
+          ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, sans-serif';
+          // 작은 알약 배경
+          const padX = 14, pillH = 38;
+          const tw = ctx.measureText(label).width;
+          const lx = W - padding - tw - padX * 2;
+          const ly = mapY + 12;
+          ctx.fillStyle = 'rgba(0,0,0,0.55)';
+          ctx.beginPath();
+          ctx.roundRect(lx, ly, tw + padX * 2, pillH, 19);
+          ctx.fill();
+          ctx.fillStyle = '#ffffff';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(label, lx + padX, ly + pillH / 2 + 1);
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'alphabetic';
+        }
       }
 
       // 6) 펄스 그린 dot — 영상 모드, 마지막 그려진 점.
@@ -462,7 +498,7 @@ function drawCard(
         : null);
     if (rankPart) {
       ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillStyle = bgImage ? '#ffffff' : (theme.accent || '#10b981');
+      ctx.fillStyle = hasMedia ?'#ffffff' : (theme.accent || '#10b981');
       ctx.textAlign = 'center';
       ctx.textBaseline = 'alphabetic';
       ctx.fillText(rankPart, W / 2, H - 220);
@@ -540,7 +576,7 @@ function drawCard(
       const y = offsetY + mapH - (lat - minLat) * scale;
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     });
-    ctx.strokeStyle = bgImage ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.35)';
+    ctx.strokeStyle = hasMedia ?'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.35)';
     ctx.lineWidth = 16;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -553,7 +589,7 @@ function drawCard(
       const y = offsetY + mapH - (lat - minLat) * scale;
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     });
-    ctx.strokeStyle = bgImage ? '#ffffff' : theme.routeColor;
+    ctx.strokeStyle = hasMedia ?'#ffffff' : theme.routeColor;
     ctx.lineWidth = 8;
     ctx.stroke();
 
@@ -633,16 +669,16 @@ function drawCard(
     const rankPart = regionLabel.split(' · ').slice(1).join(' · ');
     if (rankPart) {
       ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillStyle = bgImage ? '#ffffff' : (theme.accent || '#10b981');
+      ctx.fillStyle = hasMedia ?'#ffffff' : (theme.accent || '#10b981');
       ctx.textAlign = 'center';
       ctx.textBaseline = 'alphabetic';
       ctx.fillText(rankPart, W / 2, H - 220);
     }
   }
 
-  const mainColor = bgImage ? '#ffffff' : theme.textMain;
-  const subColor = bgImage ? 'rgba(255,255,255,0.7)' : theme.textSub;
-  const accentColor = bgImage ? '#ffffff' : theme.accent;
+  const mainColor = hasMedia ?'#ffffff' : theme.textMain;
+  const subColor = hasMedia ?'rgba(255,255,255,0.7)' : theme.textSub;
+  const accentColor = hasMedia ?'#ffffff' : theme.accent;
 
   // 날짜는 하단 월간 막대그래프의 today 라벨로 대체 (사용자 피드백 #13). 상단 공간 확보.
   ctx.textAlign = 'center';
@@ -708,7 +744,7 @@ function drawCard(
 
   // 구분선
   const lineY = distY + 110;
-  ctx.strokeStyle = bgImage ? 'rgba(255,255,255,0.2)' : theme.accent + '40';
+  ctx.strokeStyle = hasMedia ?'rgba(255,255,255,0.2)' : theme.accent + '40';
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(W * 0.2, lineY);
@@ -894,7 +930,7 @@ function drawCard(
       const x = chartPadX + (lastRunDay - 1) * (barWidth + 4) + barWidth / 2;
       const labelY = chartTop + chartH + 32;
       ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillStyle = bgImage ? 'rgba(255,255,255,0.95)' : mainColor;
+      ctx.fillStyle = hasMedia ?'rgba(255,255,255,0.95)' : mainColor;
       ctx.textAlign = 'center';
       ctx.fillText(`${monthRunCount}회`, x, labelY);
     }
@@ -917,7 +953,7 @@ function drawCard(
     const radius = goalBarH / 2;
 
     // 트랙 (배경)
-    ctx.fillStyle = bgImage ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.20)';
+    ctx.fillStyle = hasMedia ?'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.20)';
     ctx.beginPath();
     ctx.roundRect(goalBarPadX, goalBarTop, goalBarW, goalBarH, radius);
     ctx.fill();
@@ -954,7 +990,7 @@ function drawCard(
 
     // 위: 오늘 마커 ("5/21") — 진행 끝점 위에 작게
     ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillStyle = bgImage ? '#ffffff' : accentColor;
+    ctx.fillStyle = hasMedia ?'#ffffff' : accentColor;
     ctx.textAlign = 'center';
     // 끝점이 막대 시작·끝 너무 가까우면 안쪽으로 클램프 (라벨 잘림 방지)
     const minX = goalBarPadX + 30;
@@ -964,7 +1000,7 @@ function drawCard(
 
     // 아래: 누적/목표 — 우측 끝, 굵게 (메인 정보)
     ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillStyle = bgImage ? 'rgba(255,255,255,0.95)' : mainColor;
+    ctx.fillStyle = hasMedia ?'rgba(255,255,255,0.95)' : mainColor;
     ctx.textAlign = 'right';
     ctx.fillText(`${monthSum.toFixed(1)} / ${monthlyGoalKm.toFixed(0)}km`, goalBarPadX + goalBarW, bottomLabelY);
   }
@@ -980,7 +1016,7 @@ function drawCard(
   const userText = `@${userIdLabel ?? displayName}`;
   const sep = ' | ';
   const brand = 'Routinist';
-  const userColor = bgImage ? '#34d399' : '#10b981';
+  const userColor = hasMedia ?'#34d399' : '#10b981';
 
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
@@ -1485,49 +1521,20 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
         ? (periodOverrides.highlightDays.length > 10 ? 16000 : 10000)
         : 4000;
 
-      // build 216 #4: 풀 시네마틱 — 첨부 영상 있으면 prelude 로 인서트.
+      // build 218 #3: 풀 시네마틱 — 첨부 영상이 카드의 "배경" 으로 동작.
+      // 이전(216): 영상이 별개 prelude 로 잠시 나옴. 사용자 신고: 카드 내용이 안 보임.
+      // 변경: 영상 = bg 대체. 카드 내용 (quote/map/km/stats/bars/footer) 위에 모두 overlay.
+      // 영상이 카드 애니메이션 시간보다 짧으면 loop 재생.
       let videoEl: HTMLVideoElement | null = null;
-      let prelude: import('@/lib/canvas-to-video').PreludeOptions | undefined;
-      if (attachedVideoUrl && attachedVideoDurMs > 0) {
+      if (attachedVideoUrl) {
         videoEl = document.createElement('video');
         videoEl.src = attachedVideoUrl;
         videoEl.muted = true;
         videoEl.playsInline = true;
+        videoEl.loop = true;
         videoEl.preload = 'auto';
-        try { await videoEl.play(); videoEl.pause(); videoEl.currentTime = 0; } catch {}
-        const localCanvas = canvasRef.current!;
-        prelude = {
-          durationMs: attachedVideoDurMs,
-          onStart: async () => {
-            try { await videoEl!.play(); } catch {}
-          },
-          onEnd: () => {
-            try { videoEl!.pause(); } catch {}
-          },
-          draw: () => {
-            const ctx = localCanvas.getContext('2d');
-            if (!ctx) return;
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, localCanvas.width, localCanvas.height);
-            const vw = videoEl!.videoWidth, vh = videoEl!.videoHeight;
-            if (vw && vh) {
-              const cw = localCanvas.width, ch = localCanvas.height;
-              const scale = Math.max(cw / vw, ch / vh);    // cover
-              const dw = vw * scale, dh = vh * scale;
-              ctx.drawImage(videoEl!, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
-              // 하단 워터마크: @hans | Routinist
-              ctx.fillStyle = 'rgba(0,0,0,0.45)';
-              ctx.fillRect(0, ch - 90, cw, 90);
-              ctx.fillStyle = '#ffffff';
-              ctx.font = 'bold 36px -apple-system, system-ui, sans-serif';
-              ctx.textAlign = 'center';
-              ctx.textBaseline = 'middle';
-              ctx.fillText(`${userIdLabel} | Routinist`, cw / 2, ch - 45);
-            }
-          },
-        };
+        try { await videoEl.play(); } catch {}
       }
-
       try {
         const result = await captureCanvasAnimation(
           canvasRef.current,
@@ -1551,9 +1558,10 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
               progress,
               activity.distance_km * distR,
               periodOverrides,
+              videoEl,    // build 218 #3: 영상을 카드 bg 로 사용. 카드 콘텐츠 위에 overlay.
             );
           },
-          { fps: 30, bitsPerSecond: 5_000_000, durationMs: periodDurMs, holdMs: 1500, prelude },
+          { fps: 30, bitsPerSecond: 5_000_000, durationMs: periodDurMs, holdMs: 1500 },
         );
         await shareVideoBlob(result.blob, result.extension);
       } catch (err) {
@@ -1562,6 +1570,7 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
         if (blob) await sharePngBlob(blob);
       } finally {
         // 정적 카드로 복귀
+        try { videoEl?.pause(); } catch {}
         generate();
         setRenderingVideo(false);
       }
