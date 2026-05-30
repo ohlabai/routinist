@@ -20,10 +20,21 @@ export interface VideoResult {
  * - holdMs: 라인이 끝까지 그려진 후 정지 프레임 길이 (기본 1000ms)
  * - fps: 캡처 fps (기본 30)
  */
+export interface PreludeOptions {
+  /** prelude 길이 (max 5000ms 권장). */
+  durationMs: number;
+  /** prelude 각 프레임에 캔버스 그릴 함수. progress 0~1. */
+  draw: (progress: number) => void;
+  /** prelude 시작 직전 호출 — video.play() 등 시동. */
+  onStart?: () => Promise<void>;
+  /** prelude 종료 후 호출 — video.pause() 등 정리. */
+  onEnd?: () => void;
+}
+
 export async function captureCanvasAnimation(
   canvas: HTMLCanvasElement,
   drawFrame: (progress: number) => void,
-  opts: { durationMs?: number; holdMs?: number; fps?: number; bitsPerSecond?: number } = {},
+  opts: { durationMs?: number; holdMs?: number; fps?: number; bitsPerSecond?: number; prelude?: PreludeOptions } = {},
 ): Promise<VideoResult> {
   // build 137: 사용자 피드백 — 더 느린 라인 그리기 + 더 긴 정지 (감상 시간 확보).
   const durationMs = opts.durationMs ?? 4000;
@@ -60,12 +71,29 @@ export async function captureCanvasAnimation(
   });
 
   // start 후 첫 ondataavailable 이 나오기 전에 그리기가 시작돼야 첫 프레임이 비어 보이지 않음.
-  // 초기 0 프레임 한 번 그려서 첫 프레임 확정 후 record 시작.
-  drawFrame(0);
+  // build 216 #4: prelude (사용자 영상 인트로) 있으면 그 첫 프레임을 먼저, 없으면 카드 progress=0.
+  if (opts.prelude) opts.prelude.draw(0); else drawFrame(0);
   recorder.start(200); // 200ms 마다 chunk
 
   try {
-    // 애니메이션 — requestAnimationFrame
+    // build 216 #4: Phase 1 = prelude (선택). user 영상 등. 0..1 progress.
+    if (opts.prelude) {
+      await opts.prelude.onStart?.();
+      const preStart = performance.now();
+      await new Promise<void>((resolve) => {
+        const tick = () => {
+          const elapsed = performance.now() - preStart;
+          const p = Math.min(1, elapsed / opts.prelude!.durationMs);
+          opts.prelude!.draw(p);
+          if (p < 1) requestAnimationFrame(tick);
+          else resolve();
+        };
+        requestAnimationFrame(tick);
+      });
+      opts.prelude.onEnd?.();
+    }
+
+    // Phase 2 = 카드 애니메이션 — requestAnimationFrame
     const startTime = performance.now();
     await new Promise<void>((resolve) => {
       const tick = () => {

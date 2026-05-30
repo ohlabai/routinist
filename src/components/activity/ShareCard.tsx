@@ -1233,6 +1233,43 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
 
   const clearPhoto = () => setBgImage(null);
 
+  // build 216 #4: 풀 시네마틱 — 사용자 영상 클립 첨부 (인트로용).
+  // 영상 추가 시 export MP4 의 앞 3~5s 가 사용자 영상으로 시작 → 카드 애니메이션으로 전환.
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const [attachedVideoUrl, setAttachedVideoUrl] = useState<string | null>(null);
+  const [attachedVideoDurMs, setAttachedVideoDurMs] = useState<number>(0);
+  const PRELUDE_MAX_MS = 5000;
+  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) {
+      setRegisterToast('영상이 50MB 보다 커요');
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = setTimeout(() => setRegisterToast(null), 3000);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const probe = document.createElement('video');
+    probe.preload = 'metadata';
+    probe.src = url;
+    probe.onloadedmetadata = () => {
+      const durMs = Math.min(PRELUDE_MAX_MS, Math.round(probe.duration * 1000));
+      setAttachedVideoUrl(url);
+      setAttachedVideoDurMs(durMs);
+    };
+    probe.onerror = () => {
+      URL.revokeObjectURL(url);
+      setRegisterToast('영상 로드 실패');
+    };
+  };
+  const clearAttachedVideo = () => {
+    if (attachedVideoUrl) URL.revokeObjectURL(attachedVideoUrl);
+    setAttachedVideoUrl(null);
+    setAttachedVideoDurMs(0);
+  };
+  // cleanup
+  useEffect(() => () => { if (attachedVideoUrl) URL.revokeObjectURL(attachedVideoUrl); }, [attachedVideoUrl]);
+
   // build 150: 공유 실패 시 모달 자동 닫기 차단 — 사용자가 에러 toast 를 읽을 수 있게.
   const shareErrorRef = useRef(false);
   // build 143: 공유 실패 시 toast 로 에러 노출 (이전 silent fallback → 사용자 모름 회귀).
@@ -1444,10 +1481,53 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
     if (shareAsVideo && hasRoute && typeof MediaRecorder !== 'undefined') {
       setRenderingVideo(true);
       // build 215 #5-1: 영상 길이 — 일간 기본 4s. 주간 10s. 월간 16s.
-      // 사용자 신고: 월간 4s 너무 빠름. highlightDays size 로 주/월 판정.
       const periodDurMs = periodOverrides?.highlightDays
         ? (periodOverrides.highlightDays.length > 10 ? 16000 : 10000)
         : 4000;
+
+      // build 216 #4: 풀 시네마틱 — 첨부 영상 있으면 prelude 로 인서트.
+      let videoEl: HTMLVideoElement | null = null;
+      let prelude: import('@/lib/canvas-to-video').PreludeOptions | undefined;
+      if (attachedVideoUrl && attachedVideoDurMs > 0) {
+        videoEl = document.createElement('video');
+        videoEl.src = attachedVideoUrl;
+        videoEl.muted = true;
+        videoEl.playsInline = true;
+        videoEl.preload = 'auto';
+        try { await videoEl.play(); videoEl.pause(); videoEl.currentTime = 0; } catch {}
+        const localCanvas = canvasRef.current!;
+        prelude = {
+          durationMs: attachedVideoDurMs,
+          onStart: async () => {
+            try { await videoEl!.play(); } catch {}
+          },
+          onEnd: () => {
+            try { videoEl!.pause(); } catch {}
+          },
+          draw: () => {
+            const ctx = localCanvas.getContext('2d');
+            if (!ctx) return;
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, localCanvas.width, localCanvas.height);
+            const vw = videoEl!.videoWidth, vh = videoEl!.videoHeight;
+            if (vw && vh) {
+              const cw = localCanvas.width, ch = localCanvas.height;
+              const scale = Math.max(cw / vw, ch / vh);    // cover
+              const dw = vw * scale, dh = vh * scale;
+              ctx.drawImage(videoEl!, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
+              // 하단 워터마크: @hans | Routinist
+              ctx.fillStyle = 'rgba(0,0,0,0.45)';
+              ctx.fillRect(0, ch - 90, cw, 90);
+              ctx.fillStyle = '#ffffff';
+              ctx.font = 'bold 36px -apple-system, system-ui, sans-serif';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(`${userIdLabel} | Routinist`, cw / 2, ch - 45);
+            }
+          },
+        };
+      }
+
       try {
         const result = await captureCanvasAnimation(
           canvasRef.current,
@@ -1473,7 +1553,7 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
               periodOverrides,
             );
           },
-          { fps: 30, bitsPerSecond: 5_000_000, durationMs: periodDurMs, holdMs: 1500 },
+          { fps: 30, bitsPerSecond: 5_000_000, durationMs: periodDurMs, holdMs: 1500, prelude },
         );
         await shareVideoBlob(result.blob, result.extension);
       } catch (err) {
@@ -1585,24 +1665,51 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
             2) 러닝사진 등록 체크박스 (디폴트 ON) — 캘린더는 항상 자동
             3) 공유 — 단일 CTA. "사진으로 저장만" 제거 */}
         <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+        <input ref={videoInputRef} type="file" accept="video/*" onChange={handleVideoUpload} className="hidden" />
         <div className="flex flex-col gap-3 px-4 pb-4 pt-2 flex-shrink-0">
-          {/* 배경 사진 — 메인 emerald CTA + 사진 있을 때 inline X */}
-          <div className="relative">
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-bold text-base shadow-md active:scale-[0.99] transition"
-            >
-              <ImagePlus size={18} /> {bgImage ? '사진 변경' : '배경 사진 추가'}
-            </button>
-            {bgImage && (
+          {/* 배경 사진 + 영상 추가 — 가로 2-col. build 216 #4: 영상 첨부 = 인트로 (max 5s). */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="relative">
               <button
-                onClick={(e) => { e.stopPropagation(); clearPhoto(); }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 active:bg-white/40 flex items-center justify-center transition"
-                aria-label="배경 사진 제거"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-bold text-sm shadow-md active:scale-[0.99] transition"
               >
-                <X size={16} className="text-white" strokeWidth={2.5} />
+                <ImagePlus size={16} /> {bgImage ? '사진 변경' : '배경 사진'}
               </button>
-            )}
+              {bgImage && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); clearPhoto(); }}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/25 hover:bg-white/35 flex items-center justify-center"
+                  aria-label="배경 사진 제거"
+                >
+                  <X size={14} className="text-white" strokeWidth={2.5} />
+                </button>
+              )}
+            </div>
+            <div className="relative">
+              <button
+                onClick={() => videoInputRef.current?.click()}
+                className={`w-full flex items-center justify-center gap-1.5 py-3 rounded-xl font-bold text-sm shadow-md active:scale-[0.99] transition ${
+                  attachedVideoUrl
+                    ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white'
+                    : 'bg-[var(--card)] text-[var(--foreground)] border border-[var(--card-border)]'
+                }`}
+              >
+                <Video size={16} />
+                {attachedVideoUrl
+                  ? `영상 ${(attachedVideoDurMs / 1000).toFixed(1)}s`
+                  : '영상 인트로'}
+              </button>
+              {attachedVideoUrl && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); clearAttachedVideo(); }}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/25 hover:bg-white/35 flex items-center justify-center"
+                  aria-label="영상 제거"
+                >
+                  <X size={14} className="text-white" strokeWidth={2.5} />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* 동영상 / 이미지 토글 (build 136) — GPS 경로 있을 때만 표시.
