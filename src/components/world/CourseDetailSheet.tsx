@@ -454,6 +454,13 @@ function GoogleLiveTracker({ realPath, runners, myUserId }: {
         center: realPath[0],
         disableDefaultUI: true,
         zoomControl: true,
+        // build 220 #4a: 사용자 — '지도 확대를 누르면 더 상세하게 볼 수 있게'.
+        // 줌 컨트롤 위치를 우측 하단으로 옮기고, 풀스크린 컨트롤 활성화. minZoom 4 / maxZoom 19.
+        zoomControlOptions: { position: window.google.maps.ControlPosition.RIGHT_BOTTOM },
+        fullscreenControl: true,
+        fullscreenControlOptions: { position: window.google.maps.ControlPosition.RIGHT_TOP },
+        minZoom: 3,
+        maxZoom: 19,
         gestureHandling: 'greedy',
         styles: [
           { featureType: 'poi', stylers: [{ visibility: 'off' }] },
@@ -566,6 +573,17 @@ function GoogleLiveTracker({ realPath, runners, myUserId }: {
     <div className="rounded-2xl overflow-hidden border-2 border-emerald-200/60 dark:border-emerald-900/40">
       {!loaded && <div className="h-56 animate-pulse bg-[var(--card-border)]/30" />}
       <div ref={mapDivRef} style={{ height: 240, display: loaded ? 'block' : 'none' }} />
+      {/* build 220 #4a: 사용자가 '지도 중간 파란점이 뭐지?' 라고 물음.
+          마커가 무엇을 의미하는지 한 줄 범례. */}
+      {loaded && (
+        <div className="px-3 py-2 bg-[var(--card)] border-t border-[var(--card-border)] text-[10px] flex items-center gap-2.5 flex-wrap text-[var(--muted)]">
+          <span className="inline-flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500" /> 시작</span>
+          <span className="inline-flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-orange-500" /> 도착</span>
+          <span className="inline-flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200" /> 나</span>
+          <span className="inline-flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-500" /> 다른 참가자</span>
+          <span className="inline-flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500" /> 완주자</span>
+        </div>
+      )}
     </div>
   );
 }

@@ -144,9 +144,20 @@ function ChatView() {
 
   return (
     <div className="flex flex-col h-full max-w-lg mx-auto">
-      {/* 헤더 — 더 큰 터치 영역 + 폰트. layout 의 nav/header 가 채팅에선 숨김 처리됨. */}
+      {/* 헤더 — 더 큰 터치 영역 + 폰트. layout 의 nav/header 가 채팅에선 숨김 처리됨.
+          build 220 #3: 뒤로가기를 router.back() 으로. 홈/공유카드 → 채팅 진입 시
+          뒤로가기 한 번에 원래 화면 (공유카드 또는 진입 지점) 복귀.
+          진입 경로 정보가 없으면 /messages 로 fallback. */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--card-border)] flex-shrink-0">
-        <Link href="/messages" className="text-[var(--muted)] -ml-1 p-1" aria-label="뒤로"><ArrowLeft size={24} /></Link>
+        <button
+          onClick={() => {
+            // history 가 1 이상이면 진짜 뒤로, 없으면 messages 리스트.
+            if (typeof window !== 'undefined' && window.history.length > 1) router.back();
+            else router.push('/messages');
+          }}
+          className="text-[var(--muted)] -ml-1 p-1"
+          aria-label="뒤로"
+        ><ArrowLeft size={24} /></button>
         <Link href={otherUser ? `/profile/view?id=${otherUser.id}` : '#'} className="flex items-center gap-2 flex-1 min-w-0">
           <div className="w-9 h-9 rounded-full bg-[var(--card-border)] overflow-hidden flex-shrink-0">
             {otherUser?.avatar_url ? (

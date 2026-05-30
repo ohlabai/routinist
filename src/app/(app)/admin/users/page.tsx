@@ -274,7 +274,11 @@ export default function AdminUsersPage() {
         ) : (
           <div className="card p-0 overflow-x-auto">
             <table className="w-full text-xs whitespace-nowrap">
-              <thead className="bg-[var(--card-border)]/20 text-[10px] uppercase tracking-widest text-[var(--muted)] sticky top-[110px]">
+              {/* build 220 #1: 기존 thead 가 overflow-x-auto 안에서 sticky top-110 →
+                  스크롤 컨테이너 기준이라 항상 mid-table 에 떠 있음.
+                  데스크탑/iPad 운영 도구라 화면이 짧지 않아 sticky 가 오히려 혼란.
+                  자연 위치 (테이블 최상단) 로 환원. */}
+              <thead className="bg-[var(--card-border)]/20 text-[10px] uppercase tracking-widest text-[var(--muted)]">
                 <tr>
                   <Th>닉네임</Th>
                   <Th>이메일</Th>

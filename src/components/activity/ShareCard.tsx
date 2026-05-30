@@ -1524,14 +1524,15 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
       // build 218 #3: 풀 시네마틱 — 첨부 영상이 카드의 "배경" 으로 동작.
       // 이전(216): 영상이 별개 prelude 로 잠시 나옴. 사용자 신고: 카드 내용이 안 보임.
       // 변경: 영상 = bg 대체. 카드 내용 (quote/map/km/stats/bars/footer) 위에 모두 overlay.
-      // 영상이 카드 애니메이션 시간보다 짧으면 loop 재생.
+      // build 220 #4b: 사용자 요청 — 영상이 무한 반복되지 말고 1회 재생 후 마지막 프레임에서 정지.
+      // loop=false 이면 video 가 ended 되어도 drawImage 는 마지막 프레임을 계속 표시 (브라우저 동작).
       let videoEl: HTMLVideoElement | null = null;
       if (attachedVideoUrl) {
         videoEl = document.createElement('video');
         videoEl.src = attachedVideoUrl;
         videoEl.muted = true;
         videoEl.playsInline = true;
-        videoEl.loop = true;
+        videoEl.loop = false;
         videoEl.preload = 'auto';
         try { await videoEl.play(); } catch {}
       }

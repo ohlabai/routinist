@@ -210,7 +210,10 @@ export default function PhotoLightbox({ photos, initialIndex = 0, onClose, showP
         {canActOnUser && current.user_id && (
           <Link
             href={{ pathname: '/messages/chat/', query: { user: current.user_id } }}
-            onClick={(e) => { e.stopPropagation(); onClose(); }}
+            // build 220 #3: onClose() 호출 안 함 — lightbox 가 열려 있는 채로 채팅 화면으로 이동.
+            // 채팅에서 뒤로가기 누르면 history 상 직전 페이지 (lightbox 가 떠 있는 홈) 로 복귀해
+            // 사용자에게 일관된 흐름 제공.
+            onClick={(e) => { e.stopPropagation(); }}
             aria-label={tt('쪽지 보내기')}
             className="w-12 h-12 rounded-full bg-white/20 active:bg-white/30 backdrop-blur flex items-center justify-center active:scale-95 transition"
           >
