@@ -511,47 +511,59 @@ function GoogleLiveTracker({ realPath, runners, myUserId }: {
     markersRef.current.forEach(m => m.setMap(null));
     markersRef.current = [];
 
-    // build 219 #11: 참가자 프로필 이미지를 마커로. avatar 가 있으면 원형 이미지,
-    // 없으면 기존 색상 dot fallback. 완주자는 골드 ring + 👑 / 🏁 라벨.
-    runners.slice(0, 12).forEach((r, idx) => {
-      const isMe = r.user_id === myUserId;
-      const isCompleted = r.ratio >= 1.0;
-      const pos = posOf(r.ratio);
-      const offsetPos = isCompleted
-        ? { lat: pos.lat + 0.003 * (idx + 1), lng: pos.lng + 0.003 * (idx + 1) }
-        : pos;
+    // build 220 #3: avatar 를 SVG <image href> 로 임베드하면 WKWebView 가
+    // 외부 이미지 fetch 시점에 마커가 빈 박스로 그려지는 회귀 (build 219 사용자 신고).
+    // 안전한 방법 = avatar 를 canvas 로 미리 그려 PNG dataURL 로 변환 후 marker icon 으로 사용.
+    // CORS 안 되면 fallback SymbolPath.CIRCLE.
+    let cancelled = false;
+    (async () => {
+      const slice = runners.slice(0, 12);
+      const iconUrls = await Promise.all(slice.map(async (r) => {
+        if (!r.avatar_url) return null;
+        const isMe = r.user_id === myUserId;
+        const isCompleted = r.ratio >= 1.0;
+        const size = isCompleted ? 48 : (isMe ? 44 : 36);
+        const ringColor = isCompleted ? '#f59e0b' : (isMe ? '#10b981' : '#3b82f6');
+        return await buildAvatarPngDataUrl(r.avatar_url, size, ringColor);
+      }));
+      if (cancelled || !mapRef.current) return;
 
-      // build 219 #11: avatar 가 있으면 PNG dataURL 로 둥근 마커 생성 (서버 round-trip 불필요).
-      // SymbolPath.CIRCLE 은 단색만 가능 — 이미지 사용에는 anchor 있는 url icon 필요.
-      // anchor 는 marker 의 hot point (보통 이미지 중앙). size 는 isMe=44, completed=44, else=36.
-      const size = isCompleted ? 48 : (isMe ? 44 : 36);
-      const iconUrl = r.avatar_url
-        ? buildAvatarMarkerUrl(r.avatar_url, size, isCompleted ? '#f59e0b' : (isMe ? '#10b981' : '#3b82f6'))
-        : null;
+      slice.forEach((r, idx) => {
+        const isMe = r.user_id === myUserId;
+        const isCompleted = r.ratio >= 1.0;
+        const pos = posOf(r.ratio);
+        const offsetPos = isCompleted
+          ? { lat: pos.lat + 0.003 * (idx + 1), lng: pos.lng + 0.003 * (idx + 1) }
+          : pos;
+        const size = isCompleted ? 48 : (isMe ? 44 : 36);
+        const iconUrl = iconUrls[idx];
 
-      const marker = new window.google.maps.Marker({
-        position: offsetPos,
-        map: mapRef.current!,
-        icon: iconUrl ? {
-          url: iconUrl,
-          scaledSize: new window.google.maps.Size(size, size),
-          anchor: new window.google.maps.Point(size / 2, size / 2),
-        } : {
-          path: window.google.maps.SymbolPath.CIRCLE,
-          scale: isCompleted ? 14 : (isMe ? 10 : 7),
-          fillColor: isCompleted ? (isMe ? '#f59e0b' : '#0ea5e9') : (isMe ? '#10b981' : '#3b82f6'),
-          fillOpacity: 1,
-          strokeColor: '#ffffff',
-          strokeWeight: isCompleted ? 4 : 2.5,
-        },
-        label: !iconUrl && isCompleted
-          ? { text: isMe ? '👑' : '🏁', color: '#ffffff', fontWeight: 'bold', fontSize: '12px' }
-          : undefined,
-        title: `${r.display_name} · ${isCompleted ? '완주!' : `${(r.ratio * 100).toFixed(0)}%`}`,
-        zIndex: isMe ? 2000 : isCompleted ? 1500 : 100,
+        const marker = new window.google.maps.Marker({
+          position: offsetPos,
+          map: mapRef.current!,
+          icon: iconUrl ? {
+            url: iconUrl,
+            scaledSize: new window.google.maps.Size(size, size),
+            anchor: new window.google.maps.Point(size / 2, size / 2),
+          } : {
+            path: window.google.maps.SymbolPath.CIRCLE,
+            scale: isCompleted ? 14 : (isMe ? 10 : 7),
+            fillColor: isCompleted ? (isMe ? '#f59e0b' : '#0ea5e9') : (isMe ? '#10b981' : '#3b82f6'),
+            fillOpacity: 1,
+            strokeColor: '#ffffff',
+            strokeWeight: isCompleted ? 4 : 2.5,
+          },
+          label: !iconUrl && isCompleted
+            ? { text: isMe ? '👑' : '🏁', color: '#ffffff', fontWeight: 'bold', fontSize: '12px' }
+            : undefined,
+          title: `${r.display_name} · ${isCompleted ? '완주!' : `${(r.ratio * 100).toFixed(0)}%`}`,
+          zIndex: isMe ? 2000 : isCompleted ? 1500 : 100,
+        });
+        markersRef.current.push(marker);
       });
-      markersRef.current.push(marker);
-    });
+    })();
+
+    return () => { cancelled = true; };
   }, [loaded, realPath, runners, myUserId, posOf]);
 
   useEffect(() => {
@@ -588,18 +600,53 @@ function GoogleLiveTracker({ realPath, runners, myUserId }: {
   );
 }
 
-// build 219 #11: 프로필 이미지를 colored ring 안에 둥글게 감싼 SVG data URL.
-// foreignObject 로 외부 이미지(http) 렌더 — iOS WKWebView 지원.
-function buildAvatarMarkerUrl(avatarUrl: string, size: number, ringColor: string): string {
-  const r = size / 2;
-  const inner = r - 3;
-  const safeUrl = avatarUrl.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-<defs><clipPath id="c"><circle cx="${r}" cy="${r}" r="${inner}"/></clipPath></defs>
-<circle cx="${r}" cy="${r}" r="${r - 0.5}" fill="${ringColor}" stroke="#ffffff" stroke-width="2.5"/>
-<image href="${safeUrl}" x="${r - inner}" y="${r - inner}" width="${inner * 2}" height="${inner * 2}" clip-path="url(#c)" preserveAspectRatio="xMidYMid slice"/>
-</svg>`;
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+// build 220 #3: avatar 를 canvas 로 미리 그려 PNG dataURL 반환.
+// 이전(219) SVG <image href> 방식은 WKWebView 에서 marker 생성 시점에
+// 이미지 fetch 가 끝나지 않아 빈 박스로 그려지는 회귀가 있었음.
+// crossOrigin='anonymous' 로 fetch — supabase storage 는 CORS open. 실패 시 null.
+async function buildAvatarPngDataUrl(
+  avatarUrl: string,
+  size: number,
+  ringColor: string,
+): Promise<string | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { resolve(null); return; }
+        const r = size / 2;
+        const inner = r - 3;
+        // 색 ring
+        ctx.fillStyle = ringColor;
+        ctx.beginPath();
+        ctx.arc(r, r, r - 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        // 흰 border
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+        // 원형 clip + avatar
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(r, r, inner, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(img, r - inner, r - inner, inner * 2, inner * 2);
+        ctx.restore();
+        resolve(canvas.toDataURL('image/png'));
+      } catch {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    // CORS 가 막히면 timeout — 5초 안에 onload 없으면 포기.
+    setTimeout(() => resolve(null), 5000);
+    img.src = avatarUrl;
+  });
 }
 
 // 고도 프로파일 SVG 차트

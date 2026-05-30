@@ -28,6 +28,36 @@ import {
 // build 213 #7: 카운트다운 타이밍 상수 — 튜닝 쉽게.
 const COUNTDOWN_TICK_MS = 800;   // 각 숫자 (3, 2, 1) 표시 시간
 const GO_HOLD_MS = 500;          // GO! 표시 후 트래킹 시작까지 hold
+
+// build 220 #1: 카운트다운 beep — Web Audio API 로 발생.
+// 3/2/1 = 짧은 660Hz, GO = 길고 높은 880Hz. AudioContext 는 lazy 생성 후 재사용.
+let _audioCtx: AudioContext | null = null;
+function playCountdownBeep(kind: 'tick' | 'go') {
+  if (typeof window === 'undefined') return;
+  try {
+    type WindowWithWebkit = typeof window & { webkitAudioContext?: typeof AudioContext };
+    if (!_audioCtx) {
+      const win = window as WindowWithWebkit;
+      const AC = win.AudioContext || win.webkitAudioContext;
+      if (!AC) return;
+      _audioCtx = new AC();
+    }
+    const ctx = _audioCtx;
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = kind === 'go' ? 880 : 660;
+    const now = ctx.currentTime;
+    const dur = kind === 'go' ? 0.45 : 0.12;
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.25, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + dur + 0.02);
+  } catch { /* ignore */ }
+}
 import TrackSummarySheet from '@/components/track/TrackSummarySheet';
 
 type PermState = 'unknown' | 'prompt' | 'granted' | 'denied';
@@ -187,15 +217,18 @@ export default function TrackPage() {
   }, [countdown, state]);
 
   // 카운트다운 tick (3 → 2 → 1 → GO!)
+  // build 220 #1: 각 tick 마다 짧은 beep (3,2,1: 660Hz, GO: 880Hz 길게).
   useEffect(() => {
     if (countdown === null) return;
     if (countdown <= 0) {
+      playCountdownBeep('go');
       const t = setTimeout(() => {
         setCountdown(null);
         beginTrackingAfterCountdown();
       }, GO_HOLD_MS);
       return () => clearTimeout(t);
     }
+    playCountdownBeep('tick');
     const t = setTimeout(() => setCountdown(c => (c !== null ? c - 1 : null)), COUNTDOWN_TICK_MS);
     return () => clearTimeout(t);
   }, [countdown, beginTrackingAfterCountdown]);
@@ -538,36 +571,53 @@ export default function TrackPage() {
         />
       )}
 
-      {/* build 210 #1: 시작 카운트다운 — Apple Fitness 영감 + 차별화 효과
-          (1) 풀스크린 어두운 backdrop + emerald radial glow
-          (2) 큰 숫자 ring + scale/fade 애니메이션
-          (3) 0 일 때 "GO!" 표시 후 트래킹 시작 */}
+      {/* build 220 #1: 카운트다운 리디자인 — 더 귀엽고 세련되게.
+          (1) 풀스크린 어두운 backdrop + 듀얼 radial glow (emerald + teal)
+          (2) 숫자 뒤로 풀스 ring 두 겹 (각자 다른 페이즈로 호흡)
+          (3) 숫자는 gradient text + bounce overshoot
+          (4) GO! 는 letter-spacing expansion 으로 임팩트 */}
       {countdown !== null && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md animate-[fadeIn_0.2s_ease-out]">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.35),transparent_60%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,rgba(16,185,129,0.35),transparent_55%),radial-gradient(circle_at_70%_60%,rgba(20,184,166,0.25),transparent_55%)]" />
           <div className="relative text-center">
             {countdown > 0 ? (
-              <>
+              <div className="relative flex items-center justify-center">
+                {/* 펄스 ring 2겹 — 숫자 뒤로 호흡 */}
+                <span
+                  key={`r1-${countdown}`}
+                  className="absolute w-56 h-56 rounded-full border-2 border-emerald-300/60 animate-[countdownRingPulse_0.85s_ease-out]"
+                  aria-hidden
+                />
+                <span
+                  key={`r2-${countdown}`}
+                  className="absolute w-72 h-72 rounded-full border border-emerald-300/30 animate-[countdownRingPulse_0.85s_ease-out_0.15s]"
+                  aria-hidden
+                />
+                {/* 숫자 컨테이너 — gradient bg + emoji 같은 동그라미 */}
                 <div
-                  key={countdown}
-                  className="mx-auto w-56 h-56 rounded-full border-[6px] border-emerald-400/40 flex items-center justify-center animate-[countdownPulse_0.8s_ease-out]"
+                  key={`n-${countdown}`}
+                  className="relative w-48 h-48 rounded-full bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-600 shadow-[0_0_80px_rgba(16,185,129,0.55)] flex items-center justify-center animate-[countdownPulse_0.6s_cubic-bezier(0.34,1.56,0.64,1)]"
                 >
-                  <span className="text-[140px] font-extrabold text-white leading-none tabular-nums drop-shadow-[0_0_40px_rgba(16,185,129,0.6)]">
+                  <span className="text-[120px] font-extrabold text-white leading-none tabular-nums drop-shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
                     {countdown}
                   </span>
                 </div>
-                <p className="mt-6 text-base font-bold text-emerald-300 tracking-[0.3em] uppercase">
+                <p className="absolute -bottom-16 left-1/2 -translate-x-1/2 text-sm font-extrabold text-emerald-200 tracking-[0.35em] uppercase whitespace-nowrap">
                   {locale === 'en' ? 'Get Ready' : '준비'}
                 </p>
-              </>
+              </div>
             ) : (
-              <div className="animate-[goBounce_0.5s_ease-out]">
-                <p className="text-[120px] font-extrabold text-emerald-400 leading-none tracking-wider drop-shadow-[0_0_50px_rgba(16,185,129,0.8)]">
+              <div className="animate-[goBounce_0.55s_cubic-bezier(0.34,1.56,0.64,1)]">
+                {/* GO! — 그라데이션 텍스트 + sparkle */}
+                <p className="text-[140px] font-extrabold leading-none bg-gradient-to-br from-emerald-200 via-emerald-400 to-teal-500 bg-clip-text text-transparent drop-shadow-[0_0_60px_rgba(16,185,129,0.9)]">
                   GO!
                 </p>
-                <p className="mt-4 text-sm font-bold text-white/70 tracking-[0.3em] uppercase">
+                <p className="mt-2 text-sm font-extrabold text-white/80 tracking-[0.4em] uppercase">
                   {locale === 'en' ? 'Start running' : '달리기 시작'}
                 </p>
+                {/* 양옆 ✨ */}
+                <span className="absolute -top-4 -left-6 text-3xl animate-pulse" aria-hidden>✨</span>
+                <span className="absolute -top-4 -right-6 text-3xl animate-pulse" aria-hidden>✨</span>
               </div>
             )}
           </div>
