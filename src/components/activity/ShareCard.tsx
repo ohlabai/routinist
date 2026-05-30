@@ -133,11 +133,27 @@ function drawCard(
     const c4 = (2 * Math.PI) / 3;
     return Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1;
   };
-  // 0~0.85: 차오름 (easeOutCubic). 0.72~0.82: bounce 오버슛. 0.85~1: 컬러 emerald → 원래.
-  const fillT = easeOutCubic(Math.min(1, barProgress / 0.85));
-  const bounceWindow = Math.max(0, Math.min(1, (barProgress - 0.72) / 0.10));
+  // build 215 #5: 막대 애니메이션 timeline 재조정 — km hero 와 동기화 + staggered.
+  // 사용자 신고: 막대가 km 보다 일찍 끝남 + 모든 막대 동시 차오름 (주간 동시 버그).
+  //
+  // Phase A (0 ~ 0.90): 막대 staggered 차오름. 첫 highlight 일이 0, 마지막 일이 (0.90 - WINDOW)
+  //   각 막대 fillT 는 [0, WINDOW] 안에서 차오름 (overlap 됨).
+  // Phase B (0.90 ~ 0.96): 전체 bounce (synchronized).
+  // Phase C (0.92 ~ 1.0): emerald → 원래 색 transition. km hero 가 routeProgress=1 에서 풀 도달과 일치.
+  //
+  // 디폴트 (highlightDays 없을 때) fillT — 단일 막대 (일간 카드 today) 용 fallback 으로 유지.
+  const fillT = easeOutCubic(Math.min(1, barProgress / 0.90));
+  const bounceWindow = Math.max(0, Math.min(1, (barProgress - 0.90) / 0.06));
   const bouncePx = bounceWindow > 0 && bounceWindow < 1 ? (1 - easeOutElastic(bounceWindow)) * 18 : 0;
-  const colorMixT = Math.max(0, Math.min(1, (barProgress - 0.85) / 0.15)); // 1 = 원래 색
+  const colorMixT = Math.max(0, Math.min(1, (barProgress - 0.92) / 0.08));
+  // staggered fillT 계산 — 각 highlighted 일이 자기 차례에 차오름
+  const computeStaggeredFillT = (idx: number, total: number): number => {
+    if (total <= 1) return fillT;
+    const FILL_WINDOW = 0.22;            // 각 막대가 차오르는 시간 (전체 progress 의 22%)
+    const SPREAD = 0.90 - FILL_WINDOW;   // 첫 막대 0, 마지막 막대 0.68 부터 시작
+    const start = (idx / (total - 1)) * SPREAD;
+    return easeOutCubic(Math.max(0, Math.min(1, (barProgress - start) / FILL_WINDOW)));
+  };
   const lerpHex = (h1: string, h2: string, t: number) => {
     const p = (h: string) => {
       const c = h.replace('#', '');
@@ -827,12 +843,19 @@ function drawCard(
       if ((dailyKm.get(day) ?? 0) > 0) lastRunDay = day;
     }
 
-    // build 205 #11: 오늘 막대만 0 → km 애니메이션. 과거 막대는 정적 (참고용 baseline).
-    // 차오름 후 bounce + emerald → 원래(barFillToday) 컬러 전환.
-    // build 210 #3/#4: periodOverrides.highlightDays 지정 시 — 주간(7일)/월간(전체) 일괄 emerald 애니.
+    // build 215 #5-2: staggered 막대 애니메이션. 첫 일(highlight 중 가장 작은 day)부터 순차 차오름.
+    // 이전: 모든 highlighted 막대가 동일 fillT 로 동시 차오름 (사용자 신고: 주간 동시 버그).
     const highlightSet = periodOverrides?.highlightDays
       ? new Set(periodOverrides.highlightDays)
       : null;
+    // highlight 일들을 day 오름차순으로 정렬한 인덱스 맵 (1일 → idx 0, 다음 일 → idx 1, ...)
+    const highlightIdxMap = (() => {
+      if (!highlightSet) return null;
+      const sorted = Array.from(highlightSet).sort((a, b) => a - b);
+      const m = new Map<number, number>();
+      sorted.forEach((d, i) => m.set(d, i));
+      return { map: m, total: sorted.length };
+    })();
     for (let day = 1; day <= daysInMonth; day++) {
       const km = dailyKm.get(day) ?? 0;
       const x = chartPadX + (day - 1) * (barWidth + 4);
@@ -841,7 +864,11 @@ function drawCard(
       const targetH = (km / maxDay) * chartH;
 
       if (isHighlighted && km > 0) {
-        const animH = targetH * fillT;
+        // 자기 차례 fillT (staggered)
+        const idx = highlightIdxMap?.map.get(day) ?? 0;
+        const total = highlightIdxMap?.total ?? 1;
+        const myFillT = computeStaggeredFillT(idx, total);
+        const animH = targetH * myFillT;
         const fillEmerald = '#10b981';
         const todayBaseHex = onPhoto ? '#ffffff' : (accentColor.startsWith('#') ? accentColor : '#10b981');
         const animColor = colorMixT >= 1
@@ -849,7 +876,9 @@ function drawCard(
           : lerpHex(fillEmerald, todayBaseHex, colorMixT);
         ctx.fillStyle = animColor;
         const barH = Math.max(animH, 3);
-        const barTop = chartTop + chartH - barH - bouncePx;
+        // bounce 는 myFillT 가 1 도달 후 발생 (마지막에 도착한 막대도 bounce 받음)
+        const myBouncePx = myFillT >= 1 ? bouncePx : 0;
+        const barTop = chartTop + chartH - barH - myBouncePx;
         ctx.fillRect(x, barTop, barWidth, barH);
       } else {
         ctx.fillStyle = km > 0 ? barFillOther : barFillEmpty;
@@ -1414,14 +1443,20 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
     const hasRoute = !!activity.route_data?.coordinates?.length;
     if (shareAsVideo && hasRoute && typeof MediaRecorder !== 'undefined') {
       setRenderingVideo(true);
+      // build 215 #5-1: 영상 길이 — 일간 기본 4s. 주간 10s. 월간 16s.
+      // 사용자 신고: 월간 4s 너무 빠름. highlightDays size 로 주/월 판정.
+      const periodDurMs = periodOverrides?.highlightDays
+        ? (periodOverrides.highlightDays.length > 10 ? 16000 : 10000)
+        : 4000;
       try {
         const result = await captureCanvasAnimation(
           canvasRef.current,
           (progress) => {
-            // build 170 #4: progress = 시간 진행률. paceMap 으로 그 시점의 누적 거리 비율 추출
-            // → 빠른 구간에선 km 빠르게, 느린/멈춘 구간에선 천천히 올라감.
-            // timestamp 없는 활동(수동 입력 등)은 timeToDistRatio 가 선형 fallback 반환.
-            const distR = timeToDistRatio(progress);
+            // build 215 #5-3: km hero 도 막대와 동시에 풀 도달하도록 progress 를 0.90 까지 scale.
+            // 0..0.90: km 카운트업 + 막대 staggered fill. 0.90..0.96: bounce. 0.92..1.0: 컬러 전환.
+            const KM_FILL_END = 0.90;
+            const kmProgress = Math.min(1, progress / KM_FILL_END);
+            const distR = timeToDistRatio(kmProgress);
             drawCard(
               canvasRef.current!,
               activity,
@@ -1438,7 +1473,7 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
               periodOverrides,
             );
           },
-          { fps: 30, bitsPerSecond: 5_000_000 },
+          { fps: 30, bitsPerSecond: 5_000_000, durationMs: periodDurMs, holdMs: 1500 },
         );
         await shareVideoBlob(result.blob, result.extension);
       } catch (err) {

@@ -5,8 +5,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Heart, MessageCircle } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { useAuth } from '@/components/AuthProvider';
+import { togglePhotoLike } from '@/lib/routine-photos';
 
 export interface LightboxPhoto {
   photo_id: string;
@@ -16,6 +18,9 @@ export interface LightboxPhoto {
   distance_km?: number | null;
   // build 205 #2: 친구 스토리에서 띄울 때 프로필 진입점 노출.
   user_id?: string | null;
+  // build 215 #2: 좋아요 + 쪽지 액션 추가. 소셜 탭과 동일.
+  liked_by_me?: boolean;
+  like_count?: number;
 }
 
 interface Props {
@@ -29,8 +34,16 @@ interface Props {
 export default function PhotoLightbox({ photos, initialIndex = 0, onClose, showProfileLink = false }: Props) {
   const [index, setIndex] = useState(Math.max(0, Math.min(initialIndex, photos.length - 1)));
   const { tt } = useI18n();
+  const { user } = useAuth();
   const startX = useRef<number | null>(null);
   const deltaX = useRef(0);
+  // build 215 #2: 좋아요 optimistic 상태 — photo_id 별로 추적.
+  const [likeState, setLikeState] = useState<Map<string, { liked: boolean; count: number }>>(() => {
+    const m = new Map<string, { liked: boolean; count: number }>();
+    photos.forEach(p => m.set(p.photo_id, { liked: !!p.liked_by_me, count: p.like_count ?? 0 }));
+    return m;
+  });
+  const [likeBusy, setLikeBusy] = useState(false);
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -61,8 +74,37 @@ export default function PhotoLightbox({ photos, initialIndex = 0, onClose, showP
     deltaX.current = 0;
   };
 
+  const handleLike = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (likeBusy || !user) return;
+    const cur = likeState.get(current.photo_id);
+    if (!cur) return;
+    setLikeBusy(true);
+    const nextLiked = !cur.liked;
+    const nextCount = Math.max(0, cur.count + (nextLiked ? 1 : -1));
+    setLikeState(prev => {
+      const m = new Map(prev);
+      m.set(current.photo_id, { liked: nextLiked, count: nextCount });
+      return m;
+    });
+    try {
+      await togglePhotoLike(current.photo_id, cur.liked);
+    } catch {
+      // rollback
+      setLikeState(prev => {
+        const m = new Map(prev);
+        m.set(current.photo_id, cur);
+        return m;
+      });
+    } finally {
+      setLikeBusy(false);
+    }
+  };
+
   if (photos.length === 0) return null;
   const current = photos[index];
+  const curLike = likeState.get(current.photo_id) ?? { liked: false, count: 0 };
+  const canActOnUser = !!user && !!current.user_id && user.id !== current.user_id;
 
   return (
     <div
@@ -84,10 +126,41 @@ export default function PhotoLightbox({ photos, initialIndex = 0, onClose, showP
         onClick={(e) => { e.stopPropagation(); onClose(); }}
         className="absolute right-3 w-12 h-12 rounded-full bg-white/20 active:bg-white/30 backdrop-blur flex items-center justify-center active:scale-95 transition z-10"
         style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
-        aria-label="닫기"
+        aria-label={tt('닫기')}
       >
         <X size={26} strokeWidth={2.5} className="text-white" />
       </button>
+
+      {/* build 215 #2: 좋아요 + 쪽지 액션 — 좌상단 stack */}
+      <div
+        className="absolute left-3 flex flex-col gap-2 z-10"
+        style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={handleLike}
+          disabled={likeBusy || !user}
+          aria-label={curLike.liked ? tt('좋아요 취소') : tt('좋아요')}
+          className={`inline-flex items-center gap-1.5 px-3 h-12 rounded-full backdrop-blur active:scale-95 transition disabled:opacity-50 ${
+            curLike.liked ? 'bg-rose-500/85' : 'bg-white/20 active:bg-white/30'
+          }`}
+        >
+          <Heart size={20} fill={curLike.liked ? '#fff' : 'transparent'} strokeWidth={2.5} className="text-white" />
+          {curLike.count > 0 && (
+            <span className="text-xs font-extrabold text-white tabular-nums leading-none">{curLike.count}</span>
+          )}
+        </button>
+        {canActOnUser && current.user_id && (
+          <Link
+            href={{ pathname: '/messages/chat/', query: { user: current.user_id } }}
+            onClick={(e) => { e.stopPropagation(); onClose(); }}
+            aria-label={tt('쪽지 보내기')}
+            className="w-12 h-12 rounded-full bg-white/20 active:bg-white/30 backdrop-blur flex items-center justify-center active:scale-95 transition"
+          >
+            <MessageCircle size={20} strokeWidth={2.5} className="text-white" />
+          </Link>
+        )}
+      </div>
 
       {/* 좌우 — desktop / tablet */}
       {index > 0 && (

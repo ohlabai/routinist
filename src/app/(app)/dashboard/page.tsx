@@ -47,6 +47,7 @@ import LiveRunningIndicator from '@/components/home/LiveRunningIndicator';
 import RankNeighbors from '@/components/home/RankNeighbors';
 import HomeMapPreview from '@/components/home/HomeMapPreview';
 import HomeChallengeCard from '@/components/home/HomeChallengeCard';
+import HomeWorldMarathonCard from '@/components/home/HomeWorldMarathonCard';
 import HomeOnboardingCard from '@/components/home/HomeOnboardingCard';
 import PullDownOnboardingHint from '@/components/home/PullDownOnboardingHint';
 import MonthEndRecapCard from '@/components/home/MonthEndRecapCard';
@@ -747,6 +748,7 @@ export default function DashboardPage() {
 
         {/* 6.5 이번 주 도전 (build 100) — build 143: 300ms defer (secondary) */}
         {secondaryMounted && <HomeChallengeCard />}
+        {secondaryMounted && <HomeWorldMarathonCard />}
 
         {/* 6.7 친구 활동 스토리 — build 143: 300ms defer (secondary) */}
         {secondaryMounted && <HomeFriendStories />}

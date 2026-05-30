@@ -504,22 +504,32 @@ function GoogleLiveTracker({ realPath, runners, myUserId }: {
     markersRef.current.forEach(m => m.setMap(null));
     markersRef.current = [];
 
-    runners.slice(0, 10).forEach(r => {
+    // build 215 #4: 완주자(ratio>=1.0) 표시 강화 — 큰 골드 원 + 👑 + offset.
+    // 이전: 작은 emerald dot 이 finish (orange) 마커 위에 동일 좌표라 안 보임.
+    runners.slice(0, 10).forEach((r, idx) => {
       const isMe = r.user_id === myUserId;
+      const isCompleted = r.ratio >= 1.0;
       const pos = posOf(r.ratio);
+      // 완주자가 여러 명이면 위로 살짝씩 띄워 겹침 회피 (대각선 ↗)
+      const offsetPos = isCompleted
+        ? { lat: pos.lat + 0.003 * (idx + 1), lng: pos.lng + 0.003 * (idx + 1) }
+        : pos;
       const marker = new window.google.maps.Marker({
-        position: pos,
+        position: offsetPos,
         map: mapRef.current!,
         icon: {
           path: window.google.maps.SymbolPath.CIRCLE,
-          scale: isMe ? 10 : 7,
-          fillColor: isMe ? '#10b981' : '#3b82f6',
-          fillOpacity: 0.95,
+          scale: isCompleted ? 14 : (isMe ? 10 : 7),
+          fillColor: isCompleted ? (isMe ? '#f59e0b' : '#0ea5e9') : (isMe ? '#10b981' : '#3b82f6'),
+          fillOpacity: 1,
           strokeColor: '#ffffff',
-          strokeWeight: 2.5,
+          strokeWeight: isCompleted ? 4 : 2.5,
         },
-        title: `${r.display_name} · ${(r.ratio * 100).toFixed(0)}%`,
-        zIndex: isMe ? 1000 : 100,
+        label: isCompleted
+          ? { text: isMe ? '👑' : '🏁', color: '#ffffff', fontWeight: 'bold', fontSize: '12px' }
+          : undefined,
+        title: `${r.display_name} · ${isCompleted ? '완주!' : `${(r.ratio * 100).toFixed(0)}%`}`,
+        zIndex: isMe ? 2000 : isCompleted ? 1500 : 100,
       });
       markersRef.current.push(marker);
     });
