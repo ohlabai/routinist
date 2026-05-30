@@ -11,6 +11,8 @@ import { ArrowLeft, Pause, Play, Check, MapPin, AlertCircle } from 'lucide-react
 import { useAuth } from '@/components/AuthProvider';
 import { useI18n } from '@/lib/i18n';
 import { loadGoogleMaps, API_KEY as MAPS_KEY } from '@/lib/google-maps';
+import { logClientInfo, logClientWarn } from '@/lib/error-logger';
+import { speakMilestone, getVoiceCueIntervalMeters } from '@/lib/voice-cue';
 import {
   type TrackingState,
   createInitialState, loadState, saveState, clearState,
@@ -38,14 +40,20 @@ export default function TrackPage() {
   // build 210 #1: 시작 카운트다운 (3 → 2 → 1 → GO!) — Apple Fitness 패턴 + 차별화 효과
   const [countdown, setCountdown] = useState<number | null>(null);
 
-  // 항상 HH:MM:SS — Apple Fitness 스타일 (이전 formatDuration 은 시간 0 이면 MM:SS)
-  const formatDurationFull = (seconds: number): string => {
-    const s = Math.max(0, Math.floor(seconds));
-    const hh = Math.floor(s / 3600);
-    const mm = Math.floor((s % 3600) / 60);
-    const ss = s % 60;
+  // build 214 #1: 스톱워치 포맷 MM:SS.CC (분:초.1/100초). 1시간 넘으면 HH:MM:SS.CC.
+  // elapsedSeconds 는 float — tick 100ms 마다 누적되므로 centisecond 정밀도 보존.
+  const formatStopwatch = (seconds: number): string => {
+    const totalCs = Math.max(0, Math.floor(seconds * 100));  // 1/100 초 단위 정수
+    const cs = totalCs % 100;
+    const totalS = Math.floor(totalCs / 100);
+    const ss = totalS % 60;
+    const totalM = Math.floor(totalS / 60);
+    const mm = totalM % 60;
+    const hh = Math.floor(totalM / 60);
     const pad = (n: number) => n.toString().padStart(2, '0');
-    return `${pad(hh)}:${pad(mm)}:${pad(ss)}`;
+    return hh > 0
+      ? `${pad(hh)}:${pad(mm)}:${pad(ss)}.${pad(cs)}`
+      : `${pad(mm)}:${pad(ss)}.${pad(cs)}`;
   };
 
   const mapEl = useRef<HTMLDivElement>(null);
@@ -139,6 +147,7 @@ export default function TrackPage() {
     const fresh = createInitialState();
     setState(fresh);
     saveState(fresh);
+    logClientInfo('track-start', 'begin', { startedAt: fresh.startedAt });
   }, []);
   // build 213 #1: countdown 진행 중이거나 이미 active 면 더블탭 무시 (race condition guard).
   const startingRef = useRef(false);
@@ -189,6 +198,7 @@ export default function TrackPage() {
       setState(prev => {
         if (!prev || prev.status !== 'active') return prev;
         const next: TrackingState = { ...prev, coords: [...prev.coords] };
+        const prevMeters = prev.distanceMeters;
         const moved = appendCoord(next, c);
         // 지도 갱신
         if (mapRef.current && polylineRef.current && youMarkerRef.current) {
@@ -197,21 +207,43 @@ export default function TrackPage() {
           if (moved) polylineRef.current.setPath(next.coords.map(([lng, lat]) => ({ lat, lng })));
           mapRef.current.panTo(ll);
         }
+        // build 214 #3: 마일스톤 (기본 1km, 옵션 0.5km) 음성 알림.
+        if (moved) {
+          const intervalM = getVoiceCueIntervalMeters();
+          const prevBucket = Math.floor(prevMeters / intervalM);
+          const nextBucket = Math.floor(next.distanceMeters / intervalM);
+          if (nextBucket > prevBucket && nextBucket > 0) {
+            const totalKm = (nextBucket * intervalM) / 1000;
+            const avgPace = next.distanceMeters > 100
+              ? Math.round(next.elapsedSeconds / (next.distanceMeters / 1000))
+              : null;
+            speakMilestone({
+              totalKm,
+              elapsedSeconds: Math.floor(next.elapsedSeconds),
+              avgPaceSecPerKm: avgPace,
+              locale,
+            });
+          }
+        }
         if (moved) saveState(next);
         return next;
       });
     }).then(h => { if (mounted) watcherRef.current = h; }).catch(() => {});
 
+    // build 214 #1: 스톱워치 1/100초 디스플레이 위해 tick 100ms.
+    // setState 빈도 증가하지만 React 18 batching + 단순 산술이라 perf 영향 적음.
+    // localStorage 저장은 여전히 5초마다 (5000ms / 100ms = 50 tick 마다 한 번).
+    let saveCounter = 0;
     tickRef.current = setInterval(() => {
       setState(prev => {
         if (!prev || prev.status !== 'active') return prev;
         const next: TrackingState = { ...prev };
         tickElapsed(next, Date.now());
-        // 1초마다 저장 부담 → 5초마다만 저장
-        if (Math.floor(next.elapsedSeconds) % 5 === 0) saveState(next);
+        saveCounter++;
+        if (saveCounter >= 50) { saveState(next); saveCounter = 0; }
         return next;
       });
-    }, 1000);
+    }, 100);
 
     return () => {
       mounted = false;
@@ -239,15 +271,39 @@ export default function TrackPage() {
     });
   };
 
+  // build 214 #2: 모든 종료 흐름 관측 + clearState 직전 archive 키로 백업 (복구 가능)
+  const archiveStateBeforeClear = (s: TrackingState, reason: string) => {
+    try {
+      if (typeof window === 'undefined') return;
+      const archive = {
+        archivedAt: Date.now(),
+        reason,
+        state: s,
+      };
+      window.localStorage.setItem('routinist:gps-archive-v1', JSON.stringify(archive));
+    } catch {}
+  };
+
   const handleFinish = () => {
     if (!state) return;
+    logClientInfo('track-finish', 'click', {
+      distance_m: Math.round(state.distanceMeters),
+      elapsed_s: Math.floor(state.elapsedSeconds),
+      coords_n: state.coords.length,
+    });
     if (state.distanceMeters < 50) {
       const msg = locale === 'en'
         ? 'Distance is too short. Save anyway?'
         : '이동 거리가 너무 짧아요. 그래도 저장할까요?';
-      if (!window.confirm(msg)) return;
+      if (!window.confirm(msg)) {
+        logClientWarn('track-finish', 'short-distance-cancelled', {
+          distance_m: Math.round(state.distanceMeters),
+        });
+        return;
+      }
     }
     const finalState: TrackingState = { ...state, status: 'idle' };
+    archiveStateBeforeClear(finalState, 'finish-handoff-to-sheet');
     setFinished(finalState);
     setState(null);
     clearState();
@@ -259,6 +315,12 @@ export default function TrackPage() {
       ? 'Stop tracking? Your run will not be saved.'
       : '트래킹을 종료할까요? 기록은 저장되지 않습니다.';
     if (!window.confirm(msg)) return;
+    logClientWarn('track-abort', 'user-cancel', {
+      distance_m: Math.round(state.distanceMeters),
+      elapsed_s: Math.floor(state.elapsedSeconds),
+      coords_n: state.coords.length,
+    });
+    archiveStateBeforeClear(state, 'abort');
     setState(null);
     clearState();
     router.back();
@@ -372,8 +434,8 @@ export default function TrackPage() {
               <p className="text-[11px] font-extrabold text-[var(--muted)] tracking-[0.25em] uppercase mb-1">
                 {locale === 'en' ? 'TIME' : '시간'}
               </p>
-              <p className="text-6xl font-extrabold tracking-tight text-[var(--foreground)] tabular-nums leading-none">
-                {formatDurationFull(state!.elapsedSeconds)}
+              <p className="text-5xl font-extrabold tracking-tight text-[var(--foreground)] tabular-nums leading-none">
+                {formatStopwatch(state!.elapsedSeconds)}
               </p>
             </div>
 

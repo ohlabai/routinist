@@ -21,7 +21,9 @@ export interface TrackingState {
 }
 
 const STORAGE_KEY = 'routinist:gps-tracking-v1';
-const MIN_ACCURACY_METERS = 30;   // 정확도 30m 이하 좌표만 사용
+// build 214 #2: 도심 iPhone GPS 가 빈번하게 30~80m accuracy → 좌표 다수 drop → 실제보다 짧게 측정 (사용자 신고).
+// 30 → 50 m 완화. 그래도 200m+ 튀는 좌표는 차단됨.
+const MIN_ACCURACY_METERS = 50;
 const MIN_MOVE_METERS = 3;        // 직전 좌표와 3m 이상 이동했을 때만 거리·polyline 갱신
 
 export function loadState(): TrackingState | null {
@@ -128,8 +130,9 @@ export interface WatcherHandle { clear: () => Promise<void>; }
 export async function startWatcher(
   onCoord: (pos: { lat: number; lng: number; alt: number; ts: number; accuracy: number }) => void,
 ): Promise<WatcherHandle> {
+  // build 214 #2: maximumAge:0 명시 — 캐시된 좌표 차단, 새 좌표만 보고. 도심에서 stale 좌표로 인한 정확도 저하 방지.
   const id = await Geolocation.watchPosition(
-    { enableHighAccuracy: true, timeout: 30000 },
+    { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 },
     (pos: Position | null, err) => {
       if (err || !pos) return;
       // 정확도 30m 초과 좌표는 무시 — 도심 빌딩가에서 튀는 GPS 차단.

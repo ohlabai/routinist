@@ -188,31 +188,102 @@ function drawCard(
   const hasExtraRoutes = Array.isArray(extraRoutes) && extraRoutes.length > 0;
   const hasRoute = hasExtraRoutes || activity.route_data?.coordinates?.length;
   if (hasExtraRoutes) {
-    // 주간/월간 — 모든 경로의 bounding box 계산 후 합성 렌더.
-    let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
-    for (const r of extraRoutes!) {
-      for (const [lng, lat] of r) {
-        if (lat < minLat) minLat = lat;
-        if (lat > maxLat) maxLat = lat;
-        if (lng < minLng) minLng = lng;
-        if (lng > maxLng) maxLng = lng;
+    // build 214 #5: 주간/월간 카드 멀티 국가 분할 렌더링.
+    // 같은 국가/지역끼리 cluster (centroid 5도 ≈ 555km 이내 같은 cluster).
+    // 정적 (routeProgress=1): 가장 km 많은 cluster 만 표시 + 다른 cluster 는 하단 footer 라인 "+N개국 X.Xkm".
+    // 영상 (routeProgress<1): timeline 을 cluster 별 segment 로 분할, fade 전환.
+    type Cluster = {
+      routes: Array<Array<[number, number]>>;
+      totalM: number;
+      center: [number, number];
+      bbox: { minLat: number; maxLat: number; minLng: number; maxLng: number };
+    };
+    const routeDistM = (route: Array<[number, number]>): number => {
+      let m = 0;
+      for (let i = 1; i < route.length; i++) {
+        const [lng1, lat1] = route[i - 1];
+        const [lng2, lat2] = route[i];
+        const meanLat = (lat1 + lat2) / 2 * Math.PI / 180;
+        const dx = (lng2 - lng1) * Math.cos(meanLat);
+        const dy = lat2 - lat1;
+        m += Math.hypot(dx, dy);
       }
+      return m;
+    };
+    const CLUSTER_THRESHOLD_DEG = 5;
+    const clusters: Cluster[] = [];
+    for (const route of extraRoutes!) {
+      if (route.length < 2) continue;
+      const first = route[0];
+      const m = routeDistM(route);
+      let attached: Cluster | null = null;
+      for (const c of clusters) {
+        if (Math.abs(c.center[0] - first[0]) < CLUSTER_THRESHOLD_DEG &&
+            Math.abs(c.center[1] - first[1]) < CLUSTER_THRESHOLD_DEG) {
+          attached = c; break;
+        }
+      }
+      if (!attached) {
+        clusters.push({
+          routes: [route], totalM: m,
+          center: [first[0], first[1]],
+          bbox: { minLat: first[1], maxLat: first[1], minLng: first[0], maxLng: first[0] },
+        });
+        attached = clusters[clusters.length - 1];
+      } else {
+        attached.routes.push(route);
+        attached.totalM += m;
+      }
+      // bbox + center 업데이트
+      for (const [lng, lat] of route) {
+        if (lat < attached.bbox.minLat) attached.bbox.minLat = lat;
+        if (lat > attached.bbox.maxLat) attached.bbox.maxLat = lat;
+        if (lng < attached.bbox.minLng) attached.bbox.minLng = lng;
+        if (lng > attached.bbox.maxLng) attached.bbox.maxLng = lng;
+      }
+      attached.center = [
+        (attached.bbox.minLng + attached.bbox.maxLng) / 2,
+        (attached.bbox.minLat + attached.bbox.maxLat) / 2,
+      ];
     }
-    if (Number.isFinite(minLat) && Number.isFinite(minLng)) {
+    // 큰 cluster 순으로 정렬
+    clusters.sort((a, b) => b.totalM - a.totalM);
+
+    // 영상 모드면 timeline 분할, 정적 모드면 largest 만.
+    const isAnimating = routeProgress < 1;
+    let activeClusterIdx = 0;
+    let localProgress = 1;
+    if (isAnimating && clusters.length > 0) {
+      const segLen = 1 / clusters.length;
+      activeClusterIdx = Math.min(clusters.length - 1, Math.floor(routeProgress / segLen));
+      localProgress = Math.min(1, Math.max(0, (routeProgress - activeClusterIdx * segLen) / segLen));
+    }
+    const activeCluster = clusters[activeClusterIdx];
+
+    if (activeCluster) {
       const padding = 120;
       const mapW = W - padding * 2;
       const mapH = 480;
       const mapY = 300;
+      const { minLat, maxLat, minLng, maxLng } = activeCluster.bbox;
       const dLng = (maxLng - minLng) || 0.001;
       const dLat = (maxLat - minLat) || 0.001;
       const scale = Math.min(mapW / dLng, mapH / dLat);
       const offsetX = padding + (mapW - dLng * scale) / 2;
       const offsetY = mapY + (mapH - dLat * scale) / 2;
 
-      // build 212: 주간/월간도 일간처럼 routeProgress 따라 그림. 모든 경로가 누적 거리로 정렬되어
-      // 하나의 timeline 처럼 차오름 → 마지막 진행점에 펄스 그린닷, 완료 시 빨간 dot.
-      // 1) 모든 경로 그림자 (항상 전체 표시 — 사용자가 한 주/한 달의 전체 모습 인지 가능)
-      for (const route of extraRoutes!) {
+      // fade in/out (영상 모드일 때 segment 경계에서 0.1 까지 페이드)
+      let segmentAlpha = 1;
+      if (isAnimating && clusters.length > 1) {
+        const segLen = 1 / clusters.length;
+        const segLocal = (routeProgress - activeClusterIdx * segLen) / segLen;
+        if (segLocal < 0.1) segmentAlpha = segLocal / 0.1;
+        else if (segLocal > 0.9 && activeClusterIdx < clusters.length - 1) segmentAlpha = (1 - segLocal) / 0.1;
+      }
+      ctx.globalAlpha = segmentAlpha;
+
+      // 1) 이 cluster 의 모든 경로 그림자
+      for (const route of activeCluster.routes) {
         if (route.length < 2) continue;
         ctx.beginPath();
         route.forEach(([lng, lat], i) => {
@@ -227,11 +298,11 @@ function drawCard(
         ctx.stroke();
       }
 
-      // 2) 경로 누적 거리 (haversine 근사) 로 timeline 구성
+      // 2) timeline 누적 거리 — 이 cluster 내 경로만
       const routeCums: number[][] = [];
       let grandTotal = 0;
       const offsets: number[] = [];
-      for (const route of extraRoutes!) {
+      for (const route of activeCluster.routes) {
         offsets.push(grandTotal);
         const cum: number[] = new Array(route.length).fill(0);
         for (let i = 1; i < route.length; i++) {
@@ -245,26 +316,24 @@ function drawCard(
         routeCums.push(cum);
         grandTotal += cum[cum.length - 1] || 0;
       }
-      const targetM = grandTotal * Math.min(1, Math.max(0, routeProgress));
+      // 정적 모드면 항상 100%, 영상 모드면 localProgress
+      const targetM = grandTotal * (isAnimating ? localProgress : 1);
 
-      // 3) 각 경로를 진행도까지 emerald 솔리드로 다시 그림
+      // 3) emerald 솔리드 progressive
       let lastDrawnX: number | null = null, lastDrawnY: number | null = null;
-      let lastRouteIdxDrawn = -1;
-      for (let ri = 0; ri < extraRoutes!.length; ri++) {
-        const route = extraRoutes![ri];
+      for (let ri = 0; ri < activeCluster.routes.length; ri++) {
+        const route = activeCluster.routes[ri];
         if (route.length < 2) continue;
         const cum = routeCums[ri];
         const routeStartM = offsets[ri];
         const routeEndM = routeStartM + cum[cum.length - 1];
-        if (targetM <= routeStartM) continue;       // 아직 시작 안 함
+        if (targetM <= routeStartM) continue;
         const localTarget = Math.min(targetM, routeEndM) - routeStartM;
-        // cutIdx — localTarget 까지의 점 개수
         let cutIdx = route.length;
         for (let i = 0; i < cum.length; i++) {
           if (cum[i] >= localTarget) { cutIdx = Math.max(2, i + 1); break; }
         }
         const sliced: [number, number][] = route.slice(0, cutIdx).map(([lng, lat]) => [lng, lat]);
-        // 마지막 점 보간
         if (cutIdx < route.length && cutIdx > 0 && localTarget < routeEndM - routeStartM) {
           const prevM = cum[cutIdx - 1];
           const segM = cum[cutIdx] - prevM;
@@ -285,35 +354,57 @@ function drawCard(
         ctx.strokeStyle = bgImage ? '#ffffff' : theme.routeColor;
         ctx.lineWidth = 7;
         ctx.stroke();
-        // 마지막 점 좌표 저장 — 펄스 dot 위치
         const last = sliced[sliced.length - 1];
         lastDrawnX = offsetX + (last[0] - minLng) * scale;
         lastDrawnY = offsetY + mapH - (last[1] - minLat) * scale;
-        lastRouteIdxDrawn = ri;
       }
 
-      // 4) 진행 점 dot — 애니메이션 중에는 펄스 그린, 완료 시 빨간 dot 마지막 경로 끝점에
-      if (lastDrawnX !== null && lastDrawnY !== null) {
-        if (routeProgress >= 1) {
-          ctx.fillStyle = '#ffffff';
-          ctx.beginPath(); ctx.arc(lastDrawnX, lastDrawnY, 12, 0, Math.PI * 2); ctx.fill();
-          ctx.strokeStyle = '#1f2937';
-          ctx.lineWidth = 4;
-          ctx.stroke();
-        } else {
-          const pulse = 1 + 0.2 * Math.sin(routeProgress * Math.PI * 6);
-          ctx.fillStyle = '#22C55E';
-          ctx.beginPath(); ctx.arc(lastDrawnX, lastDrawnY, 12 * pulse, 0, Math.PI * 2); ctx.fill();
-          ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = 4;
-          ctx.stroke();
-        }
+      ctx.globalAlpha = 1;
+
+      // 4) 멀티 cluster 안내 — 정적 모드 + cluster > 1 일 때 footer 위에 "+N국 Xkm 더"
+      if (!isAnimating && clusters.length > 1) {
+        const otherCount = clusters.length - 1;
+        let otherKm = 0;
+        for (let i = 1; i < clusters.length; i++) otherKm += clusters[i].totalM / 1000;
+        ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.fillStyle = bgImage ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.75)';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        const text = `🌍 +${otherCount}개 지역 ${otherKm.toFixed(1)}km 더`;
+        ctx.fillText(text, W / 2, mapY + mapH + 28);
       }
-      void lastRouteIdxDrawn;
-      // 첫 경로의 시작점에 빨간 핀
-      const first = extraRoutes![0];
-      if (first && first.length >= 1) {
-        const [sLng, sLat] = first[0];
+
+      // 5) 영상 모드 + 멀티 cluster 일 때 현재 cluster 번호 표시 (1/3 등)
+      if (isAnimating && clusters.length > 1) {
+        ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.fillStyle = bgImage ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.6)';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(`${activeClusterIdx + 1} / ${clusters.length}`, W - padding, mapY + 32);
+        ctx.textAlign = 'center';
+      }
+
+      // 6) 펄스 그린 dot — 영상 모드, 마지막 그려진 점.
+      if (lastDrawnX !== null && lastDrawnY !== null && isAnimating) {
+        const pulse = 1 + 0.2 * Math.sin(routeProgress * Math.PI * 6);
+        ctx.fillStyle = '#22C55E';
+        ctx.beginPath(); ctx.arc(lastDrawnX, lastDrawnY, 12 * pulse, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+      } else if (lastDrawnX !== null && lastDrawnY !== null) {
+        // 완료 — 흰 dot
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.arc(lastDrawnX, lastDrawnY, 12, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#1f2937';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+      }
+
+      // 7) activeCluster 첫 경로의 시작점에 빨간 핀 + 도시명 (#1 패턴)
+      const firstRoute = activeCluster.routes[0];
+      if (firstRoute && firstRoute.length >= 1) {
+        const [sLng, sLat] = firstRoute[0];
         const sx = offsetX + (sLng - minLng) * scale;
         const sy = offsetY + mapH - (sLat - minLat) * scale;
         const pinR = 18, pinCenterY = sy - 30;

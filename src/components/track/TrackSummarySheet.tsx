@@ -17,6 +17,7 @@ import RouteMap from '@/components/map/RouteMap';
 import type { GeoJSONLineString } from '@/types';
 import { syncPBsFromActivity } from '@/lib/best-splits';
 import { useI18n } from '@/lib/i18n';
+import { logClientInfo, logClientWarn } from '@/lib/error-logger';
 
 interface Props {
   finalState: TrackingState;
@@ -82,11 +83,16 @@ export default function TrackSummarySheet({ finalState, userId, onClose }: Props
   const handleSave = async () => {
     setSaving(true);
     setError(null);
+    // build 214 #2: 저장 시도 자체를 관측 가능하게 — 이전엔 attempt/fail/abort 어느 것도 client_error_logs 에 안 남음.
+    logClientInfo('track-save', 'attempt', {
+      distance_m: Math.round(distanceMeters),
+      elapsed_s: elapsedSeconds,
+      coords_n: finalState.coords.length,
+    });
     try {
       const supabase = getSupabase();
       const startedAt = new Date(finalState.startedAt).toISOString();
       const endedAt = new Date().toISOString();
-      // 칼로리 추정: 약 60kcal/km (러닝 평균). 체중·심박 데이터 있을 때 정교화 가능.
       const estCal = Math.round((distanceMeters / 1000) * 60);
 
       const { data, error: insertErr } = await supabase
@@ -127,11 +133,19 @@ export default function TrackSummarySheet({ finalState, userId, onClose }: Props
         console.warn('[track/summary] PB sync 실패 (저장은 정상)', e);
       }
 
+      logClientInfo('track-save', 'success', { activity_id: activityId, distance_m: Math.round(distanceMeters) });
       // 활동 상세로 이동 (sheet 닫고 navigate)
       onClose();
       router.push(`/activity?id=${activityId}`);
     } catch (e) {
+      const reason = e instanceof Error ? e.message : String(e);
       console.warn('[track/summary] save fail', e);
+      logClientWarn('track-save', 'fail', {
+        reason,
+        distance_m: Math.round(distanceMeters),
+        elapsed_s: elapsedSeconds,
+        coords_n: finalState.coords.length,
+      });
       setError(e instanceof Error ? e.message : tt('저장 실패'));
     } finally {
       setSaving(false);
@@ -140,6 +154,11 @@ export default function TrackSummarySheet({ finalState, userId, onClose }: Props
 
   const handleDiscard = () => {
     if (!window.confirm(tt('이번 기록을 저장하지 않고 버릴까요?'))) return;
+    logClientWarn('track-discard', 'sheet-discard', {
+      distance_m: Math.round(distanceMeters),
+      elapsed_s: elapsedSeconds,
+      coords_n: finalState.coords.length,
+    });
     onClose();
     router.replace('/dashboard');
   };
