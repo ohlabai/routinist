@@ -1707,7 +1707,7 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
                 <Video size={16} />
                 {attachedVideoUrl
                   ? `영상 ${(attachedVideoDurMs / 1000).toFixed(1)}s`
-                  : '영상 인트로'}
+                  : '영상 배경'}
               </button>
               {attachedVideoUrl && (
                 <button
