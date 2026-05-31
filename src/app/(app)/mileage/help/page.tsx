@@ -3,7 +3,7 @@
 // 마일리지 적립 가이드 — /mileage 에서 ? 아이콘으로 진입.
 // build 224: 사용자 질문이 잦은 "마일리지가 어떻게 쌓이는지" 를 한 페이지로 정리.
 
-import { ArrowLeft, Coins, Sparkles, Flame, Trophy, Gift, Heart, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Coins, Sparkles, Flame, Trophy, Gift, Heart, AlertCircle, ShoppingBag } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -47,6 +47,13 @@ const EARN_RULES: Rule[] = [
 ];
 
 const SPEND_RULES: Rule[] = [
+  {
+    Icon: ShoppingBag,
+    title: '쇼핑 결제',
+    formula: '1P = 1원',
+    desc: '쇼핑 탭에서 상품 결제할 때 마일리지로 쓸 수 있어요. 일부 또는 전액 사용 가능.',
+    accent: 'sky',
+  },
   {
     Icon: Gift,
     title: '친구에게 선물',

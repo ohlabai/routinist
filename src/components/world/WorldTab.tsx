@@ -195,7 +195,13 @@ export default function WorldTab() {
     // 기존엔 mine 으로 필터링했지만, fetchMyCourses RPC 가 silent fail (.catch return []) 하면
     // 참가한 코스가 available 에 그대로 떠서 "도전 시작" 버튼을 또 보게 됨.
     // 완주한 코스만 제외 — 새 코스 섹션은 "참가 가능 + 진행 중" 으로 정의.
-    const completedIds = new Set(my.filter(m => m.completed_at).map(m => m.course_id));
+    // build 234: completed_at NULL 이라도 progress >= distance 면 completed 로 취급 (DB trigger
+    // 적용 전 사용자의 stale data 흡수). Number() 변환 — numeric 컬럼이 string 으로 도착하던 회귀.
+    const completedIds = new Set(
+      my
+        .filter(m => !!m.completed_at || Number(m.progress_km ?? 0) >= Number(m.distance_km ?? Infinity))
+        .map(m => m.course_id)
+    );
     setAvailable(all.filter(c => !completedIds.has(c.id)));
 
     // 진행중 코스도 미리보기 보이게 — all 의 preview_path 매핑.
@@ -392,10 +398,13 @@ export default function WorldTab() {
               // build 166 #1: fetchMyCourses 가 빈결과여도 localStorage knownJoined 로 fallback.
               const joined = !!myEntry || knownJoined.has(c.id);
               // build 226 #6: progress_km >= distance_km 이지만 completed_at 이 NULL 인 경우에도
-              // UI 상 "완주" 로 표시 (회귀 사진 0531: 보스턴 마라톤 42.2km 완주 후 "달리는 중" 표시).
+              // UI 상 "완주" 로 표시. build 234: Supabase numeric → JS string 으로 와서 lex 비교가
+              // 깨지던 회귀 fix. Number() 명시 변환 + course distance fallback (mine 에 없을 때 available 에서).
+              const myDistKm = Number(myEntry?.distance_km ?? c.distance_km ?? 0);
+              const myProgKm = Number(myEntry?.progress_km ?? 0);
               const courseCompleted = !!myEntry && (
                 !!myEntry.completed_at ||
-                (myEntry.distance_km > 0 && myEntry.progress_km >= myEntry.distance_km)
+                (myDistKm > 0 && myProgKm >= myDistKm)
               );
               return (
               <div key={c.id} className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] overflow-hidden">

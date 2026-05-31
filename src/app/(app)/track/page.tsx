@@ -81,6 +81,24 @@ export default function TrackPage() {
   const [voiceOn, setVoiceOn] = useState<boolean>(() => isVoiceCueEnabled());
   const [voiceInterval, setVoiceInterval] = useState<500 | 1000>(() => (getVoiceCueIntervalMeters() === 500 ? 500 : 1000));
   const [voiceGender, setVoiceGenderState] = useState<VoiceGender>(() => getVoiceGender());
+  // build 234: ko 남성 voice 가 OS 에 없으면 picker 자체 hide (사용자: "남성 안 되면 옵션에서 빼자").
+  const [malePickerVisible, setMalePickerVisible] = useState<boolean>(false);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const recheck = () => {
+      // 한국어 모드일 때만 male voice 존재 여부 체크. 영어는 OS 에 male voice 항상 있음.
+      setMalePickerVisible(locale !== 'ko' || hasKoreanMaleVoice());
+    };
+    recheck();
+    // voices 가 async 로드라 즉시 체크 false 일 수도 → 500ms 후 재확인.
+    const t = setTimeout(recheck, 500);
+    // 남성 voice 없는데 male 선택 상태였다면 female 로 강제.
+    if (locale === 'ko' && !hasKoreanMaleVoice() && voiceGender === 'male') {
+      setVoiceGenderState('female');
+      setVoiceGender('female');
+    }
+    return () => clearTimeout(t);
+  }, [locale, voiceGender]);
   const toggleVoice = () => {
     const next = !voiceOn;
     setVoiceOn(next);
@@ -95,16 +113,7 @@ export default function TrackPage() {
     setVoiceGenderState(g);
     setVoiceGender(g);
     if (voiceOn) speakGreetingSample(locale);
-    // build 233: 한국어 male voice 가 OS 미설치인 경우 처음 1회만 안내.
-    if (g === 'male' && locale === 'ko' && !hasKoreanMaleVoice()) {
-      try {
-        const warned = window.localStorage.getItem('voice-cue:male-warned-v2');
-        if (!warned) {
-          window.localStorage.setItem('voice-cue:male-warned-v2', '1');
-          window.alert('한국어 남성 음성이 기기에 없어 음역만 낮춰 들려요.\n설정 → 손쉬운 사용 → 음성 콘텐츠 → 음성 → 한국어 에서 "수현" 등을 다운로드하면 자연스러운 남성 음성으로 들을 수 있어요.');
-        }
-      } catch { /* ignore */ }
-    }
+    // build 234: ko 남성 voice 없으면 picker 자체 hide. 옛 alert 안내 제거.
   };
 
   // build 229.B: 활성 월드런 챌린지 코스 — 트래킹 중 음성 안내에 코스명 + 다음 랜드마크 카운트다운 추가.
@@ -581,16 +590,19 @@ export default function TrackPage() {
                       className={`h-9 px-3 text-xs font-extrabold transition ${voiceInterval === 500 ? 'bg-emerald-500 text-white' : 'text-[var(--muted)]'}`}
                     >500m</button>
                   </div>
-                  <div className="inline-flex items-center rounded-full bg-[var(--card)] border border-[var(--card-border)] overflow-hidden">
-                    <button
-                      onClick={() => changeGender('female')}
-                      className={`h-9 px-3 text-xs font-extrabold transition ${voiceGender === 'female' ? 'bg-emerald-500 text-white' : 'text-[var(--muted)]'}`}
-                    >{locale === 'en' ? 'Female' : '여성'}</button>
-                    <button
-                      onClick={() => changeGender('male')}
-                      className={`h-9 px-3 text-xs font-extrabold transition ${voiceGender === 'male' ? 'bg-emerald-500 text-white' : 'text-[var(--muted)]'}`}
-                    >{locale === 'en' ? 'Male' : '남성'}</button>
-                  </div>
+                  {/* build 234: ko 남성 voice 없으면 picker 자체 hide */}
+                  {malePickerVisible && (
+                    <div className="inline-flex items-center rounded-full bg-[var(--card)] border border-[var(--card-border)] overflow-hidden">
+                      <button
+                        onClick={() => changeGender('female')}
+                        className={`h-9 px-3 text-xs font-extrabold transition ${voiceGender === 'female' ? 'bg-emerald-500 text-white' : 'text-[var(--muted)]'}`}
+                      >{locale === 'en' ? 'Female' : '여성'}</button>
+                      <button
+                        onClick={() => changeGender('male')}
+                        className={`h-9 px-3 text-xs font-extrabold transition ${voiceGender === 'male' ? 'bg-emerald-500 text-white' : 'text-[var(--muted)]'}`}
+                      >{locale === 'en' ? 'Male' : '남성'}</button>
+                    </div>
+                  )}
                 </>
               )}
             </div>
