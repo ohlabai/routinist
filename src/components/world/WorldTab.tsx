@@ -21,6 +21,7 @@ import {
 import AppToast from '@/components/AppToast';
 import CourseDetailSheet from './CourseDetailSheet';
 import { useI18n } from '@/lib/i18n';
+import { logClientInfo, logClientWarn } from '@/lib/error-logger';
 // build 207: 영문화 — 챌린지 시리즈/자세히/달리는 중/도전하기/대륙/마라톤·국가명 등 tt wrap.
 import { Coins } from 'lucide-react';
 import { track } from '@/lib/analytics';
@@ -186,6 +187,22 @@ export default function WorldTab() {
     const seriesPromise = fetchCourseSeries().catch(() => [] as CourseSeries[]);
     const [my, all, series] = await Promise.all([myPromise, allPromise, seriesPromise]);
     setSeriesList(series);
+
+    // build 238: 진단 로그 — "달리는 중" 회귀 추적. mine 에 어떤 코스가 있고 completed_at 상태 어떤지.
+    if (myFetchOk) {
+      logClientInfo('world', 'fetchMyCourses ok', {
+        count: my.length,
+        courses: my.map(m => ({
+          id: m.course_id,
+          name: m.name,
+          completed: !!m.completed_at,
+          prog: Number(m.progress_km ?? 0),
+          dist: Number(m.distance_km ?? 0),
+        })),
+      });
+    } else {
+      logClientWarn('world', 'fetchMyCourses fail — knownJoined fallback only', {});
+    }
 
     setMine(my);
     // build 170 #6: mine 성공 fetch 이면 knownJoined 를 ground truth 로 sync.
@@ -438,6 +455,17 @@ export default function WorldTab() {
                       {tt('자세히')}
                     </button>
                     {joined ? (
+                      // build 238: myEntry 없는 knownJoined-only 케이스 (fetchMyCourses fail / silent
+                      // empty) 에선 "달리는 중" 으로 잘못 표시되는 회귀 차단. 중립 "확인" 표시 + 탭하면
+                      // 상세 sheet 에서 정확한 progress 확인 가능. courseCompleted 도 myEntry 있을 때만.
+                      !myEntry ? (
+                        <button
+                          onClick={() => setDetailCourseId(c.id)}
+                          className="flex-1 py-3 rounded-xl text-white font-extrabold text-sm active:scale-[0.99] shadow-md bg-gradient-to-br from-sky-500 to-sky-600 shadow-sky-500/25"
+                        >
+                          {tt('🔍 확인')}
+                        </button>
+                      ) : (
                       <button
                         onClick={() => setDetailCourseId(c.id)}
                         className={`flex-1 py-3 rounded-xl text-white font-extrabold text-sm active:scale-[0.99] shadow-md ${
@@ -448,6 +476,7 @@ export default function WorldTab() {
                       >
                         {courseCompleted ? tt('✅ 완주') : tt('🏃 달리는 중')}
                       </button>
+                      )
                     ) : hasActiveCourse ? (
                       // build 167 #5: 진행 중인 다른 코스가 있으면 도전 차단. 친근 안내.
                       <button
