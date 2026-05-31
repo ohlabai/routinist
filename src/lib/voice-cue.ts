@@ -1,10 +1,16 @@
 // build 214 #3: 1km 마일스톤 음성 알림 (Web Speech API).
 // build 223: 백그라운드 재생 + 남/여 voice 선택 + 자연스러운 voice 우선.
+// build 226 #1: male voice 매칭 실패 시 pitch 보정 + 메시지 짧고 친근하게 다듬음 +
+//   milestone (5/10/half/full) 차별 메시지. Premium/Enhanced quality 가중치 강화.
 //
 // iOS WKWebView 의 speechSynthesis 는 AVSpeechSynthesizer 를 wrapping 함. iOS 가 설치한 모든 voice
 // (한국어 Yuna/Jian, 영어 Samantha/Aaron/Allison 등 + Enhanced/Premium quality) 를 그대로 사용 가능.
 // 백그라운드 발화는 AppDelegate 의 AVAudioSession (.playback + .mixWithOthers) + UIBackgroundModes 'audio'
-// 조합으로 가능 (둘 다 build 223 에 들어감).
+// 조합으로 가능 (build 223).
+//
+// **자연스러움 한계**: Web Speech API 의 한국어 voice 가 OS 기본 Yuna 뿐인 경우가 많아
+// 한계가 있음. 사용자가 iOS 설정 > 손쉬운 사용 > 음성 콘텐츠 > 음성 > 한국어 에서 추가 voice
+// (Suhyun, Premium 등) 를 다운로드하면 즉시 활용 (getVoices 가 반영).
 //
 // 옵션 localStorage:
 //   'voice-cue:enabled' (default ON)
@@ -59,28 +65,17 @@ export function setVoiceGender(g: VoiceGender) {
   try { localStorage.setItem(GENDER_KEY, g); } catch {}
 }
 
-// Voice 추측 — speechSynthesis.getVoices() 가 반환하는 list 에서 locale+gender 에 맞는 가장 자연스러운 보이스 선택.
-// iOS 의 SpeechSynthesisVoice.name 은 보통 "Yuna", "Yuna (Enhanced)", "Allison (Premium)" 같은 형태.
-// quality: Premium > Enhanced > Default. 이름 keyword 로 gender 판정.
-//
-// 알려진 iOS voice 매핑:
-//   ko-KR 여성: Yuna (기본/Enhanced/Premium). 다른 후보: Sora, Heami.
-//   ko-KR 남성: Jian, Minsu, Gyeong-Min, Sung-Ho. iOS 기본은 Yuna 만 들어있는 경우가 많음 → fallback.
-//   en-US 여성: Samantha, Allison, Ava, Susan, Karen, Tessa.
-//   en-US 남성: Aaron, Daniel, Fred, Tom, Alex.
-//
-// build 223: 사용 가능 voice 없으면 OS default 로 폴백 (locale 만 설정).
-
-const KO_FEMALE_NAMES = ['Yuna', 'Sora', 'Heami', 'Narae', 'Ji-Min'];
+const KO_FEMALE_NAMES = ['Yuna', 'Sora', 'Heami', 'Narae', 'Ji-Min', 'Suhyun', 'Seoyeon'];
 const KO_MALE_NAMES = ['Jian', 'Minsu', 'Gyeong-Min', 'Sung-Ho', 'Junwoo'];
 const EN_FEMALE_NAMES = ['Allison', 'Ava', 'Samantha', 'Susan', 'Karen', 'Tessa', 'Moira', 'Serena', 'Zoe'];
 const EN_MALE_NAMES = ['Aaron', 'Daniel', 'Fred', 'Tom', 'Alex', 'Oliver', 'Lee', 'Evan'];
 
 function qualityScore(name: string): number {
-  // Premium > Enhanced > 기본. 이름에 keyword 포함 여부로 판정.
+  // build 226: Premium > Enhanced/Neural > Siri (iOS 17+ Siri voice 가 가장 자연스러움) > 기본.
   const n = name.toLowerCase();
-  if (n.includes('premium')) return 3;
-  if (n.includes('enhanced') || n.includes('neural')) return 2;
+  if (n.includes('premium')) return 5;
+  if (n.includes('enhanced') || n.includes('neural')) return 4;
+  if (n.includes('siri')) return 3;
   return 1;
 }
 
@@ -91,56 +86,77 @@ function matchesGender(voiceName: string, gender: VoiceGender, locale: 'ko' | 'e
   return candidates.some(n => voiceName.startsWith(n));
 }
 
-function pickBestVoice(locale: 'ko' | 'en', gender: VoiceGender): SpeechSynthesisVoice | null {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
+interface PickedVoice {
+  voice: SpeechSynthesisVoice | null;
+  // build 226 #1: 사용자가 male 선택했지만 ko 남성 voice 없을 때 true. pitch 를 0.65 로 크게 낮춰
+  // "남성 같이" 들리게 보정.
+  genderFallback: boolean;
+}
+
+function pickBestVoice(locale: 'ko' | 'en', gender: VoiceGender): PickedVoice {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    return { voice: null, genderFallback: false };
+  }
   const voices = window.speechSynthesis.getVoices();
-  if (!voices || voices.length === 0) return null;
+  if (!voices || voices.length === 0) return { voice: null, genderFallback: false };
   const langPrefix = locale === 'ko' ? 'ko' : 'en';
   // 1) locale 매칭 + gender 매칭 voice 중 최고 quality.
   const matchingGender = voices
     .filter(v => v.lang.startsWith(langPrefix) && matchesGender(v.name, gender, locale))
     .sort((a, b) => qualityScore(b.name) - qualityScore(a.name));
-  if (matchingGender.length > 0) return matchingGender[0];
-  // 2) locale 만 매칭. 사용자 선택 gender 못 찾으면 그냥 같은 언어 최고 quality voice.
+  if (matchingGender.length > 0) return { voice: matchingGender[0], genderFallback: false };
+  // 2) locale 만 매칭 (gender 매칭 실패). 같은 언어 최고 quality voice.
+  // → 사용자가 male 선택했는데 ko male voice 가 없으면 여기로 와서 Yuna 같은 voice 반환.
+  //   genderFallback=true 표시해서 호출부가 pitch 로 보정 가능.
   const matchingLang = voices
     .filter(v => v.lang.startsWith(langPrefix))
     .sort((a, b) => qualityScore(b.name) - qualityScore(a.name));
-  if (matchingLang.length > 0) return matchingLang[0];
-  return null;
+  if (matchingLang.length > 0) return { voice: matchingLang[0], genderFallback: true };
+  return { voice: null, genderFallback: false };
 }
 
-// voiceschanged 이벤트는 iOS Safari/WKWebView 에서 첫 호출 후 비동기로 발생.
-// 첫 마운트에서 voice list 가 비어 있으면 이 콜백이 한 번 더 호출됨.
-// 미리 voices 를 warm-up — 첫 발화 직전 list 확보 보장.
 let voicesPrimed = false;
 function primeVoices() {
   if (voicesPrimed) return;
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-  // 첫 호출
   window.speechSynthesis.getVoices();
-  // voiceschanged 도 등록 — async 로 list 가 채워지면 그때 ready 처리
   try {
     window.speechSynthesis.onvoiceschanged = () => {
       voicesPrimed = true;
     };
-  } catch {
-    // older browsers
-  }
+  } catch {}
   voicesPrimed = true;
 }
 
-function paceLabel(secondsPerKm: number | null, locale: 'ko' | 'en'): string {
-  if (!secondsPerKm || secondsPerKm <= 0) return '';
-  const m = Math.floor(secondsPerKm / 60);
-  const s = Math.floor(secondsPerKm % 60);
-  if (locale === 'en') return `pace ${m} minute${m !== 1 ? 's' : ''} ${s} second${s !== 1 ? 's' : ''} per kilometer`;
-  return `킬로미터당 ${m}분 ${s}초`;
+// build 226 #1: 마일스톤별 친근하고 짧은 메시지. 너무 길면 기계음 티가 나기 쉬워서 한 호흡으로
+// 마칠 수 있는 분량. 5km / 10km / 21.0975 (하프) / 42.195 (풀) 는 더 응원하는 톤.
+function buildMilestoneMessage(totalKm: number, locale: 'ko' | 'en'): string {
+  const km = Math.round(totalKm * 10) / 10;
+  const isHalf = Math.abs(km - 21.1) < 0.1 || Math.abs(km - 21.0) < 0.1;
+  const isFull = Math.abs(km - 42.2) < 0.1 || Math.abs(km - 42.0) < 0.1;
+  if (locale === 'en') {
+    if (isFull) return `Full marathon! You did it. Incredible run.`;
+    if (isHalf) return `Half marathon! Amazing. Keep going.`;
+    if (km === 10) return `Ten kilometers! You're on fire today.`;
+    if (km === 5) return `Five kilometers! Nice and steady.`;
+    if (km === 1) return `One kilometer. Nice pace, off to a good start.`;
+    if (km % 1 === 0) return `${km} kilometers. Looking strong.`;
+    return `${km} kilometers. You've got this.`;
+  }
+  // ko
+  if (isFull) return `풀 마라톤! 해냈어요. 정말 대단해요.`;
+  if (isHalf) return `하프 마라톤! 잘 왔어요. 끝까지 같이 가요.`;
+  if (km === 10) return `10킬로 통과! 오늘 컨디션 좋네요.`;
+  if (km === 5) return `5킬로 통과! 페이스 좋아요.`;
+  if (km === 1) return `1킬로 통과. 가볍게 시작했어요.`;
+  if (km % 1 === 0) return `${km}킬로 통과. 잘하고 있어요.`;
+  return `${km}킬로 통과. 천천히 같이 가요.`;
 }
 
 /** 발화 — Web Speech API + iOS native voice 선택. 사용자가 OFF 했거나 unsupported 면 no-op. */
 export function speakMilestone(args: {
-  totalKm: number;              // 누적 km (정수)
-  elapsedSeconds: number;       // 누적 시간 (초)
+  totalKm: number;
+  elapsedSeconds: number;
   avgPaceSecPerKm: number | null;
   locale: 'ko' | 'en';
 }) {
@@ -148,37 +164,29 @@ export function speakMilestone(args: {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
   primeVoices();
 
-  const { totalKm, elapsedSeconds, avgPaceSecPerKm, locale } = args;
-  const mm = Math.floor(elapsedSeconds / 60);
-  const ss = Math.floor(elapsedSeconds % 60);
-
-  // build 223: 친근하고 응원하는 톤. 기계적인 "도달" → "축하" 표현.
-  let text: string;
-  if (locale === 'en') {
-    text = `Great job! ${totalKm} kilometer${totalKm !== 1 ? 's' : ''}. Time ${mm} minute${mm !== 1 ? 's' : ''} ${ss} second${ss !== 1 ? 's' : ''}.`;
-    const p = paceLabel(avgPaceSecPerKm, 'en');
-    if (p) text += ` Average ${p}. Keep going!`;
-  } else {
-    text = `잘하고 있어요! ${totalKm}킬로미터 통과. ${mm}분 ${ss}초 지났습니다.`;
-    const p = paceLabel(avgPaceSecPerKm, 'ko');
-    if (p) text += ` 평균 ${p}. 이대로 가요!`;
-  }
+  const { totalKm, locale } = args;
+  const text = buildMilestoneMessage(totalKm, locale);
 
   try {
     const gender = getVoiceGender();
-    const voice = pickBestVoice(locale, gender);
+    const picked = pickBestVoice(locale, gender);
     const u = new SpeechSynthesisUtterance(text);
-    if (voice) {
-      u.voice = voice;
-      u.lang = voice.lang;
+    if (picked.voice) {
+      u.voice = picked.voice;
+      u.lang = picked.voice.lang;
     } else {
       u.lang = locale === 'en' ? 'en-US' : 'ko-KR';
     }
-    // build 223: 친근감을 위해 살짝 느린 속도 + 약간 높은 pitch. 너무 기계음으로 들리지 않도록.
-    u.rate = 0.95;
-    u.pitch = gender === 'female' ? 1.05 : 0.95;
+    // build 226: 자연스러운 prosody 를 위해 rate 살짝 느림 (0.92).
+    // 남성 fallback (ko 남성 voice 없는 경우) 시 pitch 0.65 로 크게 낮춰 다른 caractère 부여.
+    // 일반 남성: 0.88, 여성: 1.04 (살짝 밝은 톤).
+    u.rate = 0.92;
+    if (gender === 'male') {
+      u.pitch = picked.genderFallback ? 0.65 : 0.88;
+    } else {
+      u.pitch = 1.04;
+    }
     u.volume = 1.0;
-    // 같은 시점에 다른 utterance 가 있으면 cancel 후 새 것
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(u);
   } catch {
@@ -191,26 +199,30 @@ export function speakSample(locale: 'ko' | 'en') {
   speakMilestone({ totalKm: 1, elapsedSeconds: 330, avgPaceSecPerKm: 330, locale });
 }
 
-/** 짧은 인사 발화 — 성별 토글 직후 미리듣기용. */
+/** 짧은 인사 발화 — 성별 토글 직후 미리듣기용. build 226: 친근한 톤. */
 export function speakGreetingSample(locale: 'ko' | 'en') {
   if (!isVoiceCueEnabled()) return;
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
   primeVoices();
   const text = locale === 'en'
-    ? 'Hi there! Ready to run together?'
-    : '안녕하세요! 같이 달려볼까요?';
+    ? 'Hey, ready to run? I will be with you the whole way.'
+    : '안녕하세요. 오늘도 같이 달려요. 끝까지 함께할게요.';
   try {
     const gender = getVoiceGender();
-    const voice = pickBestVoice(locale, gender);
+    const picked = pickBestVoice(locale, gender);
     const u = new SpeechSynthesisUtterance(text);
-    if (voice) {
-      u.voice = voice;
-      u.lang = voice.lang;
+    if (picked.voice) {
+      u.voice = picked.voice;
+      u.lang = picked.voice.lang;
     } else {
       u.lang = locale === 'en' ? 'en-US' : 'ko-KR';
     }
-    u.rate = 0.95;
-    u.pitch = gender === 'female' ? 1.05 : 0.95;
+    u.rate = 0.92;
+    if (gender === 'male') {
+      u.pitch = picked.genderFallback ? 0.65 : 0.88;
+    } else {
+      u.pitch = 1.04;
+    }
     u.volume = 1.0;
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(u);

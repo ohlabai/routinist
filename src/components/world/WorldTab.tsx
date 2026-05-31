@@ -376,6 +376,12 @@ export default function WorldTab() {
               const myEntry = mine.find(m => m.course_id === c.id);
               // build 166 #1: fetchMyCourses 가 빈결과여도 localStorage knownJoined 로 fallback.
               const joined = !!myEntry || knownJoined.has(c.id);
+              // build 226 #6: progress_km >= distance_km 이지만 completed_at 이 NULL 인 경우에도
+              // UI 상 "완주" 로 표시 (회귀 사진 0531: 보스턴 마라톤 42.2km 완주 후 "달리는 중" 표시).
+              const courseCompleted = !!myEntry && (
+                !!myEntry.completed_at ||
+                (myEntry.distance_km > 0 && myEntry.progress_km >= myEntry.distance_km)
+              );
               return (
               <div key={c.id} className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] overflow-hidden">
                 {/* 지도 미리보기 + 클릭 시 상세 */}
@@ -410,9 +416,13 @@ export default function WorldTab() {
                     {joined ? (
                       <button
                         onClick={() => setDetailCourseId(c.id)}
-                        className="flex-1 py-3 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white font-extrabold text-sm active:scale-[0.99] shadow-md shadow-amber-500/25"
+                        className={`flex-1 py-3 rounded-xl text-white font-extrabold text-sm active:scale-[0.99] shadow-md ${
+                          courseCompleted
+                            ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-emerald-500/30'
+                            : 'bg-gradient-to-br from-amber-500 to-orange-500 shadow-amber-500/25'
+                        }`}
                       >
-                        {tt('🏃 달리는 중')}
+                        {courseCompleted ? tt('✅ 완주') : tt('🏃 달리는 중')}
                       </button>
                     ) : hasActiveCourse ? (
                       // build 167 #5: 진행 중인 다른 코스가 있으면 도전 차단. 친근 안내.

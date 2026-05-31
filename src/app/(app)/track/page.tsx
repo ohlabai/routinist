@@ -574,8 +574,13 @@ export default function TrackPage() {
               </div>
             </div>
 
-            {/* 일시정지 / 완료 */}
+            {/* build 226 #2: 완료(왼) / 일시정지·재개(오) — 오른손잡이 엄지로 가장 자주 누르는
+                일시정지는 오른쪽, 완료는 안쪽(왼쪽) 으로 배치해 의도치 않은 완료 사고 줄임. */}
             <div className="grid grid-cols-2 gap-2.5">
+              <button onClick={handleFinish}
+                className="py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base active:scale-[0.98] inline-flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/30">
+                <Check size={18} /> {tt('완료')}
+              </button>
               {isActive ? (
                 <button onClick={handlePause}
                   className="py-4 rounded-2xl bg-[var(--card)] border-2 border-[var(--card-border)] text-[var(--foreground)] font-extrabold text-base active:scale-[0.98] inline-flex items-center justify-center gap-1.5">
@@ -587,10 +592,6 @@ export default function TrackPage() {
                   <Play size={18} /> {tt('재개')}
                 </button>
               )}
-              <button onClick={handleFinish}
-                className="py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base active:scale-[0.98] inline-flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/30">
-                <Check size={18} /> {tt('완료')}
-              </button>
             </div>
           </>
         )}

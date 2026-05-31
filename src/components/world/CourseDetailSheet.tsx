@@ -4,7 +4,7 @@
 // 라이브 트래커 (참가자 마커) + 디지털 인증서 PDF + 메달 신청 폼.
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { X, Trophy, Users, Award, MapPin, Download, Truck, Globe, Crown, Sparkles, BookOpen, Mountain, ExternalLink, Play, Flag as FlagIcon } from 'lucide-react';
+import { X, Trophy, Users, Award, MapPin, Download, Truck, Globe, Crown, Sparkles, BookOpen, Mountain, ExternalLink, Play, Flag as FlagIcon, ChevronDown, Info } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { loadGoogleMaps, API_KEY } from '@/lib/google-maps';
 import type { RealLatLng } from '@/lib/world-data';
@@ -38,6 +38,9 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
   const [loading, setLoading] = useState(true);
   const [medalFormOpen, setMedalFormOpen] = useState(false);
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
+  // build 226 #7: 대회 소개 / 코스 이야기 카드 collapse — 사용자 피드백 (별로 중요하지 않으니 필요할 때만 펼침).
+  const [descOpen, setDescOpen] = useState(false);
+  const [storyOpen, setStoryOpen] = useState(false);
 
   const showToast = (text: string, tone: 'ok' | 'warn' = 'ok') => {
     setToast({ text, tone });
@@ -154,29 +157,52 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                 <span className="text-base font-extrabold text-amber-700 dark:text-amber-300">{course.entry_fee_p.toLocaleString()} 마일리지</span>
               </div>
 
-              {/* 코스 설명 */}
+              {/* 코스 설명 (collapse) — build 226 #7 */}
               {course.description && (
-                <div className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] p-4">
-                  <p className="text-[14px] text-[var(--foreground)] leading-relaxed break-keep">{course.description}</p>
+                <div className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] overflow-hidden">
+                  <button
+                    onClick={() => setDescOpen(o => !o)}
+                    className="w-full px-4 py-3 flex items-center justify-between text-left active:bg-[var(--card-border)]/30 transition"
+                  >
+                    <span className="text-sm font-extrabold text-[var(--foreground)] inline-flex items-center gap-1.5">
+                      <Info size={14} className="text-emerald-600" /> 대회 소개
+                    </span>
+                    <ChevronDown size={16} className={`text-[var(--muted)] transition-transform ${descOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {descOpen && (
+                    <div className="px-4 pb-4">
+                      <p className="text-[14px] text-[var(--foreground)] leading-relaxed break-keep">{course.description}</p>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* 스토리텔링 (build 123 — The Conqueror 풍) */}
+              {/* 스토리텔링 (build 123 — The Conqueror 풍) — collapse build 226 #7 */}
               {course.story && (
-                <div className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] p-4">
-                  <p className="text-xs font-extrabold text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1 mb-2">
-                    <BookOpen size={12} /> 코스 이야기
-                  </p>
-                  <p className="text-[14px] text-[var(--foreground)] leading-relaxed break-keep whitespace-pre-wrap">{course.story}</p>
-                  {course.official_url && (
-                    <a
-                      href={course.official_url}
-                      target="_blank"
-                      rel="noopener"
-                      className="mt-2.5 inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 active:scale-95"
-                    >
-                      공식 사이트 <ExternalLink size={10} />
-                    </a>
+                <div className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] overflow-hidden">
+                  <button
+                    onClick={() => setStoryOpen(o => !o)}
+                    className="w-full px-4 py-3 flex items-center justify-between text-left active:bg-[var(--card-border)]/30 transition"
+                  >
+                    <span className="text-sm font-extrabold text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1.5">
+                      <BookOpen size={14} /> 코스 이야기
+                    </span>
+                    <ChevronDown size={16} className={`text-[var(--muted)] transition-transform ${storyOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {storyOpen && (
+                    <div className="px-4 pb-4">
+                      <p className="text-[14px] text-[var(--foreground)] leading-relaxed break-keep whitespace-pre-wrap">{course.story}</p>
+                      {course.official_url && (
+                        <a
+                          href={course.official_url}
+                          target="_blank"
+                          rel="noopener"
+                          className="mt-2.5 inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 active:scale-95"
+                        >
+                          공식 사이트 <ExternalLink size={10} />
+                        </a>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
