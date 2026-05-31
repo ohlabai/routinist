@@ -7,17 +7,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-
-function authenticated(req: NextRequest): boolean {
-  const cronSecret = process.env.PUSH_CRON_SECRET;
-  if (!cronSecret) return false;
-  const auth = req.headers.get('authorization') ?? '';
-  const queryToken = req.nextUrl.searchParams.get('token');
-  return auth === `Bearer ${cronSecret}` || queryToken === cronSecret;
-}
+import { isCronAuthenticated } from '@/lib/cron-auth';
 
 export async function POST(req: NextRequest) {
-  if (!authenticated(req)) {
+  if (!isCronAuthenticated(req, 'PUSH_CRON_SECRET')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

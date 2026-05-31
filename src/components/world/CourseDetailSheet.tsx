@@ -1124,13 +1124,56 @@ function downloadCertificate(course: VirtualCourse, displayName: string, runner:
   ctx.fillStyle = '#10b981';
   ctx.fillText('routinist.kr', W / 2, 1060);
 
-  // 다운로드
-  canvas.toBlob((blob) => {
+  // build 237: iOS WKWebView 가 <a download> 잘 못 다룸 → Capacitor Filesystem + Share 로 native
+  // share sheet 띄움. 사용자가 "사진에 저장" / "파일에 저장" / "공유" 선택 가능.
+  // 비-네이티브 (web/dev) 환경에선 기존 <a download> 폴백.
+  const filename = `Routinist_${course.name.replace(/\s/g, '_')}_${displayName}.png`;
+  canvas.toBlob(async (blob) => {
     if (!blob) return;
-    const link = document.createElement('a');
-    link.download = `Routinist_${course.name.replace(/\s/g, '_')}_${displayName}.png`;
-    link.href = URL.createObjectURL(blob);
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const isNative = (typeof window !== 'undefined') && ((window as any).Capacitor?.isNativePlatform?.() ?? false);
+    if (isNative) {
+      try {
+        const reader = new FileReader();
+        const base64 = await new Promise<string>((resolve, reject) => {
+          reader.onloadend = () => {
+            const result = reader.result as string;
+            // data:image/png;base64,xxxx → 헤더 제거
+            const idx = result.indexOf(',');
+            resolve(idx >= 0 ? result.slice(idx + 1) : result);
+          };
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(blob);
+        });
+        const { Filesystem, Directory } = await import('@capacitor/filesystem');
+        await Filesystem.writeFile({
+          path: filename,
+          data: base64,
+          directory: Directory.Cache,
+        });
+        const { uri } = await Filesystem.getUri({ path: filename, directory: Directory.Cache });
+        const { Share } = await import('@capacitor/share');
+        await Share.share({
+          title: `${course.name} 완주 인증서`,
+          text: `${displayName} · ${course.name} 완주 인증서`,
+          url: uri,
+          dialogTitle: '인증서 저장 또는 공유',
+        });
+      } catch (e) {
+        console.warn('[certificate] native share fail', e);
+        // 최후 폴백 — DOM 다운로드 (대부분 WKWebView 에서 동작 안 하지만 시도).
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = URL.createObjectURL(blob);
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+      }
+    } else {
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = URL.createObjectURL(blob);
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    }
   }, 'image/png');
 }

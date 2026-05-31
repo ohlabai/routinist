@@ -18,6 +18,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { isCronAuthenticated } from '@/lib/cron-auth';
 
 // jose 는 dynamic import — Capacitor 정적 export 빌드 시 module-level eval 회피
 
@@ -103,13 +104,8 @@ async function sendApn(deviceToken: string, payload: { title: string; body: stri
 }
 
 export async function POST(req: NextRequest) {
-  // 인증 — Vercel Cron 은 Authorization: Bearer <CRON_SECRET> 헤더 사용
-  const auth = req.headers.get('authorization') ?? '';
-  const cronSecret = process.env.PUSH_CRON_SECRET;
-  const queryToken = req.nextUrl.searchParams.get('token');
-  const ok = (cronSecret && auth === `Bearer ${cronSecret}`) ||
-             (cronSecret && queryToken === cronSecret);
-  if (!ok) {
+  // build 237: timing-safe Bearer 비교 + query token fallback 제거 (access log/referer 누출 위험).
+  if (!isCronAuthenticated(req, 'PUSH_CRON_SECRET')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

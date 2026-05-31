@@ -82,23 +82,26 @@ export default function TrackPage() {
   const [voiceInterval, setVoiceInterval] = useState<500 | 1000>(() => (getVoiceCueIntervalMeters() === 500 ? 500 : 1000));
   const [voiceGender, setVoiceGenderState] = useState<VoiceGender>(() => getVoiceGender());
   // build 234: ko 남성 voice 가 OS 에 없으면 picker 자체 hide (사용자: "남성 안 되면 옵션에서 빼자").
+  // build 237: voiceGender 를 effect dep 에 넣으면 force-female set 후 재발화로 사용자 의도 swap 위험.
+  // ref 로 latest 값 추적 + effect dep 에서 제외 (locale 만 의존).
   const [malePickerVisible, setMalePickerVisible] = useState<boolean>(false);
+  const voiceGenderRef = useRef(voiceGender);
+  useEffect(() => { voiceGenderRef.current = voiceGender; }, [voiceGender]);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const recheck = () => {
-      // 한국어 모드일 때만 male voice 존재 여부 체크. 영어는 OS 에 male voice 항상 있음.
-      setMalePickerVisible(locale !== 'ko' || hasKoreanMaleVoice());
+      const available = locale !== 'ko' || hasKoreanMaleVoice();
+      setMalePickerVisible(available);
+      // 남성 voice 없는데 male 선택 상태였다면 female 로 강제 (ref 로 latest 읽기).
+      if (!available && voiceGenderRef.current === 'male') {
+        setVoiceGenderState('female');
+        setVoiceGender('female');
+      }
     };
     recheck();
-    // voices 가 async 로드라 즉시 체크 false 일 수도 → 500ms 후 재확인.
     const t = setTimeout(recheck, 500);
-    // 남성 voice 없는데 male 선택 상태였다면 female 로 강제.
-    if (locale === 'ko' && !hasKoreanMaleVoice() && voiceGender === 'male') {
-      setVoiceGenderState('female');
-      setVoiceGender('female');
-    }
     return () => clearTimeout(t);
-  }, [locale, voiceGender]);
+  }, [locale]);
   const toggleVoice = () => {
     const next = !voiceOn;
     setVoiceOn(next);
@@ -118,12 +121,16 @@ export default function TrackPage() {
 
   // build 229.B: 활성 월드런 챌린지 코스 — 트래킹 중 음성 안내에 코스명 + 다음 랜드마크 카운트다운 추가.
   // 트래킹 시작 시점의 코스 progress 를 startProgressKm 으로 잡고, 트래킹 중 distance 누적과 합산.
-  const [activeCourse, setActiveCourse] = useState<{
+  // build 237: state + ref 이중 보관. watcher closure 가 activeCourse stale 참조하던 회귀 차단.
+  type ActiveCourse = {
     name: string;
     totalKm: number;
     startProgressKm: number;
     landmarks: { km: number; name: string }[];
-  } | null>(null);
+  };
+  const [activeCourse, setActiveCourse] = useState<ActiveCourse | null>(null);
+  const activeCourseRef = useRef<ActiveCourse | null>(null);
+  useEffect(() => { activeCourseRef.current = activeCourse; }, [activeCourse]);
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
@@ -148,7 +155,7 @@ export default function TrackPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [user]);
+  }, [user?.id]);
 
   // build 214 #1: 스톱워치 포맷 MM:SS.CC (분:초.1/100초). 1시간 넘으면 HH:MM:SS.CC.
   // elapsedSeconds 는 float — tick 100ms 마다 누적되므로 centisecond 정밀도 보존.
@@ -331,15 +338,18 @@ export default function TrackPage() {
               ? Math.round(next.elapsedSeconds / (next.distanceMeters / 1000))
               : null;
             // build 229.B: 활성 코스가 있으면 coursecontext 채워서 음성 안내 강화.
+            // build 237: state 대신 ref 로 읽어 closure stale 차단. 트래킹 시작 후 코스 fetch 완료 시
+            // 늦게 활성화돼도 즉시 음성에 반영됨.
             let courseContext: VoiceCourseContext | null = null;
-            if (activeCourse) {
-              const courseCurrentKm = activeCourse.startProgressKm + (next.distanceMeters / 1000);
-              if (courseCurrentKm < activeCourse.totalKm + 1) {
-                const nextLm = activeCourse.landmarks.find(l => l.km > courseCurrentKm + 0.05) ?? null;
+            const ac = activeCourseRef.current;
+            if (ac) {
+              const courseCurrentKm = ac.startProgressKm + (next.distanceMeters / 1000);
+              if (courseCurrentKm < ac.totalKm + 1) {
+                const nextLm = ac.landmarks.find(l => l.km > courseCurrentKm + 0.05) ?? null;
                 courseContext = {
-                  courseName: activeCourse.name,
+                  courseName: ac.name,
                   courseCurrentKm,
-                  courseTotalKm: activeCourse.totalKm,
+                  courseTotalKm: ac.totalKm,
                   nextLandmark: nextLm,
                 };
               }
