@@ -4,6 +4,8 @@
 
 import { getSupabase } from './supabase';
 
+export type ClubCourseMode = 'individual' | 'pooled';
+
 export interface ClubCourse {
   course_id: string;
   name: string;
@@ -15,6 +17,17 @@ export interface ClubCourse {
   completed_at: string | null;
   total_km: number;
   contributors: number;
+  mode: ClubCourseMode;
+}
+
+export interface ClubCourseIndividualRow {
+  user_id: string;
+  display_name: string;
+  avatar_url: string | null;
+  progress_km: number;
+  ratio: number;
+  completed_at: string | null;
+  started_at: string;
 }
 
 export interface ClubCourseLeaderboardRow {
@@ -38,13 +51,37 @@ export async function fetchClubCourses(clubId: string): Promise<ClubCourse[]> {
   }));
 }
 
-export async function startClubCourse(clubId: string, courseId: string): Promise<boolean> {
+export async function startClubCourse(
+  clubId: string,
+  courseId: string,
+  mode: ClubCourseMode = 'individual',
+): Promise<boolean> {
   const { error } = await getSupabase().rpc('start_club_course', {
     p_club_id: clubId,
     p_course_id: courseId,
+    p_mode: mode,
   });
   if (error) throw error;
   return true;
+}
+
+export async function fetchClubCourseIndividualLeaderboard(
+  clubId: string,
+  courseId: string,
+): Promise<ClubCourseIndividualRow[]> {
+  const { data, error } = await getSupabase().rpc('fetch_club_course_individual_leaderboard', {
+    p_club_id: clubId,
+    p_course_id: courseId,
+  });
+  if (error) {
+    console.warn('[club-courses] individual leaderboard fail', error);
+    return [];
+  }
+  return ((data ?? []) as ClubCourseIndividualRow[]).map(r => ({
+    ...r,
+    progress_km: Number(r.progress_km),
+    ratio: Number(r.ratio),
+  }));
 }
 
 export async function fetchClubCourseLeaderboard(
