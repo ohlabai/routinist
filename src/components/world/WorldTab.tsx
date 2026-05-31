@@ -164,17 +164,25 @@ export default function WorldTab() {
     // 두 fetch 를 분리해서 한쪽 실패해도 다른 쪽은 표시 (사용자 신고: 빈 코스 화면).
     // build 170 #6: fetchMyCourses 성공/실패 구분 → 성공 시에만 knownJoined reconcile.
     //   실패 시엔 기존 localStorage 유지 (회귀 fallback).
+    // build 239: catch 의 error 상세 (message/code/hint/details) 를 외부 변수로 보관 →
+    //   아래 logClientWarn 에 포함시켜 정확한 원인 추적 (이전엔 빈 details {} 만 기록).
     let myFetchOk = true;
+    let myFetchError: { message: string; code?: string; hint?: string; details?: string } | null = null;
     const myPromise = fetchMyCourses().catch(e => {
       myFetchOk = false;
-      // build 166 #1 진단: 사용자가 마일리지 차감 후에도 "도전하기" 가 보이는 회귀를 추적하기 위해
-      // fail 시 localStorage 에 마지막 에러 + ts 기록. /admin/diagnostics 등에서 확인 가능.
+      const errObj = e as { message?: string; code?: string; hint?: string; details?: string };
+      myFetchError = {
+        message: errObj?.message ?? String(e),
+        code: errObj?.code,
+        hint: errObj?.hint,
+        details: errObj?.details,
+      };
       console.warn('[world] fetchMyCourses fail', e);
       try {
         if (typeof window !== 'undefined') {
           window.localStorage.setItem('world_fetch_my_courses_last_error', JSON.stringify({
             ts: new Date().toISOString(),
-            message: (e as { message?: string })?.message ?? String(e),
+            ...myFetchError,
           }));
         }
       } catch {}
@@ -201,7 +209,8 @@ export default function WorldTab() {
         })),
       });
     } else {
-      logClientWarn('world', 'fetchMyCourses fail — knownJoined fallback only', {});
+      // build 239: error 상세를 details 에 함께 보내 정확한 원인 추적 가능.
+      logClientWarn('world', 'fetchMyCourses fail — knownJoined fallback only', myFetchError ?? {});
     }
 
     setMine(my);
