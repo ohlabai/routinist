@@ -335,9 +335,11 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
       if (activityType === 'walking') insertData.activity_type = 'walking';
 
       toInsert.push(insertData);
-      // 같은 sync 안에서 같은 timestamp 거의 없음 — 정렬 비용 아끼려고 sort 생략.
-      // ±5s 윈도우라 정렬 안 해도 안전 (insertion order 가 timestamp 순 ascending 으로 비슷).
+      // build 236 #P0-2: binary search invariant 회복. workouts 수가 ~1000 이내라 sort 비용 미미.
+      // (이전 주석은 "정렬 안 해도 안전"이라 했지만 binary search 가 정렬을 전제로 함 — 같은 sync 안
+      // 같은 시각 워크아웃 두 건 [폰 + 워치 동시] 시 dedup miss 가능했음.)
       existingStartedAtMs.push(workoutMs);
+      existingStartedAtMs.sort((a, b) => a - b);
       // legacy map 은 일부러 업데이트 안 함 — 새 워크아웃끼리는 started_at 으로만 비교.
     }
 

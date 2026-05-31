@@ -98,20 +98,29 @@ export async function fetchUserTimeSeries(
     }
   })();
 
+  // build 236 #P0-1: KST 룰 회복 — '+09:00' Date 후 toISOString().slice(0,10) 패턴은 UTC 변환되어
+  // 1일 어긋남 (예: KST 2026-05-31 00:00 → toISOString → 2026-05-30T15:00 → slice 2026-05-30).
+  // 모든 Date 계산을 UTC 자정 기준으로 일관화. ymd <-> Date 변환을 helper 로 분리.
+  const ymdToUtcDate = (ymd: string): Date => {
+    const [y, m, d] = ymd.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d));
+  };
+  const dateToYmd = (d: Date): string => d.toISOString().slice(0, 10);
+
   // 시작일 산정 (일간: count-1 일 전, 주간: count*7-1 일 전, 월간: count-1 개월 전 1일)
-  const startDate = new Date(todayStr + 'T00:00:00+09:00');
+  const startDate = ymdToUtcDate(todayStr);
   if (period === 'daily') {
-    startDate.setDate(startDate.getDate() - (count - 1));
+    startDate.setUTCDate(startDate.getUTCDate() - (count - 1));
   } else if (period === 'weekly') {
-    const dow = startDate.getDay();
+    const dow = startDate.getUTCDay();
     const daysSinceMon = (dow + 6) % 7;
-    startDate.setDate(startDate.getDate() - daysSinceMon - (count - 1) * 7);
+    startDate.setUTCDate(startDate.getUTCDate() - daysSinceMon - (count - 1) * 7);
   } else {
     // 월간: 오늘 포함 count 개월. 시작 = (count-1) 개월 전의 1일.
-    startDate.setDate(1);
-    startDate.setMonth(startDate.getMonth() - (count - 1));
+    startDate.setUTCDate(1);
+    startDate.setUTCMonth(startDate.getUTCMonth() - (count - 1));
   }
-  const startStr = startDate.toISOString().slice(0, 10);
+  const startStr = dateToYmd(startDate);
 
   const { data, error } = await supabase
     .from('activities')
@@ -123,32 +132,32 @@ export async function fetchUserTimeSeries(
     return [];
   }
 
-  // bucket key 함수 — 일간은 그대로, 주간은 월요일 기준, 월간은 매월 1일 기준 YYYY-MM-DD.
+  // bucket key 함수 — 일간은 그대로, 주간은 월요일 기준, 월간은 매월 1일 기준 YYYY-MM-DD. (UTC 통일)
   const bucketKey = (dateStr: string): string => {
     if (period === 'daily') return dateStr;
-    const d = new Date(dateStr + 'T00:00:00+09:00');
+    const d = ymdToUtcDate(dateStr);
     if (period === 'weekly') {
-      const dow = d.getDay();
+      const dow = d.getUTCDay();
       const daysSinceMon = (dow + 6) % 7;
-      d.setDate(d.getDate() - daysSinceMon);
+      d.setUTCDate(d.getUTCDate() - daysSinceMon);
     } else {
-      d.setDate(1);
+      d.setUTCDate(1);
     }
-    return d.toISOString().slice(0, 10);
+    return dateToYmd(d);
   };
 
   // 모든 bucket 미리 생성 (누락 날짜 0 표시 위함).
   const buckets: string[] = [];
-  const cursor = new Date(startDate);
-  const todayDate = new Date(todayStr + 'T00:00:00+09:00');
+  const cursor = ymdToUtcDate(startStr);
+  const todayDate = ymdToUtcDate(todayStr);
   while (cursor <= todayDate) {
-    buckets.push(cursor.toISOString().slice(0, 10));
+    buckets.push(dateToYmd(cursor));
     if (period === 'daily') {
-      cursor.setDate(cursor.getDate() + 1);
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
     } else if (period === 'weekly') {
-      cursor.setDate(cursor.getDate() + 7);
+      cursor.setUTCDate(cursor.getUTCDate() + 7);
     } else {
-      cursor.setMonth(cursor.getMonth() + 1);
+      cursor.setUTCMonth(cursor.getUTCMonth() + 1);
     }
   }
 
