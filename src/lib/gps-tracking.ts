@@ -21,10 +21,16 @@ export interface TrackingState {
 }
 
 const STORAGE_KEY = 'routinist:gps-tracking-v1';
-// build 214 #2: 도심 iPhone GPS 가 빈번하게 30~80m accuracy → 좌표 다수 drop → 실제보다 짧게 측정 (사용자 신고).
-// 30 → 50 m 완화. 그래도 200m+ 튀는 좌표는 차단됨.
-const MIN_ACCURACY_METERS = 50;
+// build 214 #2: 도심 iPhone GPS 가 빈번하게 30~80m accuracy → 좌표 다수 drop → 실제보다 짧게 측정.
+// 30 → 50 m 완화 (build 214) → 100m 완화 (build 225, Apple Watch 보정 알고리즘 참고).
+// 100m accuracy 좌표도 polyline 의 곡선 보강에 유의미하고, 아래 MAX_JUMP_METERS outlier filter 가 jitter 흡수.
+const MIN_ACCURACY_METERS = 100;
 const MIN_MOVE_METERS = 3;        // 직전 좌표와 3m 이상 이동했을 때만 거리·polyline 갱신
+// build 225: GPS jitter / 백그라운드 복귀 후 큰 jump (이전 좌표와 200m+) 는 outlier 로 차단.
+// 인간 달리기 최대 속도 ~25 km/h ≈ 7 m/s. watchPosition 은 보통 1~3s 간격 → 정상 최대 21m.
+// 200m+ 는 GPS multipath 오류 또는 백그라운드 후 첫 fix 가 stale → distance overreport 차단.
+// 단, 좌표는 push 하되 distance 누적 skip (다음 정상 sample 부터 다시 계산).
+const MAX_JUMP_METERS = 200;
 
 export function loadState(): TrackingState | null {
   if (typeof window === 'undefined') return null;
@@ -135,7 +141,9 @@ export async function startWatcher(
     { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 },
     (pos: Position | null, err) => {
       if (err || !pos) return;
-      // 정확도 30m 초과 좌표는 무시 — 도심 빌딩가에서 튀는 GPS 차단.
+      // build 225: accuracy 100m 까지 수용 (이전 50m). 잠금 화면/도심에서 60~90m 정확도가 자주
+      // 들어오는데 이 좌표들이 곡선 정보를 갖고 있어 distance underreport 의 주범. 200m+ jump 는
+      // appendCoord 의 MAX_JUMP_METERS 가 따로 차단해서 outlier inflation 도 안 일어남.
       if ((pos.coords.accuracy ?? 999) > MIN_ACCURACY_METERS) return;
       onCoord({
         lat: pos.coords.latitude,
@@ -150,6 +158,9 @@ export async function startWatcher(
 }
 
 // 새 좌표 도착 시 state 갱신. 너무 짧은 이동은 무시 (MIN_MOVE_METERS).
+// build 225: 너무 큰 jump (MAX_JUMP_METERS+) 도 차단 — GPS multipath / 백그라운드 stale fix 회피.
+// outlier 의 경우 좌표는 push 하지만 distance 누적 skip → 폴리라인 visualisation 은 그대로 두되
+// 통계만 보호. 다음 정상 sample 부터 distance 다시 계산.
 // 반환값: 거리 갱신 발생 여부 (UI 리렌더 trigger 용).
 export function appendCoord(state: TrackingState, c: { lat: number; lng: number; alt: number; ts: number }): boolean {
   const last = state.coords[state.coords.length - 1];
@@ -159,6 +170,11 @@ export function appendCoord(state: TrackingState, c: { lat: number; lng: number;
   }
   const dist = haversineMeters({ lat: last[1], lng: last[0] }, c);
   if (dist < MIN_MOVE_METERS) return false;
+  if (dist > MAX_JUMP_METERS) {
+    // outlier: 좌표만 push, distance 누적 skip. polyline 시각화는 유지 (사용자가 이상 점 식별 가능).
+    state.coords.push([c.lng, c.lat, c.alt, c.ts]);
+    return true;
+  }
   state.coords.push([c.lng, c.lat, c.alt, c.ts]);
   state.distanceMeters += dist;
   return true;

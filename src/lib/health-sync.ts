@@ -641,7 +641,9 @@ export async function syncRouteData(
         matchedCount++;
         // build 217: route.distance 가 매칭 활동의 distance_km 보다 의미있게 크면 함께 보정.
         // Apple Watch 부분 sync 시 workout.totalDistance 가 GPS route 실측보다 작은 경우 (윤현수 5/29 사례).
-        // 임계값: route 가 +0.3km 이상 또는 15% 이상 차이날 때만 (페이스 jitter 회피).
+        // build 225: 임계값 0.3km/15% → 0.2km/8% 완화. Routinist iPhone GPS 가 Apple Watch 대비
+        // 평균 km 당 ~150~200m underreport (hans 5/31 사례 19.12 vs 23.03 = 17%). 8% 임계값이면
+        // 도심 빌딩가의 의미있는 차이를 모두 잡음. log 에 from/to 누적해 사후 분석 가능.
         const routeDistKm = (route.distance ?? 0) / 1000;
         const matchDistKm = Number(match.distance_km) || 0;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -653,7 +655,7 @@ export async function syncRouteData(
         };
         const shouldFixDistance =
           routeDistKm > 0.5 &&
-          (routeDistKm - matchDistKm > 0.3 || routeDistKm > matchDistKm * 1.15);
+          (routeDistKm - matchDistKm > 0.2 || routeDistKm > matchDistKm * 1.08);
         if (shouldFixDistance) {
           updates.distance_km = Math.round(routeDistKm * 100) / 100;
           // pace 재계산 — duration 이 있으면.
