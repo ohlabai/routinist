@@ -27,6 +27,7 @@ import {
 } from '@/lib/club-activation';
 import InviteQRCard from '@/components/clubs/InviteQRCard';
 import MultiUserTimeSeriesChart, { type CompareUser } from '@/components/charts/MultiUserTimeSeriesChart';
+import ClubWorldRunPanel from '@/components/clubs/ClubWorldRunPanel';
 import ClubChallengesCard from '@/components/club/ClubChallengesCard';
 import ClubExternalArchive from '@/components/clubs/ClubExternalArchive';
 import ClubChallengeSection from '@/components/club/ClubChallengeSection';
@@ -34,7 +35,7 @@ import Link from 'next/link';
 import type { Club, ClubMember } from '@/types';
 import AppLogo from '@/components/AppLogo';
 
-type TabId = 'dashboard' | 'feed' | 'challenges' | 'members' | 'activity' | 'archive' | 'settings';
+type TabId = 'dashboard' | 'feed' | 'challenges' | 'worldrun' | 'members' | 'activity' | 'archive' | 'settings';
 
 function ClubDetail() {
   const searchParams = useSearchParams();
@@ -232,6 +233,7 @@ function ClubDetail() {
     { id: 'dashboard', label: '대시보드', show: isMember },
     { id: 'feed', label: '피드', show: isMember },
     { id: 'challenges', label: '챌린지·모임', show: isMember },
+    { id: 'worldrun', label: '🌍 월드런', show: isMember },
     { id: 'members', label: `멤버 (${members.length})`, show: true },
     { id: 'activity', label: '활동', show: isMember },
     { id: 'archive', label: '결산', show: true },
@@ -1189,6 +1191,15 @@ function ClubDetail() {
             </div>
           )}
         </div>
+      )}
+
+      {/* 월드런 탭 — build 232: 클럽 거리 합산형 릴레이 */}
+      {activeTab === 'worldrun' && clubId && (
+        <ClubWorldRunPanel
+          clubId={clubId}
+          myRole={myRole}
+          currentUserId={user?.id ?? null}
+        />
       )}
 
       {/* 멤버 탭 — build 224: 거리 비교 차트 + 멤버 list. build 227: 시계열 추이 차트 추가 */}
