@@ -16,6 +16,8 @@ import {
   speakMilestone, getVoiceCueIntervalMeters,
   isVoiceCueEnabled, setVoiceCueEnabled,
   setVoiceCueIntervalMeters, speakSample,
+  getVoiceGender, setVoiceGender, speakGreetingSample,
+  type VoiceGender,
 } from '@/lib/voice-cue';
 import {
   type TrackingState,
@@ -74,8 +76,10 @@ export default function TrackPage() {
   // build 210 #1: 시작 카운트다운 (3 → 2 → 1 → GO!) — Apple Fitness 패턴 + 차별화 효과
   const [countdown, setCountdown] = useState<number | null>(null);
   // build 219 #10: 시작 화면에 음성 cue 토글 + 간격 선택 (1km / 500m). build 214 백엔드 존재했으나 UI 미노출.
+  // build 223: 음성 성별 선택 추가 (여/남) + 변경 시 짧은 인사 미리듣기.
   const [voiceOn, setVoiceOn] = useState<boolean>(() => isVoiceCueEnabled());
   const [voiceInterval, setVoiceInterval] = useState<500 | 1000>(() => (getVoiceCueIntervalMeters() === 500 ? 500 : 1000));
+  const [voiceGender, setVoiceGenderState] = useState<VoiceGender>(() => getVoiceGender());
   const toggleVoice = () => {
     const next = !voiceOn;
     setVoiceOn(next);
@@ -85,6 +89,11 @@ export default function TrackPage() {
   const changeInterval = (m: 500 | 1000) => {
     setVoiceInterval(m);
     setVoiceCueIntervalMeters(m);
+  };
+  const changeGender = (g: VoiceGender) => {
+    setVoiceGenderState(g);
+    setVoiceGender(g);
+    if (voiceOn) speakGreetingSample(locale);
   };
 
   // build 214 #1: 스톱워치 포맷 MM:SS.CC (분:초.1/100초). 1시간 넘으면 HH:MM:SS.CC.
@@ -483,8 +492,9 @@ export default function TrackPage() {
                 ? 'GPS keeps measuring while the screen is locked. Tracking stops as soon as you finish.'
                 : '잠금 화면 상태에서도 GPS 가 계속 측정돼요. 트래킹을 종료하면 즉시 중단됩니다.'}
             </p>
-            {/* build 219 #10: 음성 안내 토글 + 간격 선택 (1km / 500m) */}
-            <div className="mb-4 flex items-center gap-2">
+            {/* build 219 #10: 음성 안내 토글 + 간격 선택 (1km / 500m)
+                build 223: 음성 성별 선택 (여/남) — voiceOn 일 때 노출. */}
+            <div className="mb-4 flex items-center gap-2 flex-wrap justify-center">
               <button
                 onClick={toggleVoice}
                 aria-label={voiceOn ? (locale === 'en' ? 'Voice on' : '음성 켜짐') : (locale === 'en' ? 'Voice off' : '음성 꺼짐')}
@@ -500,16 +510,28 @@ export default function TrackPage() {
                   : (locale === 'en' ? 'Voice off' : '음성 꺼짐')}
               </button>
               {voiceOn && (
-                <div className="inline-flex items-center rounded-full bg-[var(--card)] border border-[var(--card-border)] overflow-hidden">
-                  <button
-                    onClick={() => changeInterval(1000)}
-                    className={`h-9 px-3 text-xs font-extrabold transition ${voiceInterval === 1000 ? 'bg-emerald-500 text-white' : 'text-[var(--muted)]'}`}
-                  >1km</button>
-                  <button
-                    onClick={() => changeInterval(500)}
-                    className={`h-9 px-3 text-xs font-extrabold transition ${voiceInterval === 500 ? 'bg-emerald-500 text-white' : 'text-[var(--muted)]'}`}
-                  >500m</button>
-                </div>
+                <>
+                  <div className="inline-flex items-center rounded-full bg-[var(--card)] border border-[var(--card-border)] overflow-hidden">
+                    <button
+                      onClick={() => changeInterval(1000)}
+                      className={`h-9 px-3 text-xs font-extrabold transition ${voiceInterval === 1000 ? 'bg-emerald-500 text-white' : 'text-[var(--muted)]'}`}
+                    >1km</button>
+                    <button
+                      onClick={() => changeInterval(500)}
+                      className={`h-9 px-3 text-xs font-extrabold transition ${voiceInterval === 500 ? 'bg-emerald-500 text-white' : 'text-[var(--muted)]'}`}
+                    >500m</button>
+                  </div>
+                  <div className="inline-flex items-center rounded-full bg-[var(--card)] border border-[var(--card-border)] overflow-hidden">
+                    <button
+                      onClick={() => changeGender('female')}
+                      className={`h-9 px-3 text-xs font-extrabold transition ${voiceGender === 'female' ? 'bg-emerald-500 text-white' : 'text-[var(--muted)]'}`}
+                    >{locale === 'en' ? 'Female' : '여성'}</button>
+                    <button
+                      onClick={() => changeGender('male')}
+                      className={`h-9 px-3 text-xs font-extrabold transition ${voiceGender === 'male' ? 'bg-emerald-500 text-white' : 'text-[var(--muted)]'}`}
+                    >{locale === 'en' ? 'Male' : '남성'}</button>
+                  </div>
+                </>
               )}
             </div>
             <button onClick={startTracking}

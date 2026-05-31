@@ -1,6 +1,7 @@
 import UIKit
 import Capacitor
 import GoogleSignIn
+import AVFoundation
 // CapApp-SPM 모듈 — 커스텀 WorkoutRoutePlugin 이 들어있는 SPM 모듈을 강제 로드.
 // SPM 빌드에선 ObjC runtime 의 lazy load 때문에 Capacitor 가 plugin 클래스를 iterate 할 때
 // 모듈이 아직 메모리에 안 올라와서 검출 못 함 → "WorkoutRoute plugin is not implemented on ios" 회귀.
@@ -15,6 +16,21 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // 커스텀 SPM plugin 강제 로드 — 자동 검출이 안 되는 SPM 환경 대응.
         _ = WorkoutRoutePlugin.self
+
+        // build 223: 백그라운드 TTS 음성 cue 를 위한 AVAudioSession 설정.
+        // 카테고리 .playback + .mixWithOthers + .duckOthers 옵션으로 다른 음악 앱과 공존하면서
+        // 화면 잠금/백그라운드 상태에서도 speechSynthesis 발화가 가능. UIBackgroundModes 의 'audio'
+        // 가 함께 켜져 있어야 OS 가 background runtime 을 허용.
+        do {
+            try AVAudioSession.sharedInstance().setCategory(
+                .playback,
+                mode: .spokenAudio,
+                options: [.mixWithOthers, .duckOthers]
+            )
+            try AVAudioSession.sharedInstance().setActive(true, options: [])
+        } catch {
+            NSLog("[AppDelegate] AVAudioSession setup failed: \(error)")
+        }
         return true
     }
 

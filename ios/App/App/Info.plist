@@ -26,6 +26,7 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
+		<string>audio</string>
 	</array>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>달리기 인증 사진과 캘린더 사진을 업로드하기 위해 사진 라이브러리에 접근합니다. 선택한 사진만 업로드되며 자동 스캔하지 않습니다.</string>
