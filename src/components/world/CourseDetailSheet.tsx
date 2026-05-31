@@ -42,6 +42,8 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
   // build 226 #7: 대회 소개 / 코스 이야기 카드 collapse — 사용자 피드백 (별로 중요하지 않으니 필요할 때만 펼침).
   const [descOpen, setDescOpen] = useState(false);
   const [storyOpen, setStoryOpen] = useState(false);
+  // build 229.B: 사용자 모티프 텍스트 (왜 달리는가).
+  const [motivation, setMotivation] = useState<string | null>(null);
 
   const showToast = (text: string, tone: 'ok' | 'warn' = 'ok') => {
     setToast({ text, tone });
@@ -58,6 +60,21 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
     setCourse(c);
     setRunners(rs);
     setMedal(m);
+    // build 229.B: motivation_text fetch (RLS 가 본인 row 만 노출).
+    if (user) {
+      try {
+        const supabase = (await import('@/lib/supabase')).getSupabase();
+        const { data } = await supabase
+          .from('user_course_progress')
+          .select('motivation_text')
+          .eq('user_id', user.id)
+          .eq('course_id', courseId)
+          .maybeSingle();
+        setMotivation((data?.motivation_text as string | undefined) ?? null);
+      } catch {
+        setMotivation(null);
+      }
+    }
     setLoading(false);
   }, [courseId, user]);
 
@@ -214,6 +231,29 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                     </div>
                   ) : (
                     <p className="mt-3 text-xs text-[var(--muted)]">남은 거리 {Math.max(0, course.distance_km - myRunner.progress_km).toFixed(1)}km</p>
+                  )}
+                </div>
+              )}
+
+              {/* build 229.B: "왜 달리는가" 모티프 카드 — 도전 시작 시 입력한 문장 회상.
+                  완주 시는 더 큰 emotional 톤. */}
+              {myRunner && motivation && (
+                <div className={`rounded-2xl p-4 border ${
+                  completed
+                    ? 'bg-gradient-to-br from-amber-50 to-orange-50/40 dark:from-amber-950/30 dark:to-amber-950/10 border-amber-300/60 dark:border-amber-800/40'
+                    : 'bg-gradient-to-br from-emerald-50/60 to-transparent dark:from-emerald-950/15 border-emerald-200/40 dark:border-emerald-900/30'
+                }`}>
+                  <p className="text-[10px] font-extrabold uppercase tracking-widest mb-1.5 inline-flex items-center gap-1
+                                 text-emerald-700 dark:text-emerald-300">
+                    💭 {completed ? '시작했을 때 마음' : '왜 달리고 있나요'}
+                  </p>
+                  <p className={`leading-relaxed break-keep ${completed ? 'text-base font-extrabold' : 'text-sm'}`}>
+                    &quot;{motivation}&quot;
+                  </p>
+                  {completed && (
+                    <p className="mt-2 text-xs text-amber-700 dark:text-amber-300 font-bold">
+                      해냈어요. 그 마음을 끝까지 지켰네요 🌟
+                    </p>
                   )}
                 </div>
               )}

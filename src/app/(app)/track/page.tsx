@@ -17,7 +17,7 @@ import {
   isVoiceCueEnabled, setVoiceCueEnabled,
   setVoiceCueIntervalMeters, speakSample,
   getVoiceGender, setVoiceGender, speakGreetingSample,
-  type VoiceGender,
+  type VoiceGender, type VoiceCourseContext,
 } from '@/lib/voice-cue';
 import {
   type TrackingState,
@@ -95,6 +95,40 @@ export default function TrackPage() {
     setVoiceGender(g);
     if (voiceOn) speakGreetingSample(locale);
   };
+
+  // build 229.B: 활성 월드런 챌린지 코스 — 트래킹 중 음성 안내에 코스명 + 다음 랜드마크 카운트다운 추가.
+  // 트래킹 시작 시점의 코스 progress 를 startProgressKm 으로 잡고, 트래킹 중 distance 누적과 합산.
+  const [activeCourse, setActiveCourse] = useState<{
+    name: string;
+    totalKm: number;
+    startProgressKm: number;
+    landmarks: { km: number; name: string }[];
+  } | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [{ fetchMyCourses, fetchCourseById }] = await Promise.all([
+          import('@/lib/world-data'),
+        ]);
+        const my = await fetchMyCourses().catch(() => []);
+        const active = my.find(m => !m.completed_at);
+        if (!active) return;
+        const full = await fetchCourseById(active.course_id).catch(() => null);
+        if (cancelled || !full) return;
+        setActiveCourse({
+          name: full.name,
+          totalKm: full.distance_km,
+          startProgressKm: active.progress_km ?? 0,
+          landmarks: (full.landmarks ?? []).map(l => ({ km: l.km, name: l.name })).sort((a, b) => a.km - b.km),
+        });
+      } catch (e) {
+        console.warn('[track] activeCourse fetch fail', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
 
   // build 214 #1: 스톱워치 포맷 MM:SS.CC (분:초.1/100초). 1시간 넘으면 HH:MM:SS.CC.
   // elapsedSeconds 는 float — tick 100ms 마다 누적되므로 centisecond 정밀도 보존.
@@ -276,11 +310,26 @@ export default function TrackPage() {
             const avgPace = next.distanceMeters > 100
               ? Math.round(next.elapsedSeconds / (next.distanceMeters / 1000))
               : null;
+            // build 229.B: 활성 코스가 있으면 coursecontext 채워서 음성 안내 강화.
+            let courseContext: VoiceCourseContext | null = null;
+            if (activeCourse) {
+              const courseCurrentKm = activeCourse.startProgressKm + (next.distanceMeters / 1000);
+              if (courseCurrentKm < activeCourse.totalKm + 1) {
+                const nextLm = activeCourse.landmarks.find(l => l.km > courseCurrentKm + 0.05) ?? null;
+                courseContext = {
+                  courseName: activeCourse.name,
+                  courseCurrentKm,
+                  courseTotalKm: activeCourse.totalKm,
+                  nextLandmark: nextLm,
+                };
+              }
+            }
             speakMilestone({
               totalKm,
               elapsedSeconds: Math.floor(next.elapsedSeconds),
               avgPaceSecPerKm: avgPace,
               locale,
+              courseContext,
             });
           }
         }

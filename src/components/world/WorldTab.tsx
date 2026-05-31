@@ -129,6 +129,8 @@ export default function WorldTab() {
   const [starting, setStarting] = useState<string | null>(null);
   const [detailCourseId, setDetailCourseId] = useState<string | null>(null);
   const [confirmStart, setConfirmStart] = useState<VirtualCourse | null>(null);
+  // build 229.B: 도전 시작 시 "왜 달리는가" optional 모티프 입력.
+  const [motivationText, setMotivationText] = useState('');
   const [continentFilter, setContinentFilter] = useState<Continent | 'all'>('all');
   const [seriesList, setSeriesList] = useState<CourseSeries[]>([]);
   const [seriesFilter, setSeriesFilter] = useState<string | null>(null);
@@ -227,6 +229,19 @@ export default function WorldTab() {
       // fetchMyCourses 가 RLS / network 이슈로 빈 결과를 줘도 "달리는 중" 표시가 유지됨.
       addKnownJoined(user?.id, courseId);
       setKnownJoined(prev => { const s = new Set(prev); s.add(courseId); return s; });
+      // build 229.B: 모티프 텍스트 저장 (입력 비어 있으면 RPC 가 NULL 로 처리).
+      if (motivationText.trim()) {
+        try {
+          const supabase = (await import('@/lib/supabase')).getSupabase();
+          await supabase.rpc('set_course_motivation', {
+            p_course_id: courseId,
+            p_text: motivationText.trim(),
+          });
+        } catch (e) {
+          console.warn('[world] set_course_motivation fail', e);
+        }
+      }
+      setMotivationText('');
       setConfirmStart(null);
       await load();
       // build 157: 결제(시작) 직후 곧바로 코스 상세 시트로 진입 — Conqueror 앱처럼 가상 대회 참가한 느낌.
@@ -452,10 +467,10 @@ export default function WorldTab() {
         )}
       </Section>
 
-      {/* 참가비 차감 확인 다이얼로그 */}
+      {/* 참가비 차감 확인 다이얼로그 + build 229.B: 모티프 입력 */}
       {confirmStart && (
-        <div className="fixed inset-0 z-[80] bg-black/65 flex items-center justify-center p-4" onClick={() => starting !== confirmStart.id && setConfirmStart(null)}>
-          <div className="w-full max-w-xs bg-[var(--background)] rounded-3xl p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[80] bg-black/65 flex items-center justify-center p-4" onClick={() => starting !== confirmStart.id && (setConfirmStart(null), setMotivationText(''))}>
+          <div className="w-full max-w-sm bg-[var(--background)] rounded-3xl p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex flex-col items-center gap-2 mb-4">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-50 dark:from-emerald-900/40 dark:to-emerald-950/40 flex items-center justify-center">
                 <Coins size={24} className="text-emerald-600" />
@@ -464,12 +479,27 @@ export default function WorldTab() {
               <p className="text-sm text-[var(--muted)] text-center leading-relaxed">
                 {tt('참가비')} <span className="font-extrabold text-emerald-600">{confirmStart.entry_fee_p.toLocaleString()}{tt(' 마일리지')}</span> {tt('차감하고 시작할게요.')}
                 <br />{tt('지금부터 달리는 모든 km 이 이 코스에 쌓여요.')}
-                <br />{tt('완주하면 디지털 인증서와 실물 메달이 기다리고 있어요! 🏅')}
               </p>
             </div>
+
+            {/* build 229.B: 왜 달리는가 (optional) — 완주 시 회상 모먼트로 활용 */}
+            <div className="mb-4">
+              <label className="text-[11px] font-extrabold text-[var(--muted)] uppercase tracking-widest block mb-1.5">
+                💭 {tt('왜 달리고 있나요?')} <span className="text-[10px] opacity-60 normal-case">({tt('선택')})</span>
+              </label>
+              <textarea
+                value={motivationText}
+                onChange={(e) => setMotivationText(e.target.value.slice(0, 80))}
+                placeholder={tt('예: 60세 생일 기념으로 / 살을 빼기 위해 / 친구와의 약속')}
+                rows={2}
+                className="w-full text-sm rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 placeholder:text-[var(--muted)]/60 focus:outline-none focus:border-emerald-400 resize-none"
+              />
+              <p className="text-[10px] text-[var(--muted)] mt-1">{tt('완주 시 이 문장을 다시 보여드릴게요')}</p>
+            </div>
+
             <div className="flex gap-2">
               <button
-                onClick={() => setConfirmStart(null)}
+                onClick={() => { setConfirmStart(null); setMotivationText(''); }}
                 disabled={starting === confirmStart.id}
                 className="flex-1 py-3 rounded-xl bg-[var(--card-border)]/30 font-semibold text-sm disabled:opacity-50"
               >

@@ -153,19 +153,52 @@ function buildMilestoneMessage(totalKm: number, locale: 'ko' | 'en'): string {
   return `${km}킬로 통과. 천천히 같이 가요.`;
 }
 
+// build 229.B: 활성 코스 컨텍스트 — 코스명 + 현재 누적 + 다음 랜드마크 정보.
+// /track 이 활성 코스가 있으면 이 정보를 채워 speakMilestone 에 전달. milestone 메시지
+// 끝에 코스 진행 한 줄 + 다음 랜드마크 카운트다운 추가해 몰입감 강화.
+export interface VoiceCourseContext {
+  courseName: string;        // "보스턴 마라톤"
+  courseCurrentKm: number;   // 코스 안에서 누적 km (예: 7.3)
+  courseTotalKm: number;     // 코스 총 거리 (예: 42.2)
+  nextLandmark?: { km: number; name: string } | null;
+}
+
 /** 발화 — Web Speech API + iOS native voice 선택. 사용자가 OFF 했거나 unsupported 면 no-op. */
 export function speakMilestone(args: {
   totalKm: number;
   elapsedSeconds: number;
   avgPaceSecPerKm: number | null;
   locale: 'ko' | 'en';
+  courseContext?: VoiceCourseContext | null;
 }) {
   if (!isVoiceCueEnabled()) return;
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
   primeVoices();
 
-  const { totalKm, locale } = args;
-  const text = buildMilestoneMessage(totalKm, locale);
+  const { totalKm, locale, courseContext } = args;
+  let text = buildMilestoneMessage(totalKm, locale);
+
+  // build 229.B: 활성 코스 진행 한 줄 + 다음 landmark 카운트다운 추가.
+  if (courseContext) {
+    const remaining = Math.max(0, courseContext.courseTotalKm - courseContext.courseCurrentKm);
+    if (locale === 'en') {
+      text += ` ${courseContext.courseName}, ${Math.round(courseContext.courseCurrentKm * 10) / 10} kilometers in.`;
+      if (courseContext.nextLandmark) {
+        const dKm = Math.max(0, courseContext.nextLandmark.km - courseContext.courseCurrentKm);
+        text += ` ${courseContext.nextLandmark.name} in ${dKm.toFixed(1)} kilometers.`;
+      } else if (remaining > 0) {
+        text += ` ${remaining.toFixed(1)} kilometers to finish.`;
+      }
+    } else {
+      text += ` ${courseContext.courseName} ${(Math.round(courseContext.courseCurrentKm * 10) / 10).toFixed(1)}킬로째예요.`;
+      if (courseContext.nextLandmark) {
+        const dKm = Math.max(0, courseContext.nextLandmark.km - courseContext.courseCurrentKm);
+        text += ` 다음 ${courseContext.nextLandmark.name}까지 ${dKm.toFixed(1)}킬로 남았어요.`;
+      } else if (remaining > 0) {
+        text += ` 완주까지 ${remaining.toFixed(1)}킬로 남았어요.`;
+      }
+    }
+  }
 
   try {
     const gender = getVoiceGender();
