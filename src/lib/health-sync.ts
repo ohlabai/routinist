@@ -232,9 +232,10 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
 
     progress?.({ stage: 'fetch_existing', percent: 50, label: '중복 검사 중...' });
 
-    // 배치 중복 체크 — started_at ±5초 윈도우 매칭 (1순위) + 거리 폴백 (옛 데이터에 started_at 없을 때).
-    // ±5초 윈도우 = Apple Health 가 sub-second 차이로 timestamp 를 줄 수 있음 + 옛 동기화는 ms 잘려 들어갔을 수도.
-    //
+    // 배치 중복 체크 — started_at ±60초 윈도우 매칭 (1순위) + 거리 폴백 (옛 데이터에 started_at 없을 때).
+    // build 222 #1: 모든 source 비교 (이전엔 .eq('source','health_kit') 로 같은 워크아웃이 source='gps'
+    // 로 이미 저장돼 있어도 Apple Health 가 다시 INSERT 해서 중복 적립되던 버그).
+    // 윈도우: ±5s → ±60s (Routinist GPS 저장 시점과 Apple Health 기록 시점 간 clock skew 흡수).
     // 핵심 회복 (build 56): supabase 호출에 명시적 10s timeout. SDK 큐 락 / stale token 으로 인해
     // 영영 응답 안 오던 케이스 (build 53/54/55 의 "50% 멈춤") 차단.
     const supabase = getSupabase();
@@ -243,7 +244,6 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
         .from('activities')
         .select('started_at, activity_date, distance_km')
         .eq('user_id', userId)
-        .eq('source', 'health_kit')
         .gte('activity_date', startDate.slice(0, 10)),
       10000,
       'fetch_existing select',
@@ -278,7 +278,7 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     });
     existingStartedAtMs.sort((a, b) => a - b);
 
-    const TOLERANCE_MS = 5000;
+    const TOLERANCE_MS = 60_000;
     const isDuplicateByTime = (workoutMs: number): boolean => {
       // 정렬된 배열에서 binary search 로 ±5초 안에 있는지 검사 (활동 수 많아질수록 효과 큼)
       let lo = 0, hi = existingStartedAtMs.length;

@@ -351,6 +351,18 @@ export default function TrackPage() {
         });
         return;
       }
+    } else {
+      // build 222 #4: 완료 한 번 더 확인 — 손가락 미스터치로 의도치 않게 종료되는 사고 차단.
+      const km = (state.distanceMeters / 1000).toFixed(2);
+      const msg = locale === 'en'
+        ? `Finish run? (${km} km recorded)`
+        : `달리기를 완료할까요? (${km} km 기록됨)`;
+      if (!window.confirm(msg)) {
+        logClientWarn('track-finish', 'cancelled', {
+          distance_m: Math.round(state.distanceMeters),
+        });
+        return;
+      }
     }
     const finalState: TrackingState = { ...state, status: 'idle' };
     archiveStateBeforeClear(finalState, 'finish-handoff-to-sheet');
@@ -575,51 +587,58 @@ export default function TrackPage() {
           (1) 풀스크린 어두운 backdrop + 듀얼 radial glow (emerald + teal)
           (2) 숫자 뒤로 풀스 ring 두 겹 (각자 다른 페이즈로 호흡)
           (3) 숫자는 gradient text + bounce overshoot
-          (4) GO! 는 letter-spacing expansion 으로 임팩트 */}
+          (4) GO! 는 letter-spacing expansion 으로 임팩트
+          build 222 #5: 전체화면 backdrop → 화면 중앙 sheet (max-h 60vh) 로 축소.
+          상하 1/4 정도 지도가 비쳐 위치 컨텍스트 유지. 콜아웃 효과 강조. */}
       {countdown !== null && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md animate-[fadeIn_0.2s_ease-out]">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,rgba(16,185,129,0.35),transparent_55%),radial-gradient(circle_at_70%_60%,rgba(20,184,166,0.25),transparent_55%)]" />
-          <div className="relative text-center">
-            {countdown > 0 ? (
-              <div className="relative flex items-center justify-center">
-                {/* 펄스 ring 2겹 — 숫자 뒤로 호흡 */}
-                <span
-                  key={`r1-${countdown}`}
-                  className="absolute w-56 h-56 rounded-full border-2 border-emerald-300/60 animate-[countdownRingPulse_0.85s_ease-out]"
-                  aria-hidden
-                />
-                <span
-                  key={`r2-${countdown}`}
-                  className="absolute w-72 h-72 rounded-full border border-emerald-300/30 animate-[countdownRingPulse_0.85s_ease-out_0.15s]"
-                  aria-hidden
-                />
-                {/* 숫자 컨테이너 — gradient bg + emoji 같은 동그라미 */}
-                <div
-                  key={`n-${countdown}`}
-                  className="relative w-48 h-48 rounded-full bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-600 shadow-[0_0_80px_rgba(16,185,129,0.55)] flex items-center justify-center animate-[countdownPulse_0.6s_cubic-bezier(0.34,1.56,0.64,1)]"
-                >
-                  <span className="text-[120px] font-extrabold text-white leading-none tabular-nums drop-shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
-                    {countdown}
-                  </span>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none animate-[fadeIn_0.2s_ease-out]">
+          {/* 살짝 어두운 풀스크린 dim (지도 가시성 유지) */}
+          <div className="absolute inset-0 bg-black/35 backdrop-blur-[2px] pointer-events-auto" />
+          {/* 중앙 sheet — 화면 절반 정도만 차지 */}
+          <div className="relative pointer-events-auto bg-black/85 backdrop-blur-md rounded-[32px] px-10 py-12 shadow-2xl border border-emerald-400/30 overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,rgba(16,185,129,0.45),transparent_55%),radial-gradient(circle_at_70%_60%,rgba(20,184,166,0.3),transparent_55%)]" />
+            <div className="relative text-center">
+              {countdown > 0 ? (
+                <div className="relative flex items-center justify-center">
+                  {/* 펄스 ring 2겹 — 숫자 뒤로 호흡 */}
+                  <span
+                    key={`r1-${countdown}`}
+                    className="absolute w-48 h-48 rounded-full border-2 border-emerald-300/60 animate-[countdownRingPulse_0.85s_ease-out]"
+                    aria-hidden
+                  />
+                  <span
+                    key={`r2-${countdown}`}
+                    className="absolute w-60 h-60 rounded-full border border-emerald-300/30 animate-[countdownRingPulse_0.85s_ease-out_0.15s]"
+                    aria-hidden
+                  />
+                  {/* 숫자 컨테이너 — gradient bg + emoji 같은 동그라미 */}
+                  <div
+                    key={`n-${countdown}`}
+                    className="relative w-40 h-40 rounded-full bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-600 shadow-[0_0_80px_rgba(16,185,129,0.55)] flex items-center justify-center animate-[countdownPulse_0.6s_cubic-bezier(0.34,1.56,0.64,1)]"
+                  >
+                    <span className="text-[96px] font-extrabold text-white leading-none tabular-nums drop-shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+                      {countdown}
+                    </span>
+                  </div>
+                  <p className="absolute -bottom-12 left-1/2 -translate-x-1/2 text-xs font-extrabold text-emerald-200 tracking-[0.35em] uppercase whitespace-nowrap">
+                    {locale === 'en' ? 'Get Ready' : '준비'}
+                  </p>
                 </div>
-                <p className="absolute -bottom-16 left-1/2 -translate-x-1/2 text-sm font-extrabold text-emerald-200 tracking-[0.35em] uppercase whitespace-nowrap">
-                  {locale === 'en' ? 'Get Ready' : '준비'}
-                </p>
-              </div>
-            ) : (
-              <div className="animate-[goBounce_0.55s_cubic-bezier(0.34,1.56,0.64,1)]">
-                {/* GO! — 그라데이션 텍스트 + sparkle */}
-                <p className="text-[140px] font-extrabold leading-none bg-gradient-to-br from-emerald-200 via-emerald-400 to-teal-500 bg-clip-text text-transparent drop-shadow-[0_0_60px_rgba(16,185,129,0.9)]">
-                  GO!
-                </p>
-                <p className="mt-2 text-sm font-extrabold text-white/80 tracking-[0.4em] uppercase">
-                  {locale === 'en' ? 'Start running' : '달리기 시작'}
-                </p>
-                {/* 양옆 ✨ */}
-                <span className="absolute -top-4 -left-6 text-3xl animate-pulse" aria-hidden>✨</span>
-                <span className="absolute -top-4 -right-6 text-3xl animate-pulse" aria-hidden>✨</span>
-              </div>
-            )}
+              ) : (
+                <div className="relative animate-[goBounce_0.55s_cubic-bezier(0.34,1.56,0.64,1)]">
+                  {/* GO! — 그라데이션 텍스트 + sparkle */}
+                  <p className="text-[112px] font-extrabold leading-none bg-gradient-to-br from-emerald-200 via-emerald-400 to-teal-500 bg-clip-text text-transparent drop-shadow-[0_0_60px_rgba(16,185,129,0.9)]">
+                    GO!
+                  </p>
+                  <p className="mt-2 text-xs font-extrabold text-white/80 tracking-[0.4em] uppercase">
+                    {locale === 'en' ? 'Start running' : '달리기 시작'}
+                  </p>
+                  {/* 양옆 ✨ */}
+                  <span className="absolute -top-4 -left-6 text-3xl animate-pulse" aria-hidden>✨</span>
+                  <span className="absolute -top-4 -right-6 text-3xl animate-pulse" aria-hidden>✨</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

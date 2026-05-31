@@ -59,6 +59,22 @@ export async function fetchActivityRoute(activityId: string): Promise<{ route_da
   return data as { route_data: import('@/types').GeoJSONLineString | null } | null;
 }
 
+// build 222 #3: 저장 직후 router.push 직진 시 UserDataProvider 캐시가 아직 stale → "찾을 수 없음" 회귀 fix.
+// 캐시 miss 일 때 단건 DB fetch 폴백.
+export async function fetchActivityById(activityId: string): Promise<Activity | null> {
+  const { data, error } = await getSupabase()
+    .from('activities')
+    .select(`${ACTIVITY_LITE_COLS},route_data`)
+    .eq('id', activityId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return {
+    ...data,
+    distance_km: Number(data.distance_km),
+    map_snapshot_url: null,
+  } as Activity;
+}
+
 export async function fetchActivitiesForMonth(userId: string, year: number, month: number): Promise<Activity[]> {
   const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
   const endDate = month === 12

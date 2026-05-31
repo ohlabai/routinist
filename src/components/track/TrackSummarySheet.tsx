@@ -26,6 +26,9 @@ interface Props {
 }
 
 // km 별 split 계산 — coords 시간 누적이 km 경계를 넘는 지점마다 페이스 산출.
+// build 222 #2: 한 segment 가 여러 km 경계를 가로지를 때 (백그라운드 GPS 복귀 등으로 단일 좌표가
+// 다중 km 점프) 모든 후속 split 시간이 0 으로 찍히던 회귀 fix. timestamp 를 비례 보간해서 분배.
+// (이전: 첫 split 만 거대값, 나머지 0'00")
 function computeKmSplits(coords: TrackingState['coords']): Array<{ km: number; seconds: number; pace: string }> {
   if (coords.length < 2) return [];
   const splits: Array<{ km: number; seconds: number; pace: string }> = [];
@@ -35,16 +38,23 @@ function computeKmSplits(coords: TrackingState['coords']): Array<{ km: number; s
   for (let i = 1; i < coords.length; i++) {
     const prev = coords[i - 1];
     const cur = coords[i];
-    const d = haversineMeters({ lat: prev[1], lng: prev[0] }, { lat: cur[1], lng: cur[0] });
-    cumMeters += d;
-    while (cumMeters >= kmMarker * 1000) {
-      const seconds = (cur[3] - kmStartTs) / 1000;
+    const segMeters = haversineMeters({ lat: prev[1], lng: prev[0] }, { lat: cur[1], lng: cur[0] });
+    if (segMeters <= 0) continue;
+    const segStart = cumMeters;
+    const segEnd = cumMeters + segMeters;
+    const segDtMs = cur[3] - prev[3];
+    while (segEnd >= kmMarker * 1000) {
+      // km 경계가 이 segment 안 어디 (fraction) 에 위치하는지 → 해당 시점 timestamp 보간
+      const fraction = (kmMarker * 1000 - segStart) / segMeters;
+      const tsAtMarker = prev[3] + segDtMs * fraction;
+      const seconds = Math.max(0, (tsAtMarker - kmStartTs) / 1000);
       const m = Math.floor(seconds / 60);
       const s = Math.floor(seconds % 60);
       splits.push({ km: kmMarker, seconds, pace: `${m}'${s.toString().padStart(2, '0')}"` });
       kmMarker++;
-      kmStartTs = cur[3];
+      kmStartTs = tsAtMarker;
     }
+    cumMeters = segEnd;
   }
   return splits;
 }

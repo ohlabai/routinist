@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
-import { formatPace, formatDuration, fetchActivityRoute } from '@/lib/routinist-data';
+import { formatPace, formatDuration, fetchActivityRoute, fetchActivityById } from '@/lib/routinist-data';
+import type { Activity } from '@/types';
 import CommentSection from '@/components/social/CommentSection';
 import ShareCard from '@/components/activity/ShareCard';
 import BestSplitsCard from '@/components/activity/BestSplitsCard';
@@ -19,7 +20,7 @@ function ActivityDetail() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user, profile } = useAuth();
-  const { activities } = useUserData();
+  const { activities, refresh } = useUserData();
   const { t, locale } = useI18n();
   const id = searchParams.get('id');
   const newPbRaw = searchParams.get('new_pb');
@@ -32,7 +33,27 @@ function ActivityDetail() {
   // build 161 #12-1: UserDataProvider 의 활동은 route_data 가 없는 lite 버전 (첫 로그인 가속).
   // 활동 상세 진입 시 단건 route_data 만 lazy fetch → 메인 fetch 부담은 그대로 둠.
   const [route, setRoute] = useState<import('@/types').GeoJSONLineString | null>(null);
-  const baseActivity = useMemo(() => activities.find(a => a.id === id), [activities, id]);
+  // build 222 #3: 캐시 miss (저장 직후 router.push) 폴백 — 단건 DB fetch.
+  const [fallbackActivity, setFallbackActivity] = useState<Activity | null>(null);
+  const [fallbackTried, setFallbackTried] = useState(false);
+  const cachedActivity = useMemo(() => activities.find(a => a.id === id), [activities, id]);
+  const baseActivity = cachedActivity ?? fallbackActivity;
+
+  // 캐시에 없으면 단건 DB fetch (저장 직후 race 회피). 백그라운드로 UserDataProvider refresh 도 트리거.
+  useEffect(() => {
+    if (!id) return;
+    if (cachedActivity) return;
+    if (fallbackTried) return;
+    let cancelled = false;
+    setFallbackTried(true);
+    (async () => {
+      const a = await fetchActivityById(id);
+      if (!cancelled && a) setFallbackActivity(a);
+      // 캐시 동기화 (다음 진입 빠르게)
+      refresh().catch(() => {});
+    })();
+    return () => { cancelled = true; };
+  }, [id, cachedActivity, fallbackTried, refresh]);
 
   useEffect(() => {
     if (!id || !baseActivity) return;
@@ -51,6 +72,14 @@ function ActivityDetail() {
   );
 
   if (!activity) {
+    // 폴백 fetch 시도 중에는 로딩, 끝나도 못 찾으면 not found.
+    if (id && !fallbackTried) {
+      return (
+        <div className="p-4 max-w-lg mx-auto text-center py-20">
+          <p className="text-[var(--muted)]">{t('common.loading')}</p>
+        </div>
+      );
+    }
     return (
       <div className="p-4 max-w-lg mx-auto text-center py-20">
         <p className="text-[var(--muted)]">{t('activity.notFound')}</p>
