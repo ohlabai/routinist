@@ -68,7 +68,7 @@ async function getApnsToken(): Promise<string> {
   return jwt;
 }
 
-async function sendApn(deviceToken: string, payload: { title: string; body: string; data: Record<string, unknown> }): Promise<{ ok: boolean; reason?: string }> {
+async function sendApn(deviceToken: string, payload: { title: string; body: string; data: Record<string, unknown>; badge: number }): Promise<{ ok: boolean; reason?: string }> {
   const bundleId = process.env.APN_BUNDLE_ID || 'com.routinist.app';
   const useSandbox = process.env.APN_USE_SANDBOX === 'true';
   const host = useSandbox ? APN_HOST_DEV : APN_HOST_PROD;
@@ -78,7 +78,7 @@ async function sendApn(deviceToken: string, payload: { title: string; body: stri
     aps: {
       alert: { title: payload.title, body: payload.body },
       sound: 'default',
-      badge: 1,
+      badge: payload.badge,
       'mutable-content': 1,
     },
     // 커스텀 — deep_link 등
@@ -151,6 +151,14 @@ export async function POST(req: NextRequest) {
     tokensByUser.get(t.user_id)!.push(t);
   }
 
+  // build 224: 동적 뱃지 카운트 — 사용자별 이 배치에 들어온 push 개수를 badge 로.
+  // 모든 push 가 같은 badge 값을 받아도 iOS 는 가장 최근 도착한 값을 표시하므로 (count_in_batch)
+  // 가 사용자의 unread 수와 거의 같음. 앱 포어그라운드 진입 시 clearAppBadge 가 0 으로 리셋.
+  const pushCountByUser = new Map<string, number>();
+  for (const l of logs as PushLogRow[]) {
+    pushCountByUser.set(l.user_id, (pushCountByUser.get(l.user_id) ?? 0) + 1);
+  }
+
   // 토큰별 연속 실패 카운터 (3회 이상 시 비활성화) — 메모리 캐시는 의미 없음 (cron 사이 휘발).
   // 대신 BadDeviceToken / Unregistered (영구 invalid) 만 즉시 비활성화. 일시 fail 은 그대로.
   // 영구 invalid 외 3회 누적 fail 은 push_device_tokens.metadata 에 카운터 (별도 컬럼 없으면 enabled 그대로).
@@ -165,8 +173,9 @@ export async function POST(req: NextRequest) {
 
     let anyOk = false;
     let lastReason = '';
+    const badge = Math.max(1, pushCountByUser.get(log.user_id) ?? 1);
     const apnResults = await Promise.allSettled(
-      list.map(t => sendApn(t.token, { title: log.title, body: log.body, data: log.payload })
+      list.map(t => sendApn(t.token, { title: log.title, body: log.body, data: log.payload, badge })
         .then(res => ({ tokenId: t.id, ...res }))
         .catch(e => ({ tokenId: t.id, ok: false as const, reason: e instanceof Error ? e.message : String(e) }))),
     );

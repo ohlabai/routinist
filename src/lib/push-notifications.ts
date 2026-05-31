@@ -103,9 +103,36 @@ export async function initPushNotifications(opts?: {
       } else if (deepLink && typeof window !== 'undefined') {
         window.location.href = deepLink;
       }
+      // 알림 탭 = 사용자가 확인함 → 뱃지 정리
+      void clearAppBadge();
     });
+
+    // build 224: 앱 포어그라운드 진입 시 자동 뱃지 정리. App.addListener('appStateChange') 사용.
+    try {
+      const { App } = await import('@capacitor/app');
+      await App.addListener('appStateChange', ({ isActive }) => {
+        if (isActive) void clearAppBadge();
+      });
+      // 첫 init 시 한 번 호출 — 이미 카운트가 쌓여 있어도 정리.
+      void clearAppBadge();
+    } catch (e) {
+      console.warn('[push] appStateChange listener fail', e);
+    }
   } catch (e) {
     console.warn('[push] init fail', e);
+  }
+}
+
+// build 224: 앱 포어그라운드 진입 시 호출 — 누적된 푸시를 정리해서 앱 아이콘 뱃지를 0 으로.
+// PushNotifications.removeAllDeliveredNotifications() 는 iOS 에서 delivered notification list 를 비우고
+// 시스템이 자동으로 badge 를 0 으로 재계산해줌.
+export async function clearAppBadge(): Promise<void> {
+  if (!isNative()) return;
+  try {
+    const { PushNotifications } = await import('@capacitor/push-notifications');
+    await PushNotifications.removeAllDeliveredNotifications();
+  } catch (e) {
+    console.warn('[push] clear badge fail', e);
   }
 }
 

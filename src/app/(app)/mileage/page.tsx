@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { fetchMileageBalance, fetchMileageTransactions, txTypeLabel, classifyMileageTx } from '@/lib/mileage-data';
-import { ArrowLeft, Gift, Coins, Sparkles, TrendingUp, TrendingDown } from 'lucide-react';
+import { ArrowLeft, Gift, Coins, Sparkles, TrendingUp, TrendingDown, HelpCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { MileageTransaction } from '@/types';
@@ -72,7 +72,14 @@ export default function MileagePage() {
           <button onClick={() => router.back()} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition">
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-xl font-extrabold tracking-tight">마일리지</h1>
+          <h1 className="text-xl font-extrabold tracking-tight flex-1">마일리지</h1>
+          <Link
+            href="/mileage/help"
+            aria-label="마일리지 가이드"
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition text-[var(--muted)]"
+          >
+            <HelpCircle size={20} />
+          </Link>
         </div>
       </header>
 

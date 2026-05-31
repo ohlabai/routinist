@@ -12,7 +12,9 @@ import {
   type MemberProgress, type ClubSummary, type MemberRunCount, type CumulativeRanking, type HallOfFameEntry,
 } from '@/lib/stats-data';
 import { formatPace, formatDuration } from '@/lib/routinist-data';
-import { ArrowLeft, Users, LogIn, LogOut, Share2, Shield, ShieldOff, UserMinus, Settings, Activity, Crown, Copy, Check, TrendingUp, Zap, Trophy, Flame, ChevronRight, Trash2, MessageSquare, Heart, Image as ImageIcon, Pin, X, Send } from 'lucide-react';
+import { startOfWeekStr, startOfMonthStr } from '@/lib/kst';
+import { getSupabase } from '@/lib/supabase';
+import { ArrowLeft, Users, LogIn, LogOut, Share2, Shield, ShieldOff, UserMinus, Settings, Activity, Crown, Copy, Check, TrendingUp, Zap, Trophy, Flame, ChevronRight, Trash2, MessageSquare, Heart, Image as ImageIcon, Pin, X, Send, Eye, EyeOff, BarChart3 } from 'lucide-react';
 import {
   fetchClubFeed, createClubPost, deleteClubPost, toggleClubPostNotice, toggleClubPostLike,
   fetchClubPostComments, createClubPostComment, uploadClubPostPhoto, type ClubPost, type ClubPostComment,
@@ -48,6 +50,12 @@ function ClubDetail() {
   const [actionLoading, setActionLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
   const [copied, setCopied] = useState(false);
+
+  // build 224: 멤버 거리 비교 차트 (주/월 토글 + 체크박스로 보이기/숨기기).
+  const [comparePeriod, setComparePeriod] = useState<'week' | 'month'>('week');
+  const [hiddenMemberIds, setHiddenMemberIds] = useState<Set<string>>(new Set());
+  const [compareRows, setCompareRows] = useState<{ id: string; name: string; avatar: string | null; km: number; isMe: boolean }[]>([]);
+  const [compareLoading, setCompareLoading] = useState(false);
 
   // 대시보드 데이터
   const [dashSummary, setDashSummary] = useState<ClubSummary | null>(null);
@@ -394,6 +402,50 @@ function ClubDetail() {
     if (activeTab !== 'dashboard' || !clubId) return;
     fetchClubWeeklyMvp(clubId).then(setWeeklyMvp).catch(() => {});
   }, [activeTab, clubId]);
+
+  // build 224: 클럽 멤버 비교 차트 — 멤버 탭 진입 시 + period 변경 시 distance 집계.
+  useEffect(() => {
+    if (activeTab !== 'members' || members.length === 0) return;
+    let cancelled = false;
+    setCompareLoading(true);
+    (async () => {
+      try {
+        const supabase = getSupabase();
+        const periodStart = comparePeriod === 'week' ? startOfWeekStr() : startOfMonthStr();
+        const memberIds = members.map(m => m.user_id);
+        const { data: acts } = await supabase
+          .from('activities')
+          .select('user_id, distance_km')
+          .in('user_id', memberIds)
+          .gte('activity_date', periodStart);
+        if (cancelled) return;
+        const kmMap = new Map<string, number>();
+        (acts ?? []).forEach(a => kmMap.set(a.user_id, (kmMap.get(a.user_id) ?? 0) + Number(a.distance_km)));
+        const rows = members.map(m => ({
+          id: m.user_id,
+          name: m.profile?.display_name ?? '러너',
+          avatar: m.profile?.avatar_url ?? null,
+          km: kmMap.get(m.user_id) ?? 0,
+          isMe: m.user_id === user?.id,
+        })).sort((a, b) => b.km - a.km);
+        setCompareRows(rows);
+      } catch (e) {
+        console.warn('[ClubDetail] member compare 실패', e);
+      } finally {
+        if (!cancelled) setCompareLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeTab, members, comparePeriod, user?.id]);
+
+  const toggleMemberVisibility = (memberId: string) => {
+    setHiddenMemberIds(prev => {
+      const next = new Set(prev);
+      if (next.has(memberId)) next.delete(memberId);
+      else next.add(memberId);
+      return next;
+    });
+  };
 
   // ========== 응원 이모지 (활동 탭 진입 시 + activities 로드 후) ==========
   useEffect(() => {
@@ -1138,9 +1190,123 @@ function ClubDetail() {
         </div>
       )}
 
-      {/* 멤버 탭 */}
+      {/* 멤버 탭 — build 224: 거리 비교 차트 + 멤버 list */}
       {activeTab === 'members' && (
-        <div className="card px-4">
+        <div className="space-y-4">
+          {/* 비교 차트 — 주/월 토글 + 체크박스로 보이기/숨기기 */}
+          {compareRows.length > 1 && (
+            <div className="card p-4">
+              <div className="flex items-center justify-between mb-3 gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <BarChart3 size={16} className="text-emerald-600 flex-shrink-0" />
+                  <h3 className="text-base font-extrabold text-[var(--foreground)] truncate">
+                    {comparePeriod === 'week' ? '이번 주 멤버 비교' : '이번 달 멤버 비교'}
+                  </h3>
+                </div>
+                <div className="flex gap-1 bg-[var(--card-border)]/30 rounded-full p-1 flex-shrink-0">
+                  <button
+                    onClick={() => setComparePeriod('week')}
+                    className={`px-3 py-1 rounded-full text-xs font-extrabold transition ${
+                      comparePeriod === 'week' ? 'bg-emerald-500 text-white shadow-sm' : 'text-[var(--muted)]'
+                    }`}
+                  >이번주</button>
+                  <button
+                    onClick={() => setComparePeriod('month')}
+                    className={`px-3 py-1 rounded-full text-xs font-extrabold transition ${
+                      comparePeriod === 'month' ? 'bg-emerald-500 text-white shadow-sm' : 'text-[var(--muted)]'
+                    }`}
+                  >이번달</button>
+                </div>
+              </div>
+              {compareLoading ? (
+                <p className="text-xs text-[var(--muted)] text-center py-4">불러오는 중…</p>
+              ) : (
+                <>
+                  {hiddenMemberIds.size > 0 && (
+                    <div className="mb-2 flex items-center justify-between text-[11px] text-[var(--muted)]">
+                      <span>{hiddenMemberIds.size}명 숨김</span>
+                      <button
+                        onClick={() => setHiddenMemberIds(new Set())}
+                        className="font-bold text-emerald-600 active:scale-95"
+                      >모두 보이기</button>
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    {(() => {
+                      const visibleRows = compareRows.filter(r => !hiddenMemberIds.has(r.id));
+                      const maxKm = Math.max(...visibleRows.map(r => r.km), 1);
+                      // 숨겨진 멤버는 list 하단에 별도 섹션
+                      return (
+                        <>
+                          {visibleRows.map((r, i) => (
+                            <div key={r.id} className="flex items-center gap-2">
+                              <span className={`w-5 text-xs font-bold text-center ${i === 0 ? 'text-amber-500' : 'text-[var(--muted)]'}`}>{i + 1}</span>
+                              <div className="w-7 h-7 rounded-full bg-[var(--card-border)] overflow-hidden flex-shrink-0">
+                                {r.avatar ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={r.avatar} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-[var(--muted)]">
+                                    {r.name.slice(0, 1)}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-baseline justify-between">
+                                  <span className={`text-sm truncate ${r.isMe ? 'font-bold text-emerald-600' : 'font-medium text-[var(--foreground)]'}`}>
+                                    {r.name}{r.isMe ? ' (나)' : ''}
+                                  </span>
+                                  <span className="text-xs text-[var(--muted)] ml-2">{r.km.toFixed(1)}km</span>
+                                </div>
+                                <div className="mt-1 h-1.5 bg-[var(--card-border)] rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full ${r.isMe ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' : 'bg-emerald-400/70'}`}
+                                    style={{ width: `${(r.km / maxKm) * 100}%` }}
+                                  />
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => toggleMemberVisibility(r.id)}
+                                aria-label="숨기기"
+                                className="p-1.5 rounded-lg text-[var(--muted)] hover:bg-[var(--card-border)]/40 active:scale-90"
+                              >
+                                <Eye size={14} />
+                              </button>
+                            </div>
+                          ))}
+                          {hiddenMemberIds.size > 0 && (
+                            <div className="pt-2 mt-2 border-t border-[var(--card-border)]/40">
+                              <p className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest mb-1.5">숨김</p>
+                              {compareRows.filter(r => hiddenMemberIds.has(r.id)).map(r => (
+                                <button
+                                  key={r.id}
+                                  onClick={() => toggleMemberVisibility(r.id)}
+                                  className="w-full flex items-center gap-2 py-1.5 opacity-60 active:scale-[0.99]"
+                                >
+                                  <div className="w-5 h-5 rounded-full bg-[var(--card-border)] overflow-hidden flex-shrink-0">
+                                    {r.avatar ? (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img src={r.avatar} alt="" className="w-full h-full object-cover" />
+                                    ) : null}
+                                  </div>
+                                  <span className="text-xs flex-1 text-left truncate">{r.name}</span>
+                                  <span className="text-[11px] text-[var(--muted)]">{r.km.toFixed(1)}km</span>
+                                  <EyeOff size={12} className="text-[var(--muted)]" />
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* 멤버 리스트 (기존) */}
+          <div className="card px-4">
           <div className="divide-y divide-[var(--card-border)]">
             {members.map((member) => (
               <div key={member.user_id} className="flex items-center gap-3 py-3">
@@ -1183,6 +1349,7 @@ function ClubDetail() {
                 )}
               </div>
             ))}
+          </div>
           </div>
         </div>
       )}
