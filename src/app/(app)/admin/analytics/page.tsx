@@ -295,8 +295,8 @@ export default function AdminAnalyticsPage() {
                 <Stat label="러너 한 줄" value={overview.content.user_quotes_total.toLocaleString()} />
                 <Stat label="러너 한 줄 (7일)" value={`+${overview.content.user_quotes_7d}`} tone="emerald" />
                 <Stat label="친선런 누적" value={overview.content.contests_total.toLocaleString()} />
-                <Stat label="월드마라톤 시작" value={overview.content.world_starts.toLocaleString()} />
-                <Stat label="월드마라톤 완주" value={overview.content.world_completes.toLocaleString()} tone="amber" />
+                <Stat label="월드런 챌린지 시작" value={overview.content.world_starts.toLocaleString()} />
+                <Stat label="월드런 챌린지 완주" value={overview.content.world_completes.toLocaleString()} tone="amber" />
                 <Stat label="메달 신청" value={overview.content.medals_requested.toLocaleString()} tone="amber" />
               </div>
             </Section>
@@ -385,8 +385,8 @@ export default function AdminAnalyticsPage() {
                   { label: '첫 활동', value: funnel.first_run, key: 'first_run' },
                   { label: '첫 사진 공유', value: funnel.first_photo, key: 'first_photo' },
                   { label: '첫 친구', value: funnel.first_friend, key: 'first_friend' },
-                  { label: '월드마라톤 시작', value: funnel.first_world_start, key: 'first_world_start' },
-                  { label: '월드마라톤 완주', value: funnel.first_world_complete, key: 'first_world_complete' },
+                  { label: '월드런 챌린지 시작', value: funnel.first_world_start, key: 'first_world_start' },
+                  { label: '월드런 챌린지 완주', value: funnel.first_world_complete, key: 'first_world_complete' },
                   { label: '메달 신청', value: funnel.first_medal_request, key: 'first_medal_request' },
                 ].map((step) => (
                   <div key={step.key} className="flex items-center gap-2 py-1.5">

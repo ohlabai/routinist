@@ -43,7 +43,7 @@ export default function HomeWorldMarathonCard() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[10px] font-extrabold tracking-widest uppercase text-sky-600 dark:text-sky-400">
-              {locale === 'en' ? 'World Marathon' : '월드 마라톤'}
+              {locale === 'en' ? 'WorldRun Challenge' : '월드런 챌린지'}
             </p>
             <p className="text-sm font-extrabold text-[var(--foreground)]">
               {tt('진행 중')} · {display.length}

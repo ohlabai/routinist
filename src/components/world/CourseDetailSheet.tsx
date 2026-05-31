@@ -20,6 +20,7 @@ import {
   type PreviewPoint,
 } from '@/lib/world-data';
 import AppToast from '@/components/AppToast';
+import MilestoneBoard from './MilestoneBoard';
 
 interface Props {
   courseId: string;
@@ -215,6 +216,15 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                     <p className="mt-3 text-xs text-[var(--muted)]">남은 거리 {Math.max(0, course.distance_km - myRunner.progress_km).toFixed(1)}km</p>
                   )}
                 </div>
+              )}
+
+              {/* build 229: 마일스톤 보드 — Conqueror 패턴. 5/10/하프/풀 + landmarks 통합. */}
+              {myRunner && (
+                <MilestoneBoard
+                  course={course}
+                  myProgressKm={myRunner.progress_km}
+                  userName={profile?.display_name ?? undefined}
+                />
               )}
 
               {/* build 228 #2: 같은 코스 도전 중 — 막대 그래프로 한눈에 비교. 1위 왕관 + 본인 emerald 강조 */}

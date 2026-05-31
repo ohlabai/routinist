@@ -19,9 +19,9 @@ export const ACHIEVEMENTS: Record<string, AchievementDef> = {
   km_500: { code: 'km_500', name: '500km 러너', description: '누적 500km', emoji: '🔥', category: 'distance' },
   km_1000: { code: 'km_1000', name: '밀레니엄', description: '누적 1,000km', emoji: '🏆', category: 'distance' },
   km_5000: { code: 'km_5000', name: '레전드', description: '누적 5,000km', emoji: '👑', category: 'distance' },
-  first_course: { code: 'first_course', name: '월드마라톤 첫 완주', description: '월드마라톤 첫 코스 완주', emoji: '🌍', category: 'course' },
-  courses_3: { code: 'courses_3', name: '3 코스 완주', description: '월드마라톤 3개 완주', emoji: '🎖️', category: 'course' },
-  courses_10: { code: 'courses_10', name: '10 코스 마스터', description: '월드마라톤 10개 완주', emoji: '🌟', category: 'course' },
+  first_course: { code: 'first_course', name: '월드런 챌린지 첫 완주', description: '월드런 챌린지 첫 코스 완주', emoji: '🌍', category: 'course' },
+  courses_3: { code: 'courses_3', name: '3 코스 완주', description: '월드런 챌린지 3개 완주', emoji: '🎖️', category: 'course' },
+  courses_10: { code: 'courses_10', name: '10 코스 마스터', description: '월드런 챌린지 10개 완주', emoji: '🌟', category: 'course' },
   six_stars: { code: 'six_stars', name: 'Six Stars', description: 'World Marathon Majors 6개 완주', emoji: '⭐⭐⭐⭐⭐⭐', category: 'series' },
 };
 
