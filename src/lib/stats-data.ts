@@ -79,7 +79,7 @@ export interface TimeSeriesPoint {
 }
 export async function fetchUserTimeSeries(
   userIds: string[],
-  period: 'daily' | 'weekly',
+  period: 'daily' | 'weekly' | 'monthly',
   count: number,
 ): Promise<TimeSeriesPoint[]> {
   if (userIds.length === 0) return [];
@@ -98,15 +98,18 @@ export async function fetchUserTimeSeries(
     }
   })();
 
-  // 시작일 산정 (일간: count-1 일 전, 주간: count*7-1 일 전 → 주의 시작 = 월요일로 align)
+  // 시작일 산정 (일간: count-1 일 전, 주간: count*7-1 일 전, 월간: count-1 개월 전 1일)
   const startDate = new Date(todayStr + 'T00:00:00+09:00');
   if (period === 'daily') {
     startDate.setDate(startDate.getDate() - (count - 1));
-  } else {
-    // 주간: 오늘 포함 count 주. 주 시작 = 월요일 기준 (KST).
-    const dow = startDate.getDay(); // 0=Sun..6=Sat (UTC 기준이지만 KST 변환은 위에서 했음)
+  } else if (period === 'weekly') {
+    const dow = startDate.getDay();
     const daysSinceMon = (dow + 6) % 7;
     startDate.setDate(startDate.getDate() - daysSinceMon - (count - 1) * 7);
+  } else {
+    // 월간: 오늘 포함 count 개월. 시작 = (count-1) 개월 전의 1일.
+    startDate.setDate(1);
+    startDate.setMonth(startDate.getMonth() - (count - 1));
   }
   const startStr = startDate.toISOString().slice(0, 10);
 
@@ -120,13 +123,17 @@ export async function fetchUserTimeSeries(
     return [];
   }
 
-  // bucket key 함수 — 일간은 그대로, 주간은 월요일 기준 YYYY-MM-DD.
+  // bucket key 함수 — 일간은 그대로, 주간은 월요일 기준, 월간은 매월 1일 기준 YYYY-MM-DD.
   const bucketKey = (dateStr: string): string => {
     if (period === 'daily') return dateStr;
     const d = new Date(dateStr + 'T00:00:00+09:00');
-    const dow = d.getDay();
-    const daysSinceMon = (dow + 6) % 7;
-    d.setDate(d.getDate() - daysSinceMon);
+    if (period === 'weekly') {
+      const dow = d.getDay();
+      const daysSinceMon = (dow + 6) % 7;
+      d.setDate(d.getDate() - daysSinceMon);
+    } else {
+      d.setDate(1);
+    }
     return d.toISOString().slice(0, 10);
   };
 
@@ -136,7 +143,13 @@ export async function fetchUserTimeSeries(
   const todayDate = new Date(todayStr + 'T00:00:00+09:00');
   while (cursor <= todayDate) {
     buckets.push(cursor.toISOString().slice(0, 10));
-    cursor.setDate(cursor.getDate() + (period === 'daily' ? 1 : 7));
+    if (period === 'daily') {
+      cursor.setDate(cursor.getDate() + 1);
+    } else if (period === 'weekly') {
+      cursor.setDate(cursor.getDate() + 7);
+    } else {
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
   }
 
   // bucket → user_id → km
@@ -154,9 +167,9 @@ export async function fetchUserTimeSeries(
     m.set(uid, (m.get(uid) ?? 0) + Number(row.distance_km));
   }
 
-  // 라벨 포맷: 일간 = MM-DD, 주간 = MM-DD (주 시작일)
+  // 라벨 포맷: 일간 = MM-DD, 주간 = MM-DD (주 시작일), 월간 = YYYY-MM
   const points: TimeSeriesPoint[] = buckets.map(b => {
-    const label = b.slice(5);
+    const label = period === 'monthly' ? b.slice(0, 7) : b.slice(5);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const point: any = { date: label };
     const m = map.get(b)!;

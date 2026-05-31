@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Trophy, MapPin, UserCircle2 } from 'lucide-react';
+import { Trophy, MapPin, UserCircle2, HelpCircle } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import { dataCache, onCacheInvalidated } from '@/lib/data-cache';
@@ -106,21 +106,30 @@ export default function MileageRankingTab() {
 
   return (
     <div className="px-4 pt-2">
-      {/* 필터 */}
-      <div className="flex gap-2 mb-3">
-        {TABS.map(t => (
-          <button
-            key={t.id}
-            onClick={() => setScope(t.id)}
-            className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${
-              scope === t.id
-                ? 'bg-emerald-500 text-white'
-                : 'bg-[var(--card)] text-[var(--muted)] border border-[var(--card-border)]'
-            }`}
-          >
-            {tt(t.label)}
-          </button>
-        ))}
+      {/* 필터 + build 233: 마일리지 가이드 ? 아이콘 */}
+      <div className="flex items-center gap-2 mb-3">
+        <div className="flex gap-2 flex-1">
+          {TABS.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setScope(t.id)}
+              className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${
+                scope === t.id
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-[var(--card)] text-[var(--muted)] border border-[var(--card-border)]'
+              }`}
+            >
+              {tt(t.label)}
+            </button>
+          ))}
+        </div>
+        <Link
+          href="/mileage/help"
+          aria-label="마일리지 가이드"
+          className="w-9 h-9 flex items-center justify-center rounded-full text-[var(--muted)] hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition"
+        >
+          <HelpCircle size={18} />
+        </Link>
       </div>
 
       {cantUseScope && (

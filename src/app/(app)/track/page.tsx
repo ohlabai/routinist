@@ -17,6 +17,7 @@ import {
   isVoiceCueEnabled, setVoiceCueEnabled,
   setVoiceCueIntervalMeters, speakSample,
   getVoiceGender, setVoiceGender, speakGreetingSample,
+  hasKoreanMaleVoice,
   type VoiceGender, type VoiceCourseContext,
 } from '@/lib/voice-cue';
 import {
@@ -94,6 +95,16 @@ export default function TrackPage() {
     setVoiceGenderState(g);
     setVoiceGender(g);
     if (voiceOn) speakGreetingSample(locale);
+    // build 233: 한국어 male voice 가 OS 미설치인 경우 처음 1회만 안내.
+    if (g === 'male' && locale === 'ko' && !hasKoreanMaleVoice()) {
+      try {
+        const warned = window.localStorage.getItem('voice-cue:male-warned-v2');
+        if (!warned) {
+          window.localStorage.setItem('voice-cue:male-warned-v2', '1');
+          window.alert('한국어 남성 음성이 기기에 없어 음역만 낮춰 들려요.\n설정 → 손쉬운 사용 → 음성 콘텐츠 → 음성 → 한국어 에서 "수현" 등을 다운로드하면 자연스러운 남성 음성으로 들을 수 있어요.');
+        }
+      } catch { /* ignore */ }
+    }
   };
 
   // build 229.B: 활성 월드런 챌린지 코스 — 트래킹 중 음성 안내에 코스명 + 다음 랜드마크 카운트다운 추가.

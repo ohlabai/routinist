@@ -210,14 +210,20 @@ export function speakMilestone(args: {
     } else {
       u.lang = locale === 'en' ? 'en-US' : 'ko-KR';
     }
-    // build 226: 자연스러운 prosody 를 위해 rate 살짝 느림 (0.92).
-    // 남성 fallback (ko 남성 voice 없는 경우) 시 pitch 0.65 로 크게 낮춰 다른 caractère 부여.
-    // 일반 남성: 0.88, 여성: 1.04 (살짝 밝은 톤).
-    u.rate = 0.92;
-    if (gender === 'male') {
-      u.pitch = picked.genderFallback ? 0.65 : 0.88;
+    // build 233: 음성 남성 fallback 강화 — 사용자가 male 선택했는데 ko 남성 voice 가 OS 에 미설치된
+    // 경우 pitch 0.65 → 0.4 (Web Speech API 가 fallback 으로 여성 voice 를 쓸 때 차이 키움).
+    // rate 도 0.92 → 0.85 로 더 낮춰 더 굵게 들리도록.
+    // 한계: iOS Safari/WKWebView 가 pitch 를 voice 별로 무시할 수도 있어 완전 남성 음성은 보장 X.
+    // 사용자에겐 첫 male 선택 시 토스트로 안내 (UI 측 별도 작업).
+    if (gender === 'male' && picked.genderFallback) {
+      u.rate = 0.85;
+      u.pitch = 0.4;
+    } else if (gender === 'male') {
+      u.rate = 0.9;
+      u.pitch = 0.85;
     } else {
-      u.pitch = 1.04;
+      u.rate = 0.92;
+      u.pitch = 1.05;
     }
     u.volume = 1.0;
     window.speechSynthesis.cancel();
@@ -225,6 +231,14 @@ export function speakMilestone(args: {
   } catch {
     /* unsupported, ignore */
   }
+}
+
+/** build 233: 사용 가능한 남성 voice 가 있는지 사전 점검. UI 안내용. */
+export function hasKoreanMaleVoice(): boolean {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return false;
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices || voices.length === 0) return false;
+  return voices.some(v => v.lang.startsWith('ko') && matchesGender(v.name, 'male', 'ko'));
 }
 
 /** 즉시 테스트용 — 설정 화면에서 "샘플 듣기" 버튼에 쓰임. */
@@ -250,11 +264,13 @@ export function speakGreetingSample(locale: 'ko' | 'en') {
     } else {
       u.lang = locale === 'en' ? 'en-US' : 'ko-KR';
     }
-    u.rate = 0.92;
-    if (gender === 'male') {
-      u.pitch = picked.genderFallback ? 0.65 : 0.88;
+    // build 233: 동일한 pitch 정책 (speakMilestone 과 일치).
+    if (gender === 'male' && picked.genderFallback) {
+      u.rate = 0.85; u.pitch = 0.4;
+    } else if (gender === 'male') {
+      u.rate = 0.9; u.pitch = 0.85;
     } else {
-      u.pitch = 1.04;
+      u.rate = 0.92; u.pitch = 1.05;
     }
     u.volume = 1.0;
     window.speechSynthesis.cancel();

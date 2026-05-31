@@ -81,7 +81,13 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
   useEffect(() => { load(); }, [load]);
 
   const myRunner = runners.find(r => r.user_id === user?.id);
-  const completed = !!myRunner?.completed_at;
+  // build 233: completed_at 가 NULL 인데 progress 가 distance 이상이면 UI 상 완주로 표시.
+  // DB trigger (auto_mark_course_complete) 가 적용 전 사용자에게도 정상 표시 보장.
+  const completed = !!myRunner && (
+    !!myRunner.completed_at ||
+    (myRunner.ratio >= 0.999) ||
+    (course && course.distance_km > 0 && myRunner.progress_km >= course.distance_km)
+  );
 
   // build 228: 다음 마일스톤 계산. distance_km 에 따라 5/10/15/20/하프/25/30/35/40/풀
   // 시퀀스 자동 생성. 사용자 progress 보다 큰 첫 마일스톤 + 남은 거리.
@@ -600,7 +606,8 @@ function GoogleLiveTracker({ realPath, runners, myUserId }: {
         // 줌 컨트롤 위치를 우측 하단으로 옮기고, 풀스크린 컨트롤 활성화. minZoom 4 / maxZoom 19.
         zoomControlOptions: { position: window.google.maps.ControlPosition.RIGHT_BOTTOM },
         fullscreenControl: true,
-        fullscreenControlOptions: { position: window.google.maps.ControlPosition.RIGHT_TOP },
+        // build 233: 확대 아이콘이 hero runners 프로필 ribbon 과 겹친다는 신고 → LEFT_TOP 으로 이동.
+        fullscreenControlOptions: { position: window.google.maps.ControlPosition.LEFT_TOP },
         minZoom: 3,
         maxZoom: 19,
         gestureHandling: 'greedy',

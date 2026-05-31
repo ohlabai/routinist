@@ -28,7 +28,7 @@ const FRIEND_COLORS = ['#f59e0b', '#0ea5e9', '#f43f5e', '#8b5cf6', '#ec4899', '#
 const ME_COLOR = '#10b981';
 
 export default function MultiUserTimeSeriesChart({ users, defaultSelectedIds, title }: Props) {
-  const [period, setPeriod] = useState<'daily' | 'weekly'>('daily');
+  const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [data, setData] = useState<TimeSeriesPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => {
@@ -70,7 +70,7 @@ export default function MultiUserTimeSeriesChart({ users, defaultSelectedIds, ti
     if (ids.length === 0) { setData([]); return; }
     let cancelled = false;
     setLoading(true);
-    const count = period === 'daily' ? 14 : 8;
+    const count = period === 'daily' ? 14 : period === 'weekly' ? 8 : 12;
     fetchUserTimeSeries(ids, period, count)
       .then(d => { if (!cancelled) setData(d); })
       .catch(e => console.warn('[TimeSeriesChart] fetch fail', e))
@@ -86,22 +86,28 @@ export default function MultiUserTimeSeriesChart({ users, defaultSelectedIds, ti
         <div className="flex items-center gap-2 min-w-0">
           <TrendingUp size={16} className="text-emerald-600 flex-shrink-0" />
           <h3 className="text-base font-extrabold text-[var(--foreground)] truncate">
-            {title ?? (period === 'daily' ? '최근 2주 추이' : '최근 2개월 추이')}
+            {title ?? (period === 'daily' ? '최근 2주 추이' : period === 'weekly' ? '최근 2개월 추이' : '최근 12개월 추이')}
           </h3>
         </div>
         <div className="flex gap-1 bg-[var(--card-border)]/30 rounded-full p-1 flex-shrink-0">
           <button
             onClick={() => setPeriod('daily')}
-            className={`px-3 py-1 rounded-full text-xs font-extrabold transition ${
+            className={`px-2.5 py-1 rounded-full text-xs font-extrabold transition ${
               period === 'daily' ? 'bg-emerald-500 text-white shadow-sm' : 'text-[var(--muted)]'
             }`}
           >일간</button>
           <button
             onClick={() => setPeriod('weekly')}
-            className={`px-3 py-1 rounded-full text-xs font-extrabold transition ${
+            className={`px-2.5 py-1 rounded-full text-xs font-extrabold transition ${
               period === 'weekly' ? 'bg-emerald-500 text-white shadow-sm' : 'text-[var(--muted)]'
             }`}
           >주간</button>
+          <button
+            onClick={() => setPeriod('monthly')}
+            className={`px-2.5 py-1 rounded-full text-xs font-extrabold transition ${
+              period === 'monthly' ? 'bg-emerald-500 text-white shadow-sm' : 'text-[var(--muted)]'
+            }`}
+          >월간</button>
         </div>
       </div>
 
