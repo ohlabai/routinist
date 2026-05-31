@@ -65,6 +65,30 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
   const myRunner = runners.find(r => r.user_id === user?.id);
   const completed = !!myRunner?.completed_at;
 
+  // build 228: 다음 마일스톤 계산. distance_km 에 따라 5/10/15/20/하프/25/30/35/40/풀
+  // 시퀀스 자동 생성. 사용자 progress 보다 큰 첫 마일스톤 + 남은 거리.
+  const nextMilestone = (() => {
+    if (!course || !myRunner || completed) return null;
+    const dist = course.distance_km;
+    const ms: number[] = [];
+    if (dist >= 5) ms.push(5);
+    if (dist >= 10) ms.push(10);
+    if (dist >= 15) ms.push(15);
+    if (dist >= 20) ms.push(20);
+    if (dist >= 21.0975) ms.push(21.0975);
+    if (dist >= 25) ms.push(25);
+    if (dist >= 30) ms.push(30);
+    if (dist >= 35) ms.push(35);
+    if (dist >= 40) ms.push(40);
+    ms.push(dist); // 최종 완주
+    const next = ms.find(m => m > myRunner.progress_km + 0.05);
+    if (next == null) return null;
+    const label = Math.abs(next - 21.0975) < 0.01 ? '하프 마라톤'
+      : Math.abs(next - dist) < 0.01 ? '완주'
+      : `${next.toFixed(next % 1 === 0 ? 0 : 1)}km`;
+    return { km: next, label, remaining: Math.max(0, next - myRunner.progress_km) };
+  })();
+
   return (
     <div className="fixed inset-0 z-[70] bg-black/65 flex items-end sm:items-center justify-center sm:p-3" onClick={onClose}>
       <div
@@ -155,6 +179,110 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
               <div className="rounded-2xl bg-gradient-to-br from-amber-50/60 to-orange-50/30 dark:from-amber-950/30 dark:to-amber-950/10 border border-amber-200/60 dark:border-amber-800/40 p-3 flex items-center justify-between">
                 <span className="text-xs font-bold text-amber-700 dark:text-amber-300">참가비</span>
                 <span className="text-base font-extrabold text-amber-700 dark:text-amber-300">{course.entry_fee_p.toLocaleString()} 마일리지</span>
+              </div>
+
+              {/* build 228 #1: 내 진행 카드 — 큰 hero 거리 + 큰 progress bar + 다음 마일스톤 카운트다운.
+                  완주 시 메달 신청 카드가 별도로 아래에 따라옴. */}
+              {myRunner && (
+                <div className="rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-50/30 dark:from-emerald-950/40 dark:to-emerald-950/15 border-2 border-emerald-300/60 dark:border-emerald-800/40 p-5 shadow-md shadow-emerald-500/10">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-extrabold text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1.5">
+                      <Trophy size={13} /> 내 진행
+                    </p>
+                    <span className="text-xs font-extrabold text-emerald-600 tabular-nums">
+                      {Math.min(100, Math.round(myRunner.ratio * 100))}%
+                    </span>
+                  </div>
+                  <p className="text-4xl font-extrabold tabular-nums leading-none">
+                    {myRunner.progress_km.toFixed(1)}
+                    <span className="text-lg font-bold text-[var(--muted)] ml-1">/ {course.distance_km.toFixed(1)}km</span>
+                  </p>
+                  <div className="mt-3 h-3 rounded-full bg-white/70 dark:bg-zinc-900/70 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-600 transition-all duration-500"
+                      style={{ width: `${Math.min(100, myRunner.ratio * 100)}%` }}
+                    />
+                  </div>
+                  {completed ? (
+                    <p className="mt-3 text-sm font-extrabold text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1.5">
+                      <Trophy size={15} /> 완주!{myRunner.completed_at && ` ${new Date(myRunner.completed_at).toLocaleDateString('ko-KR')}`}
+                    </p>
+                  ) : nextMilestone ? (
+                    <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500 text-white text-xs font-extrabold">
+                      <FlagIcon size={12} /> {nextMilestone.label}까지 {nextMilestone.remaining.toFixed(1)}km
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-xs text-[var(--muted)]">남은 거리 {Math.max(0, course.distance_km - myRunner.progress_km).toFixed(1)}km</p>
+                  )}
+                </div>
+              )}
+
+              {/* build 228 #2: 같은 코스 도전 중 — 막대 그래프로 한눈에 비교. 1위 왕관 + 본인 emerald 강조 */}
+              <div>
+                <h4 className="text-sm font-extrabold mb-2.5 inline-flex items-center gap-1.5">
+                  <Users size={14} className="text-emerald-500" /> 같은 코스 도전 중 · {runners.length}명
+                </h4>
+                {runners.length === 0 ? (
+                  <div className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] p-4 text-center">
+                    <p className="text-xs text-[var(--muted)] italic">아직 도전 중인 사람이 없어요. 첫 번째가 되어보세요.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {(() => {
+                      const maxKm = Math.max(...runners.map(r => r.progress_km), course.distance_km * 0.1);
+                      return runners.slice(0, 10).map((r, i) => {
+                        const isMe = r.user_id === user?.id;
+                        const pct = Math.round(r.ratio * 100);
+                        const barPct = Math.min(100, (r.progress_km / maxKm) * 100);
+                        return (
+                          <div key={r.user_id} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl ${
+                            isMe
+                              ? 'bg-gradient-to-r from-amber-50 to-amber-50/40 dark:from-amber-950/30 dark:to-amber-950/15 border border-amber-300/60 dark:border-amber-800/40'
+                              : 'bg-[var(--card)] border border-[var(--card-border)]/40'
+                          }`}>
+                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-extrabold flex-shrink-0 ${
+                              i === 0 ? 'bg-amber-100 text-amber-700' :
+                              i === 1 ? 'bg-zinc-200 text-zinc-700' :
+                              i === 2 ? 'bg-orange-100 text-orange-700' :
+                              'bg-[var(--card-border)]/40 text-[var(--muted)]'
+                            }`}>
+                              {i === 0 ? <Crown size={11} className="text-amber-600" /> : i + 1}
+                            </span>
+                            <div className="w-7 h-7 rounded-full bg-[var(--card-border)]/40 overflow-hidden flex-shrink-0">
+                              {r.avatar_url ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={r.avatar_url} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-[11px] font-bold text-[var(--muted)]">
+                                  {r.display_name.slice(0, 1)}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-baseline justify-between gap-2">
+                                <span className={`text-sm truncate ${isMe ? 'font-extrabold text-amber-700 dark:text-amber-300' : 'font-bold'}`}>
+                                  {r.display_name}{isMe && <span className="ml-1 text-[10px] font-bold">(나)</span>}
+                                  {r.completed_at && <Trophy size={11} className="inline ml-1 text-emerald-600" />}
+                                </span>
+                                <span className="text-[11px] font-extrabold text-[var(--muted)] tabular-nums flex-shrink-0">
+                                  {r.progress_km.toFixed(1)}km · {pct}%
+                                </span>
+                              </div>
+                              <div className="mt-1 h-1.5 rounded-full bg-[var(--card-border)]/40 overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full ${
+                                    isMe ? 'bg-gradient-to-r from-amber-400 to-amber-500' : 'bg-emerald-400/70'
+                                  }`}
+                                  style={{ width: `${barPct}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                )}
               </div>
 
               {/* 코스 설명 (collapse) — build 226 #7 */}
@@ -283,70 +411,8 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                 </div>
               )}
 
-              {/* 내 진행 상황 */}
-              {myRunner && (
-                <div className="rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-50/40 dark:from-emerald-950/40 dark:to-emerald-950/20 border-2 border-emerald-300/60 dark:border-emerald-800/40 p-4">
-                  <p className="text-xs font-extrabold text-emerald-700 dark:text-emerald-300 mb-1.5">내 진행</p>
-                  <p className="text-2xl font-extrabold tabular-nums">
-                    {myRunner.progress_km.toFixed(1)}
-                    <span className="text-sm font-bold text-[var(--muted)]"> / {course.distance_km.toFixed(1)}km</span>
-                  </p>
-                  <div className="mt-2 h-2.5 rounded-full bg-white/60 dark:bg-zinc-900/60 overflow-hidden">
-                    <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600" style={{ width: `${Math.min(100, myRunner.ratio * 100)}%` }} />
-                  </div>
-                  {completed ? (
-                    <p className="mt-2 text-sm font-extrabold text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1">
-                      <Trophy size={14} /> 완주! {myRunner.completed_at && new Date(myRunner.completed_at).toLocaleDateString('ko-KR')}
-                    </p>
-                  ) : (
-                    <p className="mt-1.5 text-xs text-[var(--muted)]">남은 거리 {Math.max(0, course.distance_km - myRunner.progress_km).toFixed(1)}km</p>
-                  )}
-                </div>
-              )}
-
-              {/* 참가자 리더보드 */}
-              <div>
-                <h4 className="text-sm font-extrabold mb-2 inline-flex items-center gap-1.5">
-                  <Users size={14} className="text-emerald-500" /> 같은 코스 도전 중 · {runners.length}명
-                </h4>
-                {runners.length === 0 ? (
-                  <p className="text-xs text-[var(--muted)] italic">아직 도전 중인 사람이 없어요. 첫 번째가 되어보세요.</p>
-                ) : (
-                  <div className="space-y-1.5">
-                    {runners.slice(0, 10).map((r, i) => {
-                      const isMe = r.user_id === user?.id;
-                      const pct = Math.round(r.ratio * 100);
-                      return (
-                        <div key={r.user_id} className={`flex items-center gap-2.5 px-3 py-2 rounded-xl ${isMe ? 'bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/40' : 'bg-[var(--card)] border border-[var(--card-border)]/40'}`}>
-                          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-extrabold flex-shrink-0 ${
-                            i === 0 ? 'bg-amber-100 text-amber-700' :
-                            i === 1 ? 'bg-zinc-200 text-zinc-700' :
-                            i === 2 ? 'bg-orange-100 text-orange-700' :
-                            'bg-[var(--card-border)]/40 text-[var(--muted)]'
-                          }`}>{i + 1}</span>
-                          <div className="w-8 h-8 rounded-full bg-[var(--card-border)]/40 overflow-hidden flex-shrink-0">
-                            {r.avatar_url ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={r.avatar_url} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-xs font-bold text-[var(--muted)]">
-                                {r.display_name.slice(0, 1)}
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold truncate">
-                              {r.display_name}{isMe && <span className="ml-1 text-[10px] text-emerald-600 font-bold">(나)</span>}
-                              {r.completed_at && <Crown size={11} className="inline ml-1 text-amber-500" />}
-                            </p>
-                            <p className="text-[10px] text-[var(--muted)]">{r.progress_km.toFixed(1)}km · {pct}%</p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              {/* build 228: 내 진행 + 도전자 list 카드는 참가비 직후 상단으로 이동.
+                  완주자 인증서는 완주 시만 노출되므로 위치 유지. */}
 
               {/* 완주자 인증서 + 메달 신청 */}
               {completed && course && (
