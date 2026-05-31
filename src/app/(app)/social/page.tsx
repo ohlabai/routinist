@@ -12,6 +12,7 @@ import { getSupabase } from '@/lib/supabase';
 import UserRow from '@/components/social/UserRow';
 import PhotosTab from '@/components/photos/PhotosTab';
 import QuotesTab from '@/components/social/QuotesTab';
+import MultiUserTimeSeriesChart, { type CompareUser } from '@/components/charts/MultiUserTimeSeriesChart';
 import { User as UserIcon, Users, Search, Plus, MapPin, Camera, Trophy, MessageSquare } from 'lucide-react';
 import { startOfWeekStr, startOfMonthStr } from '@/lib/kst';
 import type { Profile, Club } from '@/types';
@@ -138,6 +139,15 @@ function SocialPageInner() {
       {/* 친구 탭 */}
       {activeSection === 'friends' && (
         <div className="space-y-6">
+          {/* build 227: 시계열 비교 차트 — 막대 그래프 위에 우선 노출 (추이 정보가 합계보다 인사이트 큼).
+              본인 + 팔로잉 친구 최대 5명 선택. 일간 14일 / 주간 8주 토글. */}
+          {friendsCompare.length > 1 && (
+            <MultiUserTimeSeriesChart
+              title="친구와 추이 비교"
+              users={friendsCompare.map(r => ({ id: r.id, name: r.name, isMe: r.isMe })) as CompareUser[]}
+              defaultSelectedIds={friendsCompare.filter(r => r.isMe || r.km > 0).slice(0, 5).map(r => r.id)}
+            />
+          )}
           {friendsCompare.length > 1 ? (
             <div className="card p-4">
               {/* build 209 #5: 이번주/이번달 토글 폰트 크기 대폭 확대 (10px → text-sm) + 패딩도 증가 */}

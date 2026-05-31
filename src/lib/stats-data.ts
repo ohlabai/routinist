@@ -70,6 +70,104 @@ export async function fetchClubMemberProgress(clubId: string, year: number, mont
   return results.sort((a, b) => b.progress - a.progress);
 }
 
+// build 227: 친구·클럽 멤버 시계열 비교 차트용 fetch. user_id 목록에 대해 최근 N 일/주
+// distance_km 합산 → recharts LineChart 친화 포맷 { date: 'MM-DD' or 'YYYY-WW', [userId]: km }[].
+// 누락된 날짜는 0 으로 채움.
+export interface TimeSeriesPoint {
+  date: string;
+  [userId: string]: number | string;
+}
+export async function fetchUserTimeSeries(
+  userIds: string[],
+  period: 'daily' | 'weekly',
+  count: number,
+): Promise<TimeSeriesPoint[]> {
+  if (userIds.length === 0) return [];
+  const supabase = getSupabase();
+  const now = new Date();
+  // KST 기준 today YYYY-MM-DD
+  const todayStr = (() => {
+    try {
+      return new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Seoul',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(now);
+    } catch {
+      const k = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+      return k.toISOString().slice(0, 10);
+    }
+  })();
+
+  // 시작일 산정 (일간: count-1 일 전, 주간: count*7-1 일 전 → 주의 시작 = 월요일로 align)
+  const startDate = new Date(todayStr + 'T00:00:00+09:00');
+  if (period === 'daily') {
+    startDate.setDate(startDate.getDate() - (count - 1));
+  } else {
+    // 주간: 오늘 포함 count 주. 주 시작 = 월요일 기준 (KST).
+    const dow = startDate.getDay(); // 0=Sun..6=Sat (UTC 기준이지만 KST 변환은 위에서 했음)
+    const daysSinceMon = (dow + 6) % 7;
+    startDate.setDate(startDate.getDate() - daysSinceMon - (count - 1) * 7);
+  }
+  const startStr = startDate.toISOString().slice(0, 10);
+
+  const { data, error } = await supabase
+    .from('activities')
+    .select('user_id, activity_date, distance_km')
+    .in('user_id', userIds)
+    .gte('activity_date', startStr);
+  if (error) {
+    console.warn('[stats] fetchUserTimeSeries fail', error);
+    return [];
+  }
+
+  // bucket key 함수 — 일간은 그대로, 주간은 월요일 기준 YYYY-MM-DD.
+  const bucketKey = (dateStr: string): string => {
+    if (period === 'daily') return dateStr;
+    const d = new Date(dateStr + 'T00:00:00+09:00');
+    const dow = d.getDay();
+    const daysSinceMon = (dow + 6) % 7;
+    d.setDate(d.getDate() - daysSinceMon);
+    return d.toISOString().slice(0, 10);
+  };
+
+  // 모든 bucket 미리 생성 (누락 날짜 0 표시 위함).
+  const buckets: string[] = [];
+  const cursor = new Date(startDate);
+  const todayDate = new Date(todayStr + 'T00:00:00+09:00');
+  while (cursor <= todayDate) {
+    buckets.push(cursor.toISOString().slice(0, 10));
+    cursor.setDate(cursor.getDate() + (period === 'daily' ? 1 : 7));
+  }
+
+  // bucket → user_id → km
+  const map = new Map<string, Map<string, number>>();
+  for (const b of buckets) {
+    const m = new Map<string, number>();
+    for (const uid of userIds) m.set(uid, 0);
+    map.set(b, m);
+  }
+  for (const row of data ?? []) {
+    const key = bucketKey(row.activity_date as string);
+    const m = map.get(key);
+    if (!m) continue;
+    const uid = row.user_id as string;
+    m.set(uid, (m.get(uid) ?? 0) + Number(row.distance_km));
+  }
+
+  // 라벨 포맷: 일간 = MM-DD, 주간 = MM-DD (주 시작일)
+  const points: TimeSeriesPoint[] = buckets.map(b => {
+    const label = b.slice(5);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const point: any = { date: label };
+    const m = map.get(b)!;
+    for (const uid of userIds) {
+      point[uid] = Math.round((m.get(uid) ?? 0) * 10) / 10;
+    }
+    return point as TimeSeriesPoint;
+  });
+  return points;
+}
+
 // 클럽 요약 통계
 export interface ClubSummary {
   totalDistance: number;

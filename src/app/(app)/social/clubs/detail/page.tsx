@@ -26,6 +26,7 @@ import {
   type ClubChallenge, type ChallengeProgress, type ClubEvent, type CheerEmoji, type CheerAgg, type WeeklyMvp,
 } from '@/lib/club-activation';
 import InviteQRCard from '@/components/clubs/InviteQRCard';
+import MultiUserTimeSeriesChart, { type CompareUser } from '@/components/charts/MultiUserTimeSeriesChart';
 import ClubChallengesCard from '@/components/club/ClubChallengesCard';
 import ClubExternalArchive from '@/components/clubs/ClubExternalArchive';
 import ClubChallengeSection from '@/components/club/ClubChallengeSection';
@@ -1190,9 +1191,17 @@ function ClubDetail() {
         </div>
       )}
 
-      {/* 멤버 탭 — build 224: 거리 비교 차트 + 멤버 list */}
+      {/* 멤버 탭 — build 224: 거리 비교 차트 + 멤버 list. build 227: 시계열 추이 차트 추가 */}
       {activeTab === 'members' && (
         <div className="space-y-4">
+          {/* build 227: 시계열 추이 — 본인 + 멤버 최대 5명. 일간 14일 / 주간 8주 */}
+          {compareRows.length > 1 && (
+            <MultiUserTimeSeriesChart
+              title="클럽 멤버 추이 비교"
+              users={compareRows.map(r => ({ id: r.id, name: r.name, isMe: r.isMe })) as CompareUser[]}
+              defaultSelectedIds={compareRows.filter(r => r.isMe || r.km > 0).slice(0, 5).map(r => r.id)}
+            />
+          )}
           {/* 비교 차트 — 주/월 토글 + 체크박스로 보이기/숨기기 */}
           {compareRows.length > 1 && (
             <div className="card p-4">
