@@ -17,19 +17,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // 커스텀 SPM plugin 강제 로드 — 자동 검출이 안 되는 SPM 환경 대응.
         _ = WorkoutRoutePlugin.self
 
-        // build 223: 백그라운드 TTS 음성 cue 를 위한 AVAudioSession 설정.
-        // 카테고리 .playback + .mixWithOthers + .duckOthers 옵션으로 다른 음악 앱과 공존하면서
-        // 화면 잠금/백그라운드 상태에서도 speechSynthesis 발화가 가능. UIBackgroundModes 의 'audio'
-        // 가 함께 켜져 있어야 OS 가 background runtime 을 허용.
+        // build 223: 백그라운드 TTS 음성 cue 를 위한 AVAudioSession **카테고리만** 등록.
+        // build 240 hotfix (v1.2.1): launch 시점에 `setActive(true)` 를 호출하면
+        // ASAuthorizationController / GIDSignIn 의 인증 시트 presentation 과 audio session
+        // routing race 가 발생해 시트가 즉시 닫히는 회귀 (사용자: "Google 로 이동중 잠깐 →
+        // 원복"). 카테고리는 등록해 두되, 실제 활성화는 AVSpeechSynthesizer.speak() 호출
+        // 시 시스템이 알아서 처리 — 인증 흐름과 충돌 차단.
         do {
             try AVAudioSession.sharedInstance().setCategory(
                 .playback,
                 mode: .spokenAudio,
                 options: [.mixWithOthers, .duckOthers]
             )
-            try AVAudioSession.sharedInstance().setActive(true, options: [])
         } catch {
-            NSLog("[AppDelegate] AVAudioSession setup failed: \(error)")
+            NSLog("[AppDelegate] AVAudioSession setCategory failed: \(error)")
         }
         return true
     }

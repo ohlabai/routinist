@@ -71,10 +71,12 @@ export default function LoginPage() {
 
   // /login?debug=1 접근 시 진단 로그 패널 표시
   // /login?reason=session_expired 접근 시 안내 배너 (refreshSession 실패로 강제 로그아웃된 경우)
+  // build 240 임시 진단: 네이티브 앱은 무조건 debug 패널 표시 (사용자 자가 디버깅 가능하도록)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
-    if (params.has('debug')) setShowDebug(true);
+    const isNative = (window as CapacitorWindow).Capacitor !== undefined;
+    if (params.has('debug') || isNative) setShowDebug(true);
     if (params.get('reason') === 'session_expired') {
       setInfo('로그인이 만료되어 자동으로 로그아웃했어요. 다시 로그인해주세요.');
     } else if (params.get('reason') === 'force_fresh') {
@@ -95,12 +97,23 @@ export default function LoginPage() {
     setInfo(null);
     setLoadingProvider(provider);
     try {
-      await signInWithProvider(provider);
+      const result = await signInWithProvider(provider);
+      // build 240 임시 진단: 성공 path 도 어디까지 갔는지 추적
+      try {
+        const ts = new Date().toISOString().slice(11, 19);
+        const log = window.localStorage.getItem('routinist_auth_log') || '';
+        window.localStorage.setItem('routinist_auth_log', `${log}\n[${ts}] handleSocialLogin(${provider}) result keys=${Object.keys(result || {}).join(',') || 'null'}`.trim().split('\n').slice(-40).join('\n'));
+      } catch {}
+      // 성공 시 즉시 debug 로그 자동 표시 — 사용자 자가 진단용
+      refreshDebug();
       timeoutRef.current = setTimeout(() => setLoadingProvider(null), 30000);
     } catch (e) {
       const msg = e instanceof Error ? e.message : '로그인 중 오류가 발생했습니다.';
       setError(`로그인 실패: ${msg}`);
       setLoadingProvider(null);
+      // 실패 시에도 debug 패널 새로고침 + 강제 표시
+      refreshDebug();
+      setShowDebug(true);
     }
   };
 

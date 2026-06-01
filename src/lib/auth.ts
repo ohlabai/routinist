@@ -95,6 +95,9 @@ export async function initializeSocialLogin(): Promise<void> {
       google: {
         iOSClientId: GOOGLE_IOS_CLIENT_ID,
         iOSServerClientId: GOOGLE_WEB_CLIENT_ID,
+        // Android Credential Manager 가 사용할 web client ID — iOSServerClientId 와 동일 값.
+        // google-services.json 의 client_id (type=3, web) 와 매칭돼야 함.
+        webClientId: GOOGLE_WEB_CLIENT_ID,
         mode: 'online',
       },
     });
