@@ -1,7 +1,12 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
 buildscript {
-    
+    ext {
+        // Capacitor 8.3.x 의 @capacitor/geolocation 등이 kotlin-stdlib 2.2.20 요구.
+        // 모든 sub-module 이 같은 컴파일러를 쓰도록 root 에서 한 번에 잡아줌.
+        kotlin_version = '2.2.20'
+        kotlinxCoroutinesVersion = '1.10.2'
+    }
     repositories {
         google()
         mavenCentral()
@@ -9,6 +14,7 @@ buildscript {
     dependencies {
         classpath 'com.android.tools.build:gradle:8.13.0'
         classpath 'com.google.gms:google-services:4.4.4'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files

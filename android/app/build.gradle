@@ -1,4 +1,5 @@
 apply plugin: 'com.android.application'
+apply plugin: 'org.jetbrains.kotlin.android'
 
 android {
     namespace = "com.routinist.app"
@@ -7,8 +8,10 @@ android {
         applicationId "com.routinist.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 4
-        versionName "1.0.3"
+        // iOS 빌드 번호와 동기 — iOS build 239 / marketing 1.2 와 정렬.
+        // Android 만 단독 증가 시 충돌 피하려고 의도적으로 같은 versionCode 사용.
+        versionCode 239
+        versionName "1.2.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -18,15 +21,22 @@ android {
     }
     signingConfigs {
         release {
-            storeFile file('../bitrunners-release.keystore')
-            storePassword 'bitrunners2026'
-            keyAlias 'bitrunners'
-            keyPassword 'bitrunners2026'
+            def keystorePropsFile = rootProject.file('keystore.properties')
+            if (keystorePropsFile.exists()) {
+                def props = new Properties()
+                props.load(new FileInputStream(keystorePropsFile))
+                storeFile rootProject.file(props['storeFile'])
+                storePassword props['storePassword']
+                keyAlias props['keyAlias']
+                keyPassword props['keyPassword']
+            }
         }
     }
     buildTypes {
         release {
-            signingConfig signingConfigs.release
+            if (rootProject.file('keystore.properties').exists()) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
@@ -45,6 +55,10 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
+    // Health Connect SDK — 자체 WorkoutRoutePlugin 이 ExerciseRoute 읽기용으로 사용.
+    // capgo-capacitor-health 가 같은 SDK 를 transitively 끌고 오지만 명시적으로 한 번 더 선언.
+    implementation 'androidx.health.connect:connect-client:1.1.0-alpha07'
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlinxCoroutinesVersion"
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"

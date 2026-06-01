@@ -44,6 +44,15 @@ next-env.d.ts
 # android
 /android/app/build/
 *.apk
+*.aab
+
+# Android signing — keystores + passwords must never be committed
+*.keystore
+*.jks
+android/keystore.properties
+android/app/google-services.json
+android/local.properties
+android/.gradle/
 
 # capacitor
 /ios/
