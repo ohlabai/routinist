@@ -242,7 +242,7 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     const existingResult = await withTimeout(
       supabase
         .from('activities')
-        .select('started_at, activity_date, distance_km')
+        .select('id, started_at, activity_date, distance_km, source')
         .eq('user_id', userId)
         .gte('activity_date', startDate.slice(0, 10)),
       10000,
@@ -263,39 +263,54 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
       };
     }
 
-    const existingStartedAtMs: number[] = [];
+    // build 245 #15: 같은 started_at 윈도우에 source='gps' 행이 있을 때 Apple Health 가 더 정확한
+    // 데이터라면 GPS 행을 덮어쓰기. 이전 로직은 GPS 가 먼저 박혀 있으면 Apple Health 를 무조건 dedup 으로
+    // 스킵 → broken GPS (0.56km / 0.04km 같은 클립) 가 영원히 회복 안 됨.
+    type ExistingRow = { id: string; ms: number; distance_km: number; source: string };
+    const existingByTime: ExistingRow[] = [];
     // existingByDate 는 옛 데이터 (started_at NULL) 호환용 fallback. started_at 있는 행을
     // 여기 넣으면 같은 날 같은 거리 두 번 뛴 경우 두 번째가 false-positive 중복으로 스킵됨 (build 204 회귀).
     const existingByDateLegacy = new Map<string, number[]>();
-    (existingAll ?? []).forEach(row => {
+    (existingAll ?? []).forEach((row: { id: string; started_at: string | null; activity_date: string; distance_km: number | string; source: string | null }) => {
       if (row.started_at) {
-        existingStartedAtMs.push(new Date(row.started_at).getTime());
+        existingByTime.push({
+          id: row.id,
+          ms: new Date(row.started_at).getTime(),
+          distance_km: Number(row.distance_km),
+          source: row.source ?? '',
+        });
       } else {
         const arr = existingByDateLegacy.get(row.activity_date) ?? [];
         arr.push(Number(row.distance_km));
         existingByDateLegacy.set(row.activity_date, arr);
       }
     });
-    existingStartedAtMs.sort((a, b) => a - b);
+    existingByTime.sort((a, b) => a.ms - b.ms);
 
     const TOLERANCE_MS = 60_000;
-    const isDuplicateByTime = (workoutMs: number): boolean => {
-      // 정렬된 배열에서 binary search 로 ±5초 안에 있는지 검사 (활동 수 많아질수록 효과 큼)
-      let lo = 0, hi = existingStartedAtMs.length;
+    const findOverlap = (workoutMs: number): ExistingRow | null => {
+      let lo = 0, hi = existingByTime.length;
       while (lo < hi) {
         const mid = (lo + hi) >> 1;
-        if (existingStartedAtMs[mid] < workoutMs - TOLERANCE_MS) lo = mid + 1;
+        if (existingByTime[mid].ms < workoutMs - TOLERANCE_MS) lo = mid + 1;
         else hi = mid;
       }
-      return lo < existingStartedAtMs.length && existingStartedAtMs[lo] <= workoutMs + TOLERANCE_MS;
+      if (lo < existingByTime.length && existingByTime[lo].ms <= workoutMs + TOLERANCE_MS) {
+        return existingByTime[lo];
+      }
+      return null;
     };
 
     let syncedCount = 0;
     let dupCount = 0;
+    let upgradedCount = 0;
     let walkingFiltered = 0;
     let tooShortFiltered = 0;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const toInsert: Record<string, any>[] = [];
+    // upgrade: 기존 gps 행을 health_kit 데이터로 덮어쓰기 (id 보존 → 사진/메모 유지)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const toUpgrade: Array<{ id: string; data: Record<string, any> }> = [];
 
     for (const workout of allWorkouts) {
       const activityDate = toKstDate(workout.startDate);
@@ -309,12 +324,40 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
       if (distanceKm < 0.1) { tooShortFiltered++; continue; }
       if (activityType === 'walking' && distanceKm < 0.5) { walkingFiltered++; continue; }
 
-      // 1순위: started_at ±5초 매칭
       const workoutMs = new Date(workout.startDate).getTime();
-      if (isDuplicateByTime(workoutMs)) { dupCount++; continue; }
+      const overlap = findOverlap(workoutMs);
+      if (overlap) {
+        // upgrade 조건: 기존이 source='gps' 이고 거리가 의미있게 작거나 차이가 1km 이상.
+        // Routinist 라이브 GPS 가 실패해서 0.56km 박힌 경우 Apple Health 7.34km 로 덮어쓰기.
+        // health_kit / external / manual 행은 절대 덮어쓰지 않음 — 사용자가 직접 손댄 데이터 보호.
+        const isBrokenGps =
+          overlap.source === 'gps' &&
+          distanceKm > 0.5 &&
+          (overlap.distance_km < distanceKm * 0.5 || distanceKm - overlap.distance_km > 1);
+        if (isBrokenGps) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const upgradeData: Record<string, any> = {
+            distance_km: Math.round(distanceKm * 100) / 100,
+            duration_seconds: durationSeconds && durationSeconds > 0 ? durationSeconds : null,
+            pace_avg_sec_per_km: paceAvg,
+            calories: workout.totalEnergyBurned ? Math.round(workout.totalEnergyBurned) : null,
+            source: 'health_kit',
+            started_at: workout.startDate,
+            ended_at: workout.endDate || null,
+          };
+          if (workout.totalEnergyBurned) upgradeData.active_energy_kcal = Math.round(workout.totalEnergyBurned);
+          // memo 는 일부러 업데이트 안 함 — 사용자가 적은 메모 보호.
+          toUpgrade.push({ id: overlap.id, data: upgradeData });
+          // existingByTime 의 distance 도 갱신 — 다음 워크아웃 비교 정확성.
+          overlap.distance_km = distanceKm;
+          overlap.source = 'health_kit';
+          continue;
+        }
+        dupCount++;
+        continue;
+      }
 
-      // 2순위 (옛 데이터 호환): started_at NULL 인 옛 행과만 비교. 같은 날 같은 거리 두 번 뛴
-      // 새 워크아웃이 서로를 중복으로 잡는 회귀 방지.
+      // 2순위 (옛 데이터 호환): started_at NULL 인 옛 행과만 비교.
       const legacyDistances = existingByDateLegacy.get(activityDate) ?? [];
       if (legacyDistances.some(d => Math.abs(d - distanceKm) < 0.1)) { dupCount++; continue; }
 
@@ -335,12 +378,23 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
       if (activityType === 'walking') insertData.activity_type = 'walking';
 
       toInsert.push(insertData);
-      // build 236 #P0-2: binary search invariant 회복. workouts 수가 ~1000 이내라 sort 비용 미미.
-      // (이전 주석은 "정렬 안 해도 안전"이라 했지만 binary search 가 정렬을 전제로 함 — 같은 sync 안
-      // 같은 시각 워크아웃 두 건 [폰 + 워치 동시] 시 dedup miss 가능했음.)
-      existingStartedAtMs.push(workoutMs);
-      existingStartedAtMs.sort((a, b) => a - b);
-      // legacy map 은 일부러 업데이트 안 함 — 새 워크아웃끼리는 started_at 으로만 비교.
+      // binary search invariant — 새 행 추가 후 정렬 유지.
+      existingByTime.push({ id: '__pending__', ms: workoutMs, distance_km: distanceKm, source: 'health_kit' });
+      existingByTime.sort((a, b) => a.ms - b.ms);
+    }
+
+    // UPGRADE 먼저 처리 (broken gps → health_kit 덮어쓰기).
+    if (toUpgrade.length > 0) {
+      for (const { id, data } of toUpgrade) {
+        const r = await withTimeout(
+          supabase.from('activities').update(data).eq('id', id),
+          8000,
+          `upgrade row[${id}]`,
+        ).catch((e: unknown) => ({ error: { message: e instanceof Error ? e.message : String(e) } } as const));
+        if (!r.error) upgradedCount++;
+        else logClientWarn('health-sync', 'upgrade 실패', { activity_id: id, err: r.error.message });
+      }
+      logClientInfo('health-sync', 'gps → health_kit upgrade 완료', { upgraded: upgradedCount, attempted: toUpgrade.length });
     }
 
     let insertErrors = 0;
@@ -402,6 +456,7 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     logClientInfo('health-sync', 'sync complete', {
       total_workouts: allWorkouts.length,
       duplicates_skipped: dupCount,
+      upgraded_from_gps: upgradedCount,
       walking_filtered: walkingFiltered,
       too_short: tooShortFiltered,
       candidates: toInsert.length,
@@ -411,7 +466,7 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     });
 
     // 누락 detection — 받아온 워크아웃 N건 중 새로 저장된 건 + 중복 건 합이 N 보다 작으면 어딘가에서 빠짐
-    const accounted = syncedCount + dupCount + walkingFiltered + tooShortFiltered;
+    const accounted = syncedCount + dupCount + upgradedCount + walkingFiltered + tooShortFiltered;
     if (accounted < allWorkouts.length) {
       logClientWarn('health-sync', 'accounting mismatch', {
         total: allWorkouts.length,
@@ -429,8 +484,12 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
       message = `${insertErrors}건이 저장되지 못했어요\n잠시 후 다시 시도해주세요`;
     } else if (insertErrors > 0) {
       message = `${syncedCount}건 가져왔어요 (${insertErrors}건은 다음에)`;
+    } else if (syncedCount > 0 && upgradedCount > 0) {
+      message = `러닝 ${syncedCount}건 도착 · ${upgradedCount}건 거리 보정 ✨`;
     } else if (syncedCount > 0) {
       message = `러닝 ${syncedCount}건 새로 도착! 🎉`;
+    } else if (upgradedCount > 0) {
+      message = `${upgradedCount}건 GPS 거리를 Apple Watch 기준으로 보정했어요 ✨`;
     } else if (toInsert.length === 0) {
       message = '최신 상태예요. 오늘도 가볍게 한 바퀴? 👟';
     } else {
@@ -442,7 +501,7 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     return {
       success,
       message,
-      synced: syncedCount,
+      synced: syncedCount + upgradedCount,
       meta: {
         totalFromHealth: allWorkouts.length,
         duplicates: dupCount,
@@ -606,9 +665,12 @@ export async function syncRouteData(
 
     for (const route of routes) {
       const routeStartMs = new Date(route.startDate).getTime();
-      const startedAtKey = new Date(route.startDate).toISOString().slice(0, 19);
 
-      // 1순위: started_at ±60초 윈도우에서 정확 매칭
+      // 1순위: started_at ±60초 윈도우 매칭.
+      // build 245 #15 회귀 fix: 이전 코드는 SQL 로 ±60s 범위 select 한 뒤 JS find 에서
+      // .toISOString().slice(0,19) 로 "초 단위 정확히 일치" 비교 → 5초만 어긋나도 매칭 실패.
+      // Apple Watch route 의 startDate 와 workout.startDate 가 ms 단위로 다를 수 있어
+      // 의도된 ±60s tolerance 가 실질적으로 0초로 줄어들던 버그. ms 차이로 비교하도록 교정.
       const { data: byTime } = await supabase
         .from('activities')
         .select('id, started_at, route_data')
@@ -618,25 +680,34 @@ export async function syncRouteData(
         .is('route_data', null);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let match: any = (byTime ?? []).find(r =>
-        r.started_at && new Date(r.started_at).toISOString().slice(0, 19) === startedAtKey
+      let match: any = (byTime ?? []).find((r: { started_at: string | null }) =>
+        r.started_at && Math.abs(new Date(r.started_at).getTime() - routeStartMs) <= 60_000
       );
 
       // 2순위: 같은 날짜 + 거리 ±0.5km — started_at 있는 행도 OK 로 확장
       // (이전엔 started_at NULL 만 매칭해서 health_kit 행은 1순위에서 빠지면 영영 매칭 안 됨)
+      // build 245 #15: source='health_kit' 또는 'gps' 행이 단 1건만 있는 날은 거리 무시하고 매칭.
+      // (broken GPS 0.56km vs route 7.34km 같은 케이스에서도 route 가 붙도록.)
       if (!match) {
         const activityDate = toKstDate(route.startDate);
         const distanceKm = route.distance / 1000;
         const { data: byDate } = await supabase
           .from('activities')
-          .select('id, distance_km, started_at, route_data')
+          .select('id, distance_km, started_at, route_data, source')
           .eq('user_id', userId)
           .eq('activity_date', activityDate)
           .is('route_data', null);
 
         match = (byDate ?? []).find(
-          (e) => Math.abs(Number(e.distance_km) - distanceKm) < 0.5
+          (e: { distance_km: number | string }) => Math.abs(Number(e.distance_km) - distanceKm) < 0.5
         );
+        // 거리 매칭 실패 + 같은 날 후보가 단 1건이면 거리 무시하고 매칭 (broken GPS 회복).
+        if (!match && (byDate?.length ?? 0) === 1) {
+          match = byDate![0];
+          logClientInfo('health-sync-route', 'byDate single-candidate fallback', {
+            activity_id: match.id, route_km: distanceKm, activity_km: Number(match.distance_km),
+          });
+        }
       }
 
       if (match) {
