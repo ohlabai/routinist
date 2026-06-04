@@ -1,0 +1,10 @@
+v1.2.0 initial Android build.
+
+Feature parity with iOS v1.2:
+• Auto sync with Health Connect (Galaxy Watch / Garmin / Polar)
+• GPS tracking + background voice cues
+• Friends, clubs, leaderboards, world run challenges
+• Photo + quote share cards
+• Mileage rewards + reward shop
+
+Internal testing release. Feedback welcome.

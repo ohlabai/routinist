@@ -1,0 +1,26 @@
+Routinist is a social running app for people who want to make daily running a habit — with friends.
+
+🏃 Automatic tracking
+- Sync with Health Connect (Galaxy Watch, Garmin, Polar)
+- Built-in GPS tracking for distance, pace, route
+
+🏆 Motivation that works
+- Daily / weekly / monthly leaderboards
+- Mileage rewards (1km = 100 mileage)
+- Monthly challenges + virtual world marathons (Boston, NYC)
+
+📸 Running social feed
+- Share photos + a one-line quote
+- Neighborhood / friends / club feeds
+- Auto-generated MP4 share cards with pace animation
+
+👥 Clubs & friends
+- Create or join running clubs
+- Club world runs (solo or summed)
+- 1:1 chat + cheer messages
+
+🛍 Reward shop
+- Running gear, shoes, nutrition
+- Pay with mileage + Toss / KakaoPay / NaverPay
+
+Start running together. Start with Routinist.
