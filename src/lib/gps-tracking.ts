@@ -8,6 +8,8 @@
 // 표시 데이터는 시간 + 누적 거리 + 지도뿐.
 
 import { Geolocation, type Position } from '@capacitor/geolocation';
+import { BackgroundLocation, isBackgroundLocationAvailable, type BgCoord } from './background-location';
+import type { PluginListenerHandle } from '@capacitor/core';
 
 export type Coord = [lng: number, lat: number, alt: number, ts: number];
 
@@ -133,17 +135,75 @@ export async function getCurrentLocation(): Promise<{ lat: number; lng: number }
 
 export interface WatcherHandle { clear: () => Promise<void>; }
 
+// build 246: 백그라운드 트래킹 회복. 화면 꺼짐 / 다른 앱 전환 시 WebView JS suspend → @capacitor/geolocation
+// watchPosition 콜백 중단 → 좌표가 54초~수분 간격으로 sparse 하게만 들어옴 (hans 6/3 사례: 46분 동안 51점).
+// 자체 native 플러그인 BackgroundLocation 은 CLLocationManager 에 allowsBackgroundLocationUpdates=true
+// 를 설정해 native 단에서 좌표를 계속 누적하고, JS resume 시 flush() 로 일괄 회수.
+//
+// 폴백: iOS 가 아닌 환경 (Android — 아직 native 구현 안 함, 웹 dev) 에서는 기존 @capacitor/geolocation 사용.
 export async function startWatcher(
   onCoord: (pos: { lat: number; lng: number; alt: number; ts: number; accuracy: number }) => void,
 ): Promise<WatcherHandle> {
-  // build 214 #2: maximumAge:0 명시 — 캐시된 좌표 차단, 새 좌표만 보고. 도심에서 stale 좌표로 인한 정확도 저하 방지.
+  if (isBackgroundLocationAvailable()) {
+    return startNativeBackgroundWatcher(onCoord);
+  }
+  return startFallbackWatcher(onCoord);
+}
+
+async function startNativeBackgroundWatcher(
+  onCoord: (pos: { lat: number; lng: number; alt: number; ts: number; accuracy: number }) => void,
+): Promise<WatcherHandle> {
+  await BackgroundLocation.start({ distanceFilter: MIN_MOVE_METERS, accuracy: 'high' });
+
+  const handleEntry = (entry: BgCoord) => {
+    if ((entry.accuracy ?? 999) > MIN_ACCURACY_METERS) return;
+    onCoord({
+      lat: entry.lat,
+      lng: entry.lng,
+      alt: entry.alt ?? 0,
+      ts: entry.ts ?? Date.now(),
+      accuracy: entry.accuracy ?? 0,
+    });
+  };
+
+  // foreground 일 때 native 가 event 로 즉시 push.
+  const listener: PluginListenerHandle = await BackgroundLocation.addListener('location', handleEntry);
+
+  // JS 가 백그라운드에서 깨어났을 때 (또는 페이지가 visibility 복귀 시) native 가 버퍼링한 좌표 회수.
+  // setInterval 은 foreground 에선 5초마다, 백그라운드에선 OS 가 throttle. 'visibilitychange' 이벤트로
+  // 즉시 catch-up 도 보장.
+  const flushBuffer = async () => {
+    try {
+      const { coords } = await BackgroundLocation.flush();
+      for (const c of coords) handleEntry(c);
+    } catch {
+      // native plugin 미빌드 / 권한 거부 등 — listener 만으로도 foreground 동작은 됨.
+    }
+  };
+  const flushTimer = window.setInterval(flushBuffer, 5000);
+  const onVis = () => { if (!document.hidden) void flushBuffer(); };
+  document.addEventListener('visibilitychange', onVis);
+
+  return {
+    clear: async () => {
+      clearInterval(flushTimer);
+      document.removeEventListener('visibilitychange', onVis);
+      try { await listener.remove(); } catch {}
+      try {
+        // stop 도 마지막 좌표를 같이 돌려주지만, 이미 처리됐을 가능성이 커서 무시.
+        await BackgroundLocation.stop();
+      } catch {}
+    },
+  };
+}
+
+async function startFallbackWatcher(
+  onCoord: (pos: { lat: number; lng: number; alt: number; ts: number; accuracy: number }) => void,
+): Promise<WatcherHandle> {
   const id = await Geolocation.watchPosition(
     { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 },
     (pos: Position | null, err) => {
       if (err || !pos) return;
-      // build 225: accuracy 100m 까지 수용 (이전 50m). 잠금 화면/도심에서 60~90m 정확도가 자주
-      // 들어오는데 이 좌표들이 곡선 정보를 갖고 있어 distance underreport 의 주범. 200m+ jump 는
-      // appendCoord 의 MAX_JUMP_METERS 가 따로 차단해서 outlier inflation 도 안 일어남.
       if ((pos.coords.accuracy ?? 999) > MIN_ACCURACY_METERS) return;
       onCoord({
         lat: pos.coords.latitude,
