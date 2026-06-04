@@ -1033,7 +1033,7 @@ export default function DashboardPage() {
               <Area type="monotone" dataKey="avgPace" stroke="#10B981" strokeWidth={2.5} fill="url(#homePaceGrad)" dot={{ r: 4, fill: '#10B981' }} animationDuration={chartStyle.animationDuration} />
             </AreaChart>
           </ResponsiveContainer>
-          <p className="text-xs text-[var(--muted)] mt-2 text-center">{tt('아래로 갈수록 빠른 페이스')}</p>
+          <p className="text-xs text-[var(--muted)] mt-2 text-center">{tt('위로 갈수록 빠른 페이스')}</p>
         </div>
         </LazyMount>
       )}

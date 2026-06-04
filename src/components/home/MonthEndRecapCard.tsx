@@ -35,11 +35,12 @@ export default function MonthEndRecapCard({ activities }: Props) {
   const day = today.getUTCDate();
   const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
 
-  // 표시 윈도우:
-  //   (1) 이달 마지막 3일 (lastDay-2 ~ lastDay) → "5월 정산 미리보기"
-  //   (2) 다음 달 1~7일 → "5월 정산이 도착했어요!"
-  const isEndOfMonth = day >= lastDay - 2 && day <= lastDay;
-  const isStartOfNextMonth = day <= 7;
+  // 표시 윈도우 (build 245 사용자 피드백 #2: 너무 오래 떠있음):
+  //   (1) 이달 말일 (day === lastDay) → "5월이 거의 끝나가요"
+  //   (2) 다음 달 1일 (day === 1) → "5월 정산이 도착했어요!"
+  // 총 2일만 노출. 6/2 부터는 자동으로 사라짐.
+  const isEndOfMonth = day === lastDay;
+  const isStartOfNextMonth = day === 1;
   if (!isEndOfMonth && !isStartOfNextMonth) return null;
 
   // 대상 월: end-of-month 면 이달, start-of-next-month 면 지난 달

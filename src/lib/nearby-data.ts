@@ -23,17 +23,22 @@ export interface NearbyRunner {
   last_active: string | null;
 }
 
+// build 245 사용자 피드백 #5: "같은 시" 가 실제로는 시·도(경기도) 매칭이라 혼동.
+// 한국 행정구역 표기 (시·도 / 시·군·구 / 읍·면·동) 그대로 사용 — 데이터 컬럼 의미와 라벨 일치.
+// region_si 컬럼 = 시·도 (서울특별시 / 경기도 / 부산광역시)
+// region_gu 컬럼 = 시·군·구 (강남구 / 성남시 / 분당구 — 데이터 normalization 추후 필요)
+// region_dong 컬럼 = 읍·면·동 (역삼동 / 야탑동)
 export const SCOPE_LABEL: Record<NearbyScope, string> = {
-  dong: '같은 동',
-  gu: '같은 구',
-  si: '같은 시',
+  dong: '같은 읍·면·동',
+  gu: '같은 시·군·구',
+  si: '같은 시·도',
   national: '전국',
 };
 
 export const SCOPE_DESC: Record<NearbyScope, string> = {
   dong: '걸어서 만날 수 있는 거리',
-  gu: '같은 자치구',
-  si: '같은 시/도',
+  gu: '같은 자치구·시·군',
+  si: '같은 광역시·도 (서울특별시·경기도 등)',
   national: '전국',
 };
 

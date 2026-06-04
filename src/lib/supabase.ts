@@ -18,6 +18,39 @@ function isNativeApp(): boolean {
   return platform === 'ios' || platform === 'android';
 }
 
+// 네이티브 영구 저장소 어댑터.
+// 사용자 보고 (2026-06-04): "한 번 로그인해도 앱 재시작마다 풀림" — iOS WKWebView 의 localStorage 가
+// 1) OS storage 압박 시 wipe, 2) capacitor:// / https://localhost origin 이 "비-persistent" 로 취급되는
+// 이슈로 세션이 종종 사라짐. Capacitor Preferences (iOS UserDefaults / Android SharedPreferences) 로
+// 옮기면 WebView 와 무관한 native KV 저장 → 영구 보장. 웹 환경은 그대로 localStorage 폴백.
+//
+// build 245: localStorage 에 이미 저장된 세션이 있으면 1회 migrate (사용자가 다시 로그인 안 해도 되도록).
+const nativeStorage = {
+  async getItem(key: string): Promise<string | null> {
+    if (!isNativeApp()) return window.localStorage.getItem(key);
+    const { Preferences } = await import('@capacitor/preferences');
+    const { value } = await Preferences.get({ key });
+    if (value != null) return value;
+    // 첫 호출 시 localStorage 에서 migrate
+    const legacy = window.localStorage.getItem(key);
+    if (legacy != null) {
+      await Preferences.set({ key, value: legacy });
+      return legacy;
+    }
+    return null;
+  },
+  async setItem(key: string, value: string): Promise<void> {
+    if (!isNativeApp()) { window.localStorage.setItem(key, value); return; }
+    const { Preferences } = await import('@capacitor/preferences');
+    await Preferences.set({ key, value });
+  },
+  async removeItem(key: string): Promise<void> {
+    if (!isNativeApp()) { window.localStorage.removeItem(key); return; }
+    const { Preferences } = await import('@capacitor/preferences');
+    await Preferences.remove({ key });
+  },
+};
+
 export function getSupabase(): SupabaseClient {
   if (!_supabase) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -35,6 +68,9 @@ export function getSupabase(): SupabaseClient {
         // 네이티브에서 앱 URL(capacitor://localhost/...)은 OAuth 콜백이 아니므로 자동 파싱 비활성화.
         // 딥링크는 AuthProvider가 직접 handleOAuthCallback으로 처리.
         detectSessionInUrl: !isNativeApp(),
+        // 세션 영구 저장소 — 네이티브 KV. localStorage wipe / origin 취급 이슈 회피.
+        storage: nativeStorage,
+        storageKey: 'sb-routinist-auth-token',
       },
     });
   }

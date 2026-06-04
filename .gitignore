@@ -54,6 +54,10 @@ android/app/google-services.json
 android/local.properties
 android/.gradle/
 
+# Google Play Publishing — service account JSON key (절대 commit 금지)
+play-publish-key.json
+pc-api-*.json
+
 # capacitor
 /ios/
 supabase/.temp/

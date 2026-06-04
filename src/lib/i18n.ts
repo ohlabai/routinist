@@ -1317,7 +1317,7 @@ const EXTRAS_EN: Record<string, string> = {
   '최근 12주 러닝': 'Last 12 weeks',
   '전년 동기 첫 기록 🎉': 'First record vs last year 🎉',
   '페이스 추이 (최근 12개월)': 'Pace trend (last 12 months)',
-  '아래로 갈수록 빠른 페이스': 'Lower means faster pace',
+  '위로 갈수록 빠른 페이스': 'Higher means faster pace',
   '요일별 러닝 패턴': 'Day-of-week pattern',
   '러닝 횟수': 'Run count',
   '시간대별 러닝 분포': 'Time-of-day distribution',

@@ -81,6 +81,7 @@
 		"CAPBrowserPlugin",
 		"FilesystemPlugin",
 		"GeolocationPlugin",
+		"PreferencesPlugin",
 		"PushNotificationsPlugin",
 		"SharePlugin",
 		"HealthPlugin",
