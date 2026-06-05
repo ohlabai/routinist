@@ -176,6 +176,33 @@ export async function startCourse(courseId: string): Promise<StartCourseResult> 
   return (data ?? { already_started: false, fee_charged: 0, balance: 0 }) as StartCourseResult;
 }
 
+// build 251: 완주 알림 (push + 메인 모달) 시스템
+export interface UnackCompletion {
+  course_id: string;
+  name: string;
+  country: string | null;
+  hero_image_url: string | null;
+  distance_km: number;
+  completed_at: string;
+  refund_amount: number;
+}
+
+export async function fetchUnackCompletions(): Promise<UnackCompletion[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.rpc('fetch_unack_completions');
+  if (error) {
+    console.warn('[world-data] fetchUnackCompletions fail', error);
+    return [];
+  }
+  return (data ?? []) as UnackCompletion[];
+}
+
+export async function ackCourseCompletion(courseId: string): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase.rpc('ack_course_completion', { p_course_id: courseId });
+  if (error) throw error;
+}
+
 // admin
 export interface CourseUpsert {
   id?: string;

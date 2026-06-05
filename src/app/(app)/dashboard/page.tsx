@@ -48,6 +48,7 @@ import RankNeighbors from '@/components/home/RankNeighbors';
 import HomeMapPreview from '@/components/home/HomeMapPreview';
 import HomeChallengeCard from '@/components/home/HomeChallengeCard';
 import HomeWorldMarathonCard from '@/components/home/HomeWorldMarathonCard';
+import CourseCompletionModal from '@/components/world/CourseCompletionModal';
 import HomeOnboardingCard from '@/components/home/HomeOnboardingCard';
 import PullDownOnboardingHint from '@/components/home/PullDownOnboardingHint';
 import MonthEndRecapCard from '@/components/home/MonthEndRecapCard';
@@ -575,6 +576,7 @@ export default function DashboardPage() {
 
   return (
     <PullToRefresh onRefresh={handleRefresh}>
+    <CourseCompletionModal />
     <div className="max-w-lg mx-auto pb-8 bg-[var(--background)] min-h-screen">
     {/* Sticky Header — build 208 #6-2: 좌 Home 로고/타이틀, 우 컴팩트 START 칩 고정. */}
     <header className="sticky top-0 z-20 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
