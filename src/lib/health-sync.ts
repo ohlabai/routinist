@@ -344,6 +344,11 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
             source: 'health_kit',
             started_at: workout.startDate,
             ended_at: workout.endDate || null,
+            // build 250: broken gps 의 route_data 는 좌표 0개 또는 sparse 한 점들. 이걸 그대로 두면
+            // syncRouteData 가 `.is('route_data', null)` 필터 때문에 매칭 못 함 → 영영 지도 안 채워짐.
+            // NULL 로 reset 해서 직후 호출되는 syncRouteData 가 HKWorkoutRoute 데이터로 채우게 함.
+            route_data: null,
+            map_snapshot_url: null,
           };
           if (workout.totalEnergyBurned) upgradeData.active_energy_kcal = Math.round(workout.totalEnergyBurned);
           // memo 는 일부러 업데이트 안 함 — 사용자가 적은 메모 보호.
@@ -671,17 +676,29 @@ export async function syncRouteData(
       // .toISOString().slice(0,19) 로 "초 단위 정확히 일치" 비교 → 5초만 어긋나도 매칭 실패.
       // Apple Watch route 의 startDate 와 workout.startDate 가 ms 단위로 다를 수 있어
       // 의도된 ±60s tolerance 가 실질적으로 0초로 줄어들던 버그. ms 차이로 비교하도록 교정.
+      // build 250: `.is('route_data', null)` 만 쓰면 빈 LineString ({type:LineString,coordinates:[]})
+      // 행이 매칭에서 제외됨. live GPS 트래킹 시작 시 page.tsx 가 빈 LineString 으로 row 를 생성하므로
+      // 좌표 0 으로 종료된 broken 운동 (hans 2026-06-05 사례) 이 영영 지도 못 채워짐. JS 측에서
+      // null OR coordinates=[] 인 후보를 모두 매칭 가능하게 가져오고, 아래 filter 에서 가린다.
+      const isRouteEmpty = (rd: unknown): boolean => {
+        if (rd == null) return true;
+        if (typeof rd !== 'object') return false;
+        const coords = (rd as { coordinates?: unknown[] }).coordinates;
+        return Array.isArray(coords) && coords.length === 0;
+      };
+
       const { data: byTime } = await supabase
         .from('activities')
         .select('id, started_at, route_data')
         .eq('user_id', userId)
         .gte('started_at', new Date(routeStartMs - 60_000).toISOString())
-        .lte('started_at', new Date(routeStartMs + 60_000).toISOString())
-        .is('route_data', null);
+        .lte('started_at', new Date(routeStartMs + 60_000).toISOString());
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let match: any = (byTime ?? []).find((r: { started_at: string | null }) =>
-        r.started_at && Math.abs(new Date(r.started_at).getTime() - routeStartMs) <= 60_000
+      let match: any = (byTime ?? []).find((r: { started_at: string | null; route_data: unknown }) =>
+        r.started_at &&
+        Math.abs(new Date(r.started_at).getTime() - routeStartMs) <= 60_000 &&
+        isRouteEmpty(r.route_data)
       );
 
       // 2순위: 같은 날짜 + 거리 ±0.5km — started_at 있는 행도 OK 로 확장
@@ -691,19 +708,21 @@ export async function syncRouteData(
       if (!match) {
         const activityDate = toKstDate(route.startDate);
         const distanceKm = route.distance / 1000;
-        const { data: byDate } = await supabase
+        const { data: byDateAll } = await supabase
           .from('activities')
           .select('id, distance_km, started_at, route_data, source')
           .eq('user_id', userId)
-          .eq('activity_date', activityDate)
-          .is('route_data', null);
+          .eq('activity_date', activityDate);
 
-        match = (byDate ?? []).find(
+        // build 250: NULL 뿐 아니라 빈 LineString 행도 후보로 포함.
+        const byDate = (byDateAll ?? []).filter((e: { route_data: unknown }) => isRouteEmpty(e.route_data));
+
+        match = byDate.find(
           (e: { distance_km: number | string }) => Math.abs(Number(e.distance_km) - distanceKm) < 0.5
         );
         // 거리 매칭 실패 + 같은 날 후보가 단 1건이면 거리 무시하고 매칭 (broken GPS 회복).
-        if (!match && (byDate?.length ?? 0) === 1) {
-          match = byDate![0];
+        if (!match && byDate.length === 1) {
+          match = byDate[0];
           logClientInfo('health-sync-route', 'byDate single-candidate fallback', {
             activity_id: match.id, route_km: distanceKm, activity_km: Number(match.distance_km),
           });
