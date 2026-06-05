@@ -10,6 +10,7 @@
 import { Geolocation, type Position } from '@capacitor/geolocation';
 import { BackgroundLocation, isBackgroundLocationAvailable, type BgCoord } from './background-location';
 import type { PluginListenerHandle } from '@capacitor/core';
+import { logClientInfo, logClientWarn } from './error-logger';
 
 export type Coord = [lng: number, lat: number, alt: number, ts: number];
 
@@ -153,10 +154,26 @@ export async function startWatcher(
 async function startNativeBackgroundWatcher(
   onCoord: (pos: { lat: number; lng: number; alt: number; ts: number; accuracy: number }) => void,
 ): Promise<WatcherHandle> {
-  await BackgroundLocation.start({ distanceFilter: MIN_MOVE_METERS, accuracy: 'high' });
+  // build 249 진단: native start 응답 (authorization / onMainThread) 을 client_error_logs 에 남김.
+  // hans 2026-06-05 사례 (좌표 0건) 의 root cause 가 thread bug 였는지 권한 부족이었는지 가린다.
+  let startResp: unknown = null;
+  try {
+    startResp = await BackgroundLocation.start({ distanceFilter: MIN_MOVE_METERS, accuracy: 'high' });
+    void logClientInfo('gps-tracking', 'bg-native-start ok', { resp: startResp as Record<string, unknown> });
+  } catch (err) {
+    void logClientWarn('gps-tracking', 'bg-native-start fail → fallback', {
+      message: err instanceof Error ? err.message : String(err),
+    });
+    return startFallbackWatcher(onCoord);
+  }
+
+  let coordCount = 0;
+  let fallbackAttached = false;
+  let fallbackHandle: WatcherHandle | null = null;
 
   const handleEntry = (entry: BgCoord) => {
     if ((entry.accuracy ?? 999) > MIN_ACCURACY_METERS) return;
+    coordCount += 1;
     onCoord({
       lat: entry.lat,
       lng: entry.lng,
@@ -168,6 +185,12 @@ async function startNativeBackgroundWatcher(
 
   // foreground 일 때 native 가 event 로 즉시 push.
   const listener: PluginListenerHandle = await BackgroundLocation.addListener('location', handleEntry);
+  const errListener: PluginListenerHandle = await BackgroundLocation.addListener('error', (data) => {
+    void logClientWarn('gps-tracking', 'bg-native-error', { message: data.message });
+  });
+  const authListener: PluginListenerHandle = await BackgroundLocation.addListener('authorizationChange', (data) => {
+    void logClientInfo('gps-tracking', 'bg-auth-change', { status: data.status });
+  });
 
   // JS 가 백그라운드에서 깨어났을 때 (또는 페이지가 visibility 복귀 시) native 가 버퍼링한 좌표 회수.
   // setInterval 은 foreground 에선 5초마다, 백그라운드에선 OS 가 throttle. 'visibilitychange' 이벤트로
@@ -184,11 +207,36 @@ async function startNativeBackgroundWatcher(
   const onVis = () => { if (!document.hidden) void flushBuffer(); };
   document.addEventListener('visibilitychange', onVis);
 
+  // build 249 안전망: foreground 30초 동안 좌표 0건이면 native plugin 결함을 가정하고
+  // capacitor geolocation 폴백을 *추가로* 부착한다. 두 watcher 가 동시에 좌표를 던지지만
+  // 같은 onCoord 콜백을 거치므로 중복 좌표는 distance 누적 시 MIN_MOVE_METERS 필터에 의해
+  // 자동 흡수됨 (3m 미만 이동은 누적 안 함). 한 운동이 통째로 0km 로 박히는 사고 방지가 목적.
+  const fallbackTimer = window.setTimeout(() => {
+    if (coordCount > 0 || fallbackAttached) return;
+    fallbackAttached = true;
+    void logClientWarn('gps-tracking', 'bg-native zero-coords 30s → attach fallback', {
+      startResp: startResp as Record<string, unknown>,
+    });
+    void (async () => {
+      try {
+        fallbackHandle = await startFallbackWatcher(onCoord);
+      } catch (err) {
+        void logClientWarn('gps-tracking', 'fallback attach fail', {
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+    })();
+  }, 30000);
+
   return {
     clear: async () => {
+      clearTimeout(fallbackTimer);
       clearInterval(flushTimer);
       document.removeEventListener('visibilitychange', onVis);
       try { await listener.remove(); } catch {}
+      try { await errListener.remove(); } catch {}
+      try { await authListener.remove(); } catch {}
+      try { await fallbackHandle?.clear(); } catch {}
       try {
         // stop 도 마지막 좌표를 같이 돌려주지만, 이미 처리됐을 가능성이 커서 무시.
         await BackgroundLocation.stop();

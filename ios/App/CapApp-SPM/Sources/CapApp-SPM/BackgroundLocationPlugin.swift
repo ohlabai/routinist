@@ -29,7 +29,26 @@ public class BackgroundLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationMa
     // 사용자가 .start 를 호출한 시점 — flush 가 호출되기 전까지 buffer 에 추적된 좌표 누적.
     private var sessionActive = false
 
-    private func ensureManager() {
+    // build 249 hotfix: CLLocationManager 는 active run loop 가 있는 thread (=main) 에서
+    // 초기화해야 하며, delegate callback 도 그 thread 의 큐에서 발사됨. Capacitor 의 plugin
+    // method 는 백그라운드 dispatch queue 에서 호출되기 때문에 ensureManager 를 그대로 호출하면
+    // 백그라운드 큐에 CLLocationManager 가 묶여 delegate (`didUpdateLocations`) 가 발사되지 않음.
+    // hans 2026-06-05 사례: 42분 운동, 좌표 0개. 모든 native 호출을 main thread 로 강제한다.
+    private func runOnMain(_ work: @escaping () -> Void) {
+        if Thread.isMainThread {
+            work()
+        } else {
+            DispatchQueue.main.sync(execute: work)
+        }
+    }
+
+    public override func load() {
+        // 플러그인 로드 시점에 미리 main thread 에서 CLLocationManager 를 생성해두면,
+        // 이후 start 가 백그라운드 큐에서 호출되더라도 manager 자체는 이미 main 큐에 묶여 있다.
+        runOnMain { [weak self] in self?.ensureManagerInternal() }
+    }
+
+    private func ensureManagerInternal() {
         if locationManager != nil { return }
         let mgr = CLLocationManager()
         mgr.delegate = self
@@ -47,58 +66,73 @@ public class BackgroundLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationMa
     }
 
     @objc func requestPermission(_ call: CAPPluginCall) {
-        ensureManager()
-        guard let mgr = locationManager else {
-            call.reject("CLLocationManager init failed")
-            return
+        runOnMain { [weak self] in
+            guard let self = self else { call.reject("plugin gone"); return }
+            self.ensureManagerInternal()
+            guard let mgr = self.locationManager else {
+                call.reject("CLLocationManager init failed")
+                return
+            }
+            // 처음에는 whenInUse 만 받을 수 있음. start() 시점에 백그라운드 사용이 시작되면
+            // OS 가 "Always 로 업그레이드?" 시스템 prompt 를 띄움 (사용자 흐름).
+            mgr.requestWhenInUseAuthorization()
+            let status = CLLocationManager.authorizationStatus()
+            call.resolve(["status": self.authStatusString(status)])
         }
-        // 처음에는 whenInUse 만 받을 수 있음. start() 시점에 백그라운드 사용이 시작되면
-        // OS 가 "Always 로 업그레이드?" 시스템 prompt 를 띄움 (사용자 흐름).
-        mgr.requestWhenInUseAuthorization()
-        let status = CLLocationManager.authorizationStatus()
-        call.resolve(["status": authStatusString(status)])
     }
 
     @objc func start(_ call: CAPPluginCall) {
-        ensureManager()
-        guard let mgr = locationManager else {
-            call.reject("CLLocationManager init failed")
-            return
-        }
-        // 호출자 옵션. distanceFilter / accuracy override 가능.
-        if let df = call.getDouble("distanceFilter"), df > 0 {
-            mgr.distanceFilter = df
-        }
-        if let acc = call.getString("accuracy") {
-            switch acc {
-            case "high": mgr.desiredAccuracy = kCLLocationAccuracyBest
-            case "bestForNavigation": mgr.desiredAccuracy = kCLLocationAccuracyBestForNavigation
-            case "ten": mgr.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
-            default: mgr.desiredAccuracy = kCLLocationAccuracyBest
+        runOnMain { [weak self] in
+            guard let self = self else { call.reject("plugin gone"); return }
+            self.ensureManagerInternal()
+            guard let mgr = self.locationManager else {
+                call.reject("CLLocationManager init failed")
+                return
             }
+            // 호출자 옵션. distanceFilter / accuracy override 가능.
+            if let df = call.getDouble("distanceFilter"), df > 0 {
+                mgr.distanceFilter = df
+            }
+            if let acc = call.getString("accuracy") {
+                switch acc {
+                case "high": mgr.desiredAccuracy = kCLLocationAccuracyBest
+                case "bestForNavigation": mgr.desiredAccuracy = kCLLocationAccuracyBestForNavigation
+                case "ten": mgr.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+                default: mgr.desiredAccuracy = kCLLocationAccuracyBest
+                }
+            }
+            // 권한 미결정 시 Always 권한 요청. whenInUse 만 있어도 시작은 되지만 백그라운드 콜백이 멈춤.
+            let status = CLLocationManager.authorizationStatus()
+            if status == .notDetermined || status == .authorizedWhenInUse {
+                mgr.requestAlwaysAuthorization()
+            }
+            // 버퍼 초기화 + 세션 시작.
+            self.bufferLock.lock()
+            self.buffer.removeAll()
+            self.sessionActive = true
+            self.bufferLock.unlock()
+            mgr.startUpdatingLocation()
+            // 진단: 어떤 thread 에서 manager 가 동작하는지, runLoop 가 main 인지 확인.
+            let onMain = Thread.isMainThread
+            call.resolve([
+                "started": true,
+                "authorization": self.authStatusString(status),
+                "onMainThread": onMain,
+            ])
         }
-        // 권한 미결정 시 Always 권한 요청. whenInUse 만 있어도 시작은 되지만 백그라운드 콜백이 멈춤.
-        let status = CLLocationManager.authorizationStatus()
-        if status == .notDetermined || status == .authorizedWhenInUse {
-            mgr.requestAlwaysAuthorization()
-        }
-        // 버퍼 초기화 + 세션 시작.
-        bufferLock.lock()
-        buffer.removeAll()
-        sessionActive = true
-        bufferLock.unlock()
-        mgr.startUpdatingLocation()
-        call.resolve(["started": true, "authorization": authStatusString(status)])
     }
 
     @objc func stop(_ call: CAPPluginCall) {
-        locationManager?.stopUpdatingLocation()
-        bufferLock.lock()
-        sessionActive = false
-        let snapshot = buffer
-        buffer.removeAll()
-        bufferLock.unlock()
-        call.resolve(["coords": snapshot])
+        runOnMain { [weak self] in
+            guard let self = self else { call.reject("plugin gone"); return }
+            self.locationManager?.stopUpdatingLocation()
+            self.bufferLock.lock()
+            self.sessionActive = false
+            let snapshot = self.buffer
+            self.buffer.removeAll()
+            self.bufferLock.unlock()
+            call.resolve(["coords": snapshot])
+        }
     }
 
     /// JS 가 foreground 로 돌아왔을 때 호출. native 가 누적해둔 좌표를 일괄 반환 + 버퍼 비움.
