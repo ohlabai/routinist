@@ -203,6 +203,27 @@ export async function ackCourseCompletion(courseId: string): Promise<void> {
   if (error) throw error;
 }
 
+// build 252: 같은 코스 진행중인 친구들
+export interface CourseFriend {
+  user_id: string;
+  display_name: string;
+  avatar_url: string | null;
+  progress_km: number;
+  ratio: number;
+  completed_at: string | null;
+  started_at: string;
+}
+
+export async function fetchCourseFriends(courseId: string): Promise<CourseFriend[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.rpc('fetch_course_friends', { p_course_id: courseId });
+  if (error) {
+    console.warn('[world-data] fetchCourseFriends fail', error);
+    return [];
+  }
+  return (data ?? []) as CourseFriend[];
+}
+
 // admin
 export interface CourseUpsert {
   id?: string;

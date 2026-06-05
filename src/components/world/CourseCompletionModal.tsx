@@ -9,13 +9,15 @@
 
 import { useEffect, useState } from 'react';
 import { X, Trophy, Sparkles, Share2 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useAuth } from '@/components/AuthProvider';
 import { ackCourseCompletion, fetchUnackCompletions, type UnackCompletion } from '@/lib/world-data';
+import MedalShareCard from './MedalShareCard';
 
 export default function CourseCompletionModal() {
-  const router = useRouter();
+  const { profile } = useAuth();
   const [queue, setQueue] = useState<UnackCompletion[]>([]);
   const [busy, setBusy] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,12 +44,12 @@ export default function CourseCompletionModal() {
       console.warn('[CourseCompletionModal] ack fail', e);
     }
     setQueue((q) => q.slice(1));
+    setShareOpen(false);
     setBusy(false);
   };
 
-  const handleShare = async () => {
-    await handleAck();
-    router.push(`/social/rankings?tab=world`);
+  const handleShare = () => {
+    setShareOpen(true);
   };
 
   return (
@@ -113,7 +115,7 @@ export default function CourseCompletionModal() {
               className="py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-sm font-bold hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <Share2 className="w-4 h-4" />
-              메달 보러가기
+              메달 공유하기
             </button>
           </div>
 
@@ -124,6 +126,18 @@ export default function CourseCompletionModal() {
           )}
         </div>
       </div>
+
+      {shareOpen && (
+        <MedalShareCard
+          courseName={current.name}
+          countryFlag={current.country?.split(' ')[0] ?? '🏁'}
+          distanceKm={Number(current.distance_km)}
+          completedAt={current.completed_at}
+          displayName={profile?.display_name ?? '러너'}
+          refundAmount={current.refund_amount}
+          onClose={handleAck}
+        />
+      )}
 
       <style jsx>{`
         @keyframes slide-up {

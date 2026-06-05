@@ -20,6 +20,7 @@ import {
 } from '@/lib/world-data';
 import AppToast from '@/components/AppToast';
 import CourseDetailSheet from './CourseDetailSheet';
+import CourseFriendsRow from './CourseFriendsRow';
 import { useI18n } from '@/lib/i18n';
 import { logClientInfo, logClientWarn } from '@/lib/error-logger';
 // build 207: 영문화 — 챌린지 시리즈/자세히/달리는 중/도전하기/대륙/마라톤·국가명 등 tt wrap.
@@ -630,6 +631,12 @@ function ProgressCard({ course, path }: { course: MyCourse; path: PreviewPoint[]
             </div>
           </div>
         )}
+        {/* build 252: 같이 달리는 친구 진행률 */}
+        <CourseFriendsRow
+          courseId={course.course_id}
+          courseDistanceKm={course.distance_km}
+          myProgressKm={course.progress_km}
+        />
       </div>
     </div>
   );
