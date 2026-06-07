@@ -742,11 +742,23 @@ export async function syncRouteData(
           (e: { distance_km: number | string }) => Math.abs(Number(e.distance_km) - distanceKm) < 0.5
         );
         // 거리 매칭 실패 + 같은 날 후보가 단 1건이면 거리 무시하고 매칭 (broken GPS 회복).
+        // build 256: ratio 가 명백히 동떨어진 경우 (오늘 사고: 30.61km activity 에 0.83km route 가
+        // 36배 차이로 매칭됨) 차단. broken GPS 회복은 0.5~5km vs 5~10km 정도의 차이를 의미한
+        // 거지, 0.83km vs 30.61km 같은 다른 운동을 합치라는 게 아님. ratio 0.2~5 (5배 안) 만 허용.
         if (!match && byDate.length === 1) {
-          match = byDate[0];
-          logClientInfo('health-sync-route', 'byDate single-candidate fallback', {
-            activity_id: match.id, route_km: distanceKm, activity_km: Number(match.distance_km),
-          });
+          const activityKm = Number(byDate[0].distance_km);
+          const ratio = activityKm > 0 ? distanceKm / activityKm : 0;
+          if (ratio >= 0.2 && ratio <= 5) {
+            match = byDate[0];
+            logClientInfo('health-sync-route', 'byDate single-candidate fallback', {
+              activity_id: match.id, route_km: distanceKm, activity_km: activityKm, ratio,
+            });
+          } else {
+            logClientWarn('health-sync-route', 'byDate single skipped — distance mismatch', {
+              activity_id: byDate[0].id, route_km: distanceKm, activity_km: activityKm,
+              ratio: Math.round(ratio * 1000) / 1000,
+            });
+          }
         }
       }
 
@@ -858,8 +870,11 @@ export async function syncHealthData(userId: string, options?: SyncOptions): Pro
   // build 255: 25s → 35s. hans 2026-06-07 5번 연속 timeout — 90일치 워크아웃 1000건+ 의
   // queryWorkouts + fetch_existing + dedup 합산이 25s 빠듯할 수 있음. 35s 로 여유.
   // 또 timeout 발사 시 syncStageState 의 현재 stage 도 함께 로그 — 어느 단계에서 막혔는지 식별.
-  const safetyTimeout = new Promise<SyncResult>((resolve) =>
-    setTimeout(() => {
+  // build 256: inner 가 정상 완료해도 setTimeout 이 살아 있어 35s 후 timeout 로그 noise.
+  //   clearTimeout 으로 해제. stage:unknown ms_total:0 같은 false-positive 차단.
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  const safetyTimeout = new Promise<SyncResult>((resolve) => {
+    timeoutHandle = setTimeout(() => {
       const st = syncStageState.get(userId);
       const stageInfo = st
         ? { stage: st.stage, ms_in_stage: Date.now() - st.enteredAt, ms_total: Date.now() - st.allStarted }
@@ -868,14 +883,15 @@ export async function syncHealthData(userId: string, options?: SyncOptions): Pro
       // SDK 락 가능성 있는 client 폐기 — 다음 호출 시 fresh client 로 복구.
       void import('./supabase').then(({ resetSupabaseClient }) => resetSupabaseClient()).catch(() => {});
       resolve({ success: false, message: '동기화가 너무 오래 걸리네요\n잠시 후 다시 시도해주세요', synced: 0 });
-    }, 35000)
-  );
+    }, 35000);
+  });
 
   const guarded = Promise.race([inner, safetyTimeout]);
   inFlightSyncs.set(userId, guarded);
   try {
     return await guarded;
   } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
     inFlightSyncs.delete(userId);
     syncStageState.delete(userId);
   }
