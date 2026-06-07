@@ -16,6 +16,7 @@ import {
 import RouteMap from '@/components/map/RouteMap';
 import type { GeoJSONLineString } from '@/types';
 import { syncPBsFromActivity } from '@/lib/best-splits';
+import { correctDistanceWithHealthKit, isLiveDistanceAvailable } from '@/lib/live-distance';
 import { useI18n } from '@/lib/i18n';
 import { logClientInfo, logClientWarn } from '@/lib/error-logger';
 
@@ -128,6 +129,45 @@ export default function TrackSummarySheet({ finalState, userId, onClose }: Props
       if (insertErr) throw insertErr;
       const activityId = data?.id as string | undefined;
       if (!activityId) throw new Error(tt('저장 후 id 없음'));
+
+      // build 254: HealthKit distanceWalkingRunning 자동 보정. fire-and-forget.
+      // 운동 종료 후 15~45초 사이에 HealthKit sample 이 적재되면 Apple 의 sensor-fusion
+      // 결과로 distance/pace 를 UPDATE 한다. GPS 자체 누적은 jitter / multipath 로 부풀려질 수
+      // 있는데, Apple Watch / iPhone 자이로+보폭 보정값이 신뢰도 더 높음. 5% 이상 차이날 때만.
+      // 사용자는 activity 페이지로 즉시 이동, 보정은 백그라운드에서 진행됨.
+      if (isLiveDistanceAvailable() && distanceMeters > 0) {
+        void (async () => {
+          try {
+            const result = await correctDistanceWithHealthKit({
+              gpsMeters: distanceMeters,
+              startMs: finalState.startedAt,
+              endMs: new Date(endedAt).getTime(),
+            });
+            if (result.source !== 'healthkit') return;
+            const correctedKm = Number((result.corrected / 1000).toFixed(3));
+            const correctedPace = result.corrected > 50
+              ? Math.round(elapsedSeconds / (result.corrected / 1000))
+              : null;
+            // source 는 'gps' 유지 — route_data 는 우리 GPS 좌표 그대로이고, dedup 로직 (build 246)
+            // 도 source='gps' 행을 health_kit 으로 upgrade 가능하게 설계됨. 이중 처리 안 됨.
+            await supabase.from('activities')
+              .update({ distance_km: correctedKm, pace_avg_sec_per_km: correctedPace })
+              .eq('id', activityId);
+            logClientInfo('live-distance', 'db-updated', {
+              activity_id: activityId,
+              gps_km: Number((distanceMeters / 1000).toFixed(2)),
+              hk_km: correctedKm,
+              delta_m: Math.round(result.delta),
+              sample_count: result.sampleCount,
+            });
+          } catch (e) {
+            logClientWarn('live-distance', 'correction-fail', {
+              activity_id: activityId,
+              message: e instanceof Error ? e.message : String(e),
+            });
+          }
+        })();
+      }
 
       // build 197: PB 갱신 확인. 실패해도 저장은 성공으로 처리.
       try {
