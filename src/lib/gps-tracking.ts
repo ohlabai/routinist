@@ -269,6 +269,7 @@ async function startFallbackWatcher(
 // build 225: 너무 큰 jump (MAX_JUMP_METERS+) 도 차단 — GPS multipath / 백그라운드 stale fix 회피.
 // outlier 의 경우 좌표는 push 하지만 distance 누적 skip → 폴리라인 visualisation 은 그대로 두되
 // 통계만 보호. 다음 정상 sample 부터 distance 다시 계산.
+// build 253: ts 역순/동일 좌표 차단 — native plugin fix 회귀 대비 JS 안전망.
 // 반환값: 거리 갱신 발생 여부 (UI 리렌더 trigger 용).
 export function appendCoord(state: TrackingState, c: { lat: number; lng: number; alt: number; ts: number }): boolean {
   const last = state.coords[state.coords.length - 1];
@@ -276,6 +277,10 @@ export function appendCoord(state: TrackingState, c: { lat: number; lng: number;
     state.coords.push([c.lng, c.lat, c.alt, c.ts]);
     return true;
   }
+  // build 253: 같거나 이전 timestamp 면 무시. hans 2026-06-07 사례 (좌표 50% 중복 → 거리 2배 부풀림)
+  // 의 root cause 는 native plugin 에서 fix 했지만, flush 와 listener 가 비동기로 도착하는 구조라
+  // 잔여 race condition 이 있을 수 있어 JS 단에서도 한 번 더 차단한다.
+  if (c.ts <= last[3]) return false;
   const dist = haversineMeters({ lat: last[1], lng: last[0] }, c);
   if (dist < MIN_MOVE_METERS) return false;
   if (dist > MAX_JUMP_METERS) {

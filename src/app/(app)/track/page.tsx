@@ -424,10 +424,16 @@ export default function TrackPage() {
 
   const handleFinish = () => {
     if (!state) return;
+    // build 253 진단: distinct timestamp 비율 — native plugin 중복 emit 회귀 즉시 감지.
+    // hans 2026-06-07 사례 (13428 coords / 6724 distinct ts = 50%) 같은 사고가 또 나면 로그에 박힘.
+    const distinctTs = new Set(state.coords.map((c) => c[3])).size;
+    const dupRatio = state.coords.length > 0 ? distinctTs / state.coords.length : 1;
     logClientInfo('track-finish', 'click', {
       distance_m: Math.round(state.distanceMeters),
       elapsed_s: Math.floor(state.elapsedSeconds),
       coords_n: state.coords.length,
+      distinct_ts: distinctTs,
+      distinct_ts_ratio: Math.round(dupRatio * 100) / 100,
     });
     if (state.distanceMeters < 50) {
       const msg = locale === 'en'

@@ -1,6 +1,7 @@
 import Foundation
 import Capacitor
 import CoreLocation
+import UIKit
 
 // 백그라운드 GPS 트래커. 화면이 꺼져 있거나 다른 앱으로 전환돼도 native 단에서
 // CLLocationManager 가 계속 좌표를 수신·누적합니다. JavaScript runtime 이 suspend 되면
@@ -164,22 +165,42 @@ public class BackgroundLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationMa
             newEntries.append(entry)
         }
         if newEntries.isEmpty { return }
-        bufferLock.lock()
-        buffer.append(contentsOf: newEntries)
-        let bufferSize = buffer.count
-        bufferLock.unlock()
-        // foreground 라면 JS 가 즉시 받도록 event 도 발사. 백그라운드면 JS suspend 라 무시되지만
-        // buffer 에 누적되어 있어서 다음 flush 호출 시 회수됨.
-        for entry in newEntries {
-            notifyListeners("location", data: entry)
+
+        // build 253 핫픽스: hans 2026-06-07 사례 — 좌표 13428건 중 distinct timestamp 6724 (정확히 50%).
+        // 좌표가 두 번씩 들어가던 원인: buffer.append + notifyListeners 를 동시에 하고,
+        // JS 가 listener 와 5s flush polling 둘 다 구독해서 같은 entry 가 양 경로로 onCoord 호출됨.
+        // → distance 가 약 2배 부풀려져 72km / 4h / 3:19 페이스로 박힘.
+        //
+        // fix: foreground 면 listener 로만 emit (즉시 갱신, buffer 무관),
+        //      background 면 buffer 에만 누적 (JS suspend 라 listener 못 받음 → flush 가 회수).
+        // 한 entry 가 정확히 한 경로로만 흐르도록 단일 경로화.
+        let isBackground: Bool
+        if Thread.isMainThread {
+            isBackground = UIApplication.shared.applicationState != .active
+        } else {
+            // delegate callback 은 보통 main 큐 (manager 가 main 에서 init 됐으므로) 지만 방어적으로.
+            isBackground = DispatchQueue.main.sync {
+                UIApplication.shared.applicationState != .active
+            }
         }
-        // 버퍼가 너무 커지면 (예: 화면 끄고 1시간 백그라운드 후 5400+ 좌표) 메모리 방어.
-        // 10000건 (≈3시간 분량) 초과 시 가장 오래된 것부터 잘라냄.
-        if bufferSize > 10000 {
+
+        if isBackground {
             bufferLock.lock()
-            let overflow = buffer.count - 10000
-            if overflow > 0 { buffer.removeFirst(overflow) }
+            buffer.append(contentsOf: newEntries)
+            let bufferSize = buffer.count
             bufferLock.unlock()
+            // 버퍼가 너무 커지면 메모리 방어. 10000건 (≈3시간) 초과 시 가장 오래된 것부터 잘라냄.
+            if bufferSize > 10000 {
+                bufferLock.lock()
+                let overflow = buffer.count - 10000
+                if overflow > 0 { buffer.removeFirst(overflow) }
+                bufferLock.unlock()
+            }
+        } else {
+            // foreground — JS 가 즉시 받음. buffer 안 넣음 → 중복 차단.
+            for entry in newEntries {
+                notifyListeners("location", data: entry)
+            }
         }
     }
 
