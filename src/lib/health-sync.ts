@@ -163,13 +163,24 @@ export async function connectHealthKit(): Promise<SyncResult> {
 
 // 데이터 동기화 — activities 테이블에 저장.
 // 성능 최적화: 90일 범위, workout 자체 집계값만 사용 (심박/칼로리 별도 루프 없음).
+// build 255: mutex 25s timeout 의 원인을 식별하기 위한 stage tracker.
+// inner sync 가 어느 단계에서 시간을 쓰는지 mutex timeout 발사 시 함께 로그.
+// hans 2026-06-07 19:44 사례에서 5번 연속 timeout — 어떤 stage 가 25s 안에 못 끝나는지 알아야 fix 가능.
+const syncStageState = new Map<string, { stage: string; enteredAt: number; allStarted: number }>();
+
 async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise<SyncResult> {
   const progress = options?.onProgress;
   progress?.({ stage: 'auth', percent: 5, label: '권한 확인 중...' });
   const t0 = Date.now();
+  syncStageState.set(userId, { stage: 'auth', enteredAt: t0, allStarted: t0 });
+  const setStage = (s: string) => {
+    const st = syncStageState.get(userId);
+    if (st) { st.stage = s; st.enteredAt = Date.now(); }
+  };
   try {
     // 자동 sync 진입부에서도 권한을 보장 — connect 페이지를 거치지 않은 사용자도 정상 동작.
     const auth = await ensureAuthorization();
+    setStage('after-auth');
     if (!auth.authorized) {
       logClientWarn('health-sync', 'authorization denied', { denied: auth.denied });
       return {
@@ -191,6 +202,7 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     const endDate = new Date().toISOString();
 
     progress?.({ stage: 'query', percent: 15, label: 'Apple Health 러닝 기록 조회 중...' });
+    setStage('query-workouts');
 
     // 러닝 + 걷기 병렬 fetch
     const workoutTypes = ['running', 'walking'] as const;
@@ -231,6 +243,7 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     }
 
     progress?.({ stage: 'fetch_existing', percent: 50, label: '중복 검사 중...' });
+    setStage('fetch-existing');
 
     // 배치 중복 체크 — started_at ±60초 윈도우 매칭 (1순위) + 거리 폴백 (옛 데이터에 started_at 없을 때).
     // build 222 #1: 모든 source 비교 (이전엔 .eq('source','health_kit') 로 같은 워크아웃이 source='gps'
@@ -327,13 +340,17 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
       const workoutMs = new Date(workout.startDate).getTime();
       const overlap = findOverlap(workoutMs);
       if (overlap) {
-        // upgrade 조건: 기존이 source='gps' 이고 거리가 의미있게 작거나 차이가 1km 이상.
-        // Routinist 라이브 GPS 가 실패해서 0.56km 박힌 경우 Apple Health 7.34km 로 덮어쓰기.
+        // upgrade 조건: 기존이 source='gps' 이고 health 와 의미 있는 차이가 있을 때.
+        // build 255: 양방향 보정. 이전엔 (gps < health × 0.5 || health > gps + 1km) — GPS underreport
+        // 만 회복. hans 2026-06-07 사례 (GPS=72km, Apple≈12km 추정) 같은 GPS overreport 는 dedup skip 됐음.
+        // 이제 절대 차이 1km+ 또는 비율 0.5 미만 / 2 초과면 어느 쪽이든 broken 으로 판정.
         // health_kit / external / manual 행은 절대 덮어쓰지 않음 — 사용자가 직접 손댄 데이터 보호.
+        const absDiffKm = Math.abs(overlap.distance_km - distanceKm);
+        const ratio = distanceKm > 0 ? overlap.distance_km / distanceKm : 0;
         const isBrokenGps =
           overlap.source === 'gps' &&
           distanceKm > 0.5 &&
-          (overlap.distance_km < distanceKm * 0.5 || distanceKm - overlap.distance_km > 1);
+          (absDiffKm > 1 || ratio < 0.5 || ratio > 2);
         if (isBrokenGps) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const upgradeData: Record<string, any> = {
@@ -388,8 +405,11 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
       existingByTime.sort((a, b) => a.ms - b.ms);
     }
 
+    setStage(`dedup-done(upgrade=${toUpgrade.length},insert=${toInsert.length})`);
+
     // UPGRADE 먼저 처리 (broken gps → health_kit 덮어쓰기).
     if (toUpgrade.length > 0) {
+      setStage(`upgrade(${toUpgrade.length})`);
       for (const { id, data } of toUpgrade) {
         const r = await withTimeout(
           supabase.from('activities').update(data).eq('id', id),
@@ -406,6 +426,7 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     const failedSamples: string[] = [];
     if (toInsert.length > 0) {
       progress?.({ stage: 'insert', percent: 60, label: `새 기록 ${toInsert.length}건 저장 중...` });
+      setStage(`insert(${toInsert.length})`);
       // 100건씩 청크로 나눠 insert. 청크 단위 실패 시 row-by-row 폴백으로 정상 row 는 살림.
       // (트리거 1건 버그 때문에 99건이 같이 죽는 회귀 차단 — build 53 회고)
       const totalChunks = Math.ceil(toInsert.length / 100);
@@ -833,16 +854,21 @@ export async function syncHealthData(userId: string, options?: SyncOptions): Pro
     return result;
   })();
 
-  // mutex timeout 단축 (build 56): 60s → 25s. 60s 동안 사용자 화면이 멈춘 채 기다리는 UX 가 너무 안 좋고,
-  // 모든 supabase call 에 자체 timeout (8~15s) 이 걸려 있어 25s 안에 끝나야 정상.
-  // 25s 초과시 자동으로 supabase client 재생성 — stale 상태 누적 방지.
+  // build 56: mutex timeout 60s → 25s (UX).
+  // build 255: 25s → 35s. hans 2026-06-07 5번 연속 timeout — 90일치 워크아웃 1000건+ 의
+  // queryWorkouts + fetch_existing + dedup 합산이 25s 빠듯할 수 있음. 35s 로 여유.
+  // 또 timeout 발사 시 syncStageState 의 현재 stage 도 함께 로그 — 어느 단계에서 막혔는지 식별.
   const safetyTimeout = new Promise<SyncResult>((resolve) =>
     setTimeout(() => {
-      logClientWarn('health-sync', 'mutex 25s timeout — 강제 해제 + client 재생성', {});
+      const st = syncStageState.get(userId);
+      const stageInfo = st
+        ? { stage: st.stage, ms_in_stage: Date.now() - st.enteredAt, ms_total: Date.now() - st.allStarted }
+        : { stage: 'unknown', ms_in_stage: 0, ms_total: 0 };
+      logClientWarn('health-sync', 'mutex 35s timeout — 강제 해제 + client 재생성', stageInfo);
       // SDK 락 가능성 있는 client 폐기 — 다음 호출 시 fresh client 로 복구.
       void import('./supabase').then(({ resetSupabaseClient }) => resetSupabaseClient()).catch(() => {});
       resolve({ success: false, message: '동기화가 너무 오래 걸리네요\n잠시 후 다시 시도해주세요', synced: 0 });
-    }, 25000)
+    }, 35000)
   );
 
   const guarded = Promise.race([inner, safetyTimeout]);
@@ -851,5 +877,6 @@ export async function syncHealthData(userId: string, options?: SyncOptions): Pro
     return await guarded;
   } finally {
     inFlightSyncs.delete(userId);
+    syncStageState.delete(userId);
   }
 }
