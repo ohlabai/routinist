@@ -3,13 +3,14 @@
 import { useAuth } from '@/components/AuthProvider';
 import { UserDataProvider } from '@/components/UserDataProvider';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Home, Trophy, User, ShoppingBag, Users } from 'lucide-react';
 import { syncHealthData, isNativeApp } from '@/lib/health-sync';
 import AppLogo from '@/components/AppLogo';
 import { useI18n } from '@/lib/i18n';
 import AnalyticsAutoTracker from '@/components/AnalyticsAutoTracker';
+import { fetchUnreadNotificationSummary, markNotificationsRead, SOCIAL_KINDS } from '@/lib/notifications-data';
 
 // 5탭 구조 (build 100 재편): 홈 / 랭킹 / 소셜 / 쇼핑 / 내정보.
 // 지도는 홈 캘린더 아래 미니맵으로 흡수. 랭킹 ↔ 소셜 분리 (이전 /social 의 me, mileage 서브탭이 랭킹으로 이전).
@@ -95,6 +96,40 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     const t = setTimeout(() => setLoadingTimeout(true), 8000);
     return () => clearTimeout(t);
   }, [loading]);
+
+  // build 261: 소셜 탭 unread 배지. 응원·댓글·팔로우 신규 카운트.
+  // mount + 5분마다 + visibility 복귀 + window focus 시 갱신.
+  // 소셜 탭 진입 시 자동 markRead → 배지 0 으로 즉시 사라짐.
+  const [socialUnread, setSocialUnread] = useState(0);
+  const refreshSocialUnread = useCallback(async () => {
+    if (!user) { setSocialUnread(0); return; }
+    const s = await fetchUnreadNotificationSummary();
+    // total - cheer/comment/follow 합 (총합이 안전).
+    setSocialUnread(s.total);
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    void refreshSocialUnread();
+    const interval = window.setInterval(() => { void refreshSocialUnread(); }, 5 * 60 * 1000);
+    const onVis = () => { if (!document.hidden) void refreshSocialUnread(); };
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('focus', refreshSocialUnread);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('focus', refreshSocialUnread);
+    };
+  }, [user, refreshSocialUnread]);
+
+  // 소셜 탭 진입 시 자동 markRead — pathname 이 /social 또는 그 하위 경로면 한 번 호출.
+  useEffect(() => {
+    if (!user) return;
+    if (!normalizedPath.startsWith('/social')) return;
+    // 비동기 시작 — 응답 받지 않고 즉시 0 으로 optimistic update.
+    setSocialUnread(0);
+    void markNotificationsRead(SOCIAL_KINDS);
+  }, [user, normalizedPath]);
 
   // 신문 모델 (build 57): 자동 sync 제거.
   // 첫 로그인 직후 1회만 환영 sync (localStorage flag), 이후엔 사용자가 직접 동기화 버튼을 눌러야 sync.
@@ -202,6 +237,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               pathname === tab.href ||
               pathname.startsWith(tab.href + '/') ||
               (tab.activeFor?.some(p => pathname === p || pathname.startsWith(p + '/')) ?? false);
+            // build 261: 소셜 탭에만 unread 배지. 응원·댓글·팔로우 신규.
+            const badgeCount = tab.href === '/social' ? socialUnread : 0;
             return (
               <Link
                 key={tab.href}
@@ -212,7 +249,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     : 'text-[var(--muted)]'
                 }`}
               >
-                <tab.Icon size={isActive ? 24 : 22} strokeWidth={isActive ? 2.5 : 1.75} />
+                <div className="relative">
+                  <tab.Icon size={isActive ? 24 : 22} strokeWidth={isActive ? 2.5 : 1.75} />
+                  {badgeCount > 0 && (
+                    <span className="absolute -top-1.5 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center leading-none shadow-md shadow-rose-500/30 tabular-nums">
+                      {badgeCount > 99 ? '99+' : badgeCount}
+                    </span>
+                  )}
+                </div>
                 <span className={`text-[13px] ${isActive ? 'font-bold' : 'font-medium'}`}>{t(tab.labelKey)}</span>
               </Link>
             );
