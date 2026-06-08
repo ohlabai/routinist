@@ -19,6 +19,7 @@ import {
   uploadFeedbackImage,
   deleteMyFeedback,
   reportFeedback,
+  adminUpdateFeedback,
   CATEGORY_LABEL,
   STATUS_LABEL,
   STATUS_COLOR,
@@ -27,6 +28,7 @@ import {
   type FeedbackStatus,
   type FeedbackReportReason,
 } from '@/lib/feedback-data';
+import { isAdminEmail } from '@/lib/admin-emails';
 
 const CATEGORY_ICONS: Record<FeedbackCategory, typeof Bug> = {
   bug: Bug,
@@ -83,11 +85,32 @@ export default function FeedbackPage() {
   const [reportTarget, setReportTarget] = useState<FeedbackPost | null>(null);
   const [reporting, setReporting] = useState(false);
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
+  // build 259: 어드민이 일반 게시판에서 인라인으로 답변 작성. /admin/feedback 거치지 않고 빠르게.
+  const isAdmin = isAdminEmail(user?.email);
+  const [adminReplyDraft, setAdminReplyDraft] = useState<Record<string, string>>({});
+  const [adminReplyBusy, setAdminReplyBusy] = useState<string | null>(null);
 
   const showToast = useCallback((text: string, tone: 'ok' | 'warn' = 'ok') => {
     setToast({ text, tone });
     setTimeout(() => setToast(null), 2200);
   }, []);
+
+  const handleAdminReply = useCallback(async (post: FeedbackPost) => {
+    const draft = (adminReplyDraft[post.id] ?? '').trim();
+    if (!draft) return;
+    setAdminReplyBusy(post.id);
+    try {
+      // 상태는 그대로 (open 이면 open) 유지하고 답글만 추가. 어드민이 페이지에서 빠르게 답변.
+      await adminUpdateFeedback(post.id, post.status, draft);
+      setPosts(prev => prev.map(p => p.id === post.id ? { ...p, admin_reply: draft, admin_replied_at: new Date().toISOString() } : p));
+      setAdminReplyDraft(prev => { const next = { ...prev }; delete next[post.id]; return next; });
+      showToast(tt('답글이 저장됐어요'));
+    } catch (e) {
+      showToast(tt('답글 저장 실패: ') + (e instanceof Error ? e.message : ''), 'warn');
+    } finally {
+      setAdminReplyBusy(null);
+    }
+  }, [adminReplyDraft, showToast, tt]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -300,6 +323,34 @@ export default function FeedbackPage() {
                     <p className="text-[14px] text-emerald-900 dark:text-emerald-100 leading-relaxed whitespace-pre-wrap break-keep">
                       {p.admin_reply}
                     </p>
+                  </div>
+                )}
+
+                {/* build 259: 어드민이 답글 없는 게시글에 인라인으로 빠르게 답변. /admin/feedback 거치지 않음. */}
+                {isAdmin && !p.admin_reply && (
+                  <div className="mt-3.5 rounded-2xl border-2 border-dashed border-emerald-300/50 dark:border-emerald-700/40 bg-emerald-50/30 dark:bg-emerald-950/15 p-3.5">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                        <MessageSquare size={11} className="text-emerald-600" strokeWidth={2.5} />
+                      </div>
+                      <span className="text-xs font-extrabold text-emerald-700 dark:text-emerald-300">{tt('운영자 답글 작성')}</span>
+                    </div>
+                    <textarea
+                      value={adminReplyDraft[p.id] ?? ''}
+                      onChange={(e) => setAdminReplyDraft(prev => ({ ...prev, [p.id]: e.target.value }))}
+                      placeholder={tt('사용자에게 답변을 작성해주세요')}
+                      rows={3}
+                      className="w-full text-[14px] rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 resize-none focus:outline-none focus:border-emerald-400"
+                    />
+                    <div className="mt-2 flex justify-end">
+                      <button
+                        onClick={() => handleAdminReply(p)}
+                        disabled={!adminReplyDraft[p.id]?.trim() || adminReplyBusy === p.id}
+                        className="px-4 py-1.5 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-sm font-extrabold shadow-md shadow-emerald-500/20 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {adminReplyBusy === p.id ? tt('저장 중...') : tt('답글 저장')}
+                      </button>
+                    </div>
                   </div>
                 )}
 

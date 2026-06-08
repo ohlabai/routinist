@@ -240,6 +240,14 @@ export default function DashboardPage() {
     import('@/lib/achievements-data').then(m => m.checkAndAwardAchievements()).catch(() => { /* silent */ });
   }, [user]);
 
+  // build 259: 마일리지 잔액 — 홈 헤더 chip 표시.
+  // /profile 의 fetchMileageBalance 와 동일 함수. 사용자가 앱 들어오자마자 잔액 보임 + 적립 동기 강화.
+  const [mileageBalance, setMileageBalance] = useState<number | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    import('@/lib/mileage-data').then(m => m.fetchMileageBalance(user.id)).then(setMileageBalance).catch(() => {});
+  }, [user]);
+
   // build 143: secondary 위젯 (챌린지·스토리·실시간) 300ms defer — 첫 paint 부담 감소.
   // hero 영역(랭킹·캘린더·미니맵) 은 즉시 mount.
   const [secondaryMounted, setSecondaryMounted] = useState(false);
@@ -625,7 +633,7 @@ export default function DashboardPage() {
 
         {/* 4 {이름}님의 N월 헤더 */}
         <div className="mx-4 flex items-center justify-between pt-1">
-          <div>
+          <div className="min-w-0">
             <h2 className="text-xl font-bold text-[var(--foreground)]">
               {t('home.userMonthTitle')
                 .replace('{name}', profile?.display_name ?? t('profile.runner'))
@@ -640,12 +648,27 @@ export default function DashboardPage() {
               <FreshnessBadge ts={lastUpdated} onRefresh={refresh} />
             </div>
           </div>
+          {/* build 259: 마일리지 잔액 chip — 홈에서 즉시 보임. 클릭 시 /mileage */}
+          {mileageBalance !== null && (
+            <Link
+              href="/mileage"
+              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-br from-emerald-50 to-emerald-100/60 dark:from-emerald-950/40 dark:to-emerald-900/30 border border-emerald-200/60 dark:border-emerald-800/40 active:scale-95 transition"
+            >
+              <span className="text-[15px] leading-none">🪙</span>
+              <span className="text-sm font-extrabold text-emerald-800 dark:text-emerald-200 tabular-nums">
+                {mileageBalance.toLocaleString()}
+              </span>
+              <span className="text-xs font-bold text-emerald-700/70 dark:text-emerald-300/70">P</span>
+            </Link>
+          )}
         </div>
 
         {/* 5 오늘/이달 4칩. build 154: activities 로딩 중엔 "0.0" 대신 dim 점 표시. */}
+        {/* build 259 #2: 페이스 "48'50" 가 5글자라 옆 칸 (이달 km 53.4) 와 겹치던 회귀.
+            페이스 셀만 text-2xl 로 한 단계 작게 + tabular-nums + gap-3 → gap-x-4 로 칸 사이 여유. */}
         <div className="mx-4 card p-5">
-          <div className="grid grid-cols-4 gap-3 text-center">
-            <div>
+          <div className="grid grid-cols-4 gap-x-4 gap-y-1 text-center tabular-nums">
+            <div className="min-w-0">
               {userDataLoading && activities.length === 0 ? (
                 <p className="text-2xl font-extrabold text-[var(--accent)] opacity-30">···</p>
               ) : (
@@ -653,11 +676,11 @@ export default function DashboardPage() {
               )}
               <p className="text-sm font-medium text-[var(--muted)] mt-1">{t('home.todayKm')}</p>
             </div>
-            <div>
+            <div className="min-w-0">
               {userDataLoading && activities.length === 0 ? (
                 <p className="text-2xl font-extrabold text-[var(--foreground)] opacity-30">···</p>
               ) : (
-                <p className="text-3xl font-extrabold text-[var(--foreground)]">
+                <p className="text-2xl font-extrabold text-[var(--foreground)]">
                   {todayPaceSec ? formatPace(todayPaceSec) : recentPace ? formatPace(recentPace.pace) : '-'}
                 </p>
               )}
@@ -665,7 +688,7 @@ export default function DashboardPage() {
                 {todayPaceSec ? t('home.todayPace') : recentPace ? t('home.recentPace') : t('home.todayPace')}
               </p>
             </div>
-            <div>
+            <div className="min-w-0">
               {userDataLoading && activities.length === 0 && !profileMonthCacheValid ? (
                 <p className="text-2xl font-extrabold text-green-600 opacity-30">···</p>
               ) : (
@@ -673,7 +696,7 @@ export default function DashboardPage() {
               )}
               <p className="text-sm font-medium text-[var(--muted)] mt-1">{t('home.monthKm')}</p>
             </div>
-            <div>
+            <div className="min-w-0">
               {userDataLoading && activities.length === 0 && !profileMonthCacheValid ? (
                 <p className="text-2xl font-extrabold text-lime-600 dark:text-lime-500 opacity-30">···</p>
               ) : (
