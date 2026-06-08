@@ -11,6 +11,8 @@ import AppLogo from '@/components/AppLogo';
 import { useI18n } from '@/lib/i18n';
 import AnalyticsAutoTracker from '@/components/AnalyticsAutoTracker';
 import { fetchUnreadNotificationSummary, markNotificationsRead, SOCIAL_KINDS } from '@/lib/notifications-data';
+import { setAppBadge } from '@/lib/app-badge';
+import { getUnreadCount as getUnreadMessageCount } from '@/lib/message-data';
 
 // 5탭 구조 (build 100 재편): 홈 / 랭킹 / 소셜 / 쇼핑 / 내정보.
 // 지도는 홈 캘린더 아래 미니맵으로 흡수. 랭킹 ↔ 소셜 분리 (이전 /social 의 me, mileage 서브탭이 랭킹으로 이전).
@@ -100,27 +102,34 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // build 261: 소셜 탭 unread 배지. 응원·댓글·팔로우 신규 카운트.
   // mount + 5분마다 + visibility 복귀 + window focus 시 갱신.
   // 소셜 탭 진입 시 자동 markRead → 배지 0 으로 즉시 사라짐.
+  // build 262: 쪽지 unread 도 같이 fetch 해서 iOS 앱 아이콘 배지 합산 (소셜 + 쪽지).
   const [socialUnread, setSocialUnread] = useState(0);
-  const refreshSocialUnread = useCallback(async () => {
-    if (!user) { setSocialUnread(0); return; }
-    const s = await fetchUnreadNotificationSummary();
-    // total - cheer/comment/follow 합 (총합이 안전).
-    setSocialUnread(s.total);
+  const [messageUnread, setMessageUnread] = useState(0);
+  const refreshBadges = useCallback(async () => {
+    if (!user) { setSocialUnread(0); setMessageUnread(0); void setAppBadge(0); return; }
+    const [s, m] = await Promise.all([
+      fetchUnreadNotificationSummary(),
+      getUnreadMessageCount(user.id).catch(() => 0),
+    ]);
+    const social = s.total;
+    setSocialUnread(social);
+    setMessageUnread(m);
+    void setAppBadge(social + m);
   }, [user]);
 
   useEffect(() => {
     if (!user) return;
-    void refreshSocialUnread();
-    const interval = window.setInterval(() => { void refreshSocialUnread(); }, 5 * 60 * 1000);
-    const onVis = () => { if (!document.hidden) void refreshSocialUnread(); };
+    void refreshBadges();
+    const interval = window.setInterval(() => { void refreshBadges(); }, 5 * 60 * 1000);
+    const onVis = () => { if (!document.hidden) void refreshBadges(); };
     document.addEventListener('visibilitychange', onVis);
-    window.addEventListener('focus', refreshSocialUnread);
+    window.addEventListener('focus', refreshBadges);
     return () => {
       window.clearInterval(interval);
       document.removeEventListener('visibilitychange', onVis);
-      window.removeEventListener('focus', refreshSocialUnread);
+      window.removeEventListener('focus', refreshBadges);
     };
-  }, [user, refreshSocialUnread]);
+  }, [user, refreshBadges]);
 
   // 소셜 탭 진입 시 자동 markRead — pathname 이 /social 또는 그 하위 경로면 한 번 호출.
   useEffect(() => {
@@ -128,8 +137,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (!normalizedPath.startsWith('/social')) return;
     // 비동기 시작 — 응답 받지 않고 즉시 0 으로 optimistic update.
     setSocialUnread(0);
+    void setAppBadge(messageUnread); // 앱 아이콘 배지에서 social 분 제거 (쪽지만 남김)
     void markNotificationsRead(SOCIAL_KINDS);
-  }, [user, normalizedPath]);
+  }, [user, normalizedPath, messageUnread]);
 
   // 신문 모델 (build 57): 자동 sync 제거.
   // 첫 로그인 직후 1회만 환영 sync (localStorage flag), 이후엔 사용자가 직접 동기화 버튼을 눌러야 sync.

@@ -11,6 +11,7 @@ class MainViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(WorkoutRoutePlugin())
         bridge?.registerPluginInstance(BackgroundLocationPlugin())
         bridge?.registerPluginInstance(LiveDistancePlugin())
+        bridge?.registerPluginInstance(BadgeManagerPlugin())
         // build 240 임시 진단 — TestFlight/Release 빌드에서도 Safari Web Inspector 접근 가능.
         // SocialLogin 회귀 (Apple/Google 둘 다 즉시 복귀) 원인 추적 후 다음 빌드에서 제거.
         if #available(iOS 16.4, *) {
