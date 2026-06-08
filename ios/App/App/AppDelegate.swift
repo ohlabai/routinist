@@ -53,4 +53,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
     }
+
+    // build 271: APNs 등록 결과를 Capacitor 의 PushNotifications plugin 으로 전달.
+    // 이 두 함수가 없으면 PushNotifications.register() 후 'registration' / 'registrationError'
+    // 이벤트가 영원히 발사 안 됨 → push_device_tokens 테이블 0건 → push 전체 발사 불가.
+    // hans 2026-06-09 진단으로 발견 — 14일간 push_send_log 196건 pending, sent 0건.
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        NotificationCenter.default.post(
+            name: .capacitorDidRegisterForRemoteNotifications,
+            object: deviceToken
+        )
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        NotificationCenter.default.post(
+            name: .capacitorDidFailToRegisterForRemoteNotifications,
+            object: error
+        )
+    }
 }

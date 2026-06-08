@@ -58,8 +58,9 @@ const KIND_COLORS: Record<NotificationKind, string> = {
 function getHref(item: NotificationItem): string {
   switch (item.kind) {
     case 'cheer':
-      // 응원받은 곳 — 정확한 위치는 모르지만 본인 프로필 또는 소셜 탭으로
-      return '/profile';
+      // build 271: 응원 클릭 → 응원 보낸 사람 (actor) 프로필. 답례 응원 가능.
+      // 이전엔 본인 프로필 (/profile) 으로 갔는데 사용자 신고: "알림 내용이 안 나오고 내 프로필만 나옴"
+      return item.actor_id ? `/social/user?id=${item.actor_id}` : '/social?tab=friends';
     case 'photo_comment':
       return item.source_id ? `/photos/${item.source_id}` : '/social?tab=photos';
     case 'activity_comment':
