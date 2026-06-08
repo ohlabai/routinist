@@ -18,6 +18,7 @@ import { ArrowLeft, UserPlus, Check, MapPin, MessageCircle, Gift, Trophy, Award,
 import { getSupabase } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthProvider';
 import { followUser, unfollowUser, isFollowing } from '@/lib/social-data';
+import { sendFriendRequest } from '@/lib/friend-requests-data';
 import { getOrCreateConversation } from '@/lib/message-data';
 import { PUBLIC_PROFILE_FIELDS } from '@/lib/profile-fields';
 import type { Profile } from '@/types';
@@ -151,29 +152,42 @@ function UserProfileContent() {
     })();
   }, [userId, user]);
 
+  // build 265: 친구 추가 = 신청 모델로 전환.
+  // 미친구 클릭 → sendFriendRequest (relevant friend_requests insert, status=pending)
+  //   receiver 가 수락해야 follows 양방향 insert + 본인 알림 (build 264 트리거)
+  // 친구 상태 클릭 → unfollowUser (즉시 해제, 그대로)
+  // optimistic 변경 안 함 (신청 보낸 직후 화면은 그대로 — 토스트로 안내)
+  const [requestSent, setRequestSent] = useState(false);
   const handleToggleFollow = async () => {
     if (!user || toggling) return;
-    const next = !following;
     setToggling(true);
-    setFollowing(next); // optimistic
     try {
-      if (next) {
-        await followUser(userId);
-        setToast({ text: '친구로 추가했어요', tone: 'ok' });
+      if (!following) {
+        // 미친구 → 신청 보내기
+        await sendFriendRequest(userId);
+        setRequestSent(true);
+        setToast({ text: '친구 신청을 보냈어요', tone: 'ok' });
       } else {
+        // 친구 → 해제 (즉시)
         await unfollowUser(userId);
+        setFollowing(false);
+        setRequestSent(false);
         setToast({ text: '친구에서 해제했어요', tone: 'ok' });
       }
     } catch (e) {
-      setFollowing(!next); // 롤백
       const msg = e instanceof Error ? e.message : String(e);
-      logClientWarn('UserProfile', 'follow toggle 실패', { userId, action: next ? 'follow' : 'unfollow', reason: msg });
+      logClientWarn('UserProfile', 'friend toggle 실패', { userId, action: following ? 'unfollow' : 'request', reason: msg });
+      // 양방향 follow 가 이미 있는데 신청 시도 → "이미 친구예요" 인 경우 friendly 처리
       const friendly =
-        msg.includes('duplicate key') || msg.includes('unique') ? '이미 친구로 추가했어요' :
+        msg.includes('이미 친구') ? '이미 친구예요' :
+        msg.includes('duplicate') || msg.includes('unique') ? '이미 신청을 보냈어요' :
         msg.includes('foreign key') ? '존재하지 않는 사용자예요' :
         msg.includes('row-level security') || msg.includes('permission') ? '권한이 없어요. 다시 로그인해보세요' :
-        `친구 ${next ? '추가' : '해제'} 실패 — ${msg.slice(0, 80)}`;
-      setToast({ text: friendly, tone: 'warn' });
+        msg.includes('자기 자신') ? msg :
+        `처리 실패 — ${msg.slice(0, 80)}`;
+      setToast({ text: friendly, tone: friendly.includes('이미') ? 'ok' : 'warn' });
+      if (friendly === '이미 친구예요') setFollowing(true);
+      if (friendly === '이미 신청을 보냈어요') setRequestSent(true);
     } finally {
       setToggling(false);
     }
@@ -352,16 +366,18 @@ function UserProfileContent() {
         <div className="grid grid-cols-3 gap-2">
           <button
             onClick={handleToggleFollow}
-            disabled={toggling}
-            aria-label={following ? '친구 해제' : '친구 추가'}
-            className={`flex flex-col items-center justify-center gap-1 py-3 rounded-2xl text-sm font-semibold transition-all disabled:opacity-50 active:scale-95 ${
+            disabled={toggling || requestSent}
+            aria-label={following ? '친구 해제' : requestSent ? '신청 보냄' : '친구 신청'}
+            className={`flex flex-col items-center justify-center gap-1 py-3 rounded-2xl text-sm font-semibold transition-all disabled:opacity-60 active:scale-95 ${
               following
                 ? 'bg-emerald-500 text-white shadow-sm'
-                : 'bg-white dark:bg-zinc-900 border border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                : requestSent
+                  ? 'bg-amber-50 dark:bg-amber-950/30 border border-amber-300 text-amber-700 dark:text-amber-400'
+                  : 'bg-white dark:bg-zinc-900 border border-emerald-500 text-emerald-600 dark:text-emerald-400'
             }`}
           >
             {following ? <Check size={20} strokeWidth={3} /> : <UserPlus size={20} strokeWidth={2.5} />}
-            <span className="text-xs">{following ? '친구' : '친구 추가'}</span>
+            <span className="text-xs">{following ? '친구' : requestSent ? '신청 보냄' : '친구 신청'}</span>
           </button>
           <button
             onClick={async () => {
