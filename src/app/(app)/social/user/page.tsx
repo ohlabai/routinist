@@ -18,7 +18,7 @@ import { ArrowLeft, UserPlus, Check, MapPin, MessageCircle, Gift, Trophy, Award,
 import { getSupabase } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthProvider';
 import { followUser, unfollowUser, isFollowing } from '@/lib/social-data';
-import { sendFriendRequest } from '@/lib/friend-requests-data';
+import { sendFriendRequest, getFriendshipStatus, cancelFriendRequest, type FriendshipStatus } from '@/lib/friend-requests-data';
 import { getOrCreateConversation } from '@/lib/message-data';
 import { PUBLIC_PROFILE_FIELDS } from '@/lib/profile-fields';
 import type { Profile } from '@/types';
@@ -152,42 +152,59 @@ function UserProfileContent() {
     })();
   }, [userId, user]);
 
-  // build 265: 친구 추가 = 신청 모델로 전환.
-  // 미친구 클릭 → sendFriendRequest (relevant friend_requests insert, status=pending)
-  //   receiver 가 수락해야 follows 양방향 insert + 본인 알림 (build 264 트리거)
-  // 친구 상태 클릭 → unfollowUser (즉시 해제, 그대로)
-  // optimistic 변경 안 함 (신청 보낸 직후 화면은 그대로 — 토스트로 안내)
-  const [requestSent, setRequestSent] = useState(false);
-  const handleToggleFollow = async () => {
+  // build 267: 친구 관계 4상태 (none / request_sent / request_received / friend) 정확히 추적.
+  // get_friendship_status RPC 로 mount 시 단일 조회. 페이지 새로고침 후에도 신청 상태 영구 표시.
+  const [friendStatus, setFriendStatus] = useState<FriendshipStatus>('none');
+  const [friendRequestId, setFriendRequestId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user || user.id === userId) return;
+    let mounted = true;
+    (async () => {
+      const s = await getFriendshipStatus(userId);
+      if (!mounted) return;
+      setFriendStatus(s.status);
+      setFriendRequestId(s.requestId);
+    })();
+    return () => { mounted = false; };
+  }, [user, userId]);
+
+  const handleFriendAction = async () => {
     if (!user || toggling) return;
     setToggling(true);
     try {
-      if (!following) {
-        // 미친구 → 신청 보내기
+      if (friendStatus === 'none') {
         await sendFriendRequest(userId);
-        setRequestSent(true);
+        setFriendStatus('request_sent');
         setToast({ text: '친구 신청을 보냈어요', tone: 'ok' });
-      } else {
-        // 친구 → 해제 (즉시)
+      } else if (friendStatus === 'request_sent' && friendRequestId) {
+        if (!window.confirm('친구 신청을 취소할까요?')) { setToggling(false); return; }
+        await cancelFriendRequest(friendRequestId);
+        setFriendStatus('none');
+        setFriendRequestId(null);
+        setToast({ text: '신청을 취소했어요', tone: 'ok' });
+      } else if (friendStatus === 'friend') {
+        if (!window.confirm('친구에서 해제할까요?')) { setToggling(false); return; }
         await unfollowUser(userId);
+        // unfollowUser 는 단방향 해제. 양방향이라면 한 방향 풀어도 친구 관계 깨짐.
         setFollowing(false);
-        setRequestSent(false);
+        setFriendStatus('none');
         setToast({ text: '친구에서 해제했어요', tone: 'ok' });
+      }
+      // request_received 는 /notifications 에서 수락/거절 → 여기선 안내
+      else if (friendStatus === 'request_received') {
+        setToast({ text: '알림 페이지에서 수락 또는 거절해주세요', tone: 'ok' });
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      logClientWarn('UserProfile', 'friend toggle 실패', { userId, action: following ? 'unfollow' : 'request', reason: msg });
-      // 양방향 follow 가 이미 있는데 신청 시도 → "이미 친구예요" 인 경우 friendly 처리
+      logClientWarn('UserProfile', 'friend action fail', { userId, status: friendStatus, reason: msg });
       const friendly =
         msg.includes('이미 친구') ? '이미 친구예요' :
         msg.includes('duplicate') || msg.includes('unique') ? '이미 신청을 보냈어요' :
         msg.includes('foreign key') ? '존재하지 않는 사용자예요' :
-        msg.includes('row-level security') || msg.includes('permission') ? '권한이 없어요. 다시 로그인해보세요' :
-        msg.includes('자기 자신') ? msg :
+        msg.includes('row-level security') || msg.includes('permission') ? '권한이 없어요' :
         `처리 실패 — ${msg.slice(0, 80)}`;
-      setToast({ text: friendly, tone: friendly.includes('이미') ? 'ok' : 'warn' });
-      if (friendly === '이미 친구예요') setFollowing(true);
-      if (friendly === '이미 신청을 보냈어요') setRequestSent(true);
+      setToast({ text: friendly, tone: friendly.startsWith('이미') ? 'ok' : 'warn' });
     } finally {
       setToggling(false);
     }
@@ -364,21 +381,32 @@ function UserProfileContent() {
         </Link>
       ) : (
         <div className="grid grid-cols-3 gap-2">
-          <button
-            onClick={handleToggleFollow}
-            disabled={toggling || requestSent}
-            aria-label={following ? '친구 해제' : requestSent ? '신청 보냄' : '친구 신청'}
-            className={`flex flex-col items-center justify-center gap-1 py-3 rounded-2xl text-sm font-semibold transition-all disabled:opacity-60 active:scale-95 ${
-              following
-                ? 'bg-emerald-500 text-white shadow-sm'
-                : requestSent
-                  ? 'bg-amber-50 dark:bg-amber-950/30 border border-amber-300 text-amber-700 dark:text-amber-400'
-                  : 'bg-white dark:bg-zinc-900 border border-emerald-500 text-emerald-600 dark:text-emerald-400'
-            }`}
-          >
-            {following ? <Check size={20} strokeWidth={3} /> : <UserPlus size={20} strokeWidth={2.5} />}
-            <span className="text-xs">{following ? '친구' : requestSent ? '신청 보냄' : '친구 신청'}</span>
-          </button>
+          {/* build 267: 4상태 친구 버튼 — none/request_sent/request_received/friend */}
+          {(() => {
+            const labels: Record<FriendshipStatus, string> = {
+              none: '친구 신청',
+              request_sent: '신청 보냄',
+              request_received: '신청 받음',
+              friend: '친구',
+            };
+            const colors: Record<FriendshipStatus, string> = {
+              none: 'bg-white dark:bg-zinc-900 border border-emerald-500 text-emerald-600 dark:text-emerald-400',
+              request_sent: 'bg-amber-50 dark:bg-amber-950/30 border border-amber-300 text-amber-700 dark:text-amber-400',
+              request_received: 'bg-sky-50 dark:bg-sky-950/30 border border-sky-300 text-sky-700 dark:text-sky-400',
+              friend: 'bg-emerald-500 text-white shadow-sm',
+            };
+            return (
+              <button
+                onClick={handleFriendAction}
+                disabled={toggling}
+                aria-label={labels[friendStatus]}
+                className={`flex flex-col items-center justify-center gap-1 py-3 rounded-2xl text-sm font-semibold transition-all disabled:opacity-60 active:scale-95 ${colors[friendStatus]}`}
+              >
+                {friendStatus === 'friend' ? <Check size={20} strokeWidth={3} /> : <UserPlus size={20} strokeWidth={2.5} />}
+                <span className="text-xs">{labels[friendStatus]}</span>
+              </button>
+            );
+          })()}
           <button
             onClick={async () => {
               if (!user) return;

@@ -55,6 +55,48 @@ export async function respondFriendRequest(requestId: string, accept: boolean): 
   }
 }
 
+export type FriendshipStatus = 'none' | 'request_sent' | 'request_received' | 'friend';
+
+export interface FriendshipState {
+  status: FriendshipStatus;
+  requestId: string | null;
+}
+
+export async function getFriendshipStatus(otherUserId: string): Promise<FriendshipState> {
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.rpc('get_friendship_status', {
+      p_other_user_id: otherUserId,
+    });
+    if (error || !data || data.length === 0) {
+      return { status: 'none', requestId: null };
+    }
+    const row = data[0] as { status: FriendshipStatus; request_id: string | null };
+    return { status: row.status ?? 'none', requestId: row.request_id ?? null };
+  } catch (e) {
+    void logClientWarn('friend-requests', 'get status fail', {
+      otherUserId, message: e instanceof Error ? e.message : String(e),
+    });
+    return { status: 'none', requestId: null };
+  }
+}
+
+export async function cancelFriendRequest(requestId: string): Promise<void> {
+  try {
+    const supabase = getSupabase();
+    const { error } = await supabase.rpc('cancel_friend_request', { p_request_id: requestId });
+    if (error) {
+      void logClientWarn('friend-requests', 'cancel fail', { requestId, message: error.message });
+      throw error;
+    }
+  } catch (e) {
+    void logClientWarn('friend-requests', 'cancel fail', {
+      requestId, message: e instanceof Error ? e.message : String(e),
+    });
+    throw e;
+  }
+}
+
 export async function fetchReceivedFriendRequests(): Promise<FriendRequest[]> {
   try {
     const supabase = getSupabase();
