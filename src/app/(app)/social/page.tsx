@@ -165,6 +165,23 @@ function SocialPageInner() {
       {/* 친구 탭 */}
       {activeSection === 'friends' && (
         <div className="space-y-6">
+          {/* build 269: 친구 목록 페이지 진입점 — 양방향 friend / 팔로잉 / 팔로워 3탭 */}
+          <Link
+            href="/social/friends"
+            className="block card p-4 active:scale-[0.99] transition bg-gradient-to-br from-emerald-50/60 to-transparent dark:from-emerald-950/20"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-md shadow-emerald-500/30">
+                <UserIcon size={20} className="text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-extrabold text-[var(--foreground)]">친구 목록</p>
+                <p className="text-xs text-[var(--muted)] mt-0.5 break-keep">친구 / 팔로잉 / 팔로워 한눈에 보기</p>
+              </div>
+              <span className="text-[var(--muted)] text-base font-bold">→</span>
+            </div>
+          </Link>
+
           {/* build 227: 시계열 비교 차트 — 막대 그래프 위에 우선 노출 (추이 정보가 합계보다 인사이트 큼).
               본인 + 팔로잉 친구 최대 5명 선택. 일간 14일 / 주간 8주 토글. */}
           {friendsCompare.length > 1 && (
