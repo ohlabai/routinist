@@ -8,6 +8,7 @@
 // 비-네이티브 환경에서는 noop. 권한 거부 시 silent fail.
 
 import { getSupabase } from './supabase';
+import { logClientInfo, logClientWarn } from './error-logger';
 
 interface CapacitorWindow extends Window {
   Capacitor?: {
@@ -41,7 +42,7 @@ export async function initPushNotifications(opts?: {
 }): Promise<void> {
   if (initialized) return;
   if (!isNative()) {
-    console.log('[push] non-native, skipping');
+    void logClientInfo('push-init', 'skip non-native', {});
     return;
   }
   initialized = true;
@@ -51,19 +52,23 @@ export async function initPushNotifications(opts?: {
 
     // 권한 요청
     let perm = await PushNotifications.checkPermissions();
+    void logClientInfo('push-init', 'permission check', { initial: perm.receive });
     if (perm.receive === 'prompt' || perm.receive === 'prompt-with-rationale') {
       perm = await PushNotifications.requestPermissions();
+      void logClientInfo('push-init', 'permission requested', { after: perm.receive });
     }
     if (perm.receive !== 'granted') {
-      console.log('[push] permission denied');
+      void logClientWarn('push-init', 'permission denied', { receive: perm.receive });
       return;
     }
 
     // 토큰 등록 — register() 가 비동기로 'registration' 이벤트 발사
     await PushNotifications.register();
+    void logClientInfo('push-init', 'register() called', {});
 
     // 등록 완료
     await PushNotifications.addListener('registration', async (token) => {
+      void logClientInfo('push-init', 'registration event', { tokenLen: token.value.length });
       try {
         const supabase = getSupabase();
         const { error } = await supabase.rpc('register_device_token', {
@@ -74,19 +79,19 @@ export async function initPushNotifications(opts?: {
           p_app_build: APP_BUILD,
         });
         if (error) {
-          console.warn('[push] token register RPC fail', error);
+          void logClientWarn('push-init', 'register_device_token RPC fail', { message: error.message });
         } else {
-          console.log('[push] token registered');
+          void logClientInfo('push-init', 'token registered ok', {});
           opts?.onTokenRegistered?.(token.value);
         }
       } catch (e) {
-        console.warn('[push] token save fail', e);
+        void logClientWarn('push-init', 'token save fail', { message: e instanceof Error ? e.message : String(e) });
       }
     });
 
     // 등록 실패
     await PushNotifications.addListener('registrationError', (e) => {
-      console.warn('[push] registration error', e);
+      void logClientWarn('push-init', 'registrationError event', { error: String(e?.error ?? e) });
     });
 
     // 알림 도착 (foreground)
