@@ -663,24 +663,25 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* 5 오늘/이달 4칩. build 154: activities 로딩 중엔 "0.0" 대신 dim 점 표시. */}
-        {/* build 259 #2: 페이스 "48'50" 가 5글자라 옆 칸 (이달 km 53.4) 와 겹치던 회귀.
-            페이스 셀만 text-2xl 로 한 단계 작게 + tabular-nums + gap-3 → gap-x-4 로 칸 사이 여유. */}
+        {/* 5 오늘/이달 stats. build 154: activities 로딩 중엔 "0.0" 대신 dim 점 표시.
+            build 260: 4-column → 2×2 grid 로 재구성. 한 칸만 text-2xl 로 작아져 어색했던 문제 해결.
+            모든 셀 text-3xl 통일, 셀 너비 2배 → 페이스 "48'50" 자릿수 안전. 좌우 대칭 정돈.
+            행 사이 구분선 (divide-y) 으로 시각적 그루핑 (오늘 vs 이달). */}
         <div className="mx-4 card p-5">
-          <div className="grid grid-cols-4 gap-x-4 gap-y-1 text-center tabular-nums">
-            <div className="min-w-0">
+          <div className="grid grid-cols-2 gap-x-6 divide-y divide-[var(--card-border)]/40 text-center tabular-nums">
+            <div className="pb-4 min-w-0">
               {userDataLoading && activities.length === 0 ? (
-                <p className="text-2xl font-extrabold text-[var(--accent)] opacity-30">···</p>
+                <p className="text-3xl font-extrabold text-[var(--accent)] opacity-30">···</p>
               ) : (
                 <p className="text-3xl font-extrabold text-[var(--accent)]">{todayKm.toFixed(1)}</p>
               )}
               <p className="text-sm font-medium text-[var(--muted)] mt-1">{t('home.todayKm')}</p>
             </div>
-            <div className="min-w-0">
+            <div className="pb-4 min-w-0">
               {userDataLoading && activities.length === 0 ? (
-                <p className="text-2xl font-extrabold text-[var(--foreground)] opacity-30">···</p>
+                <p className="text-3xl font-extrabold text-[var(--foreground)] opacity-30">···</p>
               ) : (
-                <p className="text-2xl font-extrabold text-[var(--foreground)]">
+                <p className="text-3xl font-extrabold text-[var(--foreground)]">
                   {todayPaceSec ? formatPace(todayPaceSec) : recentPace ? formatPace(recentPace.pace) : '-'}
                 </p>
               )}
@@ -688,17 +689,17 @@ export default function DashboardPage() {
                 {todayPaceSec ? t('home.todayPace') : recentPace ? t('home.recentPace') : t('home.todayPace')}
               </p>
             </div>
-            <div className="min-w-0">
+            <div className="pt-4 min-w-0">
               {userDataLoading && activities.length === 0 && !profileMonthCacheValid ? (
-                <p className="text-2xl font-extrabold text-green-600 opacity-30">···</p>
+                <p className="text-3xl font-extrabold text-green-600 opacity-30">···</p>
               ) : (
                 <p className="text-3xl font-extrabold text-green-600">{monthlyDistance.toFixed(1)}</p>
               )}
               <p className="text-sm font-medium text-[var(--muted)] mt-1">{t('home.monthKm')}</p>
             </div>
-            <div className="min-w-0">
+            <div className="pt-4 min-w-0">
               {userDataLoading && activities.length === 0 && !profileMonthCacheValid ? (
-                <p className="text-2xl font-extrabold text-lime-600 dark:text-lime-500 opacity-30">···</p>
+                <p className="text-3xl font-extrabold text-lime-600 dark:text-lime-500 opacity-30">···</p>
               ) : (
                 <p className="text-3xl font-extrabold text-lime-600 dark:text-lime-500">{monthlyRunDays}</p>
               )}
