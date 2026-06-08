@@ -69,6 +69,21 @@ async function getApnsToken(): Promise<string> {
   return jwt;
 }
 
+// build 273: APN HTTPS API 는 HTTP/2 강제. Vercel Node runtime 의 native fetch (undici 내장)
+// 는 default 에서 HTTP/1.1 + ALPN h2 negotiation 안 함 → "fetch failed".
+// undici Client 를 allowH2:true 로 명시 생성. 14일간 push 발사 0건 의 진짜 원인이었음.
+let undiciClientProd: import('undici').Client | null = null;
+let undiciClientDev: import('undici').Client | null = null;
+async function getH2Client(host: string): Promise<import('undici').Client> {
+  const { Client } = await import('undici');
+  if (host === APN_HOST_PROD) {
+    if (!undiciClientProd) undiciClientProd = new Client(`https://${host}`, { allowH2: true });
+    return undiciClientProd;
+  }
+  if (!undiciClientDev) undiciClientDev = new Client(`https://${host}`, { allowH2: true });
+  return undiciClientDev;
+}
+
 async function sendApn(deviceToken: string, payload: { title: string; body: string; data: Record<string, unknown>; badge: number }): Promise<{ ok: boolean; reason?: string }> {
   const bundleId = process.env.APN_BUNDLE_ID || 'com.routinist.app';
   const useSandbox = process.env.APN_USE_SANDBOX === 'true';
@@ -86,10 +101,12 @@ async function sendApn(deviceToken: string, payload: { title: string; body: stri
     ...payload.data,
   };
 
-  const r = await fetch(`https://${host}/3/device/${deviceToken}`, {
+  const client = await getH2Client(host);
+  const { statusCode, body } = await client.request({
+    path: `/3/device/${deviceToken}`,
     method: 'POST',
     headers: {
-      'authorization': `bearer ${jwt}`,
+      authorization: `bearer ${jwt}`,
       'apns-topic': bundleId,
       'apns-push-type': 'alert',
       'apns-priority': '10',
@@ -98,9 +115,13 @@ async function sendApn(deviceToken: string, payload: { title: string; body: stri
     body: JSON.stringify(apnsPayload),
   });
 
-  if (r.status === 200) return { ok: true };
-  const text = await r.text();
-  return { ok: false, reason: `${r.status}: ${text.slice(0, 300)}` };
+  if (statusCode === 200) {
+    // body 소비 (connection 재활용)
+    await body.text();
+    return { ok: true };
+  }
+  const text = await body.text();
+  return { ok: false, reason: `${statusCode}: ${text.slice(0, 300)}` };
 }
 
 export async function POST(req: NextRequest) {
