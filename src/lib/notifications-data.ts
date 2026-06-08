@@ -58,3 +58,36 @@ export async function markNotificationsRead(kinds: string[] | null = null): Prom
 // 소셜 탭이 다루는 알림 종류 — 응원 + 댓글 + 팔로우.
 // 쪽지는 messages 시스템 (build 258) 으로 별도 추적.
 export const SOCIAL_KINDS = ['cheer', 'photo_comment', 'activity_comment', 'follow'];
+
+export type NotificationKind = 'cheer' | 'photo_comment' | 'activity_comment' | 'follow';
+
+export interface NotificationItem {
+  id: string;
+  kind: NotificationKind;
+  source_id: string | null;
+  actor_id: string | null;
+  actor_display_name: string | null;
+  actor_avatar_url: string | null;
+  preview: string | null;
+  created_at: string;
+  read_at: string | null;
+}
+
+export async function fetchNotificationsList(limit = 100, offset = 0): Promise<NotificationItem[]> {
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.rpc('fetch_notifications_list', {
+      p_limit: limit, p_offset: offset,
+    });
+    if (error) {
+      void logClientWarn('notifications', 'list fetch fail', { message: error.message });
+      return [];
+    }
+    return (data ?? []) as NotificationItem[];
+  } catch (e) {
+    void logClientWarn('notifications', 'list fetch fail', {
+      message: e instanceof Error ? e.message : String(e),
+    });
+    return [];
+  }
+}

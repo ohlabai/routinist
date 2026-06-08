@@ -13,7 +13,8 @@ import UserRow from '@/components/social/UserRow';
 import PhotosTab from '@/components/photos/PhotosTab';
 import QuotesTab from '@/components/social/QuotesTab';
 import MultiUserTimeSeriesChart, { type CompareUser } from '@/components/charts/MultiUserTimeSeriesChart';
-import { User as UserIcon, Users, Search, Plus, MapPin, Camera, Trophy, MessageSquare } from 'lucide-react';
+import { User as UserIcon, Users, Search, Plus, MapPin, Camera, Trophy, MessageSquare, Bell } from 'lucide-react';
+import { fetchUnreadNotificationSummary } from '@/lib/notifications-data';
 import { startOfWeekStr, startOfMonthStr } from '@/lib/kst';
 import type { Profile, Club } from '@/types';
 import AppLogo from '@/components/AppLogo';
@@ -36,6 +37,23 @@ function startOfMonth(): string {
 }
 
 type ComparePeriod = 'week' | 'month';
+
+// build 263: 종 아이콘 위 빨간 카운트. /social 진입 시 layout 의 markRead 가 발사돼서
+// 잠시 후 0 으로. 그래도 사용자가 새로고침 없이 다시 진입 시 fresh fetch.
+function NotificationBellBadge() {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    let mounted = true;
+    fetchUnreadNotificationSummary().then(s => { if (mounted) setCount(s.total); }).catch(() => {});
+    return () => { mounted = false; };
+  }, []);
+  if (count <= 0) return null;
+  return (
+    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center leading-none shadow-md shadow-rose-500/30 tabular-nums">
+      {count > 99 ? '99+' : count}
+    </span>
+  );
+}
 
 function SocialPageInner() {
   const { user, profile } = useAuth();
@@ -107,11 +125,19 @@ function SocialPageInner() {
 
   return (
     <div className="max-w-lg mx-auto pb-12 bg-[var(--background)] min-h-screen">
-      {/* Sticky Header */}
+      {/* Sticky Header — build 263: 우측 종 아이콘 → /notifications. 알림 unread 표시는 layout 의 탭배지로 분담. */}
       <header className="sticky top-0 z-30 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
         <div className="px-4 py-3 flex items-center gap-2">
           <AppLogo size={28} />
           <h1 className="text-xl font-extrabold tracking-tight">{t('social.title')}</h1>
+          <Link
+            href="/notifications"
+            aria-label="Notifications"
+            className="ml-auto relative w-10 h-10 rounded-full flex items-center justify-center hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90"
+          >
+            <Bell size={20} strokeWidth={1.8} />
+            <NotificationBellBadge />
+          </Link>
         </div>
       </header>
 
