@@ -5,13 +5,16 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Bell, Trophy, Users, Award, MessageSquare, TrendingUp, Megaphone, Flag, Save } from 'lucide-react';
+import { ArrowLeft, Bell, Trophy, Users, Award, MessageSquare, TrendingUp, Megaphone, Flag, Save, Heart, UserPlus } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import AppToast from '@/components/AppToast';
 import { useI18n } from '@/lib/i18n';
 
-type CategoryKey = 'chat_message' | 'mileage_gift' | 'feedback_reply' | 'likes' | 'friend_overtake' | 'milestone' | 'contest' | 'club_course' | 'weekly_recap' | 'marketing';
+// build 268: build 261/264/266 의 user_notifications push 카테고리 추가.
+// social_cheer / social_comment / social_follow / social_friend 4종.
+type CategoryKey = 'chat_message' | 'mileage_gift' | 'feedback_reply' | 'likes' | 'friend_overtake' | 'milestone' | 'contest' | 'club_course' | 'weekly_recap' | 'marketing'
+  | 'social_cheer' | 'social_comment' | 'social_follow' | 'social_friend';
 
 // build 175 #5: 핵심 알림 4종을 상단에 노출 — 채팅·선물·답글·좋아요. 기본 ON.
 // 친선런(contest) 은 메뉴 숨김 (build 144) 과 동일하게 알림 설정에서도 표시 안 함.
@@ -21,9 +24,13 @@ type CategoryDef = { key: CategoryKey; label: string; description: string; Icon:
 function getCategories(tt: (ko: string) => string, locale: 'ko' | 'en'): CategoryDef[] {
   return [
     { key: 'chat_message', label: tt('채팅 메시지'), description: tt('새 쪽지·채팅이 도착했을 때'), Icon: MessageSquare },
+    { key: 'social_cheer', label: tt('응원'), description: locale === 'en' ? 'When someone cheers you directly' : '다른 러너가 나에게 응원을 보냈을 때', Icon: Heart },
+    { key: 'social_comment', label: tt('댓글'), description: locale === 'en' ? 'When someone comments on your photo or activity' : '내 사진·활동에 댓글이 달렸을 때', Icon: MessageSquare },
+    { key: 'social_friend', label: tt('친구 신청·수락'), description: locale === 'en' ? 'Friend requests received and accepted' : '친구 신청을 받거나 내 신청이 수락됐을 때', Icon: UserPlus },
+    { key: 'social_follow', label: tt('새 친구'), description: locale === 'en' ? 'When someone adds you as a friend (instant follow)' : '다른 러너가 나를 친구로 추가했을 때', Icon: Users },
     { key: 'mileage_gift', label: tt('마일리지 선물'), description: tt('다른 러너에게 선물을 받았을 때'), Icon: Award },
     { key: 'feedback_reply', label: tt('운영자 답글'), description: tt('내 제안에 운영자가 답글을 달았을 때'), Icon: MessageSquare },
-    { key: 'likes', label: tt('좋아요·응원'), description: locale === 'en' ? 'When someone likes or cheers your photo, note, or activity' : '내 사진·한 줄·활동에 좋아요/응원이 도착했을 때', Icon: Users },
+    { key: 'likes', label: tt('좋아요'), description: locale === 'en' ? 'When someone likes your photo or note' : '내 사진·한 줄에 좋아요가 도착했을 때', Icon: Heart },
     { key: 'friend_overtake', label: locale === 'en' ? 'Friend overtake' : '친구 추월', description: locale === 'en' ? 'When a friend passes your km, or you pass theirs' : '친구가 내 km 를 추월하거나 내가 추월했을 때', Icon: Users },
     { key: 'milestone', label: locale === 'en' ? 'My records' : '나의 기록', description: locale === 'en' ? 'Reaching #1, longest distance, etc.' : '1위 등극, 최장 거리 갱신 등', Icon: TrendingUp },
     { key: 'club_course', label: locale === 'en' ? 'Club marathon' : '클럽 마라톤', description: locale === 'en' ? 'Club course start and finish alerts' : '클럽 코스 시작·완주 알림', Icon: Flag },
@@ -43,6 +50,11 @@ const DEFAULTS: Record<CategoryKey, boolean> = {
   club_course: true,
   weekly_recap: true,
   marketing: false,
+  // build 268: 신규 4종 — 기본 ON. should_send_push 는 default TRUE 라 일관성 맞춤.
+  social_cheer: true,
+  social_comment: true,
+  social_follow: true,
+  social_friend: true,
 };
 
 export default function PushSettingsPage() {
