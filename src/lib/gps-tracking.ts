@@ -21,6 +21,9 @@ export interface TrackingState {
   coords: Coord[];            // [lng, lat, alt, ts] (GeoJSON LineString 호환)
   status: 'active' | 'paused' | 'idle';
   lastTickAt: number;         // 직전 tick epoch ms (시간 누적용)
+  // build 257: 자동 일시정지 플래그. 신호 대기 / 카페 입장 등 사용자가 명시적으로 누른 게 아니라
+  // 시스템이 멈춘 상태. 사용자가 직접 paused 상태로 가면 false 유지 (자동 재개 차단).
+  autoPaused?: boolean;
 }
 
 const STORAGE_KEY = 'routinist:gps-tracking-v1';
@@ -298,6 +301,66 @@ export function tickElapsed(state: TrackingState, now: number): void {
   const delta = (now - state.lastTickAt) / 1000;
   if (delta > 0) state.elapsedSeconds += delta;
   state.lastTickAt = now;
+}
+
+// build 257: 자동 일시정지 임계값.
+// 마지막 좌표 이후 12초 동안 새 좌표가 안 들어오면 멈춘 것으로 간주 (신호 대기, 카페 입장 등).
+// MIN_MOVE_METERS=3m 필터 때문에 정지 시 좌표 자체가 안 들어오므로 시간 기반 검출이 적합.
+// 너무 짧으면 (5초) 횡단보도에서 false-positive, 너무 길면 (30초) 시간 부풀림. 12s 가 균형.
+const AUTO_PAUSE_THRESHOLD_MS = 12_000;
+
+/**
+ * tick interval 에서 호출. 마지막 좌표가 일정 시간 이상 안 들어왔으면 자동 일시정지로 전환.
+ * 반환값: 상태 변화가 발생했는지 (UI 리렌더 trigger 용).
+ */
+export function detectAutoPause(state: TrackingState, now: number): boolean {
+  if (state.status !== 'active') return false;
+  const last = state.coords[state.coords.length - 1];
+  if (!last) return false;
+  const sinceMs = now - last[3];
+  if (sinceMs < AUTO_PAUSE_THRESHOLD_MS) return false;
+  state.status = 'paused';
+  state.autoPaused = true;
+  return true;
+}
+
+/**
+ * 새 좌표 도착 시 자동 일시정지였으면 자동 재개. 사용자가 명시적으로 paused 한 경우는
+ * autoPaused=false 라 자동 재개 안 됨 — 수동 재개 버튼만 트리거.
+ */
+export function detectAutoResume(state: TrackingState, now: number): boolean {
+  if (state.status !== 'paused' || !state.autoPaused) return false;
+  state.status = 'active';
+  state.autoPaused = false;
+  // 자동 일시정지 동안 흐른 시간은 elapsedSeconds 에서 제외돼야 하므로 lastTickAt 재설정.
+  state.lastTickAt = now;
+  return true;
+}
+
+// build 257: GPS jitter 제거용 좌표 smoothing (운동 후 시각화 단순화).
+// moving-average window=5 (좌우 2 점). distance 누적은 보존 — coords 만 부드럽게 만듦.
+// 시작·종료 지점은 window 가 작아지므로 약간 흐려지지만 폴리라인 시각화상 무시 가능.
+//
+// 의도적으로 distance 재계산 안 함:
+//   - 사용자가 운동 중에 본 거리와 저장된 거리가 달라지면 혼란
+//   - distance 정확도는 build 254 의 HealthKit 보정이 담당
+//   - 이 함수는 "지도에 보이는 폴리라인" 만 부드럽게
+export function smoothCoords(coords: Coord[]): Coord[] {
+  if (coords.length < 5) return coords;
+  const W = 2; // window radius → 5-point moving average
+  const out: Coord[] = new Array(coords.length);
+  for (let i = 0; i < coords.length; i++) {
+    let sumLng = 0, sumLat = 0, count = 0;
+    const start = Math.max(0, i - W);
+    const end = Math.min(coords.length - 1, i + W);
+    for (let j = start; j <= end; j++) {
+      sumLng += coords[j][0];
+      sumLat += coords[j][1];
+      count++;
+    }
+    out[i] = [sumLng / count, sumLat / count, coords[i][2], coords[i][3]];
+  }
+  return out;
 }
 
 export function formatDuration(seconds: number): string {

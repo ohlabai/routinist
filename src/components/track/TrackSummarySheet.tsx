@@ -12,6 +12,7 @@ import { getSupabase } from '@/lib/supabase';
 import {
   type TrackingState, formatDuration, formatDistanceKm,
   averagePaceSecondsPerKm, formatPace, haversineMeters,
+  smoothCoords,
 } from '@/lib/gps-tracking';
 import RouteMap from '@/components/map/RouteMap';
 import type { GeoJSONLineString } from '@/types';
@@ -86,9 +87,12 @@ export default function TrackSummarySheet({ finalState, userId, onClose }: Props
   const splits = useMemo(() => computeKmSplits(finalState.coords), [finalState.coords]);
 
   // build 151 호환 — [lng, lat, alt, ts(unix sec)] 4-tuple. MP4 공유 시 timestamp 로 실제 페이스 라인 속도.
+  // build 257: GPS jitter 제거를 위해 좌표를 5-point moving-average 로 smoothing.
+  // distance / pace 는 원본 GPS 누적 보존 (HealthKit 보정이 별도 처리). 폴리라인 시각화만 부드럽게.
+  const smoothed = smoothCoords(finalState.coords);
   const routeData: GeoJSONLineString = {
     type: 'LineString',
-    coordinates: finalState.coords.map(([lng, lat, alt, ts]) => [lng, lat, alt, Math.round(ts / 1000)]) as [number, number, number?, number?][],
+    coordinates: smoothed.map(([lng, lat, alt, ts]) => [lng, lat, alt, Math.round(ts / 1000)]) as [number, number, number?, number?][],
   };
 
   const handleSave = async () => {

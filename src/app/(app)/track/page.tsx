@@ -26,6 +26,7 @@ import {
   requestLocationPermission, checkLocationPermission, getCurrentLocation,
   startWatcher, type WatcherHandle,
   appendCoord, tickElapsed, formatDistanceKm,
+  detectAutoPause, detectAutoResume,
 } from '@/lib/gps-tracking';
 
 // build 213 #7: 카운트다운 타이밍 상수 — 튜닝 쉽게.
@@ -316,7 +317,23 @@ export default function TrackPage() {
     startWatcher((c) => {
       if (!mounted) return;
       setState(prev => {
-        if (!prev || prev.status !== 'active') return prev;
+        if (!prev) return prev;
+        // build 257: 자동 일시정지 상태였으면 새 좌표가 들어왔으므로 재개.
+        // 사용자가 직접 paused 한 경우 (autoPaused=false) 는 무시 — 명시적 재개 버튼만 트리거.
+        if (prev.status === 'paused' && prev.autoPaused) {
+          const resumed: TrackingState = { ...prev, coords: [...prev.coords] };
+          detectAutoResume(resumed, Date.now());
+          appendCoord(resumed, c);
+          if (mapRef.current && polylineRef.current && youMarkerRef.current) {
+            const ll = { lat: c.lat, lng: c.lng };
+            youMarkerRef.current.setPosition(ll);
+            polylineRef.current.setPath(resumed.coords.map(([lng, lat]) => ({ lat, lng })));
+            mapRef.current.panTo(ll);
+          }
+          saveState(resumed);
+          return resumed;
+        }
+        if (prev.status !== 'active') return prev;
         const next: TrackingState = { ...prev, coords: [...prev.coords] };
         const prevMeters = prev.distanceMeters;
         const moved = appendCoord(next, c);
@@ -374,8 +391,15 @@ export default function TrackPage() {
     let saveCounter = 0;
     tickRef.current = setInterval(() => {
       setState(prev => {
-        if (!prev || prev.status !== 'active') return prev;
+        if (!prev) return prev;
+        if (prev.status === 'idle') return prev;
         const next: TrackingState = { ...prev };
+        // build 257: active 일 때만 자동 일시정지 검출. 좌표가 12초 이상 안 들어오면
+        // 신호 대기 / 카페 입장 등으로 판단하고 paused 로 전환 → 시간 누적 중단.
+        if (next.status === 'active') {
+          detectAutoPause(next, Date.now());
+        }
+        // tickElapsed 는 status !== 'active' 면 자체적으로 시간 누적 안 함.
         tickElapsed(next, Date.now());
         saveCounter++;
         if (saveCounter >= 50) { saveState(next); saveCounter = 0; }
@@ -511,6 +535,8 @@ export default function TrackPage() {
   const hasState = state !== null;
   const isActive = hasState && state!.status === 'active';
   const isPaused = hasState && state!.status === 'paused';
+  // build 257: 자동 일시정지 시각 구분 — 사용자가 직접 누른 게 아니라 시스템이 멈춘 것.
+  const isAutoPaused = isPaused && (state?.autoPaused ?? false);
 
   // build 208 #2: Garmin/Nike 스타일 — 시작됨 표시 명확.
   // - 상단 헤더에 펄스 LIVE 배지 (active 일 때만)
@@ -533,7 +559,9 @@ export default function TrackPage() {
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-base font-extrabold tracking-tight">
-          {hasState ? (isPaused ? tt('일시정지') : tt('달리는 중')) : tt('달리기 준비')}
+          {hasState ? (
+            isPaused ? (isAutoPaused ? tt('자동 일시정지') : tt('일시정지')) : tt('달리는 중')
+          ) : tt('달리기 준비')}
         </h1>
         {isActive && (
           <div className="ml-auto inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/40">
@@ -546,11 +574,22 @@ export default function TrackPage() {
             </span>
           </div>
         )}
-        {isPaused && (
+        {isPaused && !isAutoPaused && (
           <div className="ml-auto inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/40">
             <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
             <span className="text-sm font-extrabold text-amber-600 dark:text-amber-400 tracking-wider leading-none">
               {locale === 'en' ? 'PAUSED' : '일시정지'}
+            </span>
+          </div>
+        )}
+        {isAutoPaused && (
+          <div className="ml-auto inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sky-500/10 border border-sky-500/40">
+            <span className="relative flex w-2.5 h-2.5">
+              <span className="absolute inset-0 rounded-full bg-sky-500 opacity-75 animate-pulse" />
+              <span className="relative rounded-full w-2.5 h-2.5 bg-sky-500" />
+            </span>
+            <span className="text-sm font-extrabold text-sky-600 dark:text-sky-400 tracking-wider leading-none">
+              {locale === 'en' ? 'AUTO PAUSED' : '자동 일시정지'}
             </span>
           </div>
         )}
