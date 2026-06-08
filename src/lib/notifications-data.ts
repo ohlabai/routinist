@@ -55,11 +55,12 @@ export async function markNotificationsRead(kinds: string[] | null = null): Prom
   }
 }
 
-// 소셜 탭이 다루는 알림 종류 — 응원 + 댓글 + 팔로우.
+// 소셜 탭이 다루는 알림 종류 — 응원 + 댓글 + 팔로우 + 친구 신청·수락.
 // 쪽지는 messages 시스템 (build 258) 으로 별도 추적.
-export const SOCIAL_KINDS = ['cheer', 'photo_comment', 'activity_comment', 'follow'];
+// build 264: friend_request, friend_accepted 추가.
+export const SOCIAL_KINDS = ['cheer', 'photo_comment', 'activity_comment', 'follow', 'friend_request', 'friend_accepted'];
 
-export type NotificationKind = 'cheer' | 'photo_comment' | 'activity_comment' | 'follow';
+export type NotificationKind = 'cheer' | 'photo_comment' | 'activity_comment' | 'follow' | 'friend_request' | 'friend_accepted';
 
 export interface NotificationItem {
   id: string;

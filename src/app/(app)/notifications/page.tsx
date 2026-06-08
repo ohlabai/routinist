@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Heart, MessageSquare, UserPlus, Bell } from 'lucide-react';
+import { ArrowLeft, Heart, MessageSquare, UserPlus, Bell, Check, X } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -17,6 +17,7 @@ import {
   type NotificationItem,
   type NotificationKind,
 } from '@/lib/notifications-data';
+import { respondFriendRequest } from '@/lib/friend-requests-data';
 
 function timeAgo(iso: string, locale: 'ko' | 'en' = 'ko'): string {
   const ms = Date.now() - new Date(iso).getTime();
@@ -39,6 +40,8 @@ const KIND_ICONS: Record<NotificationKind, typeof Heart> = {
   photo_comment: MessageSquare,
   activity_comment: MessageSquare,
   follow: UserPlus,
+  friend_request: UserPlus,
+  friend_accepted: Check,
 };
 
 const KIND_COLORS: Record<NotificationKind, string> = {
@@ -46,6 +49,8 @@ const KIND_COLORS: Record<NotificationKind, string> = {
   photo_comment: 'bg-sky-100 text-sky-600 dark:bg-sky-950/40 dark:text-sky-400',
   activity_comment: 'bg-sky-100 text-sky-600 dark:bg-sky-950/40 dark:text-sky-400',
   follow: 'bg-violet-100 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400',
+  friend_request: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400',
+  friend_accepted: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400',
 };
 
 // 알림 클릭 시 라우팅. 각 kind 가 가리키는 컨텐츠로 이동.
@@ -60,6 +65,8 @@ function getHref(item: NotificationItem): string {
     case 'activity_comment':
       return item.source_id ? `/activity?id=${item.source_id}` : '/dashboard';
     case 'follow':
+    case 'friend_request':
+    case 'friend_accepted':
       return item.actor_id ? `/social/user?id=${item.actor_id}` : '/social?tab=friends';
   }
 }
@@ -71,6 +78,8 @@ function describeKind(kind: NotificationKind, actorName: string, locale: 'ko' | 
       case 'photo_comment': return `${actorName} commented on your photo`;
       case 'activity_comment': return `${actorName} commented on your activity`;
       case 'follow': return `${actorName} started following you`;
+      case 'friend_request': return `${actorName} sent you a friend request`;
+      case 'friend_accepted': return `${actorName} accepted your friend request`;
     }
   }
   switch (kind) {
@@ -78,6 +87,8 @@ function describeKind(kind: NotificationKind, actorName: string, locale: 'ko' | 
     case 'photo_comment': return `${actorName}님이 사진에 댓글을 남겼어요`;
     case 'activity_comment': return `${actorName}님이 활동에 댓글을 남겼어요`;
     case 'follow': return `${actorName}님이 친구로 추가했어요`;
+    case 'friend_request': return `${actorName}님이 친구 신청을 보냈어요`;
+    case 'friend_accepted': return `${actorName}님이 친구 신청을 수락했어요`;
   }
 }
 
@@ -87,6 +98,7 @@ export default function NotificationsPage() {
   const { tt, locale } = useI18n();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [respondingId, setRespondingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -103,6 +115,22 @@ export default function NotificationsPage() {
     })();
     return () => { mounted = false; };
   }, [user, authLoading, router]);
+
+  // build 264: friend_request 카드 inline accept/reject. source_id 가 friend_requests.id.
+  const handleRespond = async (item: NotificationItem, accept: boolean) => {
+    if (!item.source_id || respondingId) return;
+    setRespondingId(item.id);
+    try {
+      await respondFriendRequest(item.source_id, accept);
+      // 응답 끝나면 화면에서 그 알림은 dim 처리 + kind 변경
+      setItems(prev => prev.map(p => p.id === item.id ? { ...p, kind: accept ? 'friend_accepted' : p.kind, read_at: new Date().toISOString() } : p));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      window.alert(msg);
+    } finally {
+      setRespondingId(null);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[var(--background)] flex flex-col">
@@ -150,20 +178,13 @@ export default function NotificationsPage() {
               const iconColor = KIND_COLORS[item.kind];
               const actorName = item.actor_display_name || tt('알 수 없음');
               const isUnread = !item.read_at;
-              return (
-                <Link
-                  key={item.id}
-                  href={getHref(item)}
-                  className={`card flex items-start gap-3 p-4 transition active:scale-[0.98] ${isUnread ? 'bg-emerald-50/40 dark:bg-emerald-950/15 border-emerald-200/40 dark:border-emerald-800/30' : ''}`}
-                >
-                  {/* actor avatar 또는 kind icon */}
+              const isFriendRequest = item.kind === 'friend_request';
+
+              const inner = (
+                <>
                   {item.actor_avatar_url ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
-                      src={item.actor_avatar_url}
-                      alt=""
-                      className="w-10 h-10 rounded-full object-cover shrink-0"
-                    />
+                    <img src={item.actor_avatar_url} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
                   ) : (
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${iconColor}`}>
                       <Icon size={18} strokeWidth={2} />
@@ -173,10 +194,10 @@ export default function NotificationsPage() {
                     <p className="text-sm text-[var(--foreground)] break-keep">
                       <span className="font-extrabold">{actorName}</span>
                       <span className="font-medium">
-                        {describeKind(item.kind, '', locale).replace(actorName, '').replace(/^(님이?|sent|commented|started)/, ' $1')}
+                        {describeKind(item.kind, '', locale).replace(actorName, '').replace(/^(님이?|sent|commented|started|accepted)/, ' $1')}
                       </span>
                     </p>
-                    {item.preview && (item.kind === 'photo_comment' || item.kind === 'activity_comment') && (
+                    {item.preview && (item.kind === 'photo_comment' || item.kind === 'activity_comment' || item.kind === 'friend_request') && (
                       <p className="text-[13px] text-[var(--muted)] mt-0.5 break-keep line-clamp-2">
                         &ldquo;{item.preview}&rdquo;
                       </p>
@@ -187,10 +208,49 @@ export default function NotificationsPage() {
                     <p className="text-[11px] text-[var(--muted)] mt-1">
                       {timeAgo(item.created_at, locale)}
                     </p>
+                    {/* build 264: friend_request 카드 inline accept/reject */}
+                    {isFriendRequest && (
+                      <div className="flex gap-2 mt-3">
+                        <button
+                          onClick={(e) => { e.preventDefault(); void handleRespond(item, true); }}
+                          disabled={respondingId === item.id}
+                          className="px-4 py-1.5 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-xs font-extrabold active:scale-95 shadow-md shadow-emerald-500/20 disabled:opacity-50"
+                        >
+                          <Check size={13} className="inline mr-1" strokeWidth={2.5} />
+                          {tt('수락')}
+                        </button>
+                        <button
+                          onClick={(e) => { e.preventDefault(); void handleRespond(item, false); }}
+                          disabled={respondingId === item.id}
+                          className="px-4 py-1.5 rounded-full bg-[var(--card-border)]/50 text-[var(--muted)] text-xs font-extrabold active:scale-95 disabled:opacity-50"
+                        >
+                          <X size={13} className="inline mr-1" strokeWidth={2.5} />
+                          {tt('거절')}
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  {isUnread && (
+                  {isUnread && !isFriendRequest && (
                     <span className="shrink-0 w-2 h-2 rounded-full bg-emerald-500 mt-2" />
                   )}
+                </>
+              );
+
+              // friend_request 는 inline 버튼이라 카드 전체 Link 안 함. actor 영역만 별도 Link 가능하지만 단순화.
+              if (isFriendRequest) {
+                return (
+                  <div key={item.id} className={`card flex items-start gap-3 p-4 ${isUnread ? 'bg-emerald-50/40 dark:bg-emerald-950/15 border-emerald-200/40 dark:border-emerald-800/30' : ''}`}>
+                    {inner}
+                  </div>
+                );
+              }
+              return (
+                <Link
+                  key={item.id}
+                  href={getHref(item)}
+                  className={`card flex items-start gap-3 p-4 transition active:scale-[0.98] ${isUnread ? 'bg-emerald-50/40 dark:bg-emerald-950/15 border-emerald-200/40 dark:border-emerald-800/30' : ''}`}
+                >
+                  {inner}
                 </Link>
               );
             })}
