@@ -166,21 +166,37 @@ function SocialPageInner() {
       {activeSection === 'friends' && (
         <div className="space-y-6">
           {/* build 269: 친구 목록 페이지 진입점 — 양방향 friend / 팔로잉 / 팔로워 3탭 */}
-          <Link
-            href="/social/friends"
-            className="block card p-4 active:scale-[0.99] transition bg-gradient-to-br from-emerald-50/60 to-transparent dark:from-emerald-950/20"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-md shadow-emerald-500/30">
-                <UserIcon size={20} className="text-white" />
+          {/* build 277: 친구 피드 페이지 진입점 — 친구 최근 활동 시계열 */}
+          <div className="grid grid-cols-2 gap-3">
+            <Link
+              href="/social/friends"
+              className="block card p-3 active:scale-[0.99] transition bg-gradient-to-br from-emerald-50/60 to-transparent dark:from-emerald-950/20"
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-md shadow-emerald-500/30">
+                  <UserIcon size={16} className="text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-extrabold text-[var(--foreground)]">친구 목록</p>
+                  <p className="text-[10px] text-[var(--muted)] mt-0.5">친구·팔로잉·팔로워</p>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-extrabold text-[var(--foreground)]">친구 목록</p>
-                <p className="text-xs text-[var(--muted)] mt-0.5 break-keep">친구 / 팔로잉 / 팔로워 한눈에 보기</p>
+            </Link>
+            <Link
+              href="/social/feed"
+              className="block card p-3 active:scale-[0.99] transition bg-gradient-to-br from-amber-50/60 to-transparent dark:from-amber-950/20"
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center flex-shrink-0 shadow-md shadow-amber-500/30">
+                  <Trophy size={16} className="text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-extrabold text-[var(--foreground)]">친구 피드</p>
+                  <p className="text-[10px] text-[var(--muted)] mt-0.5">최근 친구 활동</p>
+                </div>
               </div>
-              <span className="text-[var(--muted)] text-base font-bold">→</span>
-            </div>
-          </Link>
+            </Link>
+          </div>
 
           {/* build 227: 시계열 비교 차트 — 막대 그래프 위에 우선 노출 (추이 정보가 합계보다 인사이트 큼).
               본인 + 팔로잉 친구 최대 5명 선택. 일간 14일 / 주간 8주 토글. */}
