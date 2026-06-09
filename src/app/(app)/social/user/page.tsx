@@ -19,6 +19,7 @@ import { getSupabase } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthProvider';
 import { followUser, unfollowUser, isFollowing } from '@/lib/social-data';
 import { sendFriendRequest, getFriendshipStatus, cancelFriendRequest, type FriendshipStatus } from '@/lib/friend-requests-data';
+import CheerButton from '@/components/social/CheerButton';
 import { getOrCreateConversation } from '@/lib/message-data';
 import { PUBLIC_PROFILE_FIELDS } from '@/lib/profile-fields';
 import type { Profile } from '@/types';
@@ -367,6 +368,18 @@ function UserProfileContent() {
           </div>
         </div>
       </div>
+
+      {/* build 274: 응원 보내기 카드 — 친구/쪽지/마일리지 위쪽. emoji picker 5종.
+          CheerButton 컴포넌트는 같은 emoji 주 1회 제한 + optimistic UI. */}
+      {user && !isMe && (
+        <div className="card p-4 flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-extrabold text-[var(--foreground)]">응원 보내기</p>
+            <p className="text-xs text-[var(--muted)] mt-0.5">매주 한 번씩 이모지로 응원해보세요</p>
+          </div>
+          <CheerButton toUserId={profile.id} context="profile" />
+        </div>
+      )}
 
       {/* 액션 — 친구 / 쪽지 / 마일리지 선물.
           본인 프로필이면 자리만 채워 "내 정보 편집" 버튼 단일로 노출 (사용자가 액션이 안 보인다고 혼동하지 않게).
