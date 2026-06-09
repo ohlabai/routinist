@@ -18,6 +18,7 @@ import {
   type NotificationKind,
 } from '@/lib/notifications-data';
 import { respondFriendRequest } from '@/lib/friend-requests-data';
+import CheerButton from '@/components/social/CheerButton';
 
 function timeAgo(iso: string, locale: 'ko' | 'en' = 'ko'): string {
   const ms = Date.now() - new Date(iso).getTime();
@@ -180,6 +181,8 @@ export default function NotificationsPage() {
               const actorName = item.actor_display_name || tt('알 수 없음');
               const isUnread = !item.read_at;
               const isFriendRequest = item.kind === 'friend_request';
+              // build 275: cheer 알림에 inline 답례 응원 버튼. actor 가 있어야 발사 가능.
+              const isCheerWithActor = item.kind === 'cheer' && !!item.actor_id;
 
               const inner = (
                 <>
@@ -209,6 +212,14 @@ export default function NotificationsPage() {
                     <p className="text-[11px] text-[var(--muted)] mt-1">
                       {timeAgo(item.created_at, locale)}
                     </p>
+                    {/* build 275: cheer 알림 → 답례 응원 버튼 inline. CheerButton 의 emoji picker.
+                        Link 가 actor 프로필로 가니까 이 버튼은 propagation 막아서 응원만 보내고 그대로. */}
+                    {isCheerWithActor && item.actor_id && (
+                      <div className="mt-2.5 flex items-center gap-2" onClick={(e) => e.preventDefault()}>
+                        <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400">답례 응원</span>
+                        <CheerButton toUserId={item.actor_id} context="profile" size="sm" />
+                      </div>
+                    )}
                     {/* build 264: friend_request 카드 inline accept/reject */}
                     {isFriendRequest && (
                       <div className="flex gap-2 mt-3">
