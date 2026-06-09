@@ -16,6 +16,8 @@
     { "path": "/api/cafe24/import", "schedule": "0 19 * * *" },
     { "path": "/api/cron/cleanup-stale-orders", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/engagement", "schedule": "0 11 * * *" },
-    { "path": "/api/cron/world-chase", "schedule": "0 */4 * * *" }
+    { "path": "/api/cron/world-chase", "schedule": "0 */4 * * *" },
+    { "path": "/api/cron/assign-rivals", "schedule": "30 15 1 * *" },
+    { "path": "/api/cron/rival-callouts", "schedule": "0 9 * * *" }
   ]
 }
