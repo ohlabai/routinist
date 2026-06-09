@@ -53,6 +53,7 @@ import HomeOnboardingCard from '@/components/home/HomeOnboardingCard';
 import PullDownOnboardingHint from '@/components/home/PullDownOnboardingHint';
 import MonthEndRecapCard from '@/components/home/MonthEndRecapCard';
 import RunOfTheDayCard from '@/components/home/RunOfTheDayCard';
+import MonthlyRivalCard from '@/components/home/MonthlyRivalCard';
 import HomeFriendStories from '@/components/home/HomeFriendStories';
 import FreshnessBadge from '@/components/FreshnessBadge';
 import AppToast from '@/components/AppToast';
@@ -630,6 +631,10 @@ export default function DashboardPage() {
 
         {/* build 167 #11: Run of the Day — 어제 활동 중 자동 선정. 데이터 있을 때만 표시 */}
         <RunOfTheDayCard />
+
+        {/* build 280: 이달의 라이벌 — Duolingo Leagues 식 1:1 랜덤 매칭.
+            모르는 사용자 매칭이 친한 사람보다 동기 부여 효과 큼 (anonymous accountability). */}
+        <MonthlyRivalCard />
 
         {/* 4 {이름}님의 N월 헤더 */}
         <div className="mx-4 flex items-center justify-between pt-1">
