@@ -117,3 +117,47 @@ export async function fetchReceivedFriendRequests(): Promise<FriendRequest[]> {
     return [];
   }
 }
+
+// build 279: 내가 보낸 pending 신청 + receiver profile.
+export interface SentFriendRequest extends FriendRequest {
+  receiver: {
+    id: string;
+    display_name: string | null;
+    avatar_url: string | null;
+  } | null;
+}
+
+export async function fetchSentFriendRequests(): Promise<SentFriendRequest[]> {
+  try {
+    const supabase = getSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+    // FK hint 가 환경마다 다를 수 있어 2-단계 fetch 로 단순화.
+    const { data: requests, error } = await supabase
+      .from('friend_requests')
+      .select('*')
+      .eq('sender_id', user.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+    if (error || !requests) {
+      void logClientWarn('friend-requests', 'sent list fail', { message: error?.message ?? 'no data' });
+      return [];
+    }
+    if (requests.length === 0) return [];
+    const receiverIds = Array.from(new Set(requests.map(r => r.receiver_id)));
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, display_name, avatar_url')
+      .in('id', receiverIds);
+    const profileMap = new Map((profiles ?? []).map(p => [p.id, p]));
+    return requests.map(r => ({
+      ...(r as FriendRequest),
+      receiver: profileMap.get(r.receiver_id) ?? null,
+    })) as SentFriendRequest[];
+  } catch (e) {
+    void logClientWarn('friend-requests', 'sent list fail', {
+      message: e instanceof Error ? e.message : String(e),
+    });
+    return [];
+  }
+}

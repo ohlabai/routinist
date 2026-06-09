@@ -94,6 +94,8 @@ function describeKind(kind: NotificationKind, actorName: string, locale: 'ko' | 
   }
 }
 
+const PAGE_SIZE = 50;
+
 export default function NotificationsPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -101,6 +103,9 @@ export default function NotificationsPage() {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [respondingId, setRespondingId] = useState<string | null>(null);
+  // build 279: 더 보기 페이지네이션. 50건씩 추가 fetch.
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
   useEffect(() => {
     if (authLoading) return;
@@ -108,15 +113,28 @@ export default function NotificationsPage() {
     let mounted = true;
     (async () => {
       setLoading(true);
-      const list = await fetchNotificationsList(100);
+      const list = await fetchNotificationsList(PAGE_SIZE, 0);
       if (!mounted) return;
       setItems(list);
+      setHasMore(list.length >= PAGE_SIZE);
       setLoading(false);
       // mount 시 자동으로 모두 read 처리. optimistic 으로 화면은 read=now 표시 X (그대로 보임).
       void markNotificationsRead(SOCIAL_KINDS);
     })();
     return () => { mounted = false; };
   }, [user, authLoading, router]);
+
+  const loadMore = async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const next = await fetchNotificationsList(PAGE_SIZE, items.length);
+      setItems(prev => [...prev, ...next]);
+      setHasMore(next.length >= PAGE_SIZE);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   // build 264: friend_request 카드 inline accept/reject. source_id 가 friend_requests.id.
   const handleRespond = async (item: NotificationItem, accept: boolean) => {
@@ -266,6 +284,16 @@ export default function NotificationsPage() {
                 </Link>
               );
             })}
+            {/* build 279: 더 보기 버튼 — 50건씩 추가 fetch. 100건 limit 회피. */}
+            {hasMore && (
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="w-full py-3.5 rounded-2xl bg-[var(--card)] border border-[var(--card-border)] text-sm font-extrabold text-[var(--muted)] active:scale-[0.99] disabled:opacity-50"
+              >
+                {loadingMore ? tt('불러오는 중...') : tt('더 보기')}
+              </button>
+            )}
           </div>
         )}
       </main>

@@ -10,11 +10,12 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Users } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { fetchFollowers, fetchFollowing } from '@/lib/social-data';
+import { fetchSentFriendRequests, cancelFriendRequest, type SentFriendRequest } from '@/lib/friend-requests-data';
 import { useI18n } from '@/lib/i18n';
 import type { Profile } from '@/types';
 import AppLogo from '@/components/AppLogo';
 
-type TabId = 'friends' | 'following' | 'followers';
+type TabId = 'friends' | 'following' | 'followers' | 'sent';
 
 export default function FriendsListPage() {
   const router = useRouter();
@@ -22,8 +23,10 @@ export default function FriendsListPage() {
   const { tt } = useI18n();
   const [followingList, setFollowingList] = useState<Profile[]>([]);
   const [followersList, setFollowersList] = useState<Profile[]>([]);
+  const [sentRequests, setSentRequests] = useState<SentFriendRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabId>('friends');
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -31,17 +34,34 @@ export default function FriendsListPage() {
     let mounted = true;
     (async () => {
       setLoading(true);
-      const [following, followers] = await Promise.all([
+      const [following, followers, sent] = await Promise.all([
         fetchFollowing(user.id),
         fetchFollowers(user.id),
+        fetchSentFriendRequests(),
       ]);
       if (!mounted) return;
       setFollowingList(following);
       setFollowersList(followers);
+      setSentRequests(sent);
       setLoading(false);
     })();
     return () => { mounted = false; };
   }, [user, authLoading, router]);
+
+  // build 279: 보낸 신청 취소
+  const handleCancel = async (requestId: string) => {
+    if (cancellingId) return;
+    if (!window.confirm('신청을 취소할까요?')) return;
+    setCancellingId(requestId);
+    try {
+      await cancelFriendRequest(requestId);
+      setSentRequests(prev => prev.filter(r => r.id !== requestId));
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '취소 실패');
+    } finally {
+      setCancellingId(null);
+    }
+  };
 
   // 양방향 = 친구. 단방향 only 두 그룹으로 분류.
   const { friends, followingOnly, followersOnly } = useMemo(() => {
@@ -55,12 +75,14 @@ export default function FriendsListPage() {
 
   const currentList = activeTab === 'friends' ? friends
     : activeTab === 'following' ? followingOnly
-    : followersOnly;
+    : activeTab === 'followers' ? followersOnly
+    : []; // sent 탭은 별도 렌더링
 
   const tabs: { id: TabId; label: string; count: number }[] = [
     { id: 'friends', label: '친구', count: friends.length },
     { id: 'following', label: '팔로잉', count: followingOnly.length },
     { id: 'followers', label: '팔로워', count: followersOnly.length },
+    { id: 'sent', label: '신청 중', count: sentRequests.length },
   ];
 
   return (
@@ -118,6 +140,42 @@ export default function FriendsListPage() {
             <p className="text-xs text-[var(--muted)] mt-1 break-keep">
               {tt('상대가 나를 추가했지만 나는 아직 안 한 사용자')}
             </p>
+          </div>
+        )}
+        {activeTab === 'sent' && sentRequests.length === 0 && !loading && (
+          <div className="card p-5 text-center">
+            <p className="text-sm font-medium text-[var(--foreground)]">{tt('보낸 신청이 없어요')}</p>
+            <p className="text-xs text-[var(--muted)] mt-1 break-keep">
+              {tt('사용자 프로필에서 친구 신청을 보낼 수 있어요')}
+            </p>
+          </div>
+        )}
+        {/* build 279: 보낸 신청 목록 — 받은 사람 + 취소 버튼 */}
+        {activeTab === 'sent' && sentRequests.length > 0 && !loading && (
+          <div className="space-y-2">
+            {sentRequests.map(r => (
+              <div key={r.id} className="card flex items-center gap-3 p-3">
+                <Link href={`/social/user?id=${r.receiver_id}`} className="w-10 h-10 rounded-full bg-[var(--card-border)] overflow-hidden flex-shrink-0">
+                  {r.receiver?.avatar_url ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={r.receiver.avatar_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center"><AppLogo size={24} /></div>
+                  )}
+                </Link>
+                <Link href={`/social/user?id=${r.receiver_id}`} className="flex-1 min-w-0">
+                  <p className="text-sm font-bold truncate">{r.receiver?.display_name ?? tt('알 수 없음')}</p>
+                  <p className="text-[11px] text-[var(--muted)]">신청 보냄 · 응답 대기 중</p>
+                </Link>
+                <button
+                  onClick={() => handleCancel(r.id)}
+                  disabled={cancellingId === r.id}
+                  className="px-3 py-1.5 rounded-full text-xs font-extrabold bg-[var(--card-border)]/50 text-[var(--muted)] active:scale-95 disabled:opacity-50"
+                >
+                  {cancellingId === r.id ? '취소 중' : '취소'}
+                </button>
+              </div>
+            ))}
           </div>
         )}
 
