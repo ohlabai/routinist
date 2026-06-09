@@ -53,6 +53,20 @@ export async function getCheerSummary(userId: string): Promise<CheerSummary[]> {
   return (data ?? []) as CheerSummary[];
 }
 
+// build 278: 받은 응원 카운트 — 프로필 chip 표시용.
+export interface ReceivedCheerCounts {
+  total: number;
+  thisWeek: number;
+}
+
+export async function getReceivedCheerCounts(userId: string): Promise<ReceivedCheerCounts> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.rpc('get_received_cheer_counts', { p_user_id: userId }).single();
+  if (error || !data) return { total: 0, thisWeek: 0 };
+  const d = data as { total: number; this_week: number };
+  return { total: d.total ?? 0, thisWeek: d.this_week ?? 0 };
+}
+
 export async function getMySentCheersThisWeek(): Promise<Set<string>> {
   // Set<`${to_user}:${emoji}`> 반환 — UI 의 "이미 보냈음" 표시용
   const supabase = getSupabase();

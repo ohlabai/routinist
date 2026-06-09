@@ -83,6 +83,13 @@ export default function ProfilePage() {
   }, [user?.id]);
   const displayBalance = freshBalance !== null ? freshBalance : Number(profile?.mileage_balance ?? 0);
 
+  // build 278: 받은 응원 카운트 — 통산 km 옆 chip.
+  const [cheerCounts, setCheerCounts] = useState<{ total: number; thisWeek: number }>({ total: 0, thisWeek: 0 });
+  useEffect(() => {
+    if (!user?.id) return;
+    import('@/lib/cheer-data').then(m => m.getReceivedCheerCounts(user.id)).then(setCheerCounts).catch(() => {});
+  }, [user?.id]);
+
   // 쪽지함 미읽음 카운트 — receiver(나) + read_at IS NULL. build 175 신설, build 179 refresh 보강.
   // mount + visibility 복귀 + window focus 시마다 재요청 → 채팅 읽고 돌아왔을 때 stale 배지 회피.
   const [unreadMessages, setUnreadMessages] = useState(0);
@@ -355,6 +362,24 @@ export default function ProfilePage() {
           <span className="mx-1.5">·</span>
           <span className="font-semibold text-[var(--foreground)]">{t('profile.streakDays').replace('🔥', `${streak} 🔥`)}</span>
         </p>
+
+        {/* build 278: 받은 응원 chip — 동기 부여. 받은 응원 > 0 일 때만 표시 (빈 chip 어색). */}
+        {cheerCounts.total > 0 && (
+          <div className="flex items-center justify-center gap-2 mt-2">
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-50 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-800/40">
+              <span className="text-xs">❤️</span>
+              <span className="text-xs font-extrabold text-rose-700 dark:text-rose-300 tabular-nums">{cheerCounts.total}</span>
+              <span className="text-[10px] font-bold text-rose-600/70 dark:text-rose-400/70">받은 응원</span>
+            </span>
+            {cheerCounts.thisWeek > 0 && (
+              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/40">
+                <span className="text-xs">🔥</span>
+                <span className="text-xs font-extrabold text-amber-700 dark:text-amber-300 tabular-nums">{cheerCounts.thisWeek}</span>
+                <span className="text-[10px] font-bold text-amber-600/70 dark:text-amber-400/70">이번 주</span>
+              </span>
+            )}
+          </div>
+        )}
 
         {/* 개인 베스트 3칩 — 최장거리 / 최빠페이스 / 최장시간 (build 67) */}
         <div className="grid grid-cols-3 gap-2 text-center mt-3 pt-4 border-t border-[var(--card-border)]">
