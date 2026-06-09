@@ -1,0 +1,29 @@
+v1.2.2 — Improved GPS Accuracy and a New Cheer Ecosystem
+
+[GPS Accuracy]
+• Fixed coordinate double-counting that recorded runs at 2× the real distance.
+• HealthKit auto-correction — distance is verified against Apple Health's distanceWalkingRunning right after a workout ends.
+• Auto-pause — when you stop for 12+ seconds (traffic lights, cafés), the timer pauses automatically and resumes when you start moving again (Strava/Nike-style).
+• Polyline smoothing — GPS jitter removed from map routes.
+
+[Cheer & Notification Ecosystem]
+• Unified notification inbox — cheers, comments, friend requests in one place (/notifications).
+• Red count on the Social tab + iOS app icon badge — Notion-style notification system.
+• Friend request model — send a request from a user's profile, with accept/reject flow. Tracks all 4 states (none / sent / received / friend).
+• Cheer entry points in 3 places — profile, inline in notification cards, and activity detail. One-tap cheer.
+• Friend activity feed (/social/feed) — recent workouts from people you follow.
+• Friends list page — friends / following / followers / sent requests (4 tabs).
+
+[Push]
+• APNs delivery system restored — 14 days of queued pushes are now firing (cron + AppDelegate handler + HTTP/2 fix).
+• Per-category toggles — turn cheers, comments, or friend requests on/off individually (Profile > Notifications).
+
+[Home]
+• Mileage balance chip at the top right.
+• Today/month stats reorganized into a 2×2 grid (symmetric layout, pace digits no longer clipped).
+• Received cheer chips next to the total km line.
+
+[Bug Fixes]
+• Fixed an unread badge that wouldn't clear on the messages inbox (messages RLS UPDATE policy missing).
+• Admins can now reply inline from the feedback board without going to /admin/feedback.
+• Fixed a regression where the GPS map of a 30km run showed a different workout's route (byDate fallback ignored distance).
