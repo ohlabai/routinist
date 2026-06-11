@@ -304,10 +304,12 @@ export function tickElapsed(state: TrackingState, now: number): void {
 }
 
 // build 257: 자동 일시정지 임계값.
-// 마지막 좌표 이후 12초 동안 새 좌표가 안 들어오면 멈춘 것으로 간주 (신호 대기, 카페 입장 등).
+// 마지막 좌표 이후 N초 동안 새 좌표가 안 들어오면 멈춘 것으로 간주 (신호 대기, 카페 입장 등).
 // MIN_MOVE_METERS=3m 필터 때문에 정지 시 좌표 자체가 안 들어오므로 시간 기반 검출이 적합.
-// 너무 짧으면 (5초) 횡단보도에서 false-positive, 너무 길면 (30초) 시간 부풀림. 12s 가 균형.
-const AUTO_PAUSE_THRESHOLD_MS = 12_000;
+// build 283 (hans 2026-06-11): 12s → 30s. hans 사례에서 1시간 42분 운동이 97s 만 누적된 회귀.
+// 도심 GPS sample 간격이 5~15s 인데 12s 임계값이 너무 빡빡 — 정상 운동 중에도 false-positive AUTO PAUSE.
+// 30s 면 진짜 횡단보도·신호 대기 케이스 (보통 30s+ 정지) 만 잡고 정상 운동 중엔 안 발사.
+const AUTO_PAUSE_THRESHOLD_MS = 30_000;
 
 /**
  * tick interval 에서 호출. 마지막 좌표가 일정 시간 이상 안 들어왔으면 자동 일시정지로 전환.

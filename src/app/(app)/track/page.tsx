@@ -304,9 +304,14 @@ export default function TrackPage() {
     return () => clearTimeout(t);
   }, [countdown, beginTrackingAfterCountdown]);
 
-  // state.status === 'active' 일 때 워처 + 1초 tick 실행
+  // build 283 (hans 2026-06-11 회귀 fix):
+  // 이전 deps 가 `[state?.status]` 라서 active ↔ paused 전환마다 watcher cleanup + re-create.
+  // 자동 일시정지 시 watcher clear → 좌표 수신 불가 → 자동 resume 영원히 불가 + bg-native-start
+  // 8번 재호출 사고. deps 를 운동 시작 (idle → active) 과 종료 (status='idle') 만 트리거하도록 변경.
+  // paused 상태에서도 watcher 살려두고 좌표 수신 → callback 안의 detectAutoResume 으로 정상 resume.
+  const isTrackingActive = state !== null && state.status !== 'idle';
   useEffect(() => {
-    if (!state || state.status !== 'active') {
+    if (!isTrackingActive) {
       watcherRef.current?.clear().catch(() => {});
       watcherRef.current = null;
       if (tickRef.current) { clearInterval(tickRef.current); tickRef.current = null; }
@@ -323,6 +328,11 @@ export default function TrackPage() {
         if (prev.status === 'paused' && prev.autoPaused) {
           const resumed: TrackingState = { ...prev, coords: [...prev.coords] };
           detectAutoResume(resumed, Date.now());
+          const lastBefore = prev.coords[prev.coords.length - 1];
+          const lastTs = lastBefore ? lastBefore[3] : 0;
+          void logClientInfo('gps-tracking', 'auto-resumed', {
+            ms_paused: lastTs ? Date.now() - lastTs : null,
+          });
           appendCoord(resumed, c);
           if (mapRef.current && polylineRef.current && youMarkerRef.current) {
             const ll = { lat: c.lat, lng: c.lng };
@@ -394,10 +404,18 @@ export default function TrackPage() {
         if (!prev) return prev;
         if (prev.status === 'idle') return prev;
         const next: TrackingState = { ...prev };
-        // build 257: active 일 때만 자동 일시정지 검출. 좌표가 12초 이상 안 들어오면
+        // build 257: active 일 때만 자동 일시정지 검출. 좌표가 30초 이상 안 들어오면 (build 283 갱신)
         // 신호 대기 / 카페 입장 등으로 판단하고 paused 로 전환 → 시간 누적 중단.
         if (next.status === 'active') {
-          detectAutoPause(next, Date.now());
+          const justPaused = detectAutoPause(next, Date.now());
+          if (justPaused) {
+            const last = next.coords[next.coords.length - 1];
+            const lastTs = last ? last[3] : 0;
+            void logClientInfo('gps-tracking', 'auto-paused', {
+              ms_since_last_coord: lastTs ? Date.now() - lastTs : null,
+              coords_n: next.coords.length,
+            });
+          }
         }
         // tickElapsed 는 status !== 'active' 면 자체적으로 시간 누적 안 함.
         tickElapsed(next, Date.now());
@@ -413,7 +431,7 @@ export default function TrackPage() {
       watcherRef.current = null;
       if (tickRef.current) { clearInterval(tickRef.current); tickRef.current = null; }
     };
-  }, [state?.status]);
+  }, [isTrackingActive]);
 
   const handlePause = () => {
     setState(prev => {
