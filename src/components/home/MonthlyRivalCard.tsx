@@ -8,11 +8,13 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Swords, Calendar } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
+import { useI18n } from '@/lib/i18n';
 import { fetchMyMonthlyRival, type MonthlyRival } from '@/lib/rival-data';
 import AppLogo from '@/components/AppLogo';
 
 export default function MonthlyRivalCard() {
   const { user } = useAuth();
+  const { locale } = useI18n();
   const [rival, setRival] = useState<MonthlyRival | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -34,7 +36,8 @@ export default function MonthlyRivalCard() {
   const winning = myKm > rivalKm;
   const diff = Math.abs(myKm - rivalKm);
 
-  const monthLabel = rival.month.split('-')[1].replace(/^0/, '') + '월';
+  const monthNum = rival.month.split('-')[1].replace(/^0/, '');
+  const monthLabel = locale === 'en' ? new Date(2000, parseInt(monthNum, 10) - 1, 1).toLocaleString('en-US', { month: 'short' }) : monthNum + '월';
 
   return (
     <div className="mx-4">
@@ -45,7 +48,7 @@ export default function MonthlyRivalCard() {
             <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-sm">
               <Swords size={14} className="text-white" strokeWidth={2.5} />
             </div>
-            <h3 className="text-sm font-extrabold text-[var(--foreground)]">이달의 라이벌</h3>
+            <h3 className="text-sm font-extrabold text-[var(--foreground)]">{locale === 'en' ? 'Monthly Rival' : '이달의 라이벌'}</h3>
           </div>
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100/80 dark:bg-amber-900/30">
             <Calendar size={11} className="text-amber-700 dark:text-amber-300" />
@@ -59,7 +62,7 @@ export default function MonthlyRivalCard() {
         <div className="grid grid-cols-2 gap-3 tabular-nums">
           {/* 나 */}
           <div className={`p-3 rounded-2xl text-center ${winning ? 'bg-emerald-100/60 dark:bg-emerald-900/30 border-2 border-emerald-300/60 dark:border-emerald-700/40' : 'bg-[var(--card)]'}`}>
-            <p className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-wider">나</p>
+            <p className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-wider">{locale === 'en' ? 'YOU' : '나'}</p>
             <p className={`text-2xl font-extrabold mt-0.5 ${winning ? 'text-emerald-600 dark:text-emerald-400' : 'text-[var(--foreground)]'}`}>
               {myKm.toFixed(1)}
             </p>
@@ -79,7 +82,7 @@ export default function MonthlyRivalCard() {
                 )}
               </div>
               <p className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-wider truncate max-w-[80px]">
-                {rival.rivalDisplayName ?? '라이벌'}
+                {rival.rivalDisplayName ?? (locale === 'en' ? 'Rival' : '라이벌')}
               </p>
             </div>
             <p className={`text-2xl font-extrabold ${!winning && myKm < rivalKm ? 'text-rose-600 dark:text-rose-400' : 'text-[var(--foreground)]'}`}>
@@ -99,16 +102,30 @@ export default function MonthlyRivalCard() {
 
         {/* 콜아웃 */}
         <p className="mt-2.5 text-[11px] text-center font-bold text-[var(--muted)] break-keep">
-          {winning ? (
-            diff > 5
-              ? `🔥 ${diff.toFixed(1)}km 앞서고 있어요!`
-              : `한 번 더 뛰면 격차를 더 벌릴 수 있어요`
-          ) : myKm < rivalKm ? (
-            diff > 5
-              ? `라이벌이 ${diff.toFixed(1)}km 앞섰어요. 따라잡기 시작!`
-              : `${diff.toFixed(1)}km 차이. 한 번만 뛰면 역전!`
+          {locale === 'en' ? (
+            winning ? (
+              diff > 5
+                ? `🔥 You're ${diff.toFixed(1)}km ahead!`
+                : `One more run and you'll widen the gap`
+            ) : myKm < rivalKm ? (
+              diff > 5
+                ? `Rival is ${diff.toFixed(1)}km ahead. Time to catch up!`
+                : `${diff.toFixed(1)}km gap. One run could flip it!`
+            ) : (
+              `It's close — start the next run?`
+            )
           ) : (
-            '아직 비슷해요. 먼저 출발해볼까요?'
+            winning ? (
+              diff > 5
+                ? `🔥 ${diff.toFixed(1)}km 앞서고 있어요!`
+                : `한 번 더 뛰면 격차를 더 벌릴 수 있어요`
+            ) : myKm < rivalKm ? (
+              diff > 5
+                ? `라이벌이 ${diff.toFixed(1)}km 앞섰어요. 따라잡기 시작!`
+                : `${diff.toFixed(1)}km 차이. 한 번만 뛰면 역전!`
+            ) : (
+              '아직 비슷해요. 먼저 출발해볼까요?'
+            )
           )}
         </p>
       </div>

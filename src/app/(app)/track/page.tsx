@@ -7,7 +7,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Pause, Play, Check, MapPin, AlertCircle, Volume2, VolumeX } from 'lucide-react';
+import { ArrowLeft, Pause, Play, Check, MapPin, AlertCircle, Volume2, VolumeX, Sparkles } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { useI18n } from '@/lib/i18n';
 import { loadGoogleMaps, API_KEY as MAPS_KEY } from '@/lib/google-maps';
@@ -66,7 +66,52 @@ import TrackSummarySheet from '@/components/track/TrackSummarySheet';
 
 type PermState = 'unknown' | 'prompt' | 'granted' | 'denied';
 
+// build 285: GPS 트래킹 기능 임시 비활성.
+// 자동 일시정지 회귀가 짧은 시간 내 2회 (build 283, 284) 발생 — 정확도 안정화될 때까지
+// 사용자 노출 차단. Apple Health 동기화는 그대로 작동하므로 외부 GPS 앱 사용자는 영향 없음.
+// 복원 시: TRACKING_ENABLED = true 만 바꾸면 됨. TrackPageImpl 은 전부 보존.
+const TRACKING_ENABLED = false;
+
 export default function TrackPage() {
+  if (!TRACKING_ENABLED) return <TrackComingSoon />;
+  return <TrackPageImpl />;
+}
+
+function TrackComingSoon() {
+  const router = useRouter();
+  const { locale } = useI18n();
+  // 비활성 동안 stale in-progress 상태 자동 정리 — 복원 후 옛 좌표가 polyline 으로 살아나는 사고 방지.
+  useEffect(() => {
+    clearState();
+  }, []);
+  return (
+    <div className="max-w-lg mx-auto px-6 py-16 text-center bg-[var(--background)] min-h-screen flex flex-col justify-center">
+      <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+        <Sparkles size={44} className="text-white" />
+      </div>
+      <h1 className="text-2xl font-extrabold mb-3 text-[var(--foreground)]">
+        {locale === 'en' ? 'GPS Tracking Coming Soon' : '달리기 트래킹 곧 오픈 예정'}
+      </h1>
+      <p className="text-sm text-[var(--muted)] max-w-xs mx-auto break-keep mb-2 leading-relaxed">
+        {locale === 'en'
+          ? 'We are polishing the tracking accuracy for night and urban runs.'
+          : '야간·도심 러닝 정확도를 다듬고 있어요. 다음 업데이트에서 만나요.'}
+      </p>
+      <p className="text-xs text-[var(--muted)]/80 max-w-xs mx-auto break-keep mb-8 leading-relaxed">
+        {locale === 'en'
+          ? 'Apple Health runs sync automatically — keep running with your favorite app!'
+          : '그동안 Apple Health 동기화로 자동 기록되니까 편하게 달려주세요.'}
+      </p>
+      <button onClick={() => router.back()}
+        className="px-6 py-3 rounded-2xl bg-emerald-500 text-white text-sm font-extrabold active:scale-95 self-center inline-flex items-center gap-2 shadow-md shadow-emerald-500/30">
+        <ArrowLeft size={16} />
+        {locale === 'en' ? 'Go back' : '돌아가기'}
+      </button>
+    </div>
+  );
+}
+
+function TrackPageImpl() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const { tt, locale } = useI18n();

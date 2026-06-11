@@ -1,10 +1,10 @@
-v1.2.2 — Improved GPS Accuracy and a New Cheer Ecosystem
+v1.2.3 — Monthly Rivals, Cheer Ecosystem, and a Smarter Notification System
 
-[GPS Accuracy]
-• Fixed coordinate double-counting that recorded runs at 2× the real distance.
-• HealthKit auto-correction — distance is verified against Apple Health's distanceWalkingRunning right after a workout ends.
-• Auto-pause — when you stop for 12+ seconds (traffic lights, cafés), the timer pauses automatically and resumes when you start moving again (Strava/Nike-style).
-• Polyline smoothing — GPS jitter removed from map routes.
+[Monthly Rivals]
+• Duolingo Leagues-style 1:1 random matchup — race a stranger on km for the whole month.
+• Real-time progress comparison on the home card with a day countdown.
+• Catch-up push notifications between D-3 and D-1 when the gap is under 5 km.
+• 500P mileage reward auto-credited to the month's winner.
 
 [Cheer & Notification Ecosystem]
 • Unified notification inbox — cheers, comments, friend requests in one place (/notifications).
@@ -16,7 +16,13 @@ v1.2.2 — Improved GPS Accuracy and a New Cheer Ecosystem
 
 [Push]
 • APNs delivery system restored — 14 days of queued pushes are now firing (cron + AppDelegate handler + HTTP/2 fix).
-• Per-category toggles — turn cheers, comments, or friend requests on/off individually (Profile > Notifications).
+• Per-category toggles — turn cheers, comments, friend requests, or rival callouts on/off individually (Profile > Notifications).
+
+[GPS & Records]
+• Fixed coordinate double-counting that recorded runs at 2× the real distance.
+• HealthKit auto-correction — distance is verified against Apple Health's distanceWalkingRunning right after a workout ends.
+• Polyline smoothing — GPS jitter removed from map routes.
+• In-app GPS tracking is temporarily disabled while we stabilize accuracy. Apple Health sync continues to record your runs automatically.
 
 [Home]
 • Mileage balance chip at the top right.
@@ -26,4 +32,4 @@ v1.2.2 — Improved GPS Accuracy and a New Cheer Ecosystem
 [Bug Fixes]
 • Fixed an unread badge that wouldn't clear on the messages inbox (messages RLS UPDATE policy missing).
 • Admins can now reply inline from the feedback board without going to /admin/feedback.
-• Fixed a regression where the GPS map of a 30km run showed a different workout's route (byDate fallback ignored distance).
+• Fixed a regression where the GPS map of a 30 km run showed a different workout's route (byDate fallback ignored distance).
