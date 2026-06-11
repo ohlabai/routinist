@@ -48,7 +48,7 @@ export default function MonthlyRivalCard() {
             <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-sm">
               <Swords size={14} className="text-white" strokeWidth={2.5} />
             </div>
-            <h3 className="text-sm font-extrabold text-[var(--foreground)]">{locale === 'en' ? 'Monthly Rival' : '이달의 라이벌'}</h3>
+            <h3 className="text-sm font-extrabold text-[var(--foreground)]">{locale === 'en' ? 'Monthly Pacemaker' : '이달의 페이스메이커'}</h3>
           </div>
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100/80 dark:bg-amber-900/30">
             <Calendar size={11} className="text-amber-700 dark:text-amber-300" />
@@ -82,7 +82,7 @@ export default function MonthlyRivalCard() {
                 )}
               </div>
               <p className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-wider truncate max-w-[80px]">
-                {rival.rivalDisplayName ?? (locale === 'en' ? 'Rival' : '라이벌')}
+                {rival.rivalDisplayName ?? (locale === 'en' ? 'Pacemaker' : '페이스메이커')}
               </p>
             </div>
             <p className={`text-2xl font-extrabold ${!winning && myKm < rivalKm ? 'text-rose-600 dark:text-rose-400' : 'text-[var(--foreground)]'}`}>
@@ -109,7 +109,7 @@ export default function MonthlyRivalCard() {
                 : `One more run and you'll widen the gap`
             ) : myKm < rivalKm ? (
               diff > 5
-                ? `Rival is ${diff.toFixed(1)}km ahead. Time to catch up!`
+                ? `Your pacemaker is ${diff.toFixed(1)}km ahead. Time to catch up!`
                 : `${diff.toFixed(1)}km gap. One run could flip it!`
             ) : (
               `It's close — start the next run?`
@@ -121,7 +121,7 @@ export default function MonthlyRivalCard() {
                 : `한 번 더 뛰면 격차를 더 벌릴 수 있어요`
             ) : myKm < rivalKm ? (
               diff > 5
-                ? `라이벌이 ${diff.toFixed(1)}km 앞섰어요. 따라잡기 시작!`
+                ? `페이스메이커가 ${diff.toFixed(1)}km 앞섰어요. 따라잡기 시작!`
                 : `${diff.toFixed(1)}km 차이. 한 번만 뛰면 역전!`
             ) : (
               '아직 비슷해요. 먼저 출발해볼까요?'

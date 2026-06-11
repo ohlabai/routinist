@@ -76,10 +76,10 @@ export async function POST(req: NextRequest) {
     });
     if (shouldSend === false) continue;
 
-    const title = '⚔️ 라이벌 따라잡기';
+    const title = '⚔️ 페이스메이커 따라잡기';
     const body = daysLeft === 1
-      ? `오늘이 마지막! 라이벌이 ${diff.toFixed(1)}km 앞서고 있어요`
-      : `D-${daysLeft} · 라이벌이 ${diff.toFixed(1)}km 앞서고 있어요. 한 번 뛰면 역전!`;
+      ? `오늘이 마지막! 페이스메이커가 ${diff.toFixed(1)}km 앞서고 있어요`
+      : `D-${daysLeft} · 페이스메이커가 ${diff.toFixed(1)}km 앞서고 있어요. 한 번 뛰면 역전!`;
 
     const { error } = await supabase.from('push_send_log').insert({
       user_id: r.user_id,

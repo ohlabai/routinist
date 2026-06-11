@@ -27,7 +27,7 @@ function getCategories(tt: (ko: string) => string, locale: 'ko' | 'en'): Categor
     { key: 'social_cheer', label: tt('응원'), description: locale === 'en' ? 'When someone cheers you directly' : '다른 러너가 나에게 응원을 보냈을 때', Icon: Heart },
     { key: 'social_comment', label: tt('댓글'), description: locale === 'en' ? 'When someone comments on your photo or activity' : '내 사진·활동에 댓글이 달렸을 때', Icon: MessageSquare },
     { key: 'social_friend', label: tt('친구 신청·수락'), description: locale === 'en' ? 'Friend requests received and accepted' : '친구 신청을 받거나 내 신청이 수락됐을 때', Icon: UserPlus },
-    { key: 'social_rival', label: tt('이달의 라이벌'), description: locale === 'en' ? 'Rival catchup callouts at month-end' : '월말 D-3 ~ D-1 라이벌 따라잡기 알림', Icon: Trophy },
+    { key: 'social_rival', label: tt('이달의 페이스메이커'), description: locale === 'en' ? 'Pacemaker catch-up callouts at month-end' : '월말 D-3 ~ D-1 페이스메이커 따라잡기 알림', Icon: Trophy },
     { key: 'social_follow', label: tt('새 친구'), description: locale === 'en' ? 'When someone adds you as a friend (instant follow)' : '다른 러너가 나를 친구로 추가했을 때', Icon: Users },
     { key: 'mileage_gift', label: tt('마일리지 선물'), description: tt('다른 러너에게 선물을 받았을 때'), Icon: Award },
     { key: 'feedback_reply', label: tt('운영자 답글'), description: tt('내 제안에 운영자가 답글을 달았을 때'), Icon: MessageSquare },

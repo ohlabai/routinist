@@ -1,7 +1,7 @@
-v1.2.3 — Monthly Rivals, Cheer Ecosystem, and a Smarter Notification System
+v1.2.3 — Monthly Pacemaker, Cheer Ecosystem, and a Smarter Notification System
 
-[Monthly Rivals]
-• Duolingo Leagues-style 1:1 random matchup — race a stranger on km for the whole month.
+[Monthly Pacemaker]
+• Duolingo Leagues-style 1:1 random matchup — a fellow runner who paces you on km for the whole month.
 • Real-time progress comparison on the home card with a day countdown.
 • Catch-up push notifications between D-3 and D-1 when the gap is under 5 km.
 • 500P mileage reward auto-credited to the month's winner.
