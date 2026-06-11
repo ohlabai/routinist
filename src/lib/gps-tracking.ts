@@ -24,6 +24,9 @@ export interface TrackingState {
   // build 257: 자동 일시정지 플래그. 신호 대기 / 카페 입장 등 사용자가 명시적으로 누른 게 아니라
   // 시스템이 멈춘 상태. 사용자가 직접 paused 상태로 가면 false 유지 (자동 재개 차단).
   autoPaused?: boolean;
+  // build 284: 수동 재개 / 운동 시작 시각. detectAutoPause grace period 의 baseline.
+  // 좌표 ts 가 stale 한 상태에서 사용자가 "재개" 눌렀을 때 즉시 다시 auto-pause 되는 회귀 차단.
+  lastResumeAt?: number;
 }
 
 const STORAGE_KEY = 'routinist:gps-tracking-v1';
@@ -68,6 +71,7 @@ export function createInitialState(): TrackingState {
     coords: [],
     status: 'active',
     lastTickAt: now,
+    lastResumeAt: now,
   };
 }
 
@@ -303,24 +307,47 @@ export function tickElapsed(state: TrackingState, now: number): void {
   state.lastTickAt = now;
 }
 
-// build 257: 자동 일시정지 임계값.
-// 마지막 좌표 이후 N초 동안 새 좌표가 안 들어오면 멈춘 것으로 간주 (신호 대기, 카페 입장 등).
-// MIN_MOVE_METERS=3m 필터 때문에 정지 시 좌표 자체가 안 들어오므로 시간 기반 검출이 적합.
-// build 283 (hans 2026-06-11): 12s → 30s. hans 사례에서 1시간 42분 운동이 97s 만 누적된 회귀.
-// 도심 GPS sample 간격이 5~15s 인데 12s 임계값이 너무 빡빡 — 정상 운동 중에도 false-positive AUTO PAUSE.
-// 30s 면 진짜 횡단보도·신호 대기 케이스 (보통 30s+ 정지) 만 잡고 정상 운동 중엔 안 발사.
-const AUTO_PAUSE_THRESHOLD_MS = 30_000;
+// build 284 (hans 2026-06-11 추가 사례 — 야간 뛰기에서 build 283 30s 도 false-positive):
+// 시간 기반 알고리즘 폐기. 도심·야간 GPS 는 sample 간격이 30~60s 정상 — 그 자체로는
+// "사용자가 멈췄다" 신호가 아니다 (그냥 신호가 약해서 좌표가 늦게 들어오는 것).
+// 이동 기반 검출로 교체:
+//   - 최근 AUTO_PAUSE_WINDOW_MS 내 좌표 ≥ AUTO_PAUSE_MIN_COORDS 개 있고
+//   - 그 좌표들이 모두 첫 좌표 기준 AUTO_PAUSE_RADIUS_M 반경 내 클러스터일 때만 pause
+//   - 좌표 부족 시는 결정 보류 (GPS sparse 상황 → "안 움직임" 단정 불가)
+// + AUTO_PAUSE_GRACE_MS: 운동 시작 / 수동 재개 직후엔 새 좌표가 쌓일 시간 필요 → grace.
+const AUTO_PAUSE_WINDOW_MS = 60_000;   // 최근 60s 좌표 분석
+const AUTO_PAUSE_MIN_COORDS = 3;       // 최소 3개 (≤2 면 결정 보류)
+const AUTO_PAUSE_RADIUS_M = 15;        // 15m 반경 내 클러스터 = 정지
+const AUTO_PAUSE_GRACE_MS = 60_000;    // 시작·재개 후 60s 동안은 auto-pause 금지
 
 /**
- * tick interval 에서 호출. 마지막 좌표가 일정 시간 이상 안 들어왔으면 자동 일시정지로 전환.
+ * tick interval 에서 호출. 최근 좌표 cluster 분석으로 정지 판정.
  * 반환값: 상태 변화가 발생했는지 (UI 리렌더 trigger 용).
  */
 export function detectAutoPause(state: TrackingState, now: number): boolean {
   if (state.status !== 'active') return false;
-  const last = state.coords[state.coords.length - 1];
-  if (!last) return false;
-  const sinceMs = now - last[3];
-  if (sinceMs < AUTO_PAUSE_THRESHOLD_MS) return false;
+
+  // build 284: 시작·수동 재개 직후 grace period — 좌표 새로 들어올 시간 필요.
+  if (state.lastResumeAt && now - state.lastResumeAt < AUTO_PAUSE_GRACE_MS) return false;
+
+  // 최근 window 내 좌표 수집 (뒤에서부터 cutoff 이전까지).
+  const cutoff = now - AUTO_PAUSE_WINDOW_MS;
+  const recent: Coord[] = [];
+  for (let i = state.coords.length - 1; i >= 0; i--) {
+    if (state.coords[i][3] < cutoff) break;
+    recent.push(state.coords[i]);
+  }
+
+  // 좌표 부족 → GPS sparse 가능성. 정지 단정 불가 → 결정 보류.
+  if (recent.length < AUTO_PAUSE_MIN_COORDS) return false;
+
+  // 모든 좌표가 첫 좌표 기준 반경 내 클러스터인지 검사. 하나라도 벗어나면 움직임 있음.
+  const anchor = { lng: recent[0][0], lat: recent[0][1] };
+  for (let i = 1; i < recent.length; i++) {
+    const d = haversineMeters(anchor, { lng: recent[i][0], lat: recent[i][1] });
+    if (d > AUTO_PAUSE_RADIUS_M) return false;
+  }
+
   state.status = 'paused';
   state.autoPaused = true;
   return true;

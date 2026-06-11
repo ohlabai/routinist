@@ -445,7 +445,21 @@ export default function TrackPage() {
   const handleResume = () => {
     setState(prev => {
       if (!prev) return prev;
-      const next: TrackingState = { ...prev, status: 'active', lastTickAt: Date.now() };
+      // build 284: autoPaused 플래그 명시 해제 + lastResumeAt 갱신.
+      // 이전엔 사용자가 "재개" 눌러도 autoPaused 가 true 그대로 남고, 100ms 후 다음 tick 의
+      // detectAutoPause 가 stale 좌표 ts 보고 즉시 다시 paused 로 전환 → 재개 무효 회귀.
+      const now = Date.now();
+      const next: TrackingState = {
+        ...prev,
+        status: 'active',
+        autoPaused: false,
+        lastTickAt: now,
+        lastResumeAt: now,
+      };
+      void logClientInfo('gps-tracking', 'manual-resume', {
+        was_auto_paused: prev.autoPaused ?? false,
+        coords_n: prev.coords.length,
+      });
       saveState(next);
       return next;
     });
