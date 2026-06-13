@@ -1,35 +1,14 @@
-v1.2.3 — Monthly Pacemaker, Cheer Ecosystem, and a Smarter Notification System
+v1.2.4 — Better Region Labels for International Runs
 
-[Monthly Pacemaker]
-• Duolingo Leagues-style 1:1 random matchup — a fellow runner who paces you on km for the whole month.
-• Real-time progress comparison on the home card with a day countdown.
-• Catch-up push notifications between D-3 and D-1 when the gap is under 5 km.
-• 500P mileage reward auto-credited to the month's winner.
+[Region Label Expansion]
+• Pre-registered 50+ popular outbound destinations — share cards and activity details now show accurate region names.
+• Fixed a regression where Portugal coordinates (Porto / Lisbon) were labeled as "Spain".
+• Cleaned up cases where small countries were absorbed into larger neighbors (e.g. Slovenia ↔ Italy, Netherlands ↔ Germany).
 
-[Cheer & Notification Ecosystem]
-• Unified notification inbox — cheers, comments, friend requests in one place (/notifications).
-• Red count on the Social tab + iOS app icon badge — Notion-style notification system.
-• Friend request model — send a request from a user's profile, with accept/reject flow. Tracks all 4 states (none / sent / received / friend).
-• Cheer entry points in 3 places — profile, inline in notification cards, and activity detail. One-tap cheer.
-• Friend activity feed (/social/feed) — recent workouts from people you follow.
-• Friends list page — friends / following / followers / sent requests (4 tabs).
+[New destinations included]
+• Asia: Japan 5 cities, Thailand, Malaysia, Indonesia, Philippines, India, UAE, Turkey, etc.
+• Americas: US 7 cities, Canada, Mexico, Brazil, Argentina, Peru, etc.
+• Europe: Switzerland, Austria, Netherlands, Belgium, Czech, Poland, Hungary, Nordics, etc.
+• Oceania / Africa: Australia, New Zealand, South Africa, Egypt, Morocco, etc.
 
-[Push]
-• APNs delivery system restored — 14 days of queued pushes are now firing (cron + AppDelegate handler + HTTP/2 fix).
-• Per-category toggles — turn cheers, comments, friend requests, or rival callouts on/off individually (Profile > Notifications).
-
-[GPS & Records]
-• Fixed coordinate double-counting that recorded runs at 2× the real distance.
-• HealthKit auto-correction — distance is verified against Apple Health's distanceWalkingRunning right after a workout ends.
-• Polyline smoothing — GPS jitter removed from map routes.
-• In-app GPS tracking is temporarily disabled while we stabilize accuracy. Apple Health sync continues to record your runs automatically.
-
-[Home]
-• Mileage balance chip at the top right.
-• Today/month stats reorganized into a 2×2 grid (symmetric layout, pace digits no longer clipped).
-• Received cheer chips next to the total km line.
-
-[Bug Fixes]
-• Fixed an unread badge that wouldn't clear on the messages inbox (messages RLS UPDATE policy missing).
-• Admins can now reply inline from the feedback board without going to /admin/feedback.
-• Fixed a regression where the GPS map of a 30 km run showed a different workout's route (byDate fallback ignored distance).
+International runs now automatically get accurate region labels.
