@@ -638,13 +638,21 @@ async function updateProfileTotals(userId: string): Promise<void> {
   }
 }
 
-// GPS 경로 동기화 — started_at 매칭 (1순위) + 거리/날짜 폴백.
-// audit 페이지에서 명시적 trigger 가능하도록 export.
-// daysBack: 동기화 범위 (기본 90일, audit 페이지/맵 fallback 은 1095일=3년 까지 확장 가능)
-export async function syncRouteData(
+export interface RouteSyncResult {
+  fetched: number;
+  matched: number;
+  updated: number;
+  partial?: boolean;
+  reason?: string;
+}
+
+// 단일 시간 범위에 대한 GPS 경로 동기화 (1 chunk).
+// 호출자: chunk wrapper (syncRouteData) 또는 audit 페이지의 명시적 range.
+async function syncRouteDataRange(
   userId: string,
-  daysBackOrOptions: number | { startDate: Date; endDate: Date } = 90,
-): Promise<{ fetched: number; matched: number; updated: number; reason?: string }> {
+  startDate: Date,
+  endDate: Date,
+): Promise<RouteSyncResult> {
   const t0 = Date.now();
   try {
     const { WorkoutRoute } = await import('./workout-route');
@@ -656,20 +664,7 @@ export async function syncRouteData(
       logClientWarn('health-sync-route', 'requestAuthorization 실패 (계속 진행)', { err: String(e) });
     }
 
-    // build 59: 시그니처 확장 — 호출자가 정확한 startDate/endDate 지정 가능. audit 의 chunk 분할이
-    // 의미 있게 작동하도록 (이전엔 daysBack 한 인자라 chunk 마다 0~N일 으로 중복 호출되던 버그).
-    let startDate: Date;
-    let endDate: Date;
-    if (typeof daysBackOrOptions === 'number') {
-      endDate = new Date();
-      startDate = new Date();
-      startDate.setDate(startDate.getDate() - daysBackOrOptions);
-    } else {
-      startDate = daysBackOrOptions.startDate;
-      endDate = daysBackOrOptions.endDate;
-    }
-
-    const { routes } = await withTimeout(
+    const pluginResult = await withTimeout(
       WorkoutRoute.getRoutes({
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
@@ -678,12 +673,26 @@ export async function syncRouteData(
       45000,
       'WorkoutRoute.getRoutes',
     );
+    const routes = pluginResult.routes;
+    const isPartial = pluginResult.partial === true;
+    const partialReason = pluginResult.reason;
 
     const fetched = routes?.length ?? 0;
-    logClientInfo('health-sync-route', `WorkoutRoute.getRoutes → ${fetched}건`, { fetched });
+    logClientInfo('health-sync-route', `WorkoutRoute.getRoutes → ${fetched}건`, {
+      fetched,
+      partial: isPartial,
+      partial_reason: partialReason,
+      range_days: Math.round((endDate.getTime() - startDate.getTime()) / 86400000),
+    });
 
     if (fetched === 0) {
-      return { fetched: 0, matched: 0, updated: 0, reason: 'no_routes_from_plugin' };
+      return {
+        fetched: 0,
+        matched: 0,
+        updated: 0,
+        partial: isPartial || undefined,
+        reason: isPartial ? `partial:${partialReason ?? 'unknown'}` : 'no_routes_from_plugin',
+      };
     }
 
     let matchedCount = 0;
@@ -810,13 +819,114 @@ export async function syncRouteData(
     }
 
     const elapsedMs = Date.now() - t0;
-    logClientInfo('health-sync-route', 'route sync complete', { fetched, matched: matchedCount, updated: updatedCount, elapsed_ms: elapsedMs });
-    return { fetched, matched: matchedCount, updated: updatedCount };
+    logClientInfo('health-sync-route', 'route sync complete', {
+      fetched, matched: matchedCount, updated: updatedCount, elapsed_ms: elapsedMs, partial: isPartial,
+    });
+    return {
+      fetched,
+      matched: matchedCount,
+      updated: updatedCount,
+      partial: isPartial || undefined,
+      reason: isPartial ? `partial:${partialReason ?? 'unknown'}` : undefined,
+    };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     logClientError('health-sync-route', 'syncRouteData 예외', { err: msg });
     return { fetched: 0, matched: 0, updated: 0, reason: msg };
   }
+}
+
+// 공개 entry point — daysBack 숫자면 자동 30일 chunk 분할 (native plugin 50s timeout 회피).
+// 명시적 range 전달 시엔 그 범위 그대로 단일 호출 (audit 페이지의 6개월 chunk 호출 호환).
+//
+// 배경: 90일 한방 호출 시 마라톤급(20~38km, 좌표 수만 점) 활동이 다수면 native plugin 50s
+// safety timeout 으로 partial 결과만 반환 → 최근 routes 가 누락되는 회귀 (hans 2026-06 해외 13건 중 12건 누락).
+// 30일 chunk 면 한국 routes(이미 매칭됨)와 해외 routes 가 분리되어 각 chunk 50s 안에 마무리됨.
+//
+// partial 결과 받으면 그 chunk 를 절반으로 나눠 1회 재시도. 그래도 partial 면 그냥 종료 (다음 자동 sync 가 또 시도).
+export async function syncRouteData(
+  userId: string,
+  daysBackOrOptions: number | { startDate: Date; endDate: Date } = 90,
+): Promise<RouteSyncResult> {
+  // 명시적 range — 호출자가 chunk 분할 책임 (audit 페이지). 단일 호출.
+  if (typeof daysBackOrOptions === 'object') {
+    return syncRouteDataRange(userId, daysBackOrOptions.startDate, daysBackOrOptions.endDate);
+  }
+
+  const daysBack = daysBackOrOptions;
+  const CHUNK_DAYS = 30;
+  const now = new Date();
+  let totalFetched = 0;
+  let totalMatched = 0;
+  let totalUpdated = 0;
+  let anyPartial = false;
+  const reasons: string[] = [];
+  // 연속 fetched=0 chunk 가 2번이면 옛 데이터 끝났다고 보고 조기 종료 (불필요한 plugin 호출 절감).
+  let zeroStreak = 0;
+
+  for (let offset = 0; offset < daysBack; offset += CHUNK_DAYS) {
+    const days = Math.min(CHUNK_DAYS, daysBack - offset);
+    const chunkEnd = new Date(now);
+    chunkEnd.setDate(chunkEnd.getDate() - offset);
+    const chunkStart = new Date(now);
+    chunkStart.setDate(chunkStart.getDate() - (offset + days));
+
+    try {
+      let r = await syncRouteDataRange(userId, chunkStart, chunkEnd);
+
+      // partial 이면 chunk 를 반으로 나눠 1회 재시도 — 좌표 점이 많은 마라톤 chunk 가 50s 넘기는 경우.
+      if (r.partial && days > 7) {
+        const midMs = chunkStart.getTime() + (chunkEnd.getTime() - chunkStart.getTime()) / 2;
+        const mid = new Date(midMs);
+        logClientWarn('health-sync-route', 'partial → split retry', {
+          offset, days, mid: mid.toISOString(),
+        });
+        // 신선한 쪽 (mid~end) 부터 — 보통 부족한 매칭이 최근 활동.
+        const r1 = await syncRouteDataRange(userId, mid, chunkEnd);
+        const r2 = await syncRouteDataRange(userId, chunkStart, mid);
+        r = {
+          fetched: r1.fetched + r2.fetched,
+          matched: r1.matched + r2.matched,
+          updated: r1.updated + r2.updated,
+          partial: r1.partial || r2.partial,
+          reason: [r1.reason, r2.reason].filter(Boolean).join('; ') || undefined,
+        };
+      }
+
+      totalFetched += r.fetched;
+      totalMatched += r.matched;
+      totalUpdated += r.updated;
+      if (r.partial) anyPartial = true;
+      if (r.reason) reasons.push(`${offset}-${offset + days}d: ${r.reason}`);
+
+      if (r.fetched === 0) {
+        zeroStreak++;
+        if (zeroStreak >= 2) break;
+      } else {
+        zeroStreak = 0;
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      reasons.push(`${offset}-${offset + days}d: ${msg}`);
+    }
+  }
+
+  logClientInfo('health-sync-route', 'chunked route sync complete', {
+    days_back: daysBack,
+    chunk_days: CHUNK_DAYS,
+    total_fetched: totalFetched,
+    total_matched: totalMatched,
+    total_updated: totalUpdated,
+    any_partial: anyPartial,
+  });
+
+  return {
+    fetched: totalFetched,
+    matched: totalMatched,
+    updated: totalUpdated,
+    partial: anyPartial || undefined,
+    reason: reasons.length > 0 ? reasons.slice(0, 3).join('; ') : undefined,
+  };
 }
 
 // 메인 동기화 함수 — userId(auth.users id)를 받음
