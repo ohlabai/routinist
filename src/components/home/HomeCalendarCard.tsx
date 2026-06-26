@@ -41,6 +41,9 @@ export default function HomeCalendarCard() {
 
   const [photos, setPhotos] = useState<Map<string, string>>(new Map());
   const [customPhotos, setCustomPhotos] = useState<Map<string, string>>(new Map());
+  // build 288: 같은 날 여러 활동 중 route_data 있는 id 우선 link. lite cache 엔 route_data 없으므로
+  // 별도 id-only query 로 set 만 확보 (페이로드 가벼움). 없으면 거리 큰 활동 fallback.
+  const [routeIds, setRouteIds] = useState<Set<string>>(new Set());
   // build 170 #2: storage object 가 사라져 broken URL 인 셀은 거리 기반 초록 fallback 으로 복귀.
   // 한 번 onError 발생한 URL 은 set 에 저장 → 같은 URL 재시도 안 함 (무한 onError 루프 방지).
   const [brokenUrls, setBrokenUrls] = useState<Set<string>>(new Set());
@@ -84,13 +87,27 @@ export default function HomeCalendarCard() {
     return map;
   }, [monthlyActivities]);
 
+  // build 288: 같은 날 활동 여러 개면 (1) route_data 있는 활동 우선, (2) 같은 그룹 내 거리 큰 것.
+  // 이전엔 첫 번째(시각 늦은) 활동만 link → 사용자가 6-25 22:00 짧은 2.58km 를 link 하고 메인 운동
+  // (05:36 6.26km)의 지도 진입을 못 했음. hans 2026-06-26 신고 케이스.
   const dateActivityMap = useMemo(() => {
-    const map = new Map<string, string>();
+    const byDate = new Map<string, typeof monthlyActivities>();
     monthlyActivities.forEach((a) => {
-      if (!map.has(a.activity_date)) map.set(a.activity_date, a.id);
+      const arr = byDate.get(a.activity_date) ?? [];
+      arr.push(a);
+      byDate.set(a.activity_date, arr);
     });
-    return map;
-  }, [monthlyActivities]);
+    const out = new Map<string, string>();
+    byDate.forEach((arr, date) => {
+      const withRoute = arr.filter((a) => routeIds.has(a.id));
+      const pool = withRoute.length > 0 ? withRoute : arr;
+      const pick = pool.reduce((best, cur) =>
+        Number(cur.distance_km) > Number(best.distance_km) ? cur : best,
+      );
+      out.set(date, pick.id);
+    });
+    return out;
+  }, [monthlyActivities, routeIds]);
 
   const loadPhotos = useCallback(async () => {
     if (!user || monthlyActivities.length === 0) {
@@ -146,12 +163,36 @@ export default function HomeCalendarCard() {
     }
   }, [user, year, month]);
 
+  // build 288: 이달 활동 중 route_data 있는 id 만 가져옴. 페이로드 가벼움 (id 컬럼만).
+  // 셀 클릭 시 같은 날 여러 활동 중 지도 있는 것을 우선 link 하기 위한 데이터.
+  const loadRouteIds = useCallback(async () => {
+    if (!user || monthlyActivities.length === 0) {
+      setRouteIds(new Set());
+      return;
+    }
+    try {
+      const supabase = getSupabase();
+      const ids = monthlyActivities.map((a) => a.id);
+      const { data } = await supabase
+        .from('activities')
+        .select('id')
+        .in('id', ids)
+        .not('route_data', 'is', null);
+      setRouteIds(new Set((data ?? []).map((d) => d.id)));
+    } catch (err) {
+      console.warn('[HomeCalendar] routeIds 실패', err);
+    }
+  }, [user, monthlyActivities]);
+
   useEffect(() => {
     loadPhotos();
   }, [loadPhotos]);
   useEffect(() => {
     loadCustomPhotos();
   }, [loadCustomPhotos]);
+  useEffect(() => {
+    loadRouteIds();
+  }, [loadRouteIds]);
 
   // 사용자 변경 시 month/year 를 현재로 reset — 이전 계정의 달이 stale 하게 남는 문제 방지.
   useEffect(() => {
