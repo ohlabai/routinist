@@ -78,7 +78,7 @@ type PermState = 'unknown' | 'prompt' | 'granted' | 'denied';
 // 자동 일시정지 회귀가 짧은 시간 내 2회 (build 283, 284) 발생 — 정확도 안정화될 때까지
 // 사용자 노출 차단. Apple Health 동기화는 그대로 작동하므로 외부 GPS 앱 사용자는 영향 없음.
 // 복원 시: TRACKING_ENABLED = true 만 바꾸면 됨. TrackPageImpl 은 전부 보존.
-const TRACKING_ENABLED = false;
+const TRACKING_ENABLED = true; // build 292: 네이티브 RunSession 엔진으로 공개 (회원 소수·전원 지인 — 실주행 튜닝 병행 결정)
 
 // build 292: 개발자 게이트 — 실사용자 노출은 계속 차단하되, `/track?dev=1` 진입 시
 // localStorage 플래그를 심고 이후엔 쿼리 없이도 게이트 통과 (실기기 테스트용).
