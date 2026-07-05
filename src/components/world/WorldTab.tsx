@@ -285,7 +285,7 @@ export default function WorldTab() {
       // 가 묻혀버린다. 안전하게 message 필드 추출.
       const msg = (typeof e === 'object' && e !== null && 'message' in e && typeof (e as { message: unknown }).message === 'string')
         ? (e as { message: string }).message
-        : '시작에 실패했어요. 잠시 후 다시 시도해주세요';
+        : tt('시작에 실패했어요. 잠시 후 다시 시도해주세요');
       showToast(msg, 'warn');
     } finally {
       setStarting(null);

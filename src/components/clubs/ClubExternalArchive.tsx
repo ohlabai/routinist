@@ -12,12 +12,14 @@ import {
   type ClubExternalMonthlySummary,
   type ClubExternalRunEvent,
 } from '@/lib/club-external';
+import { useI18n } from '@/lib/i18n';
 
 interface Props {
   clubId: string;
 }
 
 export default function ClubExternalArchive({ clubId }: Props) {
+  const { tt, locale } = useI18n();
   const [archives, setArchives] = useState<Array<{ year: number; month: number }>>([]);
   const [year, setYear] = useState<number | null>(null);
   const [month, setMonth] = useState<number | null>(null);
@@ -85,9 +87,9 @@ export default function ClubExternalArchive({ clubId }: Props) {
     return (
       <div className="px-4 py-12 text-center">
         <Calendar size={28} className="mx-auto text-[var(--muted)] mb-3" />
-        <p className="text-sm font-bold text-[var(--foreground)]">아직 결산 데이터가 없어요</p>
+        <p className="text-sm font-bold text-[var(--foreground)]">{tt('아직 결산 데이터가 없어요')}</p>
         <p className="text-xs text-[var(--muted)] mt-2 leading-relaxed">
-          관리자가 월별 HTML 결산을 import 하면<br/>여기에서 회원별 기록을 확인할 수 있어요
+          {tt('관리자가 월별 HTML 결산을 import 하면')}<br/>{tt('여기에서 회원별 기록을 확인할 수 있어요')}
         </p>
       </div>
     );
@@ -130,9 +132,9 @@ export default function ClubExternalArchive({ clubId }: Props) {
         <>
           {/* 합계 */}
           <div className="grid grid-cols-3 gap-2">
-            <Stat icon={<TrendingUp size={16} />} label="총 거리" value={`${totalKm.toFixed(0)}km`} />
-            <Stat icon={<Flame size={16} />} label="50km 통과" value={`${passedCount}/${rows.length}`} />
-            <Stat icon={<Trophy size={16} />} label="목표 달성" value={`${goalAchievedCount}명`} />
+            <Stat icon={<TrendingUp size={16} />} label={tt('총 거리')} value={`${totalKm.toFixed(0)}km`} />
+            <Stat icon={<Flame size={16} />} label={tt('50km 통과')} value={`${passedCount}/${rows.length}`} />
+            <Stat icon={<Trophy size={16} />} label={tt('목표 달성')} value={locale === 'en' ? `${goalAchievedCount}` : `${goalAchievedCount}명`} />
           </div>
 
           {/* 멤버 랭킹 */}
@@ -167,11 +169,11 @@ export default function ClubExternalArchive({ clubId }: Props) {
                             <span className="font-bold text-[var(--foreground)]">{r.name}</span>
                             {r.goal_achieved === true && (
                               <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold inline-flex items-center gap-0.5">
-                                <Coffee size={10} /> 쿠폰
+                                <Coffee size={10} /> {tt('쿠폰')}
                               </span>
                             )}
                             {!r.pass50 && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-600 font-semibold">휴면</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-600 font-semibold">{tt('휴면')}</span>
                             )}
                           </div>
                           <span className="text-base font-extrabold text-[var(--foreground)]">
@@ -185,10 +187,10 @@ export default function ClubExternalArchive({ clubId }: Props) {
                           />
                         </div>
                         <div className="flex items-center justify-between mt-1 text-[11px] text-[var(--muted)]">
-                          <span>{r.run_count}회 · {r.days_count}일</span>
+                          <span>{locale === 'en' ? `${r.run_count} runs · ${r.days_count} days` : `${r.run_count}회 · ${r.days_count}일`}</span>
                           {r.goal_km !== null && pct !== null && (
                             <span className={r.goal_achieved ? 'text-emerald-600 font-semibold' : ''}>
-                              목표 {Number(r.goal_km)}km · {pct.toFixed(0)}%
+                              {tt('목표')} {Number(r.goal_km)}km · {pct.toFixed(0)}%
                             </span>
                           )}
                         </div>
@@ -204,7 +206,7 @@ export default function ClubExternalArchive({ clubId }: Props) {
                           <div className="animate-spin w-4 h-4 border-2 border-[var(--accent)] border-t-transparent rounded-full" />
                         </div>
                       ) : events.length === 0 ? (
-                        <p className="py-2 text-xs text-[var(--muted)] text-center">기록이 없어요</p>
+                        <p className="py-2 text-xs text-[var(--muted)] text-center">{tt('기록이 없어요')}</p>
                       ) : (
                         <ul className="divide-y divide-[var(--card-border)]">
                           {events.map(e => (
@@ -215,7 +217,7 @@ export default function ClubExternalArchive({ clubId }: Props) {
                                 </span>
                                 {e.started_at && (
                                   <span className="font-mono text-[10px] text-[var(--muted)]">
-                                    {new Date(e.started_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                                    {new Date(e.started_at).toLocaleTimeString(locale === 'en' ? 'en-US' : 'ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}
                                   </span>
                                 )}
                               </div>
@@ -234,7 +236,7 @@ export default function ClubExternalArchive({ clubId }: Props) {
           </div>
 
           {rows.length === 0 && (
-            <p className="py-8 text-center text-sm text-[var(--muted)]">이 달은 기록이 없어요</p>
+            <p className="py-8 text-center text-sm text-[var(--muted)]">{tt('이 달은 기록이 없어요')}</p>
           )}
         </>
       )}

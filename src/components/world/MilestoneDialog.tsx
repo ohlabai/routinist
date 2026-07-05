@@ -7,6 +7,7 @@ import { X, Share2, MapPin, Sparkles } from 'lucide-react';
 import type { VirtualCourse } from '@/lib/world-data';
 import type { Milestone } from '@/lib/world-milestones';
 import { API_KEY as MAPS_KEY } from '@/lib/google-maps';
+import { useI18n } from '@/lib/i18n';
 import { useState } from 'react';
 
 interface Props {
@@ -47,20 +48,25 @@ function staticMapUrl(lat: number, lng: number): string {
 }
 
 export default function MilestoneDialog({ milestone, course, userName, onClose }: Props) {
+  const { tt, locale } = useI18n();
   const hasLatLng = milestone.lat != null && milestone.lng != null;
   const sv = hasLatLng ? streetViewUrl(milestone.lat!, milestone.lng!) : '';
   const map = hasLatLng ? staticMapUrl(milestone.lat!, milestone.lng!) : '';
   const [svError, setSvError] = useState(false);
-  const today = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const today = new Date().toLocaleDateString(locale === 'en' ? 'en-US' : 'ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+  // lib 생성 라벨: 고정 라벨은 tt 매핑, '완주! 32.0 km' 류 동적 라벨은 고정부만 치환.
+  const labelText = milestone.label.startsWith('완주! ')
+    ? `${tt('완주!')} ${milestone.label.slice(4)}`
+    : tt(milestone.label);
 
   const handleShare = async () => {
-    const text = `🏃 ${course.name} · ${milestone.label}\n${userName ?? '러너'} · ${today}\n#월드런챌린지 #루티니스트`;
+    const text = `🏃 ${course.name} · ${labelText}\n${userName ?? tt('러너')} · ${today}\n${tt('#월드런챌린지 #루티니스트')}`;
     try {
       const { Share } = await import('@capacitor/share');
       await Share.share({
-        title: `${course.name} · ${milestone.name}`,
+        title: `${course.name} · ${tt(milestone.name)}`,
         text,
-        dialogTitle: '엽서 공유',
+        dialogTitle: tt('엽서 공유'),
       });
     } catch {
       // 웹/미지원 환경: clipboard fallback
@@ -81,7 +87,7 @@ export default function MilestoneDialog({ milestone, course, userName, onClose }
           <div className="flex items-center gap-2">
             <span className="text-2xl leading-none">{milestone.emoji}</span>
             <div>
-              <p className="text-base font-extrabold tracking-tight">{milestone.label}</p>
+              <p className="text-base font-extrabold tracking-tight">{labelText}</p>
               <p className="text-[11px] text-[var(--muted)] truncate">{course.name}</p>
             </div>
           </div>
@@ -129,10 +135,10 @@ export default function MilestoneDialog({ milestone, course, userName, onClose }
                   className="text-zinc-900 leading-tight"
                   style={{ fontFamily: '"Brush Script MT", "Apple Chancery", "Snell Roundhand", cursive', fontSize: 22 }}
                 >
-                  {milestone.name === '완주' || milestone.kind === 'finish' ? '완주!' : milestone.name}
+                  {milestone.name === '완주' || milestone.kind === 'finish' ? tt('완주!') : tt(milestone.name)}
                 </p>
                 <p className="text-[10px] text-zinc-600 mt-1 font-bold tracking-wide tabular-nums">
-                  {userName ?? '러너'} · {today}
+                  {userName ?? tt('러너')} · {today}
                 </p>
               </div>
               {/* 폴라로이드 핀 (귀여운 디테일) */}
@@ -151,7 +157,7 @@ export default function MilestoneDialog({ milestone, course, userName, onClose }
           )}
 
           {!hasLatLng && (
-            <p className="text-[11px] text-[var(--muted)] text-center">이 코스는 GPS 좌표가 등록되지 않아 거리뷰를 표시할 수 없어요.</p>
+            <p className="text-[11px] text-[var(--muted)] text-center">{tt('이 코스는 GPS 좌표가 등록되지 않아 거리뷰를 표시할 수 없어요.')}</p>
           )}
         </div>
 
@@ -161,7 +167,7 @@ export default function MilestoneDialog({ milestone, course, userName, onClose }
             onClick={handleShare}
             className="w-full py-3.5 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-sm active:scale-[0.98] shadow-md shadow-emerald-500/30 inline-flex items-center justify-center gap-1.5"
           >
-            <Share2 size={16} /> 엽서 공유하기
+            <Share2 size={16} /> {tt('엽서 공유하기')}
           </button>
         </div>
       </div>

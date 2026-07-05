@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { X, Share2, Download } from 'lucide-react';
 import QRCode from 'qrcode';
 import { isNativeApp } from '@/lib/health-sync';
+import { useI18n } from '@/lib/i18n';
 
 interface Props {
   clubName: string;
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export default function InviteQRCard({ clubName, clubDescription, memberCount, inviteUrl, onClose }: Props) {
+  const { tt, locale } = useI18n();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [ready, setReady] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -57,7 +59,7 @@ export default function InviteQRCard({ clubName, clubDescription, memberCount, i
 
       ctx.fillStyle = '#10b981';
       ctx.font = 'bold 26px -apple-system, Pretendard, sans-serif';
-      ctx.fillText(`멤버 ${memberCount}명 · 함께 달리러 가요!`, W / 2, 260);
+      ctx.fillText(locale === 'en' ? `${memberCount} members · come run with us!` : `멤버 ${memberCount}명 · 함께 달리러 가요!`, W / 2, 260);
 
       // QR
       const qrSize = 420;
@@ -97,11 +99,11 @@ export default function InviteQRCard({ clubName, clubDescription, memberCount, i
       // 안내 문구
       ctx.fillStyle = '#0f172a';
       ctx.font = 'bold 32px -apple-system, Pretendard, sans-serif';
-      ctx.fillText('QR을 스캔해 클럽 가입하기', W / 2, qrY + qrSize + pad + 80);
+      ctx.fillText(tt('QR을 스캔해 클럽 가입하기'), W / 2, qrY + qrSize + pad + 80);
 
       ctx.fillStyle = '#64748b';
       ctx.font = '22px -apple-system, Pretendard, sans-serif';
-      ctx.fillText('앱이 설치되어 있으면 바로 열립니다', W / 2, qrY + qrSize + pad + 120);
+      ctx.fillText(tt('앱이 설치되어 있으면 바로 열립니다'), W / 2, qrY + qrSize + pad + 120);
 
       // 하단 워터마크
       ctx.fillStyle = '#94a3b8';
@@ -110,7 +112,8 @@ export default function InviteQRCard({ clubName, clubDescription, memberCount, i
 
       setReady(true);
     })();
-  }, [clubName, clubDescription, memberCount, inviteUrl]);
+    // locale 변경 시 canvas 문구 다시 그리기
+  }, [clubName, clubDescription, memberCount, inviteUrl, locale, tt]);
 
   const handleShare = async () => {
     if (!canvasRef.current) return;
@@ -122,7 +125,7 @@ export default function InviteQRCard({ clubName, clubDescription, memberCount, i
         const fileName = `routinist-invite-${Date.now()}.png`;
         const result = await Filesystem.writeFile({ path: fileName, data: base64, directory: Directory.Cache });
         const { Share } = await import('@capacitor/share');
-        await Share.share({ title: `${clubName} 클럽에 초대합니다!`, text: inviteUrl, url: result.uri });
+        await Share.share({ title: locale === 'en' ? `You're invited to the ${clubName} club!` : `${clubName} 클럽에 초대합니다!`, text: inviteUrl, url: result.uri });
       } else {
         const blob = await new Promise<Blob | null>(res => canvasRef.current!.toBlob(b => res(b), 'image/png'));
         if (blob && navigator.share) {
@@ -151,7 +154,7 @@ export default function InviteQRCard({ clubName, clubDescription, memberCount, i
     <div className="fixed inset-0 z-[70] bg-black/70 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="bg-[var(--background)] rounded-2xl max-w-sm w-full overflow-hidden max-h-[92vh] flex flex-col">
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--card-border)] flex-shrink-0">
-          <h3 className="text-base font-bold text-[var(--foreground)]">초대 QR 카드</h3>
+          <h3 className="text-base font-bold text-[var(--foreground)]">{tt('초대 QR 카드')}</h3>
           <button onClick={onClose} className="text-[var(--muted)]"><X size={20} /></button>
         </div>
         <div className="p-4 flex-1 overflow-auto">
@@ -163,14 +166,14 @@ export default function InviteQRCard({ clubName, clubDescription, memberCount, i
             disabled={!ready}
             className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)] text-[var(--foreground)] font-semibold text-sm disabled:opacity-50"
           >
-            <Download size={18} /> 저장
+            <Download size={18} /> {tt('저장')}
           </button>
           <button
             onClick={handleShare}
             disabled={!ready || sharing}
             className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-500 text-white font-bold text-sm shadow-md disabled:opacity-50"
           >
-            <Share2 size={18} /> {sharing ? '공유 중...' : '공유하기'}
+            <Share2 size={18} /> {sharing ? tt('공유 중...') : tt('공유하기')}
           </button>
         </div>
       </div>

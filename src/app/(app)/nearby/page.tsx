@@ -28,17 +28,18 @@ import { useI18n } from '@/lib/i18n';
 
 const SCOPES: NearbyScope[] = ['dong', 'gu', 'si', 'national'];
 
-function ageOf(year: number | null): string {
+function ageOf(year: number | null, locale: string): string {
   if (!year) return '';
   const age = new Date().getFullYear() - year;
   if (age < 10 || age > 100) return '';
-  return `${Math.floor(age / 10) * 10}대`;
+  const decade = Math.floor(age / 10) * 10;
+  return locale === 'en' ? `${decade}s` : `${decade}대`;
 }
 
 export default function NearbyPage() {
   const router = useRouter();
   const { user, profile } = useAuth();
-  const { t } = useI18n();
+  const { t, tt, locale } = useI18n();
   const [scope, setScope] = useState<NearbyScope>('gu');
   const [mode, setMode] = useState<'region' | 'pace'>('region');
   const [runners, setRunners] = useState<NearbyRunner[]>([]);
@@ -76,7 +77,7 @@ export default function NearbyPage() {
         track('nearby_search', { mode: 'region', scope, result_count: list.length });
       }
     } catch (e) {
-      showToast(e instanceof Error ? e.message : '검색 실패', 'warn');
+      showToast(e instanceof Error ? e.message : tt('검색 실패'), 'warn');
     } finally {
       setLoading(false);
     }
@@ -97,15 +98,15 @@ export default function NearbyPage() {
       if (isFollowing) {
         await unfollowUser(target.user_id);
         setFollowingIds(prev => { const n = new Set(prev); n.delete(target.user_id); return n; });
-        showToast('친구 끊기');
+        showToast(tt('친구 끊기'));
       } else {
         await followUser(target.user_id);
         setFollowingIds(prev => new Set(prev).add(target.user_id));
-        showToast('친구 추가됨');
+        showToast(tt('친구 추가됨'));
         track('nearby_follow', { target: target.user_id });
       }
     } catch (e) {
-      showToast(e instanceof Error ? e.message : '실패', 'warn');
+      showToast(e instanceof Error ? e.message : tt('실패'), 'warn');
     } finally {
       setBusy(null);
     }
@@ -158,7 +159,7 @@ export default function NearbyPage() {
                     : 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--muted)]'
                 }`}
               >
-                {SCOPE_LABEL[s]}
+                {tt(SCOPE_LABEL[s])}
               </button>
             ))}
             <button
@@ -184,20 +185,24 @@ export default function NearbyPage() {
         ) : noRegion ? (
           <Link href="/profile/edit" className="block rounded-2xl bg-gradient-to-br from-emerald-100/80 to-emerald-50/40 dark:from-emerald-950/30 dark:to-emerald-950/10 border border-emerald-200/60 dark:border-emerald-900/40 p-5 active:scale-[0.99]">
             <p className="text-base font-extrabold text-[var(--foreground)] inline-flex items-center gap-1.5">
-              <MapPin size={16} className="text-emerald-600" /> 우리 동네부터 설정해주세요
+              <MapPin size={16} className="text-emerald-600" /> {tt('우리 동네부터 설정해주세요')}
             </p>
             <p className="text-sm text-[var(--muted)] mt-1.5 leading-relaxed">
-              지역을 입력하면 같은 동·구·시의 러너를 찾을 수 있어요.
+              {tt('지역을 입력하면 같은 동·구·시의 러너를 찾을 수 있어요.')}
             </p>
-            <p className="text-xs font-bold text-emerald-600 mt-2">프로필 편집 →</p>
+            <p className="text-xs font-bold text-emerald-600 mt-2">{tt('프로필 편집')} →</p>
           </Link>
         ) : (
           <>
             {/* 안내 카드 */}
             <div className="rounded-2xl bg-gradient-to-br from-emerald-50/70 to-emerald-50/30 dark:from-emerald-950/30 dark:to-emerald-950/10 border border-emerald-200/50 dark:border-emerald-900/40 p-4">
               <p className="text-xs text-[var(--muted)] leading-relaxed">
-                <span className="font-extrabold text-emerald-700 dark:text-emerald-300">{SCOPE_LABEL[scope]}</span>의 러너를 찾았어요. {SCOPE_DESC[scope]}.
-                <br />친구 추가하고 메시지로 함께 달리기 모임을 만들어 보세요.
+                {locale === 'en' ? (
+                  <>Found runners in <span className="font-extrabold text-emerald-700 dark:text-emerald-300">{tt(SCOPE_LABEL[scope])}</span>. {tt(SCOPE_DESC[scope])}.</>
+                ) : (
+                  <><span className="font-extrabold text-emerald-700 dark:text-emerald-300">{SCOPE_LABEL[scope]}</span>의 러너를 찾았어요. {SCOPE_DESC[scope]}.</>
+                )}
+                <br />{tt('친구 추가하고 메시지로 함께 달리기 모임을 만들어 보세요.')}
               </p>
             </div>
 
@@ -211,9 +216,11 @@ export default function NearbyPage() {
                 <div className="w-16 h-16 rounded-full bg-emerald-50 dark:bg-emerald-950/30 mx-auto mb-3 flex items-center justify-center">
                   <Users size={28} className="text-emerald-500" />
                 </div>
-                <p className="text-base font-extrabold mb-1">{SCOPE_LABEL[scope]}에 아직 러너가 없어요</p>
+                <p className="text-base font-extrabold mb-1">
+                  {locale === 'en' ? `No runners in ${tt(SCOPE_LABEL[scope])} yet` : `${SCOPE_LABEL[scope]}에 아직 러너가 없어요`}
+                </p>
                 <p className="text-sm text-[var(--muted)]">
-                  범위를 더 넓혀 보거나 친구를 초대해서 함께 달려보세요
+                  {tt('범위를 더 넓혀 보거나 친구를 초대해서 함께 달려보세요')}
                 </p>
               </div>
             ) : (
@@ -243,20 +250,22 @@ export default function NearbyPage() {
                         <p className="text-xs text-[var(--muted)] inline-flex items-center gap-1 mt-0.5">
                           <MapPin size={11} />
                           {[r.region_si, r.region_gu, r.region_dong].filter(Boolean).join(' ')}
-                          {ageOf(r.birth_year) && <span className="ml-1">· {ageOf(r.birth_year)}</span>}
+                          {ageOf(r.birth_year, locale) && <span className="ml-1">· {ageOf(r.birth_year, locale)}</span>}
                         </p>
                         {r.bio && <p className="text-xs text-[var(--muted)] mt-1 line-clamp-2 italic">{r.bio}</p>}
                         <p className="text-[11px] text-[var(--muted)] inline-flex items-center gap-2 mt-1.5">
                           <span className="inline-flex items-center gap-0.5 font-bold">
                             <Activity size={10} className="text-emerald-500" />
-                            {isActive30d ? `30일 ${r.runs_30d}회·${r.km_30d.toFixed(1)}km` : '최근 비활성'}
+                            {isActive30d
+                              ? (locale === 'en' ? `30d ${r.runs_30d} runs · ${r.km_30d.toFixed(1)}km` : `30일 ${r.runs_30d}회·${r.km_30d.toFixed(1)}km`)
+                              : tt('최근 비활성')}
                           </span>
                         </p>
                       </div>
                       <button
                         onClick={() => handleFollow(r)}
                         disabled={busy === r.user_id}
-                        aria-label={following ? '친구 끊기' : '친구 추가'}
+                        aria-label={following ? tt('친구 끊기') : tt('친구 추가')}
                         className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-50 transition ${
                           following
                             ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
@@ -271,13 +280,13 @@ export default function NearbyPage() {
                         href={`/messages?to=${r.user_id}`}
                         className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-xl bg-[var(--card-border)]/30 text-sm font-bold active:scale-95"
                       >
-                        <MessageCircle size={13} /> 쪽지
+                        <MessageCircle size={13} /> {tt('쪽지')}
                       </Link>
                       <Link
                         href={`/ranking?tab=contest&invite=${r.user_id}`}
                         className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-xl bg-[var(--card-border)]/30 text-sm font-bold active:scale-95"
                       >
-                        <Calendar size={13} /> 친선런 초대
+                        <Calendar size={13} /> {tt('친선런 초대')}
                       </Link>
                     </div>
                   </article>
@@ -301,6 +310,7 @@ function PaceMatchedSection({ runners, loading, followingIds, busy, onFollow }: 
   busy: string | null;
   onFollow: (r: PaceMatchedRunner) => void;
 }) {
+  const { tt, locale } = useI18n();
   if (loading) {
     return (
       <div className="space-y-2">
@@ -314,8 +324,8 @@ function PaceMatchedSection({ runners, loading, followingIds, busy, onFollow }: 
         <div className="w-16 h-16 rounded-full bg-emerald-50 dark:bg-emerald-950/30 mx-auto mb-3 flex items-center justify-center">
           <Zap size={28} className="text-emerald-500" />
         </div>
-        <p className="text-base font-extrabold mb-1">비슷한 페이스의 러너가 아직 없어요</p>
-        <p className="text-sm text-[var(--muted)]">최근 30일 페이스 데이터가 쌓이면 더 정확하게 추천돼요</p>
+        <p className="text-base font-extrabold mb-1">{tt('비슷한 페이스의 러너가 아직 없어요')}</p>
+        <p className="text-sm text-[var(--muted)]">{tt('최근 30일 페이스 데이터가 쌓이면 더 정확하게 추천돼요')}</p>
       </div>
     );
   }
@@ -323,10 +333,10 @@ function PaceMatchedSection({ runners, loading, followingIds, busy, onFollow }: 
     <>
       <div className="rounded-2xl bg-gradient-to-br from-emerald-50/70 to-emerald-50/30 dark:from-emerald-950/30 dark:to-emerald-950/10 border border-emerald-200/50 dark:border-emerald-900/40 p-4">
         <p className="text-sm font-extrabold text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1.5 mb-1">
-          <Zap size={14} /> 비슷한 페이스의 러너
+          <Zap size={14} /> {tt('비슷한 페이스의 러너')}
         </p>
         <p className="text-xs text-[var(--muted)] leading-relaxed">
-          30일 평균 페이스가 ±20초 차이 안 러너입니다. 함께 달리면 페이스 유지에 도움돼요.
+          {tt('30일 평균 페이스가 ±20초 차이 안 러너입니다. 함께 달리면 페이스 유지에 도움돼요.')}
         </p>
       </div>
 
@@ -337,8 +347,8 @@ function PaceMatchedSection({ runners, loading, followingIds, busy, onFollow }: 
             <Users size={20} className="text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-extrabold text-white">페이스 그룹 둘러보기</p>
-            <p className="text-xs text-white/85 mt-0.5">6단계 페이스대 가상 클럽 — 같은 속도의 친구들</p>
+            <p className="text-sm font-extrabold text-white">{tt('페이스 그룹 둘러보기')}</p>
+            <p className="text-xs text-white/85 mt-0.5">{tt('6단계 페이스대 가상 클럽 — 같은 속도의 친구들')}</p>
           </div>
           <span className="text-white text-base font-bold">→</span>
         </div>
@@ -367,24 +377,24 @@ function PaceMatchedSection({ runners, loading, followingIds, busy, onFollow }: 
                   <GenderBadge gender={r.gender} show={r.show_gender} size={13} />
                 </Link>
                 <p className="text-xs text-[var(--muted)] inline-flex items-center gap-1 mt-0.5">
-                  <MapPin size={11} /> {r.region_gu ?? '지역 미설정'}
+                  <MapPin size={11} /> {r.region_gu ?? tt('지역 미설정')}
                 </p>
                 <div className="mt-1.5 flex items-center gap-3 text-[11px]">
                   <span className="inline-flex items-center gap-0.5 font-bold text-emerald-600">
                     <Zap size={11} /> {formatPace(r.avg_pace_sec)}/km
                   </span>
                   <span className="text-[var(--muted)] font-bold">
-                    내 페이스와 ±{Math.round(r.pace_diff_sec)}초
+                    {locale === 'en' ? `±${Math.round(r.pace_diff_sec)}s vs my pace` : `내 페이스와 ±${Math.round(r.pace_diff_sec)}초`}
                   </span>
                   <span className="text-[var(--muted)] font-bold">
-                    · 30일 {r.runs_30d}회
+                    {locale === 'en' ? `· 30d ${r.runs_30d} runs` : `· 30일 ${r.runs_30d}회`}
                   </span>
                 </div>
               </div>
               <button
                 onClick={() => onFollow(r)}
                 disabled={busy === r.user_id}
-                aria-label={following ? '친구 끊기' : '친구 추가'}
+                aria-label={following ? tt('친구 끊기') : tt('친구 추가')}
                 className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-50 transition ${
                   following
                     ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'

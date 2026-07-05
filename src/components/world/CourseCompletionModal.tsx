@@ -10,11 +10,13 @@
 import { useEffect, useState } from 'react';
 import { X, Trophy, Sparkles, Share2 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
+import { useI18n } from '@/lib/i18n';
 import { ackCourseCompletion, fetchUnackCompletions, type UnackCompletion } from '@/lib/world-data';
 import MedalShareCard from './MedalShareCard';
 
 export default function CourseCompletionModal() {
   const { profile } = useAuth();
+  const { tt, locale } = useI18n();
   const [queue, setQueue] = useState<UnackCompletion[]>([]);
   const [busy, setBusy] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -61,7 +63,7 @@ export default function CourseCompletionModal() {
             type="button"
             onClick={handleAck}
             disabled={busy}
-            aria-label="닫기"
+            aria-label={tt('닫기')}
             className="absolute top-3 right-3 p-2 rounded-full hover:bg-white/10 transition disabled:opacity-50"
           >
             <X className="w-5 h-5" />
@@ -69,11 +71,11 @@ export default function CourseCompletionModal() {
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-white/15 backdrop-blur-sm mb-3 animate-bounce">
             <Trophy className="w-10 h-10 text-yellow-300" />
           </div>
-          <div className="text-xs font-medium opacity-80 mb-1">월드런 챌린지 완주</div>
+          <div className="text-xs font-medium opacity-80 mb-1">{tt('월드런 챌린지 완주')}</div>
           <h2 className="text-2xl font-bold flex items-center justify-center gap-2">
             {current.country?.split(' ')[0] ?? '🏁'} {current.name}
           </h2>
-          <p className="text-sm opacity-90 mt-1">{Number(current.distance_km).toFixed(2)} km 완주</p>
+          <p className="text-sm opacity-90 mt-1">{Number(current.distance_km).toFixed(2)} {tt('km 완주')}</p>
         </div>
 
         {/* 바디 */}
@@ -81,20 +83,20 @@ export default function CourseCompletionModal() {
           <div className="text-center">
             <div className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 text-sm font-medium">
               <Sparkles className="w-4 h-4" />
-              축하해요! 메달을 손에 넣었어요
+              {tt('축하해요! 메달을 손에 넣었어요')}
             </div>
           </div>
 
           {current.refund_amount > 0 && (
             <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-2xl px-5 py-4 flex items-center justify-between">
               <div>
-                <div className="text-xs text-[var(--text-muted)] mb-0.5">완주 환급 보상</div>
+                <div className="text-xs text-[var(--text-muted)] mb-0.5">{tt('완주 환급 보상')}</div>
                 <div className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
                   + {current.refund_amount.toLocaleString()} P
                 </div>
               </div>
               <div className="text-xs text-[var(--text-muted)] text-right">
-                참가비의 50%<br />이미 적립됐어요
+                {tt('참가비의 50%')}<br />{tt('이미 적립됐어요')}
               </div>
             </div>
           )}
@@ -106,7 +108,7 @@ export default function CourseCompletionModal() {
               disabled={busy}
               className="py-3 rounded-2xl bg-[var(--card-bg)] text-[var(--foreground)] text-sm font-medium hover:bg-[var(--card-border)]/40 transition disabled:opacity-50"
             >
-              닫기
+              {tt('닫기')}
             </button>
             <button
               type="button"
@@ -115,13 +117,13 @@ export default function CourseCompletionModal() {
               className="py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-sm font-bold hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <Share2 className="w-4 h-4" />
-              메달 공유하기
+              {tt('메달 공유하기')}
             </button>
           </div>
 
           {queue.length > 1 && (
             <div className="text-center text-xs text-[var(--text-muted)] pt-1">
-              + 추가 완주 {queue.length - 1}건이 더 있어요
+              {locale === 'en' ? `+ ${queue.length - 1} more completed course${queue.length - 1 > 1 ? 's' : ''} waiting` : `+ 추가 완주 ${queue.length - 1}건이 더 있어요`}
             </div>
           )}
         </div>
@@ -133,7 +135,7 @@ export default function CourseCompletionModal() {
           countryFlag={current.country?.split(' ')[0] ?? '🏁'}
           distanceKm={Number(current.distance_km)}
           completedAt={current.completed_at}
-          displayName={profile?.display_name ?? '러너'}
+          displayName={profile?.display_name ?? tt('러너')}
           refundAmount={current.refund_amount}
           onClose={handleAck}
         />

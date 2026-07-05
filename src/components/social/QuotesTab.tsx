@@ -33,8 +33,15 @@ interface FeedItem {
   is_mine?: boolean; // mine 모드에서만 true
 }
 
-function timeAgo(iso: string): string {
+function timeAgo(iso: string, locale: string): string {
   const ms = Date.now() - new Date(iso).getTime();
+  if (locale === 'en') {
+    if (ms < 60_000) return 'now';
+    if (ms < 3600_000) return `${Math.floor(ms / 60_000)}m`;
+    if (ms < 86400_000) return `${Math.floor(ms / 3600_000)}h`;
+    if (ms < 30 * 86400_000) return `${Math.floor(ms / 86400_000)}d`;
+    return `${Math.floor(ms / (30 * 86400_000))}mo`;
+  }
   if (ms < 60_000) return '방금';
   if (ms < 3600_000) return `${Math.floor(ms / 60_000)}분`;
   if (ms < 86400_000) return `${Math.floor(ms / 3600_000)}시간`;
@@ -44,7 +51,7 @@ function timeAgo(iso: string): string {
 
 export default function QuotesTab() {
   const { user, profile } = useAuth();
-  const { t } = useI18n();
+  const { t, tt, locale } = useI18n();
   const [mode, setMode] = useState<FilterMode>('all');
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -135,7 +142,7 @@ export default function QuotesTab() {
       showToast(t('quotes.submitted'));
       await load();
     } catch (e) {
-      showToast(e instanceof Error ? e.message : '등록 실패', 'warn');
+      showToast(e instanceof Error ? e.message : tt('등록 실패'), 'warn');
     } finally {
       setComposing(false);
     }
@@ -148,7 +155,7 @@ export default function QuotesTab() {
       setItems(prev => prev.filter(x => x.id !== id));
       showToast(t('quotes.deleted'));
     } catch (e) {
-      showToast(e instanceof Error ? e.message : '삭제 실패', 'warn');
+      showToast(e instanceof Error ? e.message : tt('삭제 실패'), 'warn');
     }
   };
 
@@ -159,7 +166,7 @@ export default function QuotesTab() {
       await reportQuote(reportTarget.id, reason);
       showToast(t('quotes.reportSubmitted'));
     } catch (e) {
-      showToast(e instanceof Error ? e.message : '신고 실패', 'warn');
+      showToast(e instanceof Error ? e.message : tt('신고 실패'), 'warn');
     } finally {
       setReporting(false);
       setReportTarget(null);
@@ -243,7 +250,7 @@ export default function QuotesTab() {
                         {t('quotes.tagClassic')}
                       </span>
                     )}
-                    <span className="text-xs text-[var(--muted)] flex-shrink-0">· {timeAgo(q.created_at)}</span>
+                    <span className="text-xs text-[var(--muted)] flex-shrink-0">· {timeAgo(q.created_at, locale)}</span>
                   </div>
                   <p className="mt-1.5 text-[15px] leading-relaxed text-[var(--foreground)] break-keep whitespace-pre-wrap">
                     {q.text}

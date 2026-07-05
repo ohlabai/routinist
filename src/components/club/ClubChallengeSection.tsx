@@ -15,6 +15,7 @@ import {
 } from '@/lib/club-courses-data';
 import { fetchAvailableCourses, type VirtualCourse } from '@/lib/world-data';
 import AppToast from '@/components/AppToast';
+import { useI18n, ttl, getCurrentLocale } from '@/lib/i18n';
 
 interface Props {
   clubId: string;
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export default function ClubChallengeSection({ clubId, canManage }: Props) {
+  const { tt, locale } = useI18n();
   const [courses, setCourses] = useState<ClubCourse[]>([]);
   const [loading, setLoading] = useState(true);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -61,13 +63,13 @@ export default function ClubChallengeSection({ clubId, canManage }: Props) {
     <section className="space-y-2">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-extrabold inline-flex items-center gap-1.5">
-          <Trophy size={14} className="text-amber-500" /> 클럽 마라톤
+          <Trophy size={14} className="text-amber-500" /> {tt('클럽 마라톤')}
         </h2>
         <div className="flex items-center gap-1.5">
           {canManage && (
             <button
               onClick={() => setEmailsOpen(true)}
-              aria-label="멤버 이메일"
+              aria-label={tt('멤버 이메일')}
               className="w-8 h-8 rounded-full bg-[var(--card-border)]/30 flex items-center justify-center active:scale-95"
             >
               <Mail size={13} className="text-[var(--muted)]" />
@@ -78,7 +80,7 @@ export default function ClubChallengeSection({ clubId, canManage }: Props) {
               onClick={() => setPickerOpen(true)}
               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-emerald-500 text-white font-bold text-xs active:scale-95"
             >
-              <Plus size={12} /> 코스 시작
+              <Plus size={12} /> {tt('코스 시작')}
             </button>
           )}
         </div>
@@ -89,11 +91,11 @@ export default function ClubChallengeSection({ clubId, canManage }: Props) {
       ) : courses.length === 0 ? (
         <div className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] p-5 text-center">
           <Globe size={26} className="mx-auto text-[var(--muted)] mb-2" />
-          <p className="text-sm font-bold">아직 클럽 도전이 없어요</p>
+          <p className="text-sm font-bold">{tt('아직 클럽 도전이 없어요')}</p>
           {canManage ? (
-            <p className="text-xs text-[var(--muted)] mt-1">위 버튼으로 가상 코스를 시작해 멤버 km 를 합쳐보세요</p>
+            <p className="text-xs text-[var(--muted)] mt-1">{tt('위 버튼으로 가상 코스를 시작해 멤버 km 를 합쳐보세요')}</p>
           ) : (
-            <p className="text-xs text-[var(--muted)] mt-1">운영자가 곧 시작할 거예요</p>
+            <p className="text-xs text-[var(--muted)] mt-1">{tt('운영자가 곧 시작할 거예요')}</p>
           )}
         </div>
       ) : (
@@ -115,7 +117,7 @@ export default function ClubChallengeSection({ clubId, canManage }: Props) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-extrabold truncate">{c.name}</p>
-                  <p className="text-[11px] text-[var(--muted)]">{c.country ?? '세계'} · {c.distance_km.toFixed(1)}km · 기여 {c.contributors}명</p>
+                  <p className="text-[11px] text-[var(--muted)]">{c.country ?? tt('세계')} · {c.distance_km.toFixed(1)}km · {locale === 'en' ? `${c.contributors} contributed` : `기여 ${c.contributors}명`}</p>
                 </div>
               </div>
               <div className="mt-3">
@@ -125,9 +127,9 @@ export default function ClubChallengeSection({ clubId, canManage }: Props) {
                 <div className="flex items-center justify-between mt-1.5 text-xs">
                   <span className="font-extrabold tabular-nums">{c.total_km.toFixed(1)} / {c.distance_km.toFixed(1)} km</span>
                   {done ? (
-                    <span className="text-amber-600 font-extrabold inline-flex items-center gap-1"><Trophy size={11} /> 완주</span>
+                    <span className="text-amber-600 font-extrabold inline-flex items-center gap-1"><Trophy size={11} /> {tt('완주')}</span>
                   ) : (
-                    <span className="text-[var(--muted)] font-semibold">남은 {remain.toFixed(1)}km</span>
+                    <span className="text-[var(--muted)] font-semibold">{locale === 'en' ? `${remain.toFixed(1)}km left` : `남은 ${remain.toFixed(1)}km`}</span>
                   )}
                 </div>
               </div>
@@ -141,7 +143,7 @@ export default function ClubChallengeSection({ clubId, canManage }: Props) {
           clubId={clubId}
           alreadyStartedIds={new Set(courses.map(c => c.course_id))}
           onClose={() => setPickerOpen(false)}
-          onStarted={() => { setPickerOpen(false); showToast('✨ 클럽 도전 시작됨'); load(); }}
+          onStarted={() => { setPickerOpen(false); showToast(tt('✨ 클럽 도전 시작됨')); load(); }}
           onError={(msg) => showToast(msg, 'warn')}
         />
       )}
@@ -178,6 +180,7 @@ function ClubCompletionCelebration({ clubId, course, onClose }: {
   course: ClubCourse;
   onClose: () => void;
 }) {
+  const { tt, locale } = useI18n();
   const [members, setMembers] = useState<ClubCourseLeaderRow[]>([]);
 
   useEffect(() => {
@@ -200,11 +203,11 @@ function ClubCompletionCelebration({ clubId, course, onClose }: {
         </div>
 
         <p className="text-xs font-extrabold text-amber-700 dark:text-amber-300 tracking-widest inline-flex items-center gap-1 justify-center">
-          <Sparkles size={12} /> 클럽 완주 <Sparkles size={12} />
+          <Sparkles size={12} /> {tt('클럽 완주')} <Sparkles size={12} />
         </p>
         <h2 className="text-2xl font-extrabold mt-1 break-keep">{course.name}</h2>
         <p className="text-sm text-[var(--muted)] mt-1">
-          {course.country ?? '세계'} · {course.distance_km.toFixed(1)}km · 함께 해낸 {members.length}명
+          {course.country ?? tt('세계')} · {course.distance_km.toFixed(1)}km · {locale === 'en' ? `${members.length} finished together` : `함께 해낸 ${members.length}명`}
         </p>
 
         {/* 멤버 아바타 row */}
@@ -231,13 +234,13 @@ function ClubCompletionCelebration({ clubId, course, onClose }: {
             onClick={handleDownload}
             className="flex-1 py-3 rounded-xl bg-white dark:bg-zinc-800 border-2 border-amber-300/60 dark:border-amber-800/40 text-amber-700 dark:text-amber-300 font-extrabold text-sm active:scale-[0.98] inline-flex items-center justify-center gap-1.5"
           >
-            <Download size={14} /> 인증서
+            <Download size={14} /> {tt('인증서')}
           </button>
           <button
             onClick={onClose}
             className="flex-1 py-3 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white font-extrabold text-sm active:scale-[0.98] shadow-md shadow-amber-500/30"
           >
-            축하해요!
+            {tt('축하해요!')}
           </button>
         </div>
       </div>
@@ -247,6 +250,7 @@ function ClubCompletionCelebration({ clubId, course, onClose }: {
 
 // ── 클럽 멤버 이메일 sheet (운영자만) — 인증서 발송 등에 활용 ──
 function ClubEmailsSheet({ clubId, onClose }: { clubId: string; onClose: () => void }) {
+  const { tt, locale } = useI18n();
   const [rows, setRows] = useState<{ user_id: string; email: string; display_name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
@@ -259,7 +263,7 @@ function ClubEmailsSheet({ clubId, onClose }: { clubId: string; onClose: () => v
         if (error) throw error;
         setRows((data ?? []) as { user_id: string; email: string; display_name: string }[]);
       } catch (e) {
-        setMsg(e instanceof Error ? e.message : '조회 실패');
+        setMsg(e instanceof Error ? e.message : tt('조회 실패'));
       } finally {
         setLoading(false);
       }
@@ -271,19 +275,19 @@ function ClubEmailsSheet({ clubId, onClose }: { clubId: string; onClose: () => v
   const copyAll = async () => {
     try {
       await navigator.clipboard.writeText(allEmails);
-      setMsg('📋 모든 이메일 복사됨');
+      setMsg(tt('📋 모든 이메일 복사됨'));
       setTimeout(() => setMsg(null), 1800);
     } catch { /* ignore */ }
   };
 
-  const mailto = `mailto:?bcc=${encodeURIComponent(allEmails)}&subject=${encodeURIComponent('Routinist 클럽 알림')}&body=${encodeURIComponent('안녕하세요 ' + rows.length + '명의 클럽 멤버에게 알려드립니다.\n\n')}`;
+  const mailto = `mailto:?bcc=${encodeURIComponent(allEmails)}&subject=${encodeURIComponent(locale === 'en' ? 'Routinist club notice' : 'Routinist 클럽 알림')}&body=${encodeURIComponent(locale === 'en' ? `Hello! A notice for our ${rows.length} club members.\n\n` : '안녕하세요 ' + rows.length + '명의 클럽 멤버에게 알려드립니다.\n\n')}`;
 
   return (
     <div className="fixed inset-0 z-[85] bg-black/65 flex items-end sm:items-center justify-center sm:p-3" onClick={onClose}>
       <div className="w-full sm:max-w-md bg-[var(--background)] rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="sticky top-0 z-10 px-4 py-3 bg-[var(--background)] border-b border-[var(--card-border)] rounded-t-3xl flex items-center justify-between">
           <h3 className="text-base font-extrabold inline-flex items-center gap-1.5">
-            <Mail size={16} className="text-emerald-500" /> 클럽 멤버 이메일 · {rows.length}명
+            <Mail size={16} className="text-emerald-500" /> {locale === 'en' ? `Club member emails · ${rows.length}` : `클럽 멤버 이메일 · ${rows.length}명`}
           </h3>
           <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90"><X size={18} /></button>
         </div>
@@ -291,7 +295,7 @@ function ClubEmailsSheet({ clubId, onClose }: { clubId: string; onClose: () => v
           {loading ? (
             [0,1,2].map(i => <div key={i} className="h-10 bg-[var(--card-border)]/30 animate-pulse rounded-xl" />)
           ) : rows.length === 0 ? (
-            <p className="text-center text-sm text-[var(--muted)] py-12">멤버 없음</p>
+            <p className="text-center text-sm text-[var(--muted)] py-12">{tt('멤버 없음')}</p>
           ) : (
             rows.map(r => (
               <div key={r.user_id} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[var(--card)] border border-[var(--card-border)]/40">
@@ -303,10 +307,10 @@ function ClubEmailsSheet({ clubId, onClose }: { clubId: string; onClose: () => v
         </div>
         <div className="sticky bottom-0 px-4 py-3 bg-[var(--background)] border-t border-[var(--card-border)]/40 flex gap-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}>
           <button onClick={copyAll} className="flex-1 py-2.5 rounded-xl bg-[var(--card-border)]/40 font-bold text-xs active:scale-95 inline-flex items-center justify-center gap-1">
-            <Copy size={12} /> 전체 복사
+            <Copy size={12} /> {tt('전체 복사')}
           </button>
           <a href={mailto} className="flex-1 py-2.5 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-xs active:scale-95 inline-flex items-center justify-center gap-1">
-            <Mail size={12} /> 메일 작성
+            <Mail size={12} /> {tt('메일 작성')}
           </a>
         </div>
         {msg && <p className="text-[11px] text-center font-bold text-emerald-600 pb-2">{msg}</p>}
@@ -341,7 +345,7 @@ function downloadClubCertificate(course: ClubCourse, members: ClubCourseLeaderRo
 
   ctx.fillStyle = '#1f2937';
   ctx.font = 'bold 92px Georgia, serif';
-  ctx.fillText('클럽 완주 인증서', W / 2, 300);
+  ctx.fillText(ttl('클럽 완주 인증서'), W / 2, 300);
 
   ctx.fillStyle = '#6b7280';
   ctx.font = '32px Georgia, serif';
@@ -353,11 +357,11 @@ function downloadClubCertificate(course: ClubCourse, members: ClubCourseLeaderRo
 
   ctx.fillStyle = '#f59e0b';
   ctx.font = 'bold 56px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText(`${course.distance_km.toFixed(1)} km · ${course.country ?? '세계'}`, W / 2, 580);
+  ctx.fillText(`${course.distance_km.toFixed(1)} km · ${course.country ?? ttl('세계')}`, W / 2, 580);
 
   ctx.fillStyle = '#374151';
   ctx.font = '32px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText(`함께 해낸 ${members.length}명의 러너`, W / 2, 670);
+  ctx.fillText(getCurrentLocale() === 'en' ? `${members.length} runners, together` : `함께 해낸 ${members.length}명의 러너`, W / 2, 670);
 
   // top 6 멤버 이름 row
   ctx.fillStyle = '#10b981';
@@ -368,15 +372,16 @@ function downloadClubCertificate(course: ClubCourse, members: ClubCourseLeaderRo
   if (members.length > 6) {
     ctx.fillStyle = '#9ca3af';
     ctx.font = '22px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillText(`+ ${members.length - 6}명 더`, W / 2, 780);
+    ctx.fillText(getCurrentLocale() === 'en' ? `+ ${members.length - 6} more` : `+ ${members.length - 6}명 더`, W / 2, 780);
   }
 
+  const certLocale = getCurrentLocale() === 'en' ? 'en-US' : 'ko-KR';
   const dateStr = course.completed_at
-    ? new Date(course.completed_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
-    : new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+    ? new Date(course.completed_at).toLocaleDateString(certLocale, { year: 'numeric', month: 'long', day: 'numeric' })
+    : new Date().toLocaleDateString(certLocale, { year: 'numeric', month: 'long', day: 'numeric' });
   ctx.fillStyle = '#6b7280';
   ctx.font = '30px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText(`완주일: ${dateStr}`, W / 2, 920);
+  ctx.fillText(`${ttl('완주일')}: ${dateStr}`, W / 2, 920);
 
   ctx.fillStyle = '#9ca3af';
   ctx.font = '24px -apple-system, BlinkMacSystemFont, sans-serif';
@@ -402,6 +407,7 @@ function StartCoursePicker({ clubId, alreadyStartedIds, onClose, onStarted, onEr
   onStarted: () => void;
   onError: (msg: string) => void;
 }) {
+  const { tt } = useI18n();
   const [list, setList] = useState<VirtualCourse[]>([]);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState<string | null>(null);
@@ -416,7 +422,7 @@ function StartCoursePicker({ clubId, alreadyStartedIds, onClose, onStarted, onEr
       await startClubCourse(clubId, courseId);
       onStarted();
     } catch (e) {
-      onError(e instanceof Error ? e.message : '시작 실패');
+      onError(e instanceof Error ? e.message : tt('시작 실패'));
     } finally {
       setStarting(null);
     }
@@ -430,19 +436,19 @@ function StartCoursePicker({ clubId, alreadyStartedIds, onClose, onStarted, onEr
         <div className="sticky top-0 z-10 px-5 pt-4 pb-3 bg-[var(--background)] border-b border-[var(--card-border)] rounded-t-3xl">
           <div className="flex items-center justify-between">
             <h3 className="text-base font-extrabold inline-flex items-center gap-1.5">
-              <Trophy size={16} className="text-amber-500" /> 클럽 도전 시작
+              <Trophy size={16} className="text-amber-500" /> {tt('클럽 도전 시작')}
             </h3>
             <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90">
               <X size={18} />
             </button>
           </div>
-          <p className="text-xs text-[var(--muted)] mt-1">모든 클럽 멤버의 활동 km 가 자동으로 합산돼요</p>
+          <p className="text-xs text-[var(--muted)] mt-1">{tt('모든 클럽 멤버의 활동 km 가 자동으로 합산돼요')}</p>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {loading ? (
             <div className="h-20 bg-[var(--card-border)]/30 animate-pulse rounded-xl" />
           ) : candidates.length === 0 ? (
-            <p className="text-center text-sm text-[var(--muted)] py-12">이미 모든 코스를 시작했어요</p>
+            <p className="text-center text-sm text-[var(--muted)] py-12">{tt('이미 모든 코스를 시작했어요')}</p>
           ) : (
             candidates.map(c => (
               <div key={c.id} className="card p-3 flex items-center gap-2.5">
@@ -451,14 +457,14 @@ function StartCoursePicker({ clubId, alreadyStartedIds, onClose, onStarted, onEr
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-extrabold truncate">{c.name}</p>
-                  <p className="text-[11px] text-[var(--muted)]">{c.country ?? '세계'} · {c.distance_km.toFixed(1)}km</p>
+                  <p className="text-[11px] text-[var(--muted)]">{c.country ?? tt('세계')} · {c.distance_km.toFixed(1)}km</p>
                 </div>
                 <button
                   onClick={() => handleStart(c.id)}
                   disabled={starting === c.id}
                   className="px-3.5 py-2 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-xs disabled:opacity-50 active:scale-95"
                 >
-                  {starting === c.id ? '시작 중…' : '시작'}
+                  {starting === c.id ? tt('시작 중…') : tt('시작')}
                 </button>
               </div>
             ))
@@ -475,6 +481,7 @@ function ClubLeaderboardSheet({ clubId, courseId, courseName, onClose }: {
   courseName: string;
   onClose: () => void;
 }) {
+  const { tt } = useI18n();
   const [rows, setRows] = useState<ClubCourseLeaderRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -492,7 +499,7 @@ function ClubLeaderboardSheet({ clubId, courseId, courseName, onClose }: {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-base font-extrabold inline-flex items-center gap-1.5">
-                <Users size={16} className="text-emerald-500" /> 멤버 기여도
+                <Users size={16} className="text-emerald-500" /> {tt('멤버 기여도')}
               </h3>
               <p className="text-[11px] text-[var(--muted)] mt-0.5 truncate">{courseName}</p>
             </div>
@@ -505,7 +512,7 @@ function ClubLeaderboardSheet({ clubId, courseId, courseName, onClose }: {
           {loading ? (
             [0,1,2].map(i => <div key={i} className="h-12 bg-[var(--card-border)]/30 animate-pulse rounded-xl" />)
           ) : rows.length === 0 ? (
-            <p className="text-center text-sm text-[var(--muted)] py-12 italic">아직 기여한 멤버가 없어요</p>
+            <p className="text-center text-sm text-[var(--muted)] py-12 italic">{tt('아직 기여한 멤버가 없어요')}</p>
           ) : (
             rows.map(r => (
               <div key={r.user_id} className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-[var(--card)] border border-[var(--card-border)]/40">

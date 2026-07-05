@@ -1,4 +1,5 @@
 import { getSupabase } from './supabase';
+import { ttl } from './i18n';
 import type { MileageTransaction } from '@/types';
 
 export async function fetchMileageBalance(userId: string): Promise<number> {
@@ -70,7 +71,7 @@ export function txTypeLabel(txType: string): string {
     refund: '환불',
     reward: '보상',
   };
-  return labels[txType] || txType;
+  return labels[txType] ? ttl(labels[txType]) : txType;
 }
 
 export function txTypeColor(txType: string): string {

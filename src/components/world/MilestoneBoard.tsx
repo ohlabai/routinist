@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import { Lock, Map as MapIcon } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 import type { VirtualCourse } from '@/lib/world-data';
 import { buildMilestones, type Milestone } from '@/lib/world-milestones';
 import MilestoneDialog from './MilestoneDialog';
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export default function MilestoneBoard({ course, myProgressKm, userName }: Props) {
+  const { tt } = useI18n();
   const milestones = buildMilestones(course, myProgressKm);
   const [selected, setSelected] = useState<Milestone | null>(null);
   const unlockedCount = milestones.filter(m => m.unlocked).length;
@@ -26,7 +28,7 @@ export default function MilestoneBoard({ course, myProgressKm, userName }: Props
     <div className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] p-4">
       <div className="flex items-center justify-between mb-3">
         <p className="text-sm font-extrabold inline-flex items-center gap-1.5">
-          <MapIcon size={14} className="text-emerald-600" /> 마일스톤 보드
+          <MapIcon size={14} className="text-emerald-600" /> {tt('마일스톤 보드')}
         </p>
         <span className="text-xs font-extrabold text-emerald-600 tabular-nums">
           {unlockedCount}/{milestones.length}
@@ -61,11 +63,11 @@ export default function MilestoneBoard({ course, myProgressKm, userName }: Props
                 </span>
               </div>
               <p className={`text-sm font-extrabold truncate ${m.unlocked ? 'text-[var(--foreground)]' : 'text-[var(--muted)]'}`}>
-                {m.name}
+                {tt(m.name)}
               </p>
               {!m.unlocked && (
                 <p className="text-[10px] text-[var(--muted)] mt-0.5 inline-flex items-center gap-0.5">
-                  <Lock size={9} /> {(m.km - myProgressKm).toFixed(1)}km 남음
+                  <Lock size={9} /> {(m.km - myProgressKm).toFixed(1)}km {tt('남음')}
                 </p>
               )}
             </button>

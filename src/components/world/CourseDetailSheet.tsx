@@ -21,6 +21,7 @@ import {
 } from '@/lib/world-data';
 import AppToast from '@/components/AppToast';
 import MilestoneBoard from './MilestoneBoard';
+import { useI18n, ttl, getCurrentLocale } from '@/lib/i18n';
 
 interface Props {
   courseId: string;
@@ -32,6 +33,7 @@ interface Props {
 const MEDAL_PRICE = 30000;
 
 export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: Props) {
+  const { tt, locale } = useI18n();
   const { user, profile } = useAuth();
   const [course, setCourse] = useState<VirtualCourse | null>(null);
   const [runners, setRunners] = useState<CourseRunner[]>([]);
@@ -127,7 +129,7 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                 <Globe size={20} className="text-emerald-600" />
               </div>
               <div className="min-w-0">
-                <h3 className="text-base font-extrabold tracking-tight truncate">{course?.name ?? '코스'}</h3>
+                <h3 className="text-base font-extrabold tracking-tight truncate">{course ? tt(course.name) : tt('코스')}</h3>
                 <p className="text-[11px] text-[var(--muted)] truncate">
                   {course?.country ?? ''} {course && `· ${course.distance_km.toFixed(1)}km`}
                 </p>
@@ -146,7 +148,7 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
               <div className="h-24 bg-[var(--card-border)]/30 animate-pulse rounded-2xl" />
             </div>
           ) : !course ? (
-            <p className="text-center text-sm text-[var(--muted)] py-12">코스를 찾을 수 없어요</p>
+            <p className="text-center text-sm text-[var(--muted)] py-12">{tt('코스를 찾을 수 없어요')}</p>
           ) : (
             <>
               {/* build 157: hero 이미지 — 코스를 시각적으로 첫 인상 (Conqueror 앱 패턴) */}
@@ -157,9 +159,9 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                   <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/65 via-black/30 to-transparent" />
                   <div className="absolute left-4 right-4 bottom-3 flex items-end justify-between">
                     <div>
-                      <p className="text-white text-xl font-extrabold drop-shadow-lg leading-tight">{course.name}</p>
+                      <p className="text-white text-xl font-extrabold drop-shadow-lg leading-tight">{tt(course.name)}</p>
                       <p className="text-white/90 text-xs font-bold mt-0.5">
-                        {course.distance_km.toFixed(1)}km · {course.country}
+                        {course.distance_km.toFixed(1)}km · {course.country ? tt(course.country) : ''}
                       </p>
                     </div>
                     {runners.length > 0 && (
@@ -170,7 +172,7 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                               {r.avatar_url
                                 ? // eslint-disable-next-line @next/next/no-img-element
                                   <img src={r.avatar_url} alt="" className="w-full h-full object-cover" />
-                                : <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-zinc-600">{r.display_name?.[0] ?? '러'}</div>
+                                : <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-zinc-600">{r.display_name?.[0] ?? tt('러')}</div>
                               }
                             </div>
                           ))}
@@ -201,8 +203,8 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
 
               {/* 참가비 + 한줄 설명 */}
               <div className="rounded-2xl bg-gradient-to-br from-amber-50/60 to-orange-50/30 dark:from-amber-950/30 dark:to-amber-950/10 border border-amber-200/60 dark:border-amber-800/40 p-3 flex items-center justify-between">
-                <span className="text-xs font-bold text-amber-700 dark:text-amber-300">참가비</span>
-                <span className="text-base font-extrabold text-amber-700 dark:text-amber-300">{course.entry_fee_p.toLocaleString()} 마일리지</span>
+                <span className="text-xs font-bold text-amber-700 dark:text-amber-300">{tt('참가비')}</span>
+                <span className="text-base font-extrabold text-amber-700 dark:text-amber-300">{course.entry_fee_p.toLocaleString()}{tt(' 마일리지')}</span>
               </div>
 
               {/* build 228 #1: 내 진행 카드 — 큰 hero 거리 + 큰 progress bar + 다음 마일스톤 카운트다운.
@@ -211,7 +213,7 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                 <div className="rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-50/30 dark:from-emerald-950/40 dark:to-emerald-950/15 border-2 border-emerald-300/60 dark:border-emerald-800/40 p-5 shadow-md shadow-emerald-500/10">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs font-extrabold text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1.5">
-                      <Trophy size={13} /> 내 진행
+                      <Trophy size={13} /> {tt('내 진행')}
                     </p>
                     <span className="text-xs font-extrabold text-emerald-600 tabular-nums">
                       {Math.min(100, Math.round(myRunner.ratio * 100))}%
@@ -229,14 +231,14 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                   </div>
                   {completed ? (
                     <p className="mt-3 text-sm font-extrabold text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1.5">
-                      <Trophy size={15} /> 완주!{myRunner.completed_at && ` ${new Date(myRunner.completed_at).toLocaleDateString('ko-KR')}`}
+                      <Trophy size={15} /> {tt('완주!')}{myRunner.completed_at && ` ${new Date(myRunner.completed_at).toLocaleDateString(locale === 'en' ? 'en-US' : 'ko-KR')}`}
                     </p>
                   ) : nextMilestone ? (
                     <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500 text-white text-xs font-extrabold">
-                      <FlagIcon size={12} /> {nextMilestone.label}까지 {nextMilestone.remaining.toFixed(1)}km
+                      <FlagIcon size={12} /> {locale === 'en' ? `${nextMilestone.remaining.toFixed(1)}km to ${tt(nextMilestone.label)}` : `${nextMilestone.label}까지 ${nextMilestone.remaining.toFixed(1)}km`}
                     </div>
                   ) : (
-                    <p className="mt-3 text-xs text-[var(--muted)]">남은 거리 {Math.max(0, course.distance_km - myRunner.progress_km).toFixed(1)}km</p>
+                    <p className="mt-3 text-xs text-[var(--muted)]">{tt('남은 거리 ')}{Math.max(0, course.distance_km - myRunner.progress_km).toFixed(1)}km</p>
                   )}
                 </div>
               )}
@@ -251,14 +253,14 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                 }`}>
                   <p className="text-[10px] font-extrabold uppercase tracking-widest mb-1.5 inline-flex items-center gap-1
                                  text-emerald-700 dark:text-emerald-300">
-                    💭 {completed ? '시작했을 때 마음' : '왜 달리고 있나요'}
+                    💭 {completed ? tt('시작했을 때 마음') : tt('왜 달리고 있나요')}
                   </p>
                   <p className={`leading-relaxed break-keep ${completed ? 'text-base font-extrabold' : 'text-sm'}`}>
                     &quot;{motivation}&quot;
                   </p>
                   {completed && (
                     <p className="mt-2 text-xs text-amber-700 dark:text-amber-300 font-bold">
-                      해냈어요. 그 마음을 끝까지 지켰네요 🌟
+                      {tt('해냈어요. 그 마음을 끝까지 지켰네요 🌟')}
                     </p>
                   )}
                 </div>
@@ -276,11 +278,11 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
               {/* build 228 #2: 같은 코스 도전 중 — 막대 그래프로 한눈에 비교. 1위 왕관 + 본인 emerald 강조 */}
               <div>
                 <h4 className="text-sm font-extrabold mb-2.5 inline-flex items-center gap-1.5">
-                  <Users size={14} className="text-emerald-500" /> 같은 코스 도전 중 · {runners.length}명
+                  <Users size={14} className="text-emerald-500" /> {tt('같은 코스 도전 중')} · {locale === 'en' ? runners.length : `${runners.length}명`}
                 </h4>
                 {runners.length === 0 ? (
                   <div className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] p-4 text-center">
-                    <p className="text-xs text-[var(--muted)] italic">아직 도전 중인 사람이 없어요. 첫 번째가 되어보세요.</p>
+                    <p className="text-xs text-[var(--muted)] italic">{tt('아직 도전 중인 사람이 없어요. 첫 번째가 되어보세요.')}</p>
                   </div>
                 ) : (
                   <div className="space-y-1.5">
@@ -317,7 +319,7 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                             <div className="flex-1 min-w-0">
                               <div className="flex items-baseline justify-between gap-2">
                                 <span className={`text-sm truncate ${isMe ? 'font-extrabold text-amber-700 dark:text-amber-300' : 'font-bold'}`}>
-                                  {r.display_name}{isMe && <span className="ml-1 text-[10px] font-bold">(나)</span>}
+                                  {r.display_name}{isMe && <span className="ml-1 text-[10px] font-bold">{tt('(나)')}</span>}
                                   {r.completed_at && <Trophy size={11} className="inline ml-1 text-emerald-600" />}
                                 </span>
                                 <span className="text-[11px] font-extrabold text-[var(--muted)] tabular-nums flex-shrink-0">
@@ -349,13 +351,13 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                     className="w-full px-4 py-3 flex items-center justify-between text-left active:bg-[var(--card-border)]/30 transition"
                   >
                     <span className="text-sm font-extrabold text-[var(--foreground)] inline-flex items-center gap-1.5">
-                      <Info size={14} className="text-emerald-600" /> 대회 소개
+                      <Info size={14} className="text-emerald-600" /> {tt('대회 소개')}
                     </span>
                     <ChevronDown size={16} className={`text-[var(--muted)] transition-transform ${descOpen ? 'rotate-180' : ''}`} />
                   </button>
                   {descOpen && (
                     <div className="px-4 pb-4">
-                      <p className="text-[14px] text-[var(--foreground)] leading-relaxed break-keep">{course.description}</p>
+                      <p className="text-[14px] text-[var(--foreground)] leading-relaxed break-keep">{tt(course.description)}</p>
                     </div>
                   )}
                 </div>
@@ -369,13 +371,13 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                     className="w-full px-4 py-3 flex items-center justify-between text-left active:bg-[var(--card-border)]/30 transition"
                   >
                     <span className="text-sm font-extrabold text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1.5">
-                      <BookOpen size={14} /> 코스 이야기
+                      <BookOpen size={14} /> {tt('코스 이야기')}
                     </span>
                     <ChevronDown size={16} className={`text-[var(--muted)] transition-transform ${storyOpen ? 'rotate-180' : ''}`} />
                   </button>
                   {storyOpen && (
                     <div className="px-4 pb-4">
-                      <p className="text-[14px] text-[var(--foreground)] leading-relaxed break-keep whitespace-pre-wrap">{course.story}</p>
+                      <p className="text-[14px] text-[var(--foreground)] leading-relaxed break-keep whitespace-pre-wrap">{tt(course.story)}</p>
                       {course.official_url && (
                         <a
                           href={course.official_url}
@@ -383,7 +385,7 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                           rel="noopener"
                           className="mt-2.5 inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 active:scale-95"
                         >
-                          공식 사이트 <ExternalLink size={10} />
+                          {tt('공식 사이트')} <ExternalLink size={10} />
                         </a>
                       )}
                     </div>
@@ -404,8 +406,8 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                       <Play size={22} className="text-white ml-0.5" fill="white" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-extrabold text-white">대회 영상 보기</p>
-                      <p className="text-[11px] text-white/85 mt-0.5">YouTube 에서 코스 미리보기</p>
+                      <p className="text-sm font-extrabold text-white">{tt('대회 영상 보기')}</p>
+                      <p className="text-[11px] text-white/85 mt-0.5">{tt('YouTube 에서 코스 미리보기')}</p>
                     </div>
                     <ExternalLink size={16} className="text-white/85" />
                   </div>
@@ -416,7 +418,7 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
               {course.elevation_profile && course.elevation_profile.length > 0 && (
                 <div className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] p-4">
                   <p className="text-xs font-extrabold text-[var(--muted)] inline-flex items-center gap-1 mb-2">
-                    <Mountain size={12} className="text-emerald-500" /> 고도 프로파일
+                    <Mountain size={12} className="text-emerald-500" /> {tt('고도 프로파일')}
                   </p>
                   <ElevationChart points={course.elevation_profile} />
                 </div>
@@ -426,7 +428,7 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
               {course.landmarks && course.landmarks.length > 0 && (
                 <div className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] p-4">
                   <p className="text-xs font-extrabold text-[var(--muted)] inline-flex items-center gap-1 mb-2">
-                    <FlagIcon size={12} className="text-emerald-500" /> 코스 주요 지점
+                    <FlagIcon size={12} className="text-emerald-500" /> {tt('코스 주요 지점')}
                   </p>
                   <div className="space-y-2">
                     {course.landmarks.map((l, i) => (
@@ -435,8 +437,8 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                           {l.km.toFixed(1)}km
                         </span>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold">{l.name}</p>
-                          {l.description && <p className="text-[11px] text-[var(--muted)] mt-0.5 leading-snug">{l.description}</p>}
+                          <p className="text-sm font-bold">{tt(l.name)}</p>
+                          {l.description && <p className="text-[11px] text-[var(--muted)] mt-0.5 leading-snug">{tt(l.description)}</p>}
                         </div>
                       </div>
                     ))}
@@ -448,7 +450,7 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
               {course.past_winners && course.past_winners.length > 0 && (
                 <div className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] p-4">
                   <p className="text-xs font-extrabold text-[var(--muted)] inline-flex items-center gap-1 mb-2">
-                    <Crown size={12} className="text-amber-500" /> 역대 우승자
+                    <Crown size={12} className="text-amber-500" /> {tt('역대 우승자')}
                   </p>
                   <div className="space-y-1.5">
                     {course.past_winners.map((w, i) => (
@@ -461,7 +463,7 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                   </div>
                   {course.course_record && (
                     <p className="text-[11px] text-[var(--muted)] mt-2 italic border-t border-[var(--card-border)]/40 pt-2">
-                      코스 기록: {course.course_record}
+                      {tt('코스 기록:')} {course.course_record}
                     </p>
                   )}
                 </div>
@@ -478,36 +480,38 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                       <Trophy size={20} className="text-white" />
                     </div>
                     <div>
-                      <p className="text-sm font-extrabold text-amber-900 dark:text-amber-200">🎉 완주 축하해요!</p>
-                      <p className="text-[11px] text-amber-700/80 dark:text-amber-300/80">디지털 인증서를 다운받거나 실물 메달을 신청하세요</p>
+                      <p className="text-sm font-extrabold text-amber-900 dark:text-amber-200">{tt('🎉 완주 축하해요!')}</p>
+                      <p className="text-[11px] text-amber-700/80 dark:text-amber-300/80">{tt('디지털 인증서를 다운받거나 실물 메달을 신청하세요')}</p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
                     <button
-                      onClick={() => downloadCertificate(course, profile?.display_name ?? '러너', myRunner!)}
+                      onClick={() => downloadCertificate(course, profile?.display_name ?? tt('러너'), myRunner!)}
                       className="py-3 rounded-xl bg-white dark:bg-zinc-900 border-2 border-amber-300/60 dark:border-amber-800/40 text-amber-700 dark:text-amber-300 font-extrabold text-sm active:scale-[0.98] inline-flex items-center justify-center gap-1.5"
                     >
-                      <Download size={14} /> 인증서
+                      <Download size={14} /> {tt('인증서')}
                     </button>
                     <button
                       onClick={() => setMedalFormOpen(true)}
                       disabled={medal?.request_status === 'paid' || medal?.request_status === 'shipped' || medal?.request_status === 'delivered'}
                       className="py-3 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white font-extrabold text-sm disabled:opacity-50 active:scale-[0.98] inline-flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/30"
                     >
-                      <Award size={14} /> {medal?.request_status === 'requested' ? '신청 완료' : '메달 신청'}
+                      <Award size={14} /> {medal?.request_status === 'requested' ? tt('신청 완료') : tt('메달 신청')}
                     </button>
                   </div>
 
                   {medal?.request_status && medal.request_status !== 'none' && (
                     <div className="text-[11px] text-amber-800 dark:text-amber-200 px-2 py-2 rounded-lg bg-white/40 dark:bg-black/20">
-                      <span className="font-extrabold">상태:</span> {STATUS_LABEL[medal.request_status]}
+                      <span className="font-extrabold">{tt('상태:')}</span> {tt(STATUS_LABEL[medal.request_status])}
                       {medal.shipping_address && <> · {medal.shipping_address.slice(0, 40)}</>}
                     </div>
                   )}
 
                   <p className="text-[10px] text-amber-700/70 dark:text-amber-300/70 leading-relaxed">
-                    💌 실물 메달은 {MEDAL_PRICE.toLocaleString()}원 (배송비 포함). 신청 후 1~2주 내 발송.
+                    {locale === 'en'
+                      ? `💌 Physical medal ₩${MEDAL_PRICE.toLocaleString()} (shipping included). Ships 1–2 weeks after request.`
+                      : `💌 실물 메달은 ${MEDAL_PRICE.toLocaleString()}원 (배송비 포함). 신청 후 1~2주 내 발송.`}
                   </p>
                 </div>
               )}
@@ -526,10 +530,10 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
               onClick={() => onStartCourse(course)}
               className="w-full py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base active:scale-[0.98] shadow-md shadow-emerald-500/25 inline-flex items-center justify-center gap-1.5"
             >
-              <Trophy size={16} /> {course.entry_fee_p.toLocaleString()} 마일리지로 도전 시작
+              <Trophy size={16} /> {locale === 'en' ? `Start for ${course.entry_fee_p.toLocaleString()} mileage` : `${course.entry_fee_p.toLocaleString()} 마일리지로 도전 시작`}
             </button>
             <p className="text-[11px] text-center text-[var(--muted)] mt-1.5">
-              지금 {runners.length}명이 함께 달리고 있어요
+              {locale === 'en' ? `${runners.length} runner${runners.length === 1 ? ' is' : 's are'} on this course right now` : `지금 ${runners.length}명이 함께 달리고 있어요`}
             </p>
           </div>
         )}
@@ -541,7 +545,7 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
             initialName={profile?.display_name ?? ''}
             existing={medal}
             onClose={() => setMedalFormOpen(false)}
-            onSubmitted={async () => { setMedalFormOpen(false); showToast('✨ 메달 신청이 접수됐어요'); await load(); }}
+            onSubmitted={async () => { setMedalFormOpen(false); showToast(tt('✨ 메달 신청이 접수됐어요')); await load(); }}
             onError={(msg) => showToast(msg, 'warn')}
           />
         )}
@@ -558,6 +562,7 @@ function GoogleLiveTracker({ realPath, runners, myUserId }: {
   runners: CourseRunner[];
   myUserId: string | null;
 }) {
+  const { tt } = useI18n();
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const polylineRef = useRef<google.maps.Polyline | null>(null);
@@ -566,8 +571,8 @@ function GoogleLiveTracker({ realPath, runners, myUserId }: {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!API_KEY) { setError('지도 API 키 없음'); return; }
-    loadGoogleMaps().then(() => setLoaded(true)).catch(e => setError(e instanceof Error ? e.message : '실패'));
+    if (!API_KEY) { setError(ttl('지도 API 키 없음')); return; }
+    loadGoogleMaps().then(() => setLoaded(true)).catch(e => setError(e instanceof Error ? e.message : ttl('실패')));
   }, []);
 
   // 진행률 ratio 로 path 위 위치 계산
@@ -636,7 +641,7 @@ function GoogleLiveTracker({ realPath, runners, myUserId }: {
           fillColor: '#10b981', fillOpacity: 1,
           strokeColor: '#ffffff', strokeWeight: 2,
         },
-        title: '시작',
+        title: ttl('시작'),
       });
       new window.google.maps.Marker({
         position: realPath[realPath.length - 1],
@@ -647,7 +652,7 @@ function GoogleLiveTracker({ realPath, runners, myUserId }: {
           fillColor: '#f97316', fillOpacity: 1,
           strokeColor: '#ffffff', strokeWeight: 2,
         },
-        title: '피니시',
+        title: ttl('피니시'),
       });
 
       // bounds fit
@@ -705,7 +710,7 @@ function GoogleLiveTracker({ realPath, runners, myUserId }: {
           label: !iconUrl && isCompleted
             ? { text: isMe ? '👑' : '🏁', color: '#ffffff', fontWeight: 'bold', fontSize: '12px' }
             : undefined,
-          title: `${r.display_name} · ${isCompleted ? '완주!' : `${(r.ratio * 100).toFixed(0)}%`}`,
+          title: `${r.display_name} · ${isCompleted ? ttl('완주!') : `${(r.ratio * 100).toFixed(0)}%`}`,
           zIndex: isMe ? 2000 : isCompleted ? 1500 : 100,
         });
         markersRef.current.push(marker);
@@ -725,7 +730,7 @@ function GoogleLiveTracker({ realPath, runners, myUserId }: {
   if (error) {
     return (
       <div className="h-56 rounded-2xl bg-[var(--card-border)]/20 flex items-center justify-center text-xs text-[var(--muted)]">
-        지도 로드 실패 — {error}
+        {tt('지도 로드 실패')} — {error}
       </div>
     );
   }
@@ -738,11 +743,11 @@ function GoogleLiveTracker({ realPath, runners, myUserId }: {
           마커가 무엇을 의미하는지 한 줄 범례. */}
       {loaded && (
         <div className="px-3 py-2 bg-[var(--card)] border-t border-[var(--card-border)] text-[10px] flex items-center gap-2.5 flex-wrap text-[var(--muted)]">
-          <span className="inline-flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500" /> 시작</span>
-          <span className="inline-flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-orange-500" /> 도착</span>
-          <span className="inline-flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200" /> 나</span>
-          <span className="inline-flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-500" /> 다른 참가자</span>
-          <span className="inline-flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500" /> 완주자</span>
+          <span className="inline-flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500" /> {tt('시작')}</span>
+          <span className="inline-flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-orange-500" /> {tt('도착')}</span>
+          <span className="inline-flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200" /> {tt('나')}</span>
+          <span className="inline-flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-500" /> {tt('다른 참가자')}</span>
+          <span className="inline-flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500" /> {tt('완주자')}</span>
         </div>
       )}
     </div>
@@ -800,6 +805,7 @@ async function buildAvatarPngDataUrl(
 
 // 고도 프로파일 SVG 차트
 function ElevationChart({ points }: { points: { km: number; m: number }[] }) {
+  const { tt } = useI18n();
   if (points.length === 0) return null;
   const maxKm = Math.max(...points.map(p => p.km), 1);
   const minM = Math.min(...points.map(p => p.m));
@@ -828,7 +834,7 @@ function ElevationChart({ points }: { points: { km: number; m: number }[] }) {
       </svg>
       <div className="flex items-center justify-between text-[10px] text-[var(--muted)] font-bold mt-1">
         <span>0km · {Math.round(points[0].m)}m</span>
-        <span className="text-emerald-600">최고 {Math.round(maxM)}m</span>
+        <span className="text-emerald-600">{tt('최고')} {Math.round(maxM)}m</span>
         <span>{points[points.length - 1].km.toFixed(1)}km · {Math.round(points[points.length - 1].m)}m</span>
       </div>
     </div>
@@ -929,6 +935,7 @@ function MedalRequestForm({ courseId, courseName, initialName, existing, onClose
   onSubmitted: () => void;
   onError: (msg: string) => void;
 }) {
+  const { tt, locale } = useI18n();
   const [form, setForm] = useState<MedalShippingForm>({
     shipping_name: existing?.shipping_name ?? initialName,
     shipping_phone: '',
@@ -940,7 +947,7 @@ function MedalRequestForm({ courseId, courseName, initialName, existing, onClose
 
   const handleSubmit = async () => {
     if (!form.shipping_name || !form.shipping_phone || !form.shipping_address) {
-      onError('받는분 / 연락처 / 주소 모두 입력해주세요');
+      onError(tt('받는분 / 연락처 / 주소 모두 입력해주세요'));
       return;
     }
     setSubmitting(true);
@@ -948,7 +955,7 @@ function MedalRequestForm({ courseId, courseName, initialName, existing, onClose
       await requestCourseMedal(courseId, form);
       onSubmitted();
     } catch (e) {
-      onError(e instanceof Error ? e.message : '신청 실패');
+      onError(e instanceof Error ? e.message : tt('신청 실패'));
     } finally {
       setSubmitting(false);
     }
@@ -964,7 +971,7 @@ function MedalRequestForm({ courseId, courseName, initialName, existing, onClose
                 <Award size={20} className="text-white" />
               </div>
               <div>
-                <h3 className="text-base font-extrabold">메달 신청</h3>
+                <h3 className="text-base font-extrabold">{tt('메달 신청')}</h3>
                 <p className="text-[11px] text-[var(--muted)]">{courseName}</p>
               </div>
             </div>
@@ -977,22 +984,22 @@ function MedalRequestForm({ courseId, courseName, initialName, existing, onClose
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
           <div className="rounded-2xl bg-gradient-to-br from-amber-50 to-amber-50/60 dark:from-amber-950/30 dark:to-amber-950/10 border border-amber-200/60 dark:border-amber-800/40 p-4">
             <p className="text-sm font-extrabold text-amber-900 dark:text-amber-200 inline-flex items-center gap-1.5">
-              <Sparkles size={14} /> 기념 메달 {MEDAL_PRICE.toLocaleString()}원
+              <Sparkles size={14} /> {locale === 'en' ? `Souvenir medal ₩${MEDAL_PRICE.toLocaleString()}` : `기념 메달 ${MEDAL_PRICE.toLocaleString()}원`}
             </p>
             <p className="text-[11px] text-amber-700/80 dark:text-amber-300/80 mt-1 leading-relaxed">
-              배송비 포함. 신청 접수 후 결제 안내 메시지를 보내드려요. 결제 확인 후 1~2주 내 발송.
+              {tt('배송비 포함. 신청 접수 후 결제 안내 메시지를 보내드려요. 결제 확인 후 1~2주 내 발송.')}
             </p>
           </div>
 
-          <Field label="받는 분">
+          <Field label={tt('받는 분')}>
             <input
               value={form.shipping_name}
               onChange={(e) => setForm({ ...form, shipping_name: e.target.value })}
-              placeholder="이름"
+              placeholder={tt('이름')}
               className={inputCls}
             />
           </Field>
-          <Field label="연락처">
+          <Field label={tt('연락처')}>
             <input
               type="tel"
               value={form.shipping_phone}
@@ -1001,7 +1008,7 @@ function MedalRequestForm({ courseId, courseName, initialName, existing, onClose
               className={inputCls}
             />
           </Field>
-          <Field label="우편번호">
+          <Field label={tt('우편번호')}>
             <input
               value={form.shipping_zipcode}
               onChange={(e) => setForm({ ...form, shipping_zipcode: e.target.value })}
@@ -1010,11 +1017,11 @@ function MedalRequestForm({ courseId, courseName, initialName, existing, onClose
               maxLength={6}
             />
           </Field>
-          <Field label="주소">
+          <Field label={tt('주소')}>
             <textarea
               value={form.shipping_address}
               onChange={(e) => setForm({ ...form, shipping_address: e.target.value })}
-              placeholder="도로명 + 상세주소"
+              placeholder={tt('도로명 + 상세주소')}
               rows={3}
               className={`${inputCls} resize-none`}
             />
@@ -1027,7 +1034,7 @@ function MedalRequestForm({ courseId, courseName, initialName, existing, onClose
             disabled={submitting}
             className="w-full py-4 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-white font-extrabold text-base disabled:opacity-50 active:scale-[0.98] inline-flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/30"
           >
-            {submitting ? '접수 중…' : <><Truck size={16} /> 신청하기</>}
+            {submitting ? tt('접수 중…') : <><Truck size={16} /> {tt('신청하기')}</>}
           </button>
         </div>
       </div>
@@ -1081,7 +1088,7 @@ function downloadCertificate(course: VirtualCourse, displayName: string, runner:
   // 타이틀 — CERTIFICATE OF COMPLETION
   ctx.fillStyle = '#1f2937';
   ctx.font = 'bold 92px Georgia, serif';
-  ctx.fillText('완주 인증서', W / 2, 300);
+  ctx.fillText(ttl('완주 인증서'), W / 2, 300);
 
   // 부제
   ctx.fillStyle = '#6b7280';
@@ -1096,7 +1103,7 @@ function downloadCertificate(course: VirtualCourse, displayName: string, runner:
   // "은(는) 다음 코스를 완주하였습니다"
   ctx.fillStyle = '#374151';
   ctx.font = '36px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText('님은 다음 가상 코스를 완주하였습니다.', W / 2, 610);
+  ctx.fillText(ttl('님은 다음 가상 코스를 완주하였습니다.'), W / 2, 610);
 
   // 코스명
   ctx.fillStyle = '#1f2937';
@@ -1106,15 +1113,16 @@ function downloadCertificate(course: VirtualCourse, displayName: string, runner:
   // 거리 + 국가
   ctx.fillStyle = '#10b981';
   ctx.font = 'bold 56px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText(`${course.distance_km.toFixed(1)} km · ${course.country ?? '세계'}`, W / 2, 820);
+  ctx.fillText(`${course.distance_km.toFixed(1)} km · ${ttl(course.country ?? '세계')}`, W / 2, 820);
 
   // 완주일
+  const certLocale = getCurrentLocale() === 'en' ? 'en-US' : 'ko-KR';
   const dateStr = runner.completed_at
-    ? new Date(runner.completed_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
-    : new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+    ? new Date(runner.completed_at).toLocaleDateString(certLocale, { year: 'numeric', month: 'long', day: 'numeric' })
+    : new Date().toLocaleDateString(certLocale, { year: 'numeric', month: 'long', day: 'numeric' });
   ctx.fillStyle = '#6b7280';
   ctx.font = '32px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText(`완주일: ${dateStr}`, W / 2, 920);
+  ctx.fillText(`${ttl('완주일:')} ${dateStr}`, W / 2, 920);
 
   // 푸터 — 사인
   ctx.fillStyle = '#9ca3af';
@@ -1154,10 +1162,10 @@ function downloadCertificate(course: VirtualCourse, displayName: string, runner:
         const { uri } = await Filesystem.getUri({ path: filename, directory: Directory.Cache });
         const { Share } = await import('@capacitor/share');
         await Share.share({
-          title: `${course.name} 완주 인증서`,
-          text: `${displayName} · ${course.name} 완주 인증서`,
+          title: `${course.name} ${ttl('완주 인증서')}`,
+          text: `${displayName} · ${course.name} ${ttl('완주 인증서')}`,
           url: uri,
-          dialogTitle: '인증서 저장 또는 공유',
+          dialogTitle: ttl('인증서 저장 또는 공유'),
         });
       } catch (e) {
         console.warn('[certificate] native share fail', e);

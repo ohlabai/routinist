@@ -10,10 +10,12 @@ import { ArrowLeft, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import type { Conversation } from '@/types';
 import AppLogo from '@/components/AppLogo';
+import { useI18n } from '@/lib/i18n';
 
 export default function MessagesPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const { tt, locale } = useI18n();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -36,10 +38,10 @@ export default function MessagesPage() {
     const now = new Date();
     const diffMs = now.getTime() - d.getTime();
     const diffDays = Math.floor(diffMs / 86400000);
-    if (diffDays === 0) return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-    if (diffDays === 1) return '어제';
-    if (diffDays < 7) return `${diffDays}일 전`;
-    return d.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
+    if (diffDays === 0) return d.toLocaleTimeString(locale === 'en' ? 'en-US' : 'ko-KR', { hour: '2-digit', minute: '2-digit' });
+    if (diffDays === 1) return tt('어제');
+    if (diffDays < 7) return locale === 'en' ? `${diffDays}d ago` : `${diffDays}일 전`;
+    return d.toLocaleDateString(locale === 'en' ? 'en-US' : 'ko-KR', { month: 'short', day: 'numeric' });
   };
 
   return (
@@ -49,7 +51,7 @@ export default function MessagesPage() {
           <button onClick={() => router.back()} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition">
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-xl font-extrabold tracking-tight">쪽지</h1>
+          <h1 className="text-xl font-extrabold tracking-tight">{tt('쪽지')}</h1>
         </div>
       </header>
 
@@ -70,13 +72,13 @@ export default function MessagesPage() {
           <div className="w-24 h-24 rounded-full bg-emerald-50 dark:bg-emerald-950/30 mx-auto mb-5 flex items-center justify-center">
             <MessageCircle size={42} className="text-emerald-500" />
           </div>
-          <p className="text-lg font-extrabold mb-1.5">아직 쪽지가 없어요</p>
-          <p className="text-sm text-[var(--muted)] mb-7">다른 러너의 프로필에서 쪽지를 보내보세요</p>
+          <p className="text-lg font-extrabold mb-1.5">{tt('아직 쪽지가 없어요')}</p>
+          <p className="text-sm text-[var(--muted)] mb-7">{tt('다른 러너의 프로필에서 쪽지를 보내보세요')}</p>
           <Link
             href="/social"
             className="inline-flex items-center gap-1.5 px-6 py-3 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-bold shadow-md shadow-emerald-500/30 active:scale-95"
           >
-            러너 찾기
+            {tt('러너 찾기')}
           </Link>
         </div>
       ) : (
@@ -85,11 +87,11 @@ export default function MessagesPage() {
             // 같은 display_name 으로 두 명 이상이면 region/id suffix
             const nameCount = new Map<string, number>();
             conversations.forEach(c => {
-              const n = c.other_user?.display_name ?? '러너';
+              const n = c.other_user?.display_name ?? tt('러너');
               nameCount.set(n, (nameCount.get(n) ?? 0) + 1);
             });
             return conversations.map(conv => {
-              const name = conv.other_user?.display_name ?? '러너';
+              const name = conv.other_user?.display_name ?? tt('러너');
               const ambiguous = (nameCount.get(name) ?? 0) > 1;
               const suffix = ambiguous
                 ? (conv.other_user?.region_gu ? ` · ${conv.other_user.region_gu}` :
@@ -119,7 +121,7 @@ export default function MessagesPage() {
                       </p>
                     </div>
                     <p className="text-xs text-[var(--muted)] truncate mt-0.5">
-                      {conv.last_message?.body ?? '대화를 시작하세요'}
+                      {conv.last_message?.body ?? tt('대화를 시작하세요')}
                     </p>
                   </div>
                 </Link>

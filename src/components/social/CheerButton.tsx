@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { sendCheer, getMySentCheersThisWeek, CHEER_EMOJIS, type CheerEmoji } from '@/lib/cheer-data';
 import { useAuth } from '@/components/AuthProvider';
+import { useI18n } from '@/lib/i18n';
 
 interface Props {
   toUserId: string;
@@ -15,6 +16,7 @@ interface Props {
 
 export default function CheerButton({ toUserId, context = 'profile', size = 'md' }: Props) {
   const { user } = useAuth();
+  const { tt, locale } = useI18n();
   const [open, setOpen] = useState(false);
   const [sentSet, setSentSet] = useState<Set<string>>(new Set());
   const [sending, setSending] = useState<CheerEmoji | null>(null);
@@ -32,7 +34,7 @@ export default function CheerButton({ toUserId, context = 'profile', size = 'md'
     // 사용자가 "보냈는데 반응 없네?" 하지 않게.
     const cheerKey = `${toUserId}:${emoji}`;
     setSentSet(prev => new Set(prev).add(cheerKey));
-    setToast(`${emoji} 응원 보냄!`);
+    setToast(`${emoji} ${tt('응원 보냄!')}`);
     setSending(emoji);
 
     sendCheer(toUserId, emoji, context).then((result) => {
@@ -45,9 +47,9 @@ export default function CheerButton({ toUserId, context = 'profile', size = 'md'
           return next;
         });
         if (result.reason === 'already_sent_this_week') {
-          setToast('이번 주 같은 이모지로 이미 보냈어요');
+          setToast(tt('이번 주 같은 이모지로 이미 보냈어요'));
         } else {
-          setToast('응원 실패 — 다시 시도해주세요');
+          setToast(tt('응원 실패 — 다시 시도해주세요'));
         }
       }
     }).catch(() => {
@@ -57,7 +59,7 @@ export default function CheerButton({ toUserId, context = 'profile', size = 'md'
         next.delete(cheerKey);
         return next;
       });
-      setToast('응원 실패 — 네트워크 확인');
+      setToast(tt('응원 실패 — 네트워크 확인'));
     });
 
     setTimeout(() => { setToast(null); setOpen(false); }, 1500);
@@ -72,7 +74,7 @@ export default function CheerButton({ toUserId, context = 'profile', size = 'md'
         <button
           onClick={(e) => { e.stopPropagation(); setOpen(true); }}
           className={`${btnSize} rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 active:scale-90 transition flex items-center justify-center`}
-          aria-label="응원 보내기"
+          aria-label={tt('응원 보내기')}
         >
           ❤️
         </button>
@@ -88,7 +90,7 @@ export default function CheerButton({ toUserId, context = 'profile', size = 'md'
                 className={`${btnSize} rounded-full active:scale-90 transition flex items-center justify-center ${
                   alreadySent ? 'opacity-30' : 'hover:bg-emerald-50'
                 }`}
-                title={alreadySent ? '이번 주 이미 보냄' : `${emoji} 보내기`}
+                title={alreadySent ? tt('이번 주 이미 보냄') : (locale === 'en' ? `Send ${emoji}` : `${emoji} 보내기`)}
               >
                 {sending === emoji ? '⋯' : emoji}
               </button>

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
+import { useI18n } from '@/lib/i18n';
 import { setMonthlyGoal, getMonthlyDistance } from '@/lib/routinist-data';
 
 const PRESETS = [30, 50, 100, 150, 200];
@@ -11,6 +12,7 @@ const PRESETS = [30, 50, 100, 150, 200];
 export default function GoalsPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const { tt, locale } = useI18n();
   const { activities, goals, refresh } = useUserData();
 
   const now = new Date();
@@ -54,7 +56,11 @@ export default function GoalsPage() {
 
   return (
     <div className="p-4 max-w-lg mx-auto space-y-6 pb-8">
-      <h2 className="text-xl font-bold text-[var(--foreground)]">{month}월 목표 설정</h2>
+      <h2 className="text-xl font-bold text-[var(--foreground)]">
+        {locale === 'en'
+          ? `${new Date(year, month - 1).toLocaleDateString('en-US', { month: 'long' })} Goal`
+          : `${month}월 목표 설정`}
+      </h2>
 
       {/* 현재 진행률 */}
       {currentGoal && currentGoal.goal_km > 0 && (
@@ -82,7 +88,7 @@ export default function GoalsPage() {
 
       {/* 목표 입력 */}
       <div className="card p-5 space-y-4">
-        <label className="block text-sm font-medium text-[var(--foreground)]">목표 거리 (km)</label>
+        <label className="block text-sm font-medium text-[var(--foreground)]">{tt('목표 거리 (km)')}</label>
 
         {/* 프리셋 */}
         <div className="flex gap-2 flex-wrap">
@@ -108,7 +114,7 @@ export default function GoalsPage() {
           min="1"
           value={goalKm}
           onChange={(e) => setGoalKm(e.target.value)}
-          placeholder="직접 입력"
+          placeholder={tt('직접 입력')}
           className="w-full px-4 py-3 rounded-xl border border-[var(--card-border)] bg-[var(--background)] text-[var(--foreground)] text-base focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
         />
 
@@ -117,7 +123,7 @@ export default function GoalsPage() {
           disabled={saving || !goalKm}
           className="w-full bg-[var(--accent)] hover:opacity-90 text-white font-semibold py-3.5 rounded-xl transition-all disabled:opacity-50"
         >
-          {saved ? '저장됨!' : saving ? '저장 중...' : '목표 저장'}
+          {saved ? tt('저장됨!') : saving ? tt('저장 중...') : tt('목표 저장')}
         </button>
       </div>
     </div>

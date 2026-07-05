@@ -15,6 +15,7 @@ import {
 } from '@/lib/club-courses';
 import { fetchAvailableCourses } from '@/lib/world-data';
 import type { VirtualCourse } from '@/lib/world-data';
+import { useI18n } from '@/lib/i18n';
 
 interface Props {
   clubId: string;
@@ -25,6 +26,7 @@ interface Props {
 const isAdmin = (role: string | null) => role === 'owner' || role === 'admin';
 
 export default function ClubWorldRunPanel({ clubId, myRole, currentUserId }: Props) {
+  const { tt, locale } = useI18n();
   const [courses, setCourses] = useState<ClubCourse[]>([]);
   const [loading, setLoading] = useState(true);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -64,7 +66,7 @@ export default function ClubWorldRunPanel({ clubId, myRole, currentUserId }: Pro
     } catch (e) {
       const msg = (typeof e === 'object' && e && 'message' in e)
         ? String((e as { message: unknown }).message)
-        : '시작 실패';
+        : tt('시작 실패');
       alert(msg);
     } finally {
       setStarting(null);
@@ -84,11 +86,11 @@ export default function ClubWorldRunPanel({ clubId, myRole, currentUserId }: Pro
       {/* 안내 */}
       <div className="rounded-2xl bg-gradient-to-br from-purple-50 to-indigo-50/40 dark:from-purple-950/30 dark:to-indigo-950/15 border border-purple-200/50 dark:border-purple-800/40 p-4">
         <p className="text-sm font-extrabold inline-flex items-center gap-1.5 mb-1.5">
-          <Sparkles size={14} className="text-purple-600" /> 클럽 함께 도전
+          <Sparkles size={14} className="text-purple-600" /> {tt('클럽 함께 도전')}
         </p>
         <p className="text-xs text-[var(--muted)] break-keep leading-relaxed">
-          멤버들이 달리는 모든 km 가 자동으로 클럽 합산에 쌓여요. 모이면 함께 완주!
-          {isAdmin(myRole) ? ' 운영자가 코스를 시작할 수 있어요.' : ' 운영자가 코스를 시작하면 시작돼요.'}
+          {tt('멤버들이 달리는 모든 km 가 자동으로 클럽 합산에 쌓여요. 모이면 함께 완주!')}
+          {' '}{isAdmin(myRole) ? tt('운영자가 코스를 시작할 수 있어요.') : tt('운영자가 코스를 시작하면 시작돼요.')}
         </p>
       </div>
 
@@ -96,13 +98,13 @@ export default function ClubWorldRunPanel({ clubId, myRole, currentUserId }: Pro
       {active.length === 0 && (
         <div className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] p-6 text-center">
           <Globe size={28} className="mx-auto text-[var(--muted)] mb-2" />
-          <p className="text-sm font-bold">{isAdmin(myRole) ? '아직 시작한 도전이 없어요' : '운영자가 새 도전을 시작하면 알림이 와요'}</p>
+          <p className="text-sm font-bold">{isAdmin(myRole) ? tt('아직 시작한 도전이 없어요') : tt('운영자가 새 도전을 시작하면 알림이 와요')}</p>
           {isAdmin(myRole) && (
             <button
               onClick={handleOpenPicker}
               className="mt-3 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 text-white font-extrabold text-xs active:scale-95 shadow-md shadow-purple-500/30"
             >
-              <Plus size={13} /> 새 도전 시작
+              <Plus size={13} /> {tt('새 도전 시작')}
             </button>
           )}
         </div>
@@ -128,19 +130,23 @@ export default function ClubWorldRunPanel({ clubId, myRole, currentUserId }: Pro
               <span className={`text-[10px] font-extrabold uppercase tracking-widest inline-flex items-center gap-1 ${
                 isIndividual ? 'text-purple-700 dark:text-purple-300' : 'text-indigo-700 dark:text-indigo-300'
               }`}>
-                {isIndividual ? <><Users size={11} /> 각자 달리기</> : <><Trophy size={11} /> 자동 합산</>}
+                {isIndividual ? <><Users size={11} /> {tt('각자 달리기')}</> : <><Trophy size={11} /> {tt('자동 합산')}</>}
               </span>
               <span className="text-xs text-[var(--muted)] inline-flex items-center gap-1">
-                <Users size={11} /> {c.contributors}명 {isIndividual ? '가입' : '기여'}
+                <Users size={11} /> {locale === 'en'
+                  ? `${c.contributors} ${isIndividual ? 'joined' : 'contributing'}`
+                  : `${c.contributors}명 ${isIndividual ? '가입' : '기여'}`}
               </span>
             </div>
             <h3 className="text-base font-extrabold tracking-tight mb-0.5">{c.name}</h3>
             <p className="text-xs text-[var(--muted)] mb-3">
-              <MapPin size={10} className="inline mr-0.5" />{c.country ?? '세계'} · {c.distance_km.toFixed(1)}km
+              <MapPin size={10} className="inline mr-0.5" />{c.country ?? tt('세계')} · {c.distance_km.toFixed(1)}km
             </p>
             {isIndividual ? (
               <p className="text-sm font-bold text-[var(--foreground)]">
-                멤버 {c.contributors}명 도전 중 · 탭해서 순위 보기 →
+                {locale === 'en'
+                  ? `${c.contributors} members running · tap for rankings →`
+                  : `멤버 ${c.contributors}명 도전 중 · 탭해서 순위 보기 →`}
               </p>
             ) : (
               <>
@@ -156,7 +162,7 @@ export default function ClubWorldRunPanel({ clubId, myRole, currentUserId }: Pro
                   />
                 </div>
                 <p className="mt-2 text-xs text-[var(--muted)]">
-                  남은 거리 <span className="font-extrabold text-indigo-700 dark:text-indigo-300">{remain.toFixed(1)}km</span> · 탭해서 리더보드 →
+                  {tt('남은 거리')} <span className="font-extrabold text-indigo-700 dark:text-indigo-300">{remain.toFixed(1)}km</span> · {tt('탭해서 리더보드 →')}
                 </p>
               </>
             )}
@@ -170,7 +176,7 @@ export default function ClubWorldRunPanel({ clubId, myRole, currentUserId }: Pro
           onClick={handleOpenPicker}
           className="w-full py-3 rounded-2xl border-2 border-dashed border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 font-extrabold text-sm active:scale-[0.99] inline-flex items-center justify-center gap-1.5"
         >
-          <Plus size={14} /> 새 도전 추가
+          <Plus size={14} /> {tt('새 도전 추가')}
         </button>
       )}
 
@@ -178,7 +184,7 @@ export default function ClubWorldRunPanel({ clubId, myRole, currentUserId }: Pro
       {finished.length > 0 && (
         <div>
           <h4 className="text-xs font-extrabold uppercase tracking-widest text-[var(--muted)] mb-2 px-1">
-            🏆 완주한 도전
+            {tt('🏆 완주한 도전')}
           </h4>
           <div className="space-y-2">
             {finished.map(c => (
@@ -191,11 +197,13 @@ export default function ClubWorldRunPanel({ clubId, myRole, currentUserId }: Pro
                   <Trophy size={14} className="text-amber-600" />
                   <span className="text-sm font-extrabold flex-1 truncate">{c.name}</span>
                   <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300">
-                    {c.completed_at && new Date(c.completed_at).toLocaleDateString('ko-KR')}
+                    {c.completed_at && new Date(c.completed_at).toLocaleDateString(locale === 'en' ? 'en-US' : 'ko-KR')}
                   </span>
                 </div>
                 <p className="text-[11px] text-[var(--muted)]">
-                  {c.distance_km.toFixed(1)}km · {c.contributors}명 기여 · 클럽 합산 {c.total_km.toFixed(1)}km
+                  {locale === 'en'
+                    ? `${c.distance_km.toFixed(1)}km · ${c.contributors} contributed · club total ${c.total_km.toFixed(1)}km`
+                    : `${c.distance_km.toFixed(1)}km · ${c.contributors}명 기여 · 클럽 합산 ${c.total_km.toFixed(1)}km`}
                 </p>
               </button>
             ))}
@@ -208,7 +216,7 @@ export default function ClubWorldRunPanel({ clubId, myRole, currentUserId }: Pro
         <div className="fixed inset-0 z-[80] bg-black/65 flex items-end sm:items-center justify-center sm:p-3" onClick={() => setPickerOpen(false)}>
           <div className="w-full sm:max-w-md bg-[var(--background)] rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-[var(--card-border)]/40">
-              <h3 className="text-base font-extrabold">새 클럽 도전 시작</h3>
+              <h3 className="text-base font-extrabold">{tt('새 클럽 도전 시작')}</h3>
               <button onClick={() => setPickerOpen(false)} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90">
                 <X size={18} />
               </button>
@@ -216,7 +224,7 @@ export default function ClubWorldRunPanel({ clubId, myRole, currentUserId }: Pro
 
             {/* build 235: 모드 선택 — 디폴트 각자 달리기. */}
             <div className="px-5 pt-3 pb-1">
-              <p className="text-[10px] font-extrabold uppercase tracking-widest text-[var(--muted)] mb-1.5">진행 방식</p>
+              <p className="text-[10px] font-extrabold uppercase tracking-widest text-[var(--muted)] mb-1.5">{tt('진행 방식')}</p>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setPickerMode('individual')}
@@ -226,8 +234,8 @@ export default function ClubWorldRunPanel({ clubId, myRole, currentUserId }: Pro
                       : 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--muted)]'
                   }`}
                 >
-                  <div className="text-sm font-extrabold mb-0.5">🏃 각자 달리기</div>
-                  <div className="text-[10px] font-normal opacity-90">멤버 각자 본인 진행률</div>
+                  <div className="text-sm font-extrabold mb-0.5">{tt('🏃 각자 달리기')}</div>
+                  <div className="text-[10px] font-normal opacity-90">{tt('멤버 각자 본인 진행률')}</div>
                 </button>
                 <button
                   onClick={() => setPickerMode('pooled')}
@@ -237,15 +245,15 @@ export default function ClubWorldRunPanel({ clubId, myRole, currentUserId }: Pro
                       : 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--muted)]'
                   }`}
                 >
-                  <div className="text-sm font-extrabold mb-0.5">🤝 자동 합산</div>
-                  <div className="text-[10px] font-normal opacity-90">전 멤버 km 합쳐 1회 완주</div>
+                  <div className="text-sm font-extrabold mb-0.5">{tt('🤝 자동 합산')}</div>
+                  <div className="text-[10px] font-normal opacity-90">{tt('전 멤버 km 합쳐 1회 완주')}</div>
                 </button>
               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 py-3 space-y-2">
               {pickerCourses.length === 0 ? (
-                <p className="text-sm text-[var(--muted)] text-center py-8">선택 가능한 코스가 없어요</p>
+                <p className="text-sm text-[var(--muted)] text-center py-8">{tt('선택 가능한 코스가 없어요')}</p>
               ) : pickerCourses.map(pc => (
                 <button
                   key={pc.id}
@@ -256,19 +264,19 @@ export default function ClubWorldRunPanel({ clubId, myRole, currentUserId }: Pro
                   <div className="flex items-center gap-2">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-extrabold truncate">{pc.name}</p>
-                      <p className="text-[11px] text-[var(--muted)]">{pc.country ?? '세계'} · {pc.distance_km.toFixed(1)}km</p>
+                      <p className="text-[11px] text-[var(--muted)]">{pc.country ?? tt('세계')} · {pc.distance_km.toFixed(1)}km</p>
                     </div>
                     {starting === pc.id ? (
-                      <span className="text-xs text-emerald-600 font-bold">시작 중…</span>
+                      <span className="text-xs text-emerald-600 font-bold">{tt('시작 중…')}</span>
                     ) : (
-                      <span className="text-purple-600 text-sm font-extrabold">시작 →</span>
+                      <span className="text-purple-600 text-sm font-extrabold">{tt('시작 →')}</span>
                     )}
                   </div>
                 </button>
               ))}
             </div>
             <p className="px-5 pb-4 pt-2 text-[11px] text-[var(--muted)] text-center border-t border-[var(--card-border)]/40">
-              참가비는 차감되지 않아요. 클럽 멤버 활동이 자동 합산됩니다.
+              {tt('참가비는 차감되지 않아요. 클럽 멤버 활동이 자동 합산됩니다.')}
             </p>
           </div>
         </div>
@@ -295,6 +303,7 @@ interface DetailProps {
 }
 
 function ClubCourseDetailSheet({ clubId, course, currentUserId, onClose }: DetailProps) {
+  const { tt, locale } = useI18n();
   const isIndividual = course.mode === 'individual';
   const [pooledRows, setPooledRows] = useState<ClubCourseLeaderboardRow[]>([]);
   const [indivRows, setIndivRows] = useState<ClubCourseIndividualRow[]>([]);
@@ -326,7 +335,7 @@ function ClubCourseDetailSheet({ clubId, course, currentUserId, onClose }: Detai
         <div className="px-5 pt-4 pb-3 border-b border-[var(--card-border)]/40 flex items-center justify-between">
           <div className="min-w-0">
             <h3 className="text-base font-extrabold tracking-tight truncate">{course.name}</h3>
-            <p className="text-[11px] text-[var(--muted)]">{course.country ?? '세계'} · {course.distance_km.toFixed(1)}km</p>
+            <p className="text-[11px] text-[var(--muted)]">{course.country ?? tt('세계')} · {course.distance_km.toFixed(1)}km</p>
           </div>
           <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90">
             <X size={18} />
@@ -344,7 +353,7 @@ function ClubCourseDetailSheet({ clubId, course, currentUserId, onClose }: Detai
               <p className={`text-[10px] font-extrabold uppercase tracking-widest mb-1 inline-flex items-center gap-1 ${
                 completed ? 'text-amber-700 dark:text-amber-300' : 'text-indigo-700 dark:text-indigo-300'
               }`}>
-                <Trophy size={11} /> {completed ? '완주!' : '클럽 합산 진행'}
+                <Trophy size={11} /> {completed ? tt('완주!') : tt('클럽 합산 진행')}
               </p>
               <p className="text-4xl font-extrabold tabular-nums leading-none">
                 {course.total_km.toFixed(1)}
@@ -358,8 +367,12 @@ function ClubCourseDetailSheet({ clubId, course, currentUserId, onClose }: Detai
               </div>
               <p className="mt-2 text-xs text-[var(--muted)]">
                 {completed
-                  ? `🎉 ${course.completed_at && new Date(course.completed_at).toLocaleDateString('ko-KR')} 클럽이 함께 완주했어요!`
-                  : `남은 거리 ${Math.max(0, course.distance_km - course.total_km).toFixed(1)}km · ${course.contributors}명 기여 중`}
+                  ? (locale === 'en'
+                      ? `🎉 The club finished together on ${course.completed_at && new Date(course.completed_at).toLocaleDateString('en-US')}!`
+                      : `🎉 ${course.completed_at && new Date(course.completed_at).toLocaleDateString('ko-KR')} 클럽이 함께 완주했어요!`)
+                  : (locale === 'en'
+                      ? `${Math.max(0, course.distance_km - course.total_km).toFixed(1)}km to go · ${course.contributors} contributing`
+                      : `남은 거리 ${Math.max(0, course.distance_km - course.total_km).toFixed(1)}km · ${course.contributors}명 기여 중`)}
               </p>
             </div>
           )}
@@ -367,11 +380,11 @@ function ClubCourseDetailSheet({ clubId, course, currentUserId, onClose }: Detai
           {isIndividual && (
             <div className="rounded-2xl p-5 bg-gradient-to-br from-purple-50 to-purple-50/40 dark:from-purple-950/30 border-2 border-purple-300/60 dark:border-purple-800/40">
               <p className="text-[10px] font-extrabold uppercase tracking-widest mb-1 inline-flex items-center gap-1 text-purple-700 dark:text-purple-300">
-                <Users size={11} /> 각자 달리기 · {course.distance_km.toFixed(1)}km
+                <Users size={11} /> {tt('각자 달리기')} · {course.distance_km.toFixed(1)}km
               </p>
-              <p className="text-2xl font-extrabold tracking-tight leading-tight">{course.contributors}명 도전 중</p>
+              <p className="text-2xl font-extrabold tracking-tight leading-tight">{locale === 'en' ? `${course.contributors} members running` : `${course.contributors}명 도전 중`}</p>
               <p className="mt-1 text-xs text-[var(--muted)] break-keep">
-                멤버들이 각자 본인 페이스로 같은 코스를 달려요. 본인 도전이 아직이면 월드런 챌린지 탭에서 시작할 수 있어요.
+                {tt('멤버들이 각자 본인 페이스로 같은 코스를 달려요. 본인 도전이 아직이면 월드런 챌린지 탭에서 시작할 수 있어요.')}
               </p>
             </div>
           )}
@@ -380,13 +393,13 @@ function ClubCourseDetailSheet({ clubId, course, currentUserId, onClose }: Detai
           <div>
             <h4 className="text-sm font-extrabold mb-2.5 inline-flex items-center gap-1.5">
               <Users size={14} className="text-purple-600" />
-              {isIndividual ? '멤버 진행률 순위' : '멤버 기여 순위'}
+              {isIndividual ? tt('멤버 진행률 순위') : tt('멤버 기여 순위')}
             </h4>
             {loading ? (
-              <p className="text-xs text-[var(--muted)] text-center py-4">불러오는 중…</p>
+              <p className="text-xs text-[var(--muted)] text-center py-4">{tt('불러오는 중…')}</p>
             ) : isIndividual ? (
               indivRows.length === 0 ? (
-                <p className="text-xs text-[var(--muted)] text-center py-4 italic">아직 도전한 멤버가 없어요</p>
+                <p className="text-xs text-[var(--muted)] text-center py-4 italic">{tt('아직 도전한 멤버가 없어요')}</p>
               ) : (
                 <div className="space-y-1.5">
                   {indivRows.map((r, i) => {
@@ -422,7 +435,7 @@ function ClubCourseDetailSheet({ clubId, course, currentUserId, onClose }: Detai
                         <div className="flex-1 min-w-0">
                           <div className="flex items-baseline justify-between gap-2">
                             <span className={`text-sm truncate ${isMe ? 'font-extrabold text-amber-700 dark:text-amber-300' : 'font-bold'}`}>
-                              {r.display_name}{isMe && <span className="ml-1 text-[10px] font-bold">(나)</span>}
+                              {r.display_name}{isMe && <span className="ml-1 text-[10px] font-bold">{tt('(나)')}</span>}
                               {r.completed_at && <Trophy size={11} className="inline ml-1 text-emerald-600" />}
                             </span>
                             <span className="text-[11px] font-extrabold text-[var(--muted)] tabular-nums">
@@ -442,7 +455,7 @@ function ClubCourseDetailSheet({ clubId, course, currentUserId, onClose }: Detai
                 </div>
               )
             ) : pooledRows.length === 0 ? (
-              <p className="text-xs text-[var(--muted)] text-center py-4 italic">아직 기여한 멤버가 없어요</p>
+              <p className="text-xs text-[var(--muted)] text-center py-4 italic">{tt('아직 기여한 멤버가 없어요')}</p>
             ) : (
               <div className="space-y-1.5">
                 {pooledRows.map((r, i) => {
@@ -477,7 +490,7 @@ function ClubCourseDetailSheet({ clubId, course, currentUserId, onClose }: Detai
                       <div className="flex-1 min-w-0">
                         <div className="flex items-baseline justify-between gap-2">
                           <span className={`text-sm truncate ${isMe ? 'font-extrabold text-amber-700 dark:text-amber-300' : 'font-bold'}`}>
-                            {r.display_name}{isMe && <span className="ml-1 text-[10px] font-bold">(나)</span>}
+                            {r.display_name}{isMe && <span className="ml-1 text-[10px] font-bold">{tt('(나)')}</span>}
                           </span>
                           <span className="text-[11px] font-extrabold text-[var(--muted)] tabular-nums">{r.contributed_km.toFixed(1)}km</span>
                         </div>

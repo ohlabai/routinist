@@ -57,7 +57,7 @@ function NotificationBellBadge() {
 
 function SocialPageInner() {
   const { user, profile } = useAuth();
-  const { t } = useI18n();
+  const { t, tt } = useI18n();
   const searchParams = useSearchParams();
   const initialTab = (searchParams.get('tab') as SectionId) ?? 'friends';
   const [activeSection, setActiveSection] = useState<SectionId>(
@@ -177,8 +177,8 @@ function SocialPageInner() {
                   <UserIcon size={16} className="text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-extrabold text-[var(--foreground)]">친구 목록</p>
-                  <p className="text-[10px] text-[var(--muted)] mt-0.5">친구·팔로잉·팔로워</p>
+                  <p className="text-xs font-extrabold text-[var(--foreground)]">{tt('친구 목록')}</p>
+                  <p className="text-[10px] text-[var(--muted)] mt-0.5">{tt('친구·팔로잉·팔로워')}</p>
                 </div>
               </div>
             </Link>
@@ -191,8 +191,8 @@ function SocialPageInner() {
                   <Trophy size={16} className="text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-extrabold text-[var(--foreground)]">친구 피드</p>
-                  <p className="text-[10px] text-[var(--muted)] mt-0.5">최근 친구 활동</p>
+                  <p className="text-xs font-extrabold text-[var(--foreground)]">{tt('친구 피드')}</p>
+                  <p className="text-[10px] text-[var(--muted)] mt-0.5">{tt('최근 친구 활동')}</p>
                 </div>
               </div>
             </Link>
@@ -202,7 +202,7 @@ function SocialPageInner() {
               본인 + 팔로잉 친구 최대 5명 선택. 일간 14일 / 주간 8주 토글. */}
           {friendsCompare.length > 1 && (
             <MultiUserTimeSeriesChart
-              title="친구와 추이 비교"
+              title={tt('친구와 추이 비교')}
               users={friendsCompare.map(r => ({ id: r.id, name: r.name, isMe: r.isMe })) as CompareUser[]}
               defaultSelectedIds={friendsCompare.filter(r => r.isMe || r.km > 0).slice(0, 5).map(r => r.id)}
             />

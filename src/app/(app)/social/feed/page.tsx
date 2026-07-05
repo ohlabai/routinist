@@ -27,9 +27,16 @@ interface FeedActivity {
   started_at: string | null;
 }
 
-function timeAgo(iso: string | null): string {
+function timeAgo(iso: string | null, locale: string): string {
   if (!iso) return '';
   const ms = Date.now() - new Date(iso).getTime();
+  if (locale === 'en') {
+    if (ms < 60_000) return 'just now';
+    if (ms < 3600_000) return `${Math.floor(ms / 60_000)}m ago`;
+    if (ms < 86400_000) return `${Math.floor(ms / 3600_000)}h ago`;
+    if (ms < 30 * 86400_000) return `${Math.floor(ms / 86400_000)}d ago`;
+    return `${Math.floor(ms / (30 * 86400_000))}mo ago`;
+  }
   if (ms < 60_000) return '방금';
   if (ms < 3600_000) return `${Math.floor(ms / 60_000)}분 전`;
   if (ms < 86400_000) return `${Math.floor(ms / 3600_000)}시간 전`;
@@ -55,7 +62,7 @@ function formatPace(secPerKm: number | null): string {
 export default function FriendFeedPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const { tt } = useI18n();
+  const { tt, locale } = useI18n();
   const [activities, setActivities] = useState<FeedActivity[]>([]);
   const [profiles, setProfiles] = useState<Map<string, Profile>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -161,7 +168,7 @@ export default function FriendFeedPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold truncate">{dispName}</p>
-                    <p className="text-[11px] text-[var(--muted)]">{timeAgo(act.ended_at || act.started_at)}</p>
+                    <p className="text-[11px] text-[var(--muted)]">{timeAgo(act.ended_at || act.started_at, locale)}</p>
                   </div>
                 </Link>
 
@@ -174,7 +181,7 @@ export default function FriendFeedPage() {
                     </div>
                     <div className="text-center border-l border-r border-[var(--card-border)]/30">
                       <p className="text-xl font-extrabold text-[var(--foreground)]">{dur}</p>
-                      <p className="text-[10px] text-[var(--muted)] mt-0.5"><Clock size={9} className="inline" /> 시간</p>
+                      <p className="text-[10px] text-[var(--muted)] mt-0.5"><Clock size={9} className="inline" /> {tt('시간')}</p>
                     </div>
                     <div className="text-center">
                       <p className="text-xl font-extrabold text-[var(--foreground)]">{pace}</p>

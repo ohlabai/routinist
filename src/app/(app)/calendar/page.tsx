@@ -8,6 +8,7 @@ import { getSupabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Camera, Share2, Sparkles } from 'lucide-react';
 import ShareCard from '@/components/activity/ShareCard';
+import { useI18n } from '@/lib/i18n';
 
 // Git 잔디 스타일 — 초록 단일 그라데이션
 function distanceColor(km: number, dateStr: string): string {
@@ -40,6 +41,7 @@ interface PendingUpload {
 
 export default function CalendarPage() {
   const { user } = useAuth();
+  const { tt, locale } = useI18n();
   const { activities, loading } = useUserData();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
@@ -243,7 +245,7 @@ export default function CalendarPage() {
       {uploading && (
         <div className="card p-3 text-center">
           <div className="animate-spin w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full mx-auto" />
-          <p className="text-xs text-[var(--muted)] mt-1">사진 업로드 중...</p>
+          <p className="text-xs text-[var(--muted)] mt-1">{tt('사진 업로드 중...')}</p>
         </div>
       )}
 
@@ -252,7 +254,9 @@ export default function CalendarPage() {
         <button onClick={prevMonth} className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-[var(--card-border)] transition-colors">
           <ChevronLeft size={20} />
         </button>
-        <span className="text-2xl font-bold text-[var(--foreground)]">{year}년 {month}월</span>
+        <span className="text-2xl font-bold text-[var(--foreground)]">
+          {locale === 'en' ? `${new Date(year, month - 1).toLocaleDateString('en-US', { month: 'long' })} ${year}` : `${year}년 ${month}월`}
+        </span>
         <button onClick={nextMonth} className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-[var(--card-border)] transition-colors">
           <ChevronRight size={20} />
         </button>
@@ -267,18 +271,18 @@ export default function CalendarPage() {
           </div>
           <div>
             <p className="text-2xl font-bold text-[var(--foreground)]">{runDays}</p>
-            <p className="text-xs text-[var(--muted)]">러닝 일수</p>
+            <p className="text-xs text-[var(--muted)]">{tt('러닝 일수')}</p>
           </div>
           <div>
             <p className="text-2xl font-bold text-[var(--foreground)]">{totalDuration > 0 ? formatDuration(totalDuration) : '-'}</p>
-            <p className="text-xs text-[var(--muted)]">시간</p>
+            <p className="text-xs text-[var(--muted)]">{tt('시간')}</p>
           </div>
         </div>
       </div>
 
       <div className="card p-4">
         <div className="grid grid-cols-7 gap-1 text-center text-sm mb-2">
-          {['일','월','화','수','목','금','토'].map((d, i) => (
+          {(locale === 'en' ? ['Su','Mo','Tu','We','Th','Fr','Sa'] : ['일','월','화','수','목','금','토']).map((d, i) => (
             <span key={d} className={`py-1 font-semibold ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-[var(--muted)]'}`}>{d}</span>
           ))}
         </div>
@@ -332,7 +336,7 @@ export default function CalendarPage() {
                   <button
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlePhotoSelect(dateStr); }}
                     className="absolute bottom-0.5 right-0.5 w-5 h-5 rounded-full bg-white/80 flex items-center justify-center z-20 shadow-sm"
-                    aria-label="사진 추가"
+                    aria-label={tt('사진 추가')}
                   >
                     <Camera size={9} className="text-gray-700" />
                   </button>
@@ -366,7 +370,7 @@ export default function CalendarPage() {
       {/* 이달 활동 리스트 */}
       {!loading && monthlyActivities.length > 0 && (
         <div className="card p-5">
-          <h3 className="text-base font-bold text-[var(--foreground)] mb-3">이달의 러닝</h3>
+          <h3 className="text-base font-bold text-[var(--foreground)] mb-3">{tt('이달의 러닝')}</h3>
           <div className="space-y-2">
             {monthlyActivities.map(a => (
               <Link
@@ -377,7 +381,7 @@ export default function CalendarPage() {
                 <div>
                   <p className="text-sm font-semibold text-[var(--foreground)]">{a.distance_km.toFixed(2)} km</p>
                   <p className="text-xs text-[var(--muted)]">
-                    {new Date(a.activity_date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' })}
+                    {new Date(a.activity_date).toLocaleDateString(locale === 'en' ? 'en-US' : 'ko-KR', { month: 'short', day: 'numeric', weekday: 'short' })}
                     {a.duration_seconds && ` · ${formatDuration(a.duration_seconds)}`}
                   </p>
                 </div>
@@ -395,7 +399,7 @@ export default function CalendarPage() {
         const dayDuration = dayActivities.reduce((s, a) => s + (a.duration_seconds || 0), 0);
         const dayPhoto = customPhotos.get(showDetail) || photos.get(showDetail);
         const dateObj = new Date(showDetail + 'T00:00:00');
-        const dateLabel = dateObj.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' });
+        const dateLabel = dateObj.toLocaleDateString(locale === 'en' ? 'en-US' : 'ko-KR', { month: 'long', day: 'numeric', weekday: 'long' });
 
         return (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowDetail(null)}>
@@ -418,15 +422,15 @@ export default function CalendarPage() {
                   </div>
                   <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 p-3">
                     <p className="text-2xl font-extrabold text-emerald-700">{dayActivities.length}</p>
-                    <p className="text-xs text-[var(--muted)]">러닝</p>
+                    <p className="text-xs text-[var(--muted)]">{tt('러닝')}</p>
                   </div>
                   <div className="rounded-xl bg-lime-50 dark:bg-lime-950/30 p-3">
                     <p className="text-2xl font-extrabold text-lime-700 dark:text-lime-500">{dayDuration > 0 ? formatDuration(dayDuration) : '-'}</p>
-                    <p className="text-xs text-[var(--muted)]">시간</p>
+                    <p className="text-xs text-[var(--muted)]">{tt('시간')}</p>
                   </div>
                 </div>
               ) : (
-                <p className="text-center text-sm text-[var(--muted)]">이 날은 러닝 기록이 없습니다</p>
+                <p className="text-center text-sm text-[var(--muted)]">{tt('이 날은 러닝 기록이 없습니다')}</p>
               )}
 
               {dayActivities.map(a => (
@@ -452,7 +456,7 @@ export default function CalendarPage() {
                     className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold text-sm shadow-md"
                   >
                     <Share2 size={16} />
-                    공유 카드
+                    {tt('공유 카드')}
                   </button>
                 )}
                 <button
@@ -460,7 +464,7 @@ export default function CalendarPage() {
                   className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-white dark:bg-zinc-900 border border-[var(--card-border)] text-[var(--foreground)] font-semibold text-sm"
                 >
                   <Camera size={16} />
-                  {dayPhoto ? '사진 변경' : '사진 넣기'}
+                  {dayPhoto ? tt('사진 변경') : tt('사진 넣기')}
                 </button>
               </div>
 
@@ -468,7 +472,7 @@ export default function CalendarPage() {
                 onClick={() => setShowDetail(null)}
                 className="w-full py-2.5 rounded-xl text-sm text-[var(--muted)] font-medium"
               >
-                닫기
+                {tt('닫기')}
               </button>
             </div>
           </div>
@@ -484,8 +488,8 @@ export default function CalendarPage() {
               <div className="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 items-center justify-center shadow-md">
                 <Sparkles size={24} className="text-white" />
               </div>
-              <h3 className="text-xl font-bold text-[var(--foreground)]">사진을 어떻게 사용할까요?</h3>
-              <p className="text-sm text-[var(--muted)]">원하는 옵션을 선택하세요</p>
+              <h3 className="text-xl font-bold text-[var(--foreground)]">{tt('사진을 어떻게 사용할까요?')}</h3>
+              <p className="text-sm text-[var(--muted)]">{tt('원하는 옵션을 선택하세요')}</p>
             </div>
 
             {/* 사진 미리보기 */}
@@ -503,8 +507,8 @@ export default function CalendarPage() {
                 className="mt-0.5 w-5 h-5 rounded accent-emerald-500"
               />
               <div className="flex-1">
-                <p className="text-base font-bold text-[var(--foreground)]">📅 내 캘린더 배경에 반영</p>
-                <p className="text-sm text-[var(--muted)] mt-0.5">이 날짜 셀의 배경으로 표시됩니다</p>
+                <p className="text-base font-bold text-[var(--foreground)]">{tt('📅 내 캘린더 배경에 반영')}</p>
+                <p className="text-sm text-[var(--muted)] mt-0.5">{tt('이 날짜 셀의 배경으로 표시됩니다')}</p>
               </div>
             </label>
 
@@ -518,11 +522,11 @@ export default function CalendarPage() {
                 className="mt-0.5 w-5 h-5 rounded accent-emerald-500"
               />
               <div className="flex-1">
-                <p className="text-base font-bold text-[var(--foreground)]">📸 러닝사진에 등록하기</p>
+                <p className="text-base font-bold text-[var(--foreground)]">{tt('📸 러닝사진에 등록하기')}</p>
                 <p className="text-sm text-[var(--muted)] mt-0.5">
                   {pendingUpload.activityId
-                    ? '다른 러너들과 공유되고 좋아요 받을 수 있어요'
-                    : '러닝 기록이 있는 날만 공유할 수 있어요'}
+                    ? tt('다른 러너들과 공유되고 좋아요 받을 수 있어요')
+                    : tt('러닝 기록이 있는 날만 공유할 수 있어요')}
                 </p>
               </div>
             </label>
@@ -533,14 +537,14 @@ export default function CalendarPage() {
                 disabled={applying}
                 className="flex-1 py-3 rounded-xl text-[var(--muted)] font-medium text-sm"
               >
-                취소
+                {tt('취소')}
               </button>
               <button
                 onClick={applyPendingUpload}
                 disabled={applying || (!pendingUpload.applyToCalendar && !pendingUpload.shareToRoutinePhotos)}
                 className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-bold text-base shadow-md disabled:opacity-50"
               >
-                {applying ? '적용 중...' : '확인'}
+                {applying ? tt('적용 중...') : tt('확인')}
               </button>
             </div>
           </div>
@@ -554,7 +558,7 @@ export default function CalendarPage() {
         return (
           <ShareCard
             activity={shareAct}
-            displayName={user?.user_metadata?.name || '러너'}
+            displayName={user?.user_metadata?.name || tt('러너')}
             onClose={() => setShareActivityId(null)}
           />
         );

@@ -81,7 +81,7 @@ function UserProfileContent() {
   const searchParams = useSearchParams();
   const userId = searchParams.get('id') ?? '';
   const { user } = useAuth();
-  const { locale } = useI18n();
+  const { tt, locale } = useI18n();
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [stats, setStats] = useState<MonthStats>({ monthly_km: 0, run_count: 0 });
@@ -177,20 +177,20 @@ function UserProfileContent() {
 
   const handleBlockToggle = async () => {
     if (!user || blockToggling) return;
-    if (!blockedByMe && !window.confirm('이 사용자를 차단할까요?\n차단하면 이 사용자의 사진·댓글·쪽지가 더 이상 보이지 않아요.')) return;
+    if (!blockedByMe && !window.confirm(tt('이 사용자를 차단할까요?\n차단하면 이 사용자의 사진·댓글·쪽지가 더 이상 보이지 않아요.'))) return;
     setBlockToggling(true);
     try {
       if (blockedByMe) {
         await unblockUser(userId);
         setBlockedByMe(false);
-        setToast({ text: '차단을 해제했어요', tone: 'ok' });
+        setToast({ text: tt('차단을 해제했어요'), tone: 'ok' });
       } else {
         await blockUser(userId);
         setBlockedByMe(true);
-        setToast({ text: '차단했어요. 이 사용자의 콘텐츠가 더 이상 보이지 않아요', tone: 'ok' });
+        setToast({ text: tt('차단했어요. 이 사용자의 콘텐츠가 더 이상 보이지 않아요'), tone: 'ok' });
       }
     } catch (e) {
-      setToast({ text: `처리 실패 — ${e instanceof Error ? e.message.slice(0, 60) : '다시 시도해주세요'}`, tone: 'warn' });
+      setToast({ text: `${tt('처리 실패')} — ${e instanceof Error ? e.message.slice(0, 60) : tt('다시 시도해주세요')}`, tone: 'warn' });
     } finally {
       setBlockToggling(false);
     }
@@ -203,35 +203,37 @@ function UserProfileContent() {
       if (friendStatus === 'none') {
         await sendFriendRequest(userId);
         setFriendStatus('request_sent');
-        setToast({ text: '친구 신청을 보냈어요', tone: 'ok' });
+        setToast({ text: tt('친구 신청을 보냈어요'), tone: 'ok' });
       } else if (friendStatus === 'request_sent' && friendRequestId) {
-        if (!window.confirm('친구 신청을 취소할까요?')) { setToggling(false); return; }
+        if (!window.confirm(tt('친구 신청을 취소할까요?'))) { setToggling(false); return; }
         await cancelFriendRequest(friendRequestId);
         setFriendStatus('none');
         setFriendRequestId(null);
-        setToast({ text: '신청을 취소했어요', tone: 'ok' });
+        setToast({ text: tt('신청을 취소했어요'), tone: 'ok' });
       } else if (friendStatus === 'friend') {
-        if (!window.confirm('친구에서 해제할까요?')) { setToggling(false); return; }
+        if (!window.confirm(tt('친구에서 해제할까요?'))) { setToggling(false); return; }
         await unfollowUser(userId);
         // unfollowUser 는 단방향 해제. 양방향이라면 한 방향 풀어도 친구 관계 깨짐.
         setFollowing(false);
         setFriendStatus('none');
-        setToast({ text: '친구에서 해제했어요', tone: 'ok' });
+        setToast({ text: tt('친구에서 해제했어요'), tone: 'ok' });
       }
       // request_received 는 /notifications 에서 수락/거절 → 여기선 안내
       else if (friendStatus === 'request_received') {
-        setToast({ text: '알림 페이지에서 수락 또는 거절해주세요', tone: 'ok' });
+        setToast({ text: tt('알림 페이지에서 수락 또는 거절해주세요'), tone: 'ok' });
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       logClientWarn('UserProfile', 'friend action fail', { userId, status: friendStatus, reason: msg });
+      // 서버 에러 메시지 매칭 조건 (msg.includes) 은 원문 유지 — 표시 문구만 번역.
+      const isAlready = msg.includes('이미 친구') || msg.includes('duplicate') || msg.includes('unique');
       const friendly =
-        msg.includes('이미 친구') ? '이미 친구예요' :
-        msg.includes('duplicate') || msg.includes('unique') ? '이미 신청을 보냈어요' :
-        msg.includes('foreign key') ? '존재하지 않는 사용자예요' :
-        msg.includes('row-level security') || msg.includes('permission') ? '권한이 없어요' :
-        `처리 실패 — ${msg.slice(0, 80)}`;
-      setToast({ text: friendly, tone: friendly.startsWith('이미') ? 'ok' : 'warn' });
+        msg.includes('이미 친구') ? tt('이미 친구예요') :
+        msg.includes('duplicate') || msg.includes('unique') ? tt('이미 신청을 보냈어요') :
+        msg.includes('foreign key') ? tt('존재하지 않는 사용자예요') :
+        msg.includes('row-level security') || msg.includes('permission') ? tt('권한이 없어요') :
+        `${tt('처리 실패')} — ${msg.slice(0, 80)}`;
+      setToast({ text: friendly, tone: isAlready ? 'ok' : 'warn' });
     } finally {
       setToggling(false);
     }
@@ -308,9 +310,9 @@ function UserProfileContent() {
     return (
       <div className="p-4 max-w-lg mx-auto">
         <button onClick={() => router.back()} className="inline-flex items-center gap-2 text-[var(--muted)] mb-4">
-          <ArrowLeft size={20} /> 뒤로
+          <ArrowLeft size={20} /> {tt('뒤로')}
         </button>
-        <p className="text-center text-[var(--muted)] mt-8">잘못된 접근입니다</p>
+        <p className="text-center text-[var(--muted)] mt-8">{tt('잘못된 접근입니다')}</p>
       </div>
     );
   }
@@ -327,9 +329,9 @@ function UserProfileContent() {
     return (
       <div className="p-4 max-w-lg mx-auto">
         <button onClick={() => router.back()} className="inline-flex items-center gap-2 text-[var(--muted)] mb-4">
-          <ArrowLeft size={20} /> 뒤로
+          <ArrowLeft size={20} /> {tt('뒤로')}
         </button>
-        <p className="text-center text-[var(--muted)] mt-8">유저를 찾을 수 없어요</p>
+        <p className="text-center text-[var(--muted)] mt-8">{tt('유저를 찾을 수 없어요')}</p>
       </div>
     );
   }
@@ -345,7 +347,7 @@ function UserProfileContent() {
           <button onClick={() => router.back()} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition">
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-xl font-extrabold tracking-tight">프로필</h1>
+          <h1 className="text-xl font-extrabold tracking-tight">{tt('프로필')}</h1>
         </div>
       </header>
 
@@ -382,15 +384,15 @@ function UserProfileContent() {
         <div className="grid grid-cols-3 gap-3 text-center mt-5 pt-5 border-t border-[var(--card-border)]">
           <div>
             <p className="text-2xl font-bold text-[var(--accent)]">{stats.monthly_km.toFixed(1)}</p>
-            <p className="text-xs text-[var(--muted)]">이달 km</p>
+            <p className="text-xs text-[var(--muted)]">{tt('이달 km')}</p>
           </div>
           <div>
             <p className="text-2xl font-bold text-[var(--foreground)]">{stats.run_count}</p>
-            <p className="text-xs text-[var(--muted)]">이달 러닝</p>
+            <p className="text-xs text-[var(--muted)]">{tt('이달 러닝')}</p>
           </div>
           <div>
             <p className="text-2xl font-bold text-purple-600">{(profile.total_distance_km ?? 0).toFixed(0)}</p>
-            <p className="text-xs text-[var(--muted)]">통산 km</p>
+            <p className="text-xs text-[var(--muted)]">{tt('통산 km')}</p>
           </div>
         </div>
       </div>
@@ -400,8 +402,8 @@ function UserProfileContent() {
       {user && !isMe && (
         <div className="card p-4 flex items-center gap-3">
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-extrabold text-[var(--foreground)]">응원 보내기</p>
-            <p className="text-xs text-[var(--muted)] mt-0.5">매주 한 번씩 이모지로 응원해보세요</p>
+            <p className="text-sm font-extrabold text-[var(--foreground)]">{tt('응원 보내기')}</p>
+            <p className="text-xs text-[var(--muted)] mt-0.5">{tt('매주 한 번씩 이모지로 응원해보세요')}</p>
           </div>
           <CheerButton toUserId={profile.id} context="profile" />
         </div>
@@ -416,17 +418,17 @@ function UserProfileContent() {
           className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 text-sm font-semibold border border-emerald-200/60 dark:border-emerald-900/40 active:scale-95 transition"
         >
           <Edit3 size={16} />
-          <span>내 정보 편집</span>
+          <span>{tt('내 정보 편집')}</span>
         </Link>
       ) : (
         <div className="grid grid-cols-3 gap-2">
           {/* build 267: 4상태 친구 버튼 — none/request_sent/request_received/friend */}
           {(() => {
             const labels: Record<FriendshipStatus, string> = {
-              none: '친구 신청',
-              request_sent: '신청 보냄',
-              request_received: '신청 받음',
-              friend: '친구',
+              none: tt('친구 신청'),
+              request_sent: tt('신청 보냄'),
+              request_received: tt('신청 받음'),
+              friend: tt('친구'),
             };
             const colors: Record<FriendshipStatus, string> = {
               none: 'bg-white dark:bg-zinc-900 border border-emerald-500 text-emerald-600 dark:text-emerald-400',
@@ -454,20 +456,20 @@ function UserProfileContent() {
                 router.push(`/messages/chat?id=${conv.id}`);
               } catch (e) {
                 logClientWarn('UserProfile', '쪽지 시작 실패', { userId, err: String(e) });
-                setToast({ text: '쪽지를 시작할 수 없어요', tone: 'warn' });
+                setToast({ text: tt('쪽지를 시작할 수 없어요'), tone: 'warn' });
               }
             }}
             className="flex flex-col items-center justify-center gap-1 py-3 rounded-2xl bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 text-sm font-semibold active:scale-95 transition"
           >
             <MessageCircle size={20} />
-            <span className="text-xs">쪽지</span>
+            <span className="text-xs">{tt('쪽지')}</span>
           </button>
           <Link
             href={`/mileage/gift`}
             className="flex flex-col items-center justify-center gap-1 py-3 rounded-2xl bg-pink-50 dark:bg-pink-950/30 text-pink-700 dark:text-pink-300 text-sm font-semibold active:scale-95 transition"
           >
             <Gift size={20} />
-            <span className="text-xs">마일리지</span>
+            <span className="text-xs">{tt('마일리지')}</span>
           </Link>
         </div>
       ))}
@@ -479,7 +481,7 @@ function UserProfileContent() {
           disabled={blockToggling}
           className="w-full py-2 text-xs font-semibold text-rose-500/80 disabled:opacity-50 active:opacity-70 transition"
         >
-          {blockedByMe ? '차단 해제하기' : '이 사용자 차단하기'}
+          {blockedByMe ? tt('차단 해제하기') : tt('이 사용자 차단하기')}
         </button>
       )}
 
@@ -508,7 +510,7 @@ function UserProfileContent() {
         <div className="card p-4">
           <div className="flex items-center gap-2 mb-3">
             <Award size={16} className="text-yellow-500" />
-            <h3 className="text-base font-semibold text-[var(--foreground)]">배지</h3>
+            <h3 className="text-base font-semibold text-[var(--foreground)]">{tt('배지')}</h3>
             <span className="text-xs text-[var(--muted)]">{badges.length}</span>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
@@ -527,22 +529,22 @@ function UserProfileContent() {
         <div className="card p-4">
           <div className="flex items-center gap-2 mb-3">
             <Trophy size={16} className="text-yellow-500" />
-            <h3 className="text-base font-semibold text-[var(--foreground)]">최근 베스트</h3>
-            <span className="text-xs text-[var(--muted)]">최근 60일</span>
+            <h3 className="text-base font-semibold text-[var(--foreground)]">{tt('최근 베스트')}</h3>
+            <span className="text-xs text-[var(--muted)]">{tt('최근 60일')}</span>
           </div>
           <div className="grid grid-cols-3 gap-2">
             <div className="bg-[var(--card-border)]/30 rounded-xl p-3 text-center">
-              <p className="text-xs text-[var(--muted)]">최장 거리</p>
+              <p className="text-xs text-[var(--muted)]">{tt('최장 거리')}</p>
               <p className="text-lg font-extrabold text-[var(--foreground)] mt-0.5">{Number(personalBest.longest.distance_km).toFixed(1)}km</p>
             </div>
             <div className="bg-[var(--card-border)]/30 rounded-xl p-3 text-center">
-              <p className="text-xs text-[var(--muted)]">최빠 페이스</p>
+              <p className="text-xs text-[var(--muted)]">{tt('최빠 페이스')}</p>
               <p className="text-lg font-extrabold text-[var(--foreground)] mt-0.5">
                 {personalBest.fastest?.pace_avg_sec_per_km ? formatPace(personalBest.fastest.pace_avg_sec_per_km) : '—'}
               </p>
             </div>
             <div className="bg-[var(--card-border)]/30 rounded-xl p-3 text-center">
-              <p className="text-xs text-[var(--muted)]">최장 시간</p>
+              <p className="text-xs text-[var(--muted)]">{tt('최장 시간')}</p>
               <p className="text-lg font-extrabold text-[var(--foreground)] mt-0.5">
                 {personalBest.longestDur?.duration_seconds ? formatDur(personalBest.longestDur.duration_seconds) : '—'}
               </p>
@@ -554,18 +556,25 @@ function UserProfileContent() {
       {/* 이달 미니 캘린더 */}
       <div className="card p-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-base font-semibold text-[var(--foreground)]">{calendarData.month}월 캘린더</h3>
+          <h3 className="text-base font-semibold text-[var(--foreground)]">
+            {locale === 'en'
+              ? `${new Date(calendarData.year, calendarData.month - 1, 1).toLocaleDateString('en-US', { month: 'long' })} Calendar`
+              : `${calendarData.month}월 캘린더`}
+          </h3>
           <span className="text-xs text-[var(--muted)]">
-            {Array.from({ length: calendarData.daysInMonth }).reduce<number>((acc, _, i) => {
-              const day = i + 1;
-              const ds = `${calendarData.year}-${String(calendarData.month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-              return acc + ((calendarData.distMap.get(ds) ?? 0) > 0 ? 1 : 0);
-            }, 0)}일 러닝
+            {(() => {
+              const runDays = Array.from({ length: calendarData.daysInMonth }).reduce<number>((acc, _, i) => {
+                const day = i + 1;
+                const ds = `${calendarData.year}-${String(calendarData.month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                return acc + ((calendarData.distMap.get(ds) ?? 0) > 0 ? 1 : 0);
+              }, 0);
+              return locale === 'en' ? `${runDays} days run` : `${runDays}일 러닝`;
+            })()}
           </span>
         </div>
         <div className="grid grid-cols-7 gap-1 text-center text-xs mb-1">
-          {['일','월','화','수','목','금','토'].map((d, i) => (
-            <span key={d} className={`${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-[var(--muted)]'}`}>{d}</span>
+          {(locale === 'en' ? ['S','M','T','W','T','F','S'] : ['일','월','화','수','목','금','토']).map((d, i) => (
+            <span key={i} className={`${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-[var(--muted)]'}`}>{d}</span>
           ))}
         </div>
         <div className="grid grid-cols-7 gap-1">
@@ -583,7 +592,7 @@ function UserProfileContent() {
                 onClick={() => clickable && setSelectedDate(ds)}
                 disabled={!clickable}
                 className={`aspect-square rounded-md flex items-center justify-center ${calColor(km)} ${clickable ? 'active:scale-90 transition-transform' : 'cursor-default'}`}
-                aria-label={clickable ? `${calendarData.month}월 ${day}일 ${km.toFixed(1)}km 보기` : undefined}
+                aria-label={clickable ? (locale === 'en' ? `View ${km.toFixed(1)}km on ${calendarData.month}/${day}` : `${calendarData.month}월 ${day}일 ${km.toFixed(1)}km 보기`) : undefined}
               >
                 <span className={`text-xs font-medium ${km >= 7 ? 'text-white' : 'text-[var(--foreground)]'}`}>{day}</span>
               </button>
@@ -595,7 +604,7 @@ function UserProfileContent() {
       {/* 최근 30일 일별 거리 그래프 */}
       {dailyData.some(d => d.distance > 0) && (
         <div className="card p-4">
-          <h3 className="text-base font-semibold text-[var(--foreground)] mb-2">최근 30일 일별 거리</h3>
+          <h3 className="text-base font-semibold text-[var(--foreground)] mb-2">{tt('최근 30일 일별 거리')}</h3>
           <ResponsiveContainer width="100%" height={150}>
             <BarChart data={dailyData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--card-border)" vertical={false} />
@@ -630,15 +639,17 @@ function UserProfileContent() {
               <div className="flex items-center justify-between pl-5 pr-2 py-3 border-b border-[var(--card-border)]">
                 <div>
                   <h3 className="text-base font-bold text-[var(--foreground)]">
-                    {new Date(selectedDate).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}
+                    {new Date(selectedDate).toLocaleDateString(locale === 'en' ? 'en-US' : 'ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}
                   </h3>
                   <p className="text-xs text-[var(--muted)]">
-                    {profile?.display_name}님의 러닝{dayActivities.length > 1 ? ` · ${dayActivities.length}회` : ''}
+                    {locale === 'en'
+                      ? `${profile?.display_name}'s runs${dayActivities.length > 1 ? ` · ${dayActivities.length} runs` : ''}`
+                      : `${profile?.display_name}님의 러닝${dayActivities.length > 1 ? ` · ${dayActivities.length}회` : ''}`}
                   </p>
                 </div>
                 <button
                   onClick={() => setSelectedDate(null)}
-                  aria-label="닫기"
+                  aria-label={tt('닫기')}
                   className="p-3 -mr-1 text-[var(--muted)] active:scale-90 active:bg-[var(--card)] rounded-full transition"
                 >
                   <XIcon size={24} strokeWidth={2.5} />
@@ -649,7 +660,7 @@ function UserProfileContent() {
                 <div className="text-center py-2">
                   <p className="text-5xl font-extrabold text-emerald-500">{totalKm.toFixed(2)}</p>
                   <p className="text-sm text-[var(--muted)] mt-1">
-                    {dayActivities.length > 1 ? '킬로미터 (합계)' : '킬로미터'}
+                    {dayActivities.length > 1 ? tt('킬로미터 (합계)') : tt('킬로미터')}
                   </p>
                 </div>
                 {/* 활동별 카드 — 단일이면 1개, 다중이면 stack */}
@@ -667,19 +678,19 @@ function UserProfileContent() {
                     )}
                     <div className="grid grid-cols-3 gap-2 text-center">
                       <div className="card p-3">
-                        <p className="text-xs text-[var(--muted)]">시간</p>
+                        <p className="text-xs text-[var(--muted)]">{tt('시간')}</p>
                         <p className="text-lg font-bold text-[var(--foreground)] mt-1">
                           {act.duration_seconds ? formatDur(act.duration_seconds) : '—'}
                         </p>
                       </div>
                       <div className="card p-3">
-                        <p className="text-xs text-[var(--muted)]">페이스</p>
+                        <p className="text-xs text-[var(--muted)]">{tt('페이스')}</p>
                         <p className="text-lg font-bold text-[var(--foreground)] mt-1">
                           {act.pace_avg_sec_per_km ? formatPace(act.pace_avg_sec_per_km) : '—'}
                         </p>
                       </div>
                       <div className="card p-3">
-                        <p className="text-xs text-[var(--muted)]">칼로리</p>
+                        <p className="text-xs text-[var(--muted)]">{tt('칼로리')}</p>
                         <p className="text-lg font-bold text-[var(--foreground)] mt-1">
                           {act.calories ? `${act.calories}` : '—'}
                         </p>
@@ -689,7 +700,7 @@ function UserProfileContent() {
                       <RouteMap routeData={act.route_data} height="240px" />
                     ) : (
                       <div className="card p-4 text-center text-xs text-[var(--muted)]">
-                        GPS 경로 데이터가 없는 기록이에요
+                        {tt('GPS 경로 데이터가 없는 기록이에요')}
                       </div>
                     )}
                   </div>
@@ -718,6 +729,7 @@ export default function UserProfilePage() {
 
 // ── 친구 이번 주 회고 (build 130) ─────────────
 function FriendWeeklyRecap({ userId }: { userId: string }) {
+  const { tt, locale } = useI18n();
   const [recap, setRecap] = useState<{ week_km: number; week_runs: number; week_longest: number; week_avg_pace: number | null; month_km: number; month_runs: number } | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -742,20 +754,22 @@ function FriendWeeklyRecap({ userId }: { userId: string }) {
     <div className="card p-4">
       <div className="flex items-center gap-1.5 mb-3">
         <Trophy size={14} className="text-emerald-500" />
-        <h3 className="text-sm font-extrabold">이번 주 · 이번 달</h3>
+        <h3 className="text-sm font-extrabold">{tt('이번 주 · 이번 달')}</h3>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 p-3">
-          <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">이번 주</p>
+          <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">{tt('이번 주')}</p>
           <p className="text-xl font-extrabold text-[var(--foreground)] mt-0.5 tabular-nums">{Number(recap.week_km).toFixed(1)}<span className="text-xs ml-0.5">km</span></p>
           <p className="text-[11px] text-[var(--muted)] mt-0.5 font-bold">
-            {recap.week_runs}회 · 최장 {Number(recap.week_longest).toFixed(1)}km · {paceStr}/km
+            {locale === 'en'
+              ? `${recap.week_runs} runs · longest ${Number(recap.week_longest).toFixed(1)}km · ${paceStr}/km`
+              : `${recap.week_runs}회 · 최장 ${Number(recap.week_longest).toFixed(1)}km · ${paceStr}/km`}
           </p>
         </div>
         <div className="rounded-xl bg-amber-50/60 dark:bg-amber-950/20 p-3">
-          <p className="text-[10px] font-bold text-amber-700 dark:text-amber-300">이번 달</p>
+          <p className="text-[10px] font-bold text-amber-700 dark:text-amber-300">{tt('이번 달')}</p>
           <p className="text-xl font-extrabold text-[var(--foreground)] mt-0.5 tabular-nums">{Number(recap.month_km).toFixed(1)}<span className="text-xs ml-0.5">km</span></p>
-          <p className="text-[11px] text-[var(--muted)] mt-0.5 font-bold">{recap.month_runs}회</p>
+          <p className="text-[11px] text-[var(--muted)] mt-0.5 font-bold">{locale === 'en' ? `${recap.month_runs} runs` : `${recap.month_runs}회`}</p>
         </div>
       </div>
     </div>
@@ -764,6 +778,7 @@ function FriendWeeklyRecap({ userId }: { userId: string }) {
 
 // ── 친구 월드런 코스 (build 130) ─────────────
 function FriendCoursesCard({ userId }: { userId: string }) {
+  const { tt, locale } = useI18n();
   const [list, setList] = useState<{ course_id: string; name: string; country: string | null; distance_km: number; started_at: string; completed_at: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -789,9 +804,9 @@ function FriendCoursesCard({ userId }: { userId: string }) {
       <div className="flex items-center justify-between mb-2.5">
         <div className="flex items-center gap-1.5">
           <span className="text-base">🌍</span>
-          <h3 className="text-sm font-extrabold">월드런 챌린지 도전</h3>
+          <h3 className="text-sm font-extrabold">{tt('월드런 챌린지 도전')}</h3>
         </div>
-        <span className="text-xs font-bold text-emerald-600 tabular-nums">완주 {completed} / {list.length}</span>
+        <span className="text-xs font-bold text-emerald-600 tabular-nums">{tt('완주')} {completed} / {list.length}</span>
       </div>
       <div className="space-y-1.5">
         {list.slice(0, 5).map(c => {
@@ -804,7 +819,7 @@ function FriendCoursesCard({ userId }: { userId: string }) {
             </div>
           );
         })}
-        {list.length > 5 && <p className="text-[10px] text-[var(--muted)] text-center mt-1">+ {list.length - 5}개 더</p>}
+        {list.length > 5 && <p className="text-[10px] text-[var(--muted)] text-center mt-1">{locale === 'en' ? `+ ${list.length - 5} more` : `+ ${list.length - 5}개 더`}</p>}
       </div>
     </div>
   );
@@ -900,7 +915,7 @@ function FriendCalendarCard({ userId }: { userId: string }) {
 // 사용자 신고 — "성남시 남성 1위 / 1명" 처럼 통계 의미 없는 단일 표본 노출.
 // 글로벌 랭킹 디폴트와 같이 country + region_si 로 스코프 고정.
 function FriendRankingBlock({ userId, monthlyKm }: { userId: string; monthlyKm: number }) {
-  const { locale } = useI18n();
+  const { tt, locale } = useI18n();
   const [rank, setRank] = useState<{ scope_label: string; rank_position: number; total_in_scope: number } | null>(null);
   const [goalKm, setGoalKm] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -953,12 +968,12 @@ function FriendRankingBlock({ userId, monthlyKm }: { userId: string; monthlyKm: 
       {rank && (
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">이달 랭킹</p>
+            <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">{tt('이달 랭킹')}</p>
             <p className="text-lg font-extrabold text-[var(--foreground)] mt-0.5">
               <span className="text-emerald-600">{formatRank(rank.rank_position, locale)}</span>
-              <span className="text-xs font-medium text-[var(--muted)] ml-1.5">/ {rank.total_in_scope}명</span>
+              <span className="text-xs font-medium text-[var(--muted)] ml-1.5">{locale === 'en' ? `/ ${rank.total_in_scope} runners` : `/ ${rank.total_in_scope}명`}</span>
             </p>
-            <p className="text-[11px] text-[var(--muted)] mt-0.5">{rank.scope_label}</p>
+            <p className="text-[11px] text-[var(--muted)] mt-0.5">{rank.scope_label === '전체' ? tt('전체') : rank.scope_label}</p>
           </div>
           <Trophy size={28} className="text-yellow-500" />
         </div>
@@ -966,13 +981,13 @@ function FriendRankingBlock({ userId, monthlyKm }: { userId: string; monthlyKm: 
       {goalKm && goalPct !== null && (
         <div className={rank ? 'pt-3 border-t border-[var(--card-border)]' : ''}>
           <div className="flex items-center justify-between mb-1.5">
-            <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">이달 목표</p>
+            <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">{tt('이달 목표')}</p>
             <p className="text-xs font-bold text-[var(--foreground)] tabular-nums">{monthlyKm.toFixed(1)} / {goalKm.toFixed(0)} km</p>
           </div>
           <div className="h-2 rounded-full bg-[var(--card-border)]/30 overflow-hidden">
             <div className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all" style={{ width: `${goalPct}%` }} />
           </div>
-          <p className="text-[11px] text-[var(--muted)] mt-1 text-right">{goalPct}% 진행</p>
+          <p className="text-[11px] text-[var(--muted)] mt-1 text-right">{locale === 'en' ? `${goalPct}% done` : `${goalPct}% 진행`}</p>
         </div>
       )}
     </div>
@@ -981,6 +996,7 @@ function FriendRankingBlock({ userId, monthlyKm }: { userId: string; monthlyKm: 
 
 // ── 친구 최근 7일 GPS 미니맵 (build 125) ─────────────
 function FriendMiniMap({ userId }: { userId: string }) {
+  const { tt, locale } = useI18n();
   const [activities, setActivities] = useState<{ activity_id: string; distance_km: number; route_data: { coordinates?: [number, number][] } | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [periodDays, setPeriodDays] = useState<number>(7);
@@ -1036,11 +1052,11 @@ function FriendMiniMap({ userId }: { userId: string }) {
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
           <MapPin size={14} className="text-emerald-500" />
-          <h3 className="text-sm font-extrabold">최근 {periodDays}일 러닝 경로</h3>
+          <h3 className="text-sm font-extrabold">{locale === 'en' ? `Routes · last ${periodDays} days` : `최근 ${periodDays}일 러닝 경로`}</h3>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="text-xs font-bold text-emerald-600 tabular-nums">{withRoute.length}회</span>
-          <span className="text-[10px] text-[var(--muted)]">지도 크게 보기 →</span>
+          <span className="text-xs font-bold text-emerald-600 tabular-nums">{locale === 'en' ? `${withRoute.length} runs` : `${withRoute.length}회`}</span>
+          <span className="text-[10px] text-[var(--muted)]">{tt('지도 크게 보기')} →</span>
         </div>
       </div>
       <div className="rounded-xl bg-gradient-to-br from-emerald-50/60 via-white to-emerald-50/30 dark:from-emerald-950/20 dark:via-zinc-900 dark:to-emerald-950/10 border border-emerald-200/30 dark:border-emerald-900/20 overflow-hidden">
@@ -1065,6 +1081,7 @@ function FriendMiniMap({ userId }: { userId: string }) {
 
 // ── 친구 30일 활동 막대 (build 124) ─────────────
 function FriendActivityChart({ userId }: { userId: string }) {
+  const { tt, locale } = useI18n();
   const [rows, setRows] = useState<{ activity_id: string; distance_km: number; activity_date: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -1096,11 +1113,11 @@ function FriendActivityChart({ userId }: { userId: string }) {
     <div className="card p-4">
       <div className="flex items-center justify-between mb-2.5">
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40">30일</span>
-          <h3 className="text-sm font-extrabold">활동 그래프</h3>
+          <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40">{tt('30일')}</span>
+          <h3 className="text-sm font-extrabold">{tt('활동 그래프')}</h3>
         </div>
         <span className="text-xs font-bold text-emerald-600 tabular-nums">
-          {rows.reduce((s, r) => s + Number(r.distance_km), 0).toFixed(1)}km · {rows.length}회
+          {rows.reduce((s, r) => s + Number(r.distance_km), 0).toFixed(1)}km · {locale === 'en' ? `${rows.length} runs` : `${rows.length}회`}
         </span>
       </div>
       <div className="flex items-end gap-[2px] h-16">
@@ -1118,7 +1135,7 @@ function FriendActivityChart({ userId }: { userId: string }) {
       </div>
       <div className="flex items-center justify-between mt-1.5 text-[10px] text-[var(--muted)] font-bold">
         <span>{days[0].date.slice(5)}</span>
-        <span>오늘</span>
+        <span>{tt('오늘')}</span>
       </div>
     </div>
   );

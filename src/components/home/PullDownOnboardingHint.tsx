@@ -18,7 +18,7 @@ const storageKey = (uid: string) => `${STORAGE_KEY_PREFIX}${uid}`;
 export default function PullDownOnboardingHint() {
   const { user } = useAuth();
   const { loading, lastUpdated } = useUserData();
-  const { t } = useI18n();
+  const { t, tt } = useI18n();
   const [visible, setVisible] = useState(false);
   const [dismissing, setDismissing] = useState(false);
 
@@ -74,7 +74,7 @@ export default function PullDownOnboardingHint() {
       <div className="relative rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 border border-emerald-200 dark:border-emerald-800 px-4 py-3.5 overflow-hidden">
         <button
           onClick={handleDismiss}
-          aria-label="안내 닫기"
+          aria-label={tt('안내 닫기')}
           className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center text-[var(--muted)] hover:bg-emerald-100/60 dark:hover:bg-emerald-900/30 active:scale-90"
         >
           <X size={14} />

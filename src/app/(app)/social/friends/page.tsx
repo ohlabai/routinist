@@ -20,7 +20,7 @@ type TabId = 'friends' | 'following' | 'followers' | 'sent';
 export default function FriendsListPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const { tt } = useI18n();
+  const { tt, locale } = useI18n();
   const [followingList, setFollowingList] = useState<Profile[]>([]);
   const [followersList, setFollowersList] = useState<Profile[]>([]);
   const [sentRequests, setSentRequests] = useState<SentFriendRequest[]>([]);
@@ -51,13 +51,13 @@ export default function FriendsListPage() {
   // build 279: 보낸 신청 취소
   const handleCancel = async (requestId: string) => {
     if (cancellingId) return;
-    if (!window.confirm('신청을 취소할까요?')) return;
+    if (!window.confirm(tt('신청을 취소할까요?'))) return;
     setCancellingId(requestId);
     try {
       await cancelFriendRequest(requestId);
       setSentRequests(prev => prev.filter(r => r.id !== requestId));
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : '취소 실패');
+      window.alert(e instanceof Error ? e.message : tt('취소 실패'));
     } finally {
       setCancellingId(null);
     }
@@ -79,10 +79,10 @@ export default function FriendsListPage() {
     : []; // sent 탭은 별도 렌더링
 
   const tabs: { id: TabId; label: string; count: number }[] = [
-    { id: 'friends', label: '친구', count: friends.length },
-    { id: 'following', label: '팔로잉', count: followingOnly.length },
-    { id: 'followers', label: '팔로워', count: followersOnly.length },
-    { id: 'sent', label: '신청 중', count: sentRequests.length },
+    { id: 'friends', label: tt('친구'), count: friends.length },
+    { id: 'following', label: tt('팔로잉'), count: followingOnly.length },
+    { id: 'followers', label: tt('팔로워'), count: followersOnly.length },
+    { id: 'sent', label: tt('신청 중'), count: sentRequests.length },
   ];
 
   return (
@@ -165,14 +165,14 @@ export default function FriendsListPage() {
                 </Link>
                 <Link href={`/social/user?id=${r.receiver_id}`} className="flex-1 min-w-0">
                   <p className="text-sm font-bold truncate">{r.receiver?.display_name ?? tt('알 수 없음')}</p>
-                  <p className="text-[11px] text-[var(--muted)]">신청 보냄 · 응답 대기 중</p>
+                  <p className="text-[11px] text-[var(--muted)]">{tt('신청 보냄 · 응답 대기 중')}</p>
                 </Link>
                 <button
                   onClick={() => handleCancel(r.id)}
                   disabled={cancellingId === r.id}
                   className="px-3 py-1.5 rounded-full text-xs font-extrabold bg-[var(--card-border)]/50 text-[var(--muted)] active:scale-95 disabled:opacity-50"
                 >
-                  {cancellingId === r.id ? '취소 중' : '취소'}
+                  {cancellingId === r.id ? tt('취소 중') : tt('취소')}
                 </button>
               </div>
             ))}
@@ -211,7 +211,7 @@ export default function FriendsListPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold truncate">{p.display_name}</p>
                   <p className="text-xs text-[var(--muted)] tabular-nums">
-                    {Number(p.total_distance_km).toFixed(1)}km · {p.total_runs}회
+                    {Number(p.total_distance_km).toFixed(1)}km · {locale === 'en' ? `${p.total_runs} runs` : `${p.total_runs}회`}
                   </p>
                 </div>
               </Link>

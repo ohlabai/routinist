@@ -8,7 +8,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, ttl } from '@/lib/i18n';
 import PhotoLightbox, { type LightboxPhoto } from '@/components/PhotoLightbox';
 
 interface Story {
@@ -83,7 +83,7 @@ export default function HomeFriendStories() {
             activity_id: r.activity_id,
             photo_url: r.photo_url,
             created_at: r.created_at,
-            display_name: prof?.display_name ?? '러너',
+            display_name: prof?.display_name ?? ttl('러너'),
             avatar_url: prof?.avatar_url ?? null,
             distance_km: act?.distance_km ?? 0,
             activity_date: act?.activity_date ?? '',

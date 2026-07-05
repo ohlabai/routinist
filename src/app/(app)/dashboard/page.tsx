@@ -29,7 +29,7 @@ import {
 } from 'recharts';
 import Onboarding from '@/components/Onboarding';
 import LazyMount from '@/components/LazyMount';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, ttl, getCurrentLocale } from '@/lib/i18n';
 import AppLogo from '@/components/AppLogo';
 import HomeRankingHero from '@/components/home/HomeRankingHero';
 import SeasonRecapCard from '@/components/home/SeasonRecapCard';
@@ -505,10 +505,15 @@ export default function DashboardPage() {
 
   const recentActivities = activities.slice(0, 5);
 
-  const [syncToast, setSyncToast] = useState<string | null>(null);
+  // build 291 i18n Phase D: 이전엔 syncToast.startsWith('동기화 실패') 로 tone 판정했지만
+  // 실제 메시지가 '동기화 중에 문제가...' 라 조건이 항상 false (dead) + 번역 시 매칭 불가.
+  // → tone 을 메시지와 함께 구조적으로 저장.
+  const [syncToast, setSyncToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
 
   const handleRefresh = useCallback(async () => {
     let toast = '';
+    let toastTone: 'ok' | 'warn' = 'ok';
+    const en = getCurrentLocale() === 'en';
     let balanceBefore = 0;
     if (user) {
       try {
@@ -530,15 +535,17 @@ export default function DashboardPage() {
         ]);
         if (r.success) {
           toast = r.synced > 0
-            ? `러닝 ${r.synced}건 새로 도착! 🎉`
+            ? (en ? `${r.synced} new run${r.synced === 1 ? '' : 's'} just arrived! 🎉` : `러닝 ${r.synced}건 새로 도착! 🎉`)
             : r.meta?.totalFromHealth
-              ? `이미 최신이에요! ${r.meta.totalFromHealth}건 챙겨놨어요 ✨`
-              : '아직 새로운 기록은 없어요. 한 바퀴 돌아볼까요? 👟';
+              ? (en ? `Already up to date! ${r.meta.totalFromHealth} runs safe and sound ✨` : `이미 최신이에요! ${r.meta.totalFromHealth}건 챙겨놨어요 ✨`)
+              : ttl('아직 새로운 기록은 없어요. 한 바퀴 돌아볼까요? 👟');
         } else {
-          toast = `동기화 중에 문제가 생겼어요\n${r.message}`;
+          toast = `${ttl('동기화 중에 문제가 생겼어요')}\n${r.message}`;
+          toastTone = 'warn';
         }
       } catch (e) {
-        toast = `동기화 중에 문제가 생겼어요\n${e instanceof Error ? e.message : '알 수 없음'}`;
+        toast = `${ttl('동기화 중에 문제가 생겼어요')}\n${e instanceof Error ? e.message : ttl('알 수 없음')}`;
+        toastTone = 'warn';
       }
     }
     if (user) {
@@ -568,13 +575,16 @@ export default function DashboardPage() {
         const balanceAfter = await fetchMileageBalance(user.id);
         const earned = balanceAfter - balanceBefore;
         if (earned > 0) {
-          toast = `🎉 ${earned}P 적립! (잔액 ${balanceAfter.toLocaleString()}P)`;
+          toast = en
+            ? `🎉 +${earned}P earned! (Balance ${balanceAfter.toLocaleString()}P)`
+            : `🎉 ${earned}P 적립! (잔액 ${balanceAfter.toLocaleString()}P)`;
+          toastTone = 'ok';
         }
       } catch {}
     }
 
     if (toast) {
-      setSyncToast(toast);
+      setSyncToast({ text: toast, tone: toastTone });
       setTimeout(() => setSyncToast(null), 4000);
     }
   }, [user, loadStats, refresh]);
@@ -603,7 +613,7 @@ export default function DashboardPage() {
       </div>
     </header>
       {syncToast && (
-        <AppToast text={syncToast} tone={syncToast.startsWith('동기화 실패') ? 'warn' : 'ok'} position="top" onClose={() => setSyncToast(null)} durationMs={4000} />
+        <AppToast text={syncToast.text} tone={syncToast.tone} position="top" onClose={() => setSyncToast(null)} durationMs={4000} />
       )}
 
       {/* ========== ① HealthKit + 개인 통계 + 경쟁/소셜 묶음 ==========

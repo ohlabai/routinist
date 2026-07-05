@@ -11,11 +11,13 @@ import Link from 'next/link';
 import type { Message, Profile } from '@/types';
 import AppLogo from '@/components/AppLogo';
 import { logClientWarn } from '@/lib/error-logger';
+import { useI18n } from '@/lib/i18n';
 
 function ChatView() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user } = useAuth();
+  const { tt, locale } = useI18n();
   // build 219 #2: ?user= 로 들어오면 getOrCreateConversation 으로 id 를 부여.
   // 기존 대화가 있으면 그 채팅을, 없으면 새 대화를 즉시 만들어 빈 채팅 화면 노출.
   const idParam = searchParams.get('id');
@@ -119,7 +121,7 @@ function ChatView() {
       setNewMessage('');
     } catch (e) {
       logClientWarn('chat', 'sendMessage 실패', { conversationId, err: String(e) });
-      setSendError('전송 실패. 네트워크 확인 후 다시 시도해주세요.');
+      setSendError(tt('전송 실패. 네트워크 확인 후 다시 시도해주세요.'));
       setTimeout(() => setSendError(null), 3500);
     } finally {
       setSending(false);
@@ -136,8 +138,8 @@ function ChatView() {
     }
     return (
       <div className="max-w-lg mx-auto px-4 py-6 text-center">
-        <p className="text-[var(--muted)]">{convError ?? '대화를 찾을 수 없습니다'}</p>
-        <button onClick={() => router.back()} className="text-[var(--accent)] text-sm mt-4">뒤로가기</button>
+        <p className="text-[var(--muted)]">{convError ?? tt('대화를 찾을 수 없습니다')}</p>
+        <button onClick={() => router.back()} className="text-[var(--accent)] text-sm mt-4">{tt('뒤로가기')}</button>
       </div>
     );
   }
@@ -156,7 +158,7 @@ function ChatView() {
             else router.push('/messages');
           }}
           className="text-[var(--muted)] -ml-1 p-1"
-          aria-label="뒤로"
+          aria-label={tt('뒤로')}
         ><ArrowLeft size={24} /></button>
         <Link href={otherUser ? `/profile/view?id=${otherUser.id}` : '#'} className="flex items-center gap-2 flex-1 min-w-0">
           <div className="w-9 h-9 rounded-full bg-[var(--card-border)] overflow-hidden flex-shrink-0">
@@ -167,14 +169,17 @@ function ChatView() {
             )}
           </div>
           <span className="text-base font-semibold text-[var(--foreground)] truncate">
-            {otherUser?.display_name ?? '러너'}
+            {otherUser?.display_name ?? tt('러너')}
           </span>
         </Link>
         {/* build 290: 차단 (Apple 1.2) — 차단 후 대화 목록으로 복귀 (목록에서 자동 숨김) */}
         {otherUser && (
           <button
             onClick={async () => {
-              if (!window.confirm(`${otherUser.display_name ?? '이 사용자'}님을 차단할까요?\n차단하면 대화가 목록에서 숨겨지고 사진·댓글도 보이지 않아요.`)) return;
+              const confirmMsg = locale === 'en'
+                ? `Block ${otherUser.display_name ?? 'this user'}?\nBlocking hides this conversation from your list, and their photos and comments will no longer be visible.`
+                : `${otherUser.display_name ?? '이 사용자'}님을 차단할까요?\n차단하면 대화가 목록에서 숨겨지고 사진·댓글도 보이지 않아요.`;
+              if (!window.confirm(confirmMsg)) return;
               try {
                 await blockUser(otherUser.id);
                 router.push('/messages');
@@ -183,8 +188,8 @@ function ChatView() {
               }
             }}
             className="p-2 text-[var(--muted)] active:opacity-60"
-            aria-label="사용자 차단"
-            title="사용자 차단"
+            aria-label={tt('사용자 차단')}
+            title={tt('사용자 차단')}
           >
             <ShieldAlert size={20} />
           </button>
@@ -198,7 +203,7 @@ function ChatView() {
             <div className="animate-spin w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full" />
           </div>
         ) : messages.length === 0 ? (
-          <p className="text-center text-xs text-[var(--muted)] py-8">첫 메시지를 보내보세요!</p>
+          <p className="text-center text-xs text-[var(--muted)] py-8">{tt('첫 메시지를 보내보세요!')}</p>
         ) : (
           messages.map((msg) => {
             const isMine = msg.sender_id === user?.id;
@@ -211,7 +216,7 @@ function ChatView() {
                 }`}>
                   <p className="text-sm whitespace-pre-wrap break-words">{msg.body}</p>
                   <p className={`text-sm mt-1 ${isMine ? 'text-white/60' : 'text-[var(--muted)]'}`}>
-                    {new Date(msg.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                    {new Date(msg.created_at).toLocaleTimeString(locale === 'en' ? 'en-US' : 'ko-KR', { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
               </div>
@@ -234,14 +239,14 @@ function ChatView() {
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-            placeholder="메시지를 입력하세요"
+            placeholder={tt('메시지를 입력하세요')}
             maxLength={2000}
             className="flex-1 px-5 py-3.5 rounded-full bg-[var(--card)] border border-[var(--card-border)] text-base text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
           />
           <button
             onClick={handleSend}
             disabled={!newMessage.trim() || sending}
-            aria-label="보내기"
+            aria-label={tt('보내기')}
             className="w-12 h-12 flex-shrink-0 rounded-full bg-[var(--accent)] text-white disabled:opacity-30 flex items-center justify-center active:scale-95 transition-transform shadow-sm"
           >
             <Send size={20} />

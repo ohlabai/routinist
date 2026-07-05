@@ -271,7 +271,7 @@ function InlineHealthConnect({ onSynced }: { onSynced: () => void }) {
       const r = await Promise.race([
         syncHealthData(user.id, { onProgress: (p) => setMsg(`${p.label} · ${p.percent}%`) }),
         new Promise<{ success: false; synced: 0; message: string }>((resolve) =>
-          setTimeout(() => resolve({ success: false, synced: 0, message: '30초 초과' }), 30000)
+          setTimeout(() => resolve({ success: false, synced: 0, message: tt('30초 초과') }), 30000)
         ),
       ]);
       if (r.success) {

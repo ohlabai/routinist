@@ -8,6 +8,7 @@ import { fetchMileageBalance, fetchMileageTransactions, txTypeLabel, classifyMil
 import { ArrowLeft, Gift, Coins, Sparkles, TrendingUp, TrendingDown, HelpCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useI18n } from '@/lib/i18n';
 import type { MileageTransaction } from '@/types';
 
 type TabId = 'all' | 'running' | 'reward';
@@ -17,6 +18,7 @@ const PAGE_SIZE = 50;
 export default function MileagePage() {
   const router = useRouter();
   const { user } = useAuth();
+  const { tt, locale } = useI18n();
   const [balance, setBalance] = useState(0);
   const [transactions, setTransactions] = useState<MileageTransaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,10 +74,10 @@ export default function MileagePage() {
           <button onClick={() => router.back()} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition">
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-xl font-extrabold tracking-tight flex-1">마일리지</h1>
+          <h1 className="text-xl font-extrabold tracking-tight flex-1">{tt('마일리지')}</h1>
           <Link
             href="/mileage/help"
-            aria-label="마일리지 가이드"
+            aria-label={tt('마일리지 가이드')}
             className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition text-[var(--muted)]"
           >
             <HelpCircle size={20} />
@@ -100,19 +102,19 @@ export default function MileagePage() {
               {balance.toLocaleString()}
               <span className="text-2xl ml-1">P</span>
             </p>
-            <p className="text-xs text-white/80 mt-2 mb-4">1km = 1P 기본 (어제도 달리면 ×2)</p>
+            <p className="text-xs text-white/80 mt-2 mb-4">{tt('1km = 1P 기본 (어제도 달리면 ×2)')}</p>
             <div className="flex flex-wrap gap-2 justify-center">
               <Link
                 href="/mileage/gift"
                 className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-white text-emerald-700 text-sm font-extrabold shadow-md active:scale-95 transition"
               >
-                <Gift size={14} /> 선물하기
+                <Gift size={14} /> {tt('선물하기')}
               </Link>
               <Link
                 href="/mileage/donate"
                 className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-pink-500 text-white text-sm font-extrabold shadow-md active:scale-95 transition"
               >
-                <Gift size={14} /> 클럽 후원
+                <Gift size={14} /> {tt('클럽 후원')}
               </Link>
             </div>
           </div>
@@ -132,7 +134,7 @@ export default function MileagePage() {
                   : 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--muted)]'
               }`}
             >
-              {TAB_LABELS[t]}
+              {tt(TAB_LABELS[t])}
             </button>
           ))}
         </div>
@@ -159,9 +161,13 @@ export default function MileagePage() {
                 <Coins size={28} className="text-emerald-500" />
               </div>
               <p className="text-sm font-bold text-[var(--foreground)] mb-1">
-                {activeTab === 'all' ? '아직 거래 내역이 없어요' : `${TAB_LABELS[activeTab]} 내역이 없어요`}
+                {activeTab === 'all'
+                  ? tt('아직 거래 내역이 없어요')
+                  : locale === 'en'
+                  ? `No ${tt(TAB_LABELS[activeTab]).toLowerCase()} history yet`
+                  : `${TAB_LABELS[activeTab]} 내역이 없어요`}
               </p>
-              <p className="text-xs text-[var(--muted)]">달리기로 마일리지를 모아보세요!</p>
+              <p className="text-xs text-[var(--muted)]">{tt('달리기로 마일리지를 모아보세요!')}</p>
             </div>
           ) : (
             <div className="divide-y divide-[var(--card-border)]/40">
@@ -179,7 +185,7 @@ export default function MileagePage() {
                         {tx.description || txTypeLabel(tx.tx_type)}
                       </p>
                       <p className="text-[11px] text-[var(--muted)] mt-0.5">
-                        {new Date(tx.created_at).toLocaleString('ko-KR', {
+                        {new Date(tx.created_at).toLocaleString(locale === 'en' ? 'en-US' : 'ko-KR', {
                           year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
                         })}
                       </p>
@@ -201,7 +207,7 @@ export default function MileagePage() {
             </div>
           )}
           {!loading && !hasMore && transactions.length > PAGE_SIZE && (
-            <p className="text-[11px] text-[var(--muted)] text-center py-3.5 font-medium">— 끝 —</p>
+            <p className="text-[11px] text-[var(--muted)] text-center py-3.5 font-medium">{tt('— 끝 —')}</p>
           )}
         </div>
       </section>

@@ -227,7 +227,7 @@ export default function PhotoLightbox({ photos, initialIndex = 0, onClose, showP
         <button
           onClick={(e) => { e.stopPropagation(); setIndex(index - 1); }}
           className="absolute left-3 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur flex items-center justify-center active:scale-95 transition z-10"
-          aria-label="이전"
+          aria-label={tt('이전')}
         >
           <ChevronLeft size={28} strokeWidth={2.5} className="text-white" />
         </button>
@@ -236,7 +236,7 @@ export default function PhotoLightbox({ photos, initialIndex = 0, onClose, showP
         <button
           onClick={(e) => { e.stopPropagation(); setIndex(index + 1); }}
           className="absolute right-3 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur flex items-center justify-center active:scale-95 transition z-10"
-          aria-label="다음"
+          aria-label={tt('다음')}
         >
           <ChevronRight size={28} strokeWidth={2.5} className="text-white" />
         </button>
@@ -254,7 +254,7 @@ export default function PhotoLightbox({ photos, initialIndex = 0, onClose, showP
               <button
                 key={i}
                 onClick={() => setIndex(i)}
-                aria-label={`사진 ${i + 1}`}
+                aria-label={`${tt('사진')} ${i + 1}`}
                 className={`w-1.5 h-1.5 rounded-full transition ${i === index ? 'bg-white w-4' : 'bg-white/40'}`}
               />
             ))}

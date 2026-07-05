@@ -1,6 +1,7 @@
 // 하루 대회 (Daily Contest) — RPC wrapper.
 
 import { getSupabase } from './supabase';
+import { ttl } from './i18n';
 
 export type ContestEvent = 'distance' | 'duration' | 'pace';
 export type ContestStatus = 'open' | 'running' | 'finished';
@@ -171,7 +172,7 @@ export function formatContestValue(eventType: ContestEvent, value: number | null
 }
 
 export function contestEventLabel(eventType: ContestEvent): string {
-  if (eventType === 'distance') return '거리';
-  if (eventType === 'duration') return '시간';
-  return '페이스';
+  if (eventType === 'distance') return ttl('거리');
+  if (eventType === 'duration') return ttl('시간');
+  return ttl('페이스');
 }

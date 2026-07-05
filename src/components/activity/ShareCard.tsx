@@ -7,7 +7,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
 import { fetchRandomQuote, isFallbackQuote, type DailyQuote } from '@/lib/quotes-data';
 import { detectRegionLabel } from '@/lib/region-from-gps';
-import { getCurrentLocale } from '@/lib/i18n';
+import { getCurrentLocale, ttl, useI18n, formatRank } from '@/lib/i18n';
 import { captureCanvasAnimation } from '@/lib/canvas-to-video';
 import { getSupabase } from '@/lib/supabase';
 import { track } from '@/lib/analytics';
@@ -403,7 +403,9 @@ function drawCard(
         ctx.fillStyle = hasMedia ?'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.75)';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'alphabetic';
-        const text = `🌍 +${otherCount}개 지역 ${otherKm.toFixed(1)}km 더`;
+        const text = getCurrentLocale() === 'en'
+          ? `🌍 +${otherCount} more region${otherCount === 1 ? '' : 's'} · ${otherKm.toFixed(1)}km`
+          : `🌍 +${otherCount}개 지역 ${otherKm.toFixed(1)}km 더`;
         ctx.fillText(text, W / 2, mapY + mapH + 28);
       }
 
@@ -754,12 +756,16 @@ function drawCard(
 
   // 통계 4열 — 시간 / 페이스 / 칼로리 / 월 누적 (사용자 결정 — 월 누적 km 표시 위치 이동)
   const statsY = lineY + 100;
+  const MONTH_SHORT_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthStatLabel = getCurrentLocale() === 'en'
+    ? MONTH_SHORT_EN[activityMonth]
+    : `${activityMonth + 1}월`;
   const stats = [
-    { label: '시간', value: activity.duration_seconds ? formatDur(activity.duration_seconds) : '--' },
-    { label: '페이스', value: activity.pace_avg_sec_per_km ? formatPc(activity.pace_avg_sec_per_km) : '--' },
-    { label: '칼로리', value: activity.calories ? `${activity.calories}` : '--' },
+    { label: ttl('시간'), value: activity.duration_seconds ? formatDur(activity.duration_seconds) : '--' },
+    { label: ttl('페이스'), value: activity.pace_avg_sec_per_km ? formatPc(activity.pace_avg_sec_per_km) : '--' },
+    { label: ttl('칼로리'), value: activity.calories ? `${activity.calories}` : '--' },
     {
-      label: monthSum > 0 ? `${activityMonth + 1}월` : '월 누적',
+      label: monthSum > 0 ? monthStatLabel : ttl('월 누적'),
       value: monthSum > 0 ? `${monthSum.toFixed(1)}km` : '--',
     },
   ];
@@ -933,7 +939,7 @@ function drawCard(
       ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.fillStyle = hasMedia ?'rgba(255,255,255,0.95)' : mainColor;
       ctx.textAlign = 'center';
-      ctx.fillText(`${monthRunCount}회`, x, labelY);
+      ctx.fillText(getCurrentLocale() === 'en' ? `${monthRunCount} runs` : `${monthRunCount}회`, x, labelY);
     }
   }
 
@@ -1089,6 +1095,7 @@ function downloadBlob(blob: Blob, fileName: string) {
 }
 
 export default function ShareCard({ activity: baseActivity, displayName, onClose, hideRegister, onRegistered, periodOverrides }: ShareCardProps) {
+  const { tt, locale } = useI18n();
   const { user, profile } = useAuth();
   const { activities, goals } = useUserData();
   // build 167 #1: useUserData() activities 는 route_data 없는 lite. ShareCard 진입 시 단건 lazy fetch.
@@ -1164,6 +1171,9 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
   const [registering, setRegistering] = useState(false);
   const [registerToast, setRegisterToast] = useState<string | null>(null);
+  // build 291 i18n Phase D: 이전엔 registerToast.startsWith('등록 실패') 로 warn tone 판정 —
+  // 번역하면 문자열 매칭이 깨지므로 tone 을 별도 ref 로 동반 기록 (구조만 바꾸고 동작 동일).
+  const registerToastToneRef = useRef<'ok' | 'warn'>('ok');
   const [quote, setQuote] = useState<DailyQuote | null>(null);
   // build 136: 동영상 공유 기본 + 정적 이미지 선택 옵션. MediaRecorder 미지원 기기는 자동으로 이미지.
   const [shareAsVideo, setShareAsVideo] = useState(true);
@@ -1193,8 +1203,9 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
         const total = row.total_in_scope ?? 0;
         const rank = row.rank_position ?? 0;
         if (rank === 0 || total === 0) return;
-        if (total <= 3) setRankSuffix(rank === 1 ? '1위 ✨' : `${rank}위`);
-        else setRankSuffix(`${rank}위 / ${total}명`);
+        const loc = getCurrentLocale();
+        if (total <= 3) setRankSuffix(rank === 1 ? `${formatRank(1, loc)} ✨` : formatRank(rank, loc));
+        else setRankSuffix(loc === 'en' ? `${formatRank(rank, loc)} of ${total}` : `${rank}위 / ${total}명`);
       } catch { /* 랭킹 실패해도 카드 동작에 영향 X */ }
     })();
     return () => { cancelled = true; };
@@ -1215,7 +1226,10 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
   // 공유카드 열 때마다 random 명언 + 🎲 버튼으로 새로 굴릴 수 있음.
   // SNS 도배 회피 + 사용자가 마음에 들 때까지 새로 받음.
   // 한국 사용자도 짧은 영어 명언은 무리 없이 이해 — 70% ko / 30% en 으로 다양성.
-  const pickQuoteLang = (): 'ko' | 'en' => (Math.random() < 0.3 ? 'en' : 'ko');
+  // build 291 i18n Phase D: en 유저에게 한국어 명언이 나오면 못 읽음 → en 유저는 'en' 고정.
+  // ko 유저의 30% 영어 명언은 의도된 기능이라 유지.
+  const pickQuoteLang = (): 'ko' | 'en' =>
+    getCurrentLocale() === 'en' ? 'en' : (Math.random() < 0.3 ? 'en' : 'ko');
 
   useEffect(() => {
     let cancelled = false;
@@ -1256,7 +1270,8 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
   const generate = useCallback(() => {
     if (!canvasRef.current) return;
     drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel ?? undefined, 1, undefined, periodOverrides);
-  }, [activity, displayName, themeIdx, bgImage, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel]);
+    // locale: 캔버스 안 ttl()/getCurrentLocale() 텍스트가 언어 전환 시 다시 그려지도록 (build 291 i18n Phase D).
+  }, [activity, displayName, themeIdx, bgImage, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel, locale]);
 
   useEffect(() => { generate(); }, [generate]);
 
@@ -1280,7 +1295,8 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 50 * 1024 * 1024) {
-      setRegisterToast('영상이 50MB 보다 커요');
+      registerToastToneRef.current = 'ok';
+      setRegisterToast(tt('영상이 50MB 보다 커요'));
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
       toastTimerRef.current = setTimeout(() => setRegisterToast(null), 3000);
       return;
@@ -1296,7 +1312,8 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
     };
     probe.onerror = () => {
       URL.revokeObjectURL(url);
-      setRegisterToast('영상 로드 실패');
+      registerToastToneRef.current = 'ok';
+      setRegisterToast(tt('영상 로드 실패'));
     };
   };
   const clearAttachedVideo = () => {
@@ -1314,7 +1331,8 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
     const msg = err instanceof Error ? err.message : String(err);
     console.warn(`[ShareCard] ${label} 실패:`, err);
     shareErrorRef.current = true;
-    setRegisterToast(`공유 실패 — ${msg.slice(0, 80)}`);
+    registerToastToneRef.current = 'ok';
+    setRegisterToast(`${tt('공유 실패')} — ${msg.slice(0, 80)}`);
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => setRegisterToast(null), 4500);
   };
@@ -1336,7 +1354,7 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
         const { Share } = await import('@capacitor/share');
         await Share.share({
           url: result.uri,
-          dialogTitle: '러닝 기록 공유',
+          dialogTitle: tt('러닝 기록 공유'),
         });
       } catch (err) {
         showShareError('네이티브 PNG 공유', err);
@@ -1377,7 +1395,7 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
         const { Share } = await import('@capacitor/share');
         const shareResult = await Share.share({
           url: result.uri,
-          dialogTitle: '러닝 기록 공유',
+          dialogTitle: tt('러닝 기록 공유'),
         });
         diag(`Share.share resolved activityType=${shareResult?.activityType ?? 'unknown'}`);
       } catch (err) {
@@ -1414,7 +1432,7 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
 
     try {
       const blob = await new Promise<Blob | null>(res => canvasRef.current!.toBlob(b => res(b), 'image/png'));
-      if (!blob) throw new Error('이미지 변환 실패');
+      if (!blob) throw new Error(tt('이미지 변환 실패'));
       const supabase = getSupabase();
       const path = `${user.id}/routine/${activity.activity_date}-${Date.now()}.png`;
 
@@ -1480,19 +1498,24 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
         : results[1].status === 'fulfilled' && !(results[1].value as { error?: unknown })?.error;
 
       if (calOk && photoOk) {
-        setRegisterToast(includeGallery ? '✨ 공유됨!' : '✨ 캘린더에 저장됐어요');
+        registerToastToneRef.current = 'ok';
+        setRegisterToast(includeGallery ? tt('✨ 공유됨!') : tt('✨ 캘린더에 저장됐어요'));
       } else if (calOk || photoOk) {
-        setRegisterToast(`부분 등록 — ${calOk ? '캘린더는 OK' : '갤러리만 OK'}. 다시 시도하세요.`);
+        registerToastToneRef.current = 'ok';
+        setRegisterToast(locale === 'en'
+          ? `Partially saved — ${calOk ? 'calendar OK' : 'gallery only'}. Please try again.`
+          : `부분 등록 — ${calOk ? '캘린더는 OK' : '갤러리만 OK'}. 다시 시도하세요.`);
       } else {
-        throw new Error('등록 실패');
+        throw new Error(tt('등록 실패'));
       }
       // build 142: setTimeout cleanup — 모달 unmount 후 state 업데이트 회피.
       const closeTimer = setTimeout(() => { setRegisterToast(null); onRegistered?.(); onClose(); }, 1500);
       toastTimerRef.current = closeTimer;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '알 수 없는 오류';
+      const msg = err instanceof Error ? err.message : tt('알 수 없는 오류');
       console.warn('등록 실패:', err);
-      setRegisterToast(`등록 실패: ${msg}`);
+      registerToastToneRef.current = 'warn';
+      setRegisterToast(`${tt('등록 실패')}: ${msg}`);
       const errTimer = setTimeout(() => setRegisterToast(null), 3000);
       toastTimerRef.current = errTimer;
     } finally {
@@ -1592,7 +1615,7 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
           <canvas ref={canvasRef} className="w-full rounded-xl shadow-lg" style={{ aspectRatio: '9/16' }} />
           <button
             onClick={onClose}
-            aria-label="닫기"
+            aria-label={tt('닫기')}
             className="absolute right-6 w-10 h-10 flex items-center justify-center rounded-full bg-black/55 hover:bg-black/75 active:scale-90 backdrop-blur-sm shadow-md"
             style={{ top: 'calc(env(safe-area-inset-top, 0px) + 24px)' }}
           >
@@ -1611,14 +1634,14 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
               type="text"
               value={customText}
               onChange={(e) => setCustomText(e.target.value.slice(0, 100))}
-              placeholder={quote ? `"${quote.text}"` : '한 줄 메시지를 입력해보세요'}
+              placeholder={quote ? `"${quote.text}"` : tt('한 줄 메시지를 입력해보세요')}
               maxLength={100}
               className="flex-1 bg-transparent text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none min-w-0"
             />
             {customText.trim() ? (
               <button
                 onClick={() => setCustomText('')}
-                aria-label="입력 지우기"
+                aria-label={tt('입력 지우기')}
                 className="w-7 h-7 rounded-full flex items-center justify-center text-[var(--muted)] hover:bg-[var(--card-border)]/40 active:scale-90 flex-shrink-0"
               >
                 <X size={16} />
@@ -1626,7 +1649,7 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
             ) : (
               <button
                 onClick={rerollQuote}
-                aria-label="다른 명언"
+                aria-label={tt('다른 명언')}
                 className="w-7 h-7 rounded-full flex items-center justify-center text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 flex-shrink-0"
               >
                 <Shuffle size={16} />
@@ -1647,7 +1670,7 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
                   <Check size={10} className="absolute text-white pointer-events-none" strokeWidth={3} />
                 )}
               </span>
-              <span className="text-[11px] text-[var(--muted)]">러너 한 줄에도 저장 (소셜 탭에서 보임)</span>
+              <span className="text-[11px] text-[var(--muted)]">{tt('러너 한 줄에도 저장 (소셜 탭에서 보임)')}</span>
             </label>
           )}
         </div>
@@ -1665,7 +1688,7 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
                     : 'bg-[var(--card)] text-[var(--muted)] border border-[var(--card-border)]'
                 }`}
               >
-                {t.name}
+                {tt(t.name)}
               </button>
             ))}
           </div>
@@ -1685,13 +1708,13 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
                 onClick={() => fileInputRef.current?.click()}
                 className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-bold text-sm shadow-md active:scale-[0.99] transition"
               >
-                <ImagePlus size={16} /> {bgImage ? '사진 변경' : '배경 사진'}
+                <ImagePlus size={16} /> {bgImage ? tt('사진 변경') : tt('배경 사진')}
               </button>
               {bgImage && (
                 <button
                   onClick={(e) => { e.stopPropagation(); clearPhoto(); }}
                   className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/25 hover:bg-white/35 flex items-center justify-center"
-                  aria-label="배경 사진 제거"
+                  aria-label={tt('배경 사진 제거')}
                 >
                   <X size={14} className="text-white" strokeWidth={2.5} />
                 </button>
@@ -1708,14 +1731,14 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
               >
                 <Video size={16} />
                 {attachedVideoUrl
-                  ? `영상 ${(attachedVideoDurMs / 1000).toFixed(1)}s`
-                  : '영상 배경'}
+                  ? `${tt('영상')} ${(attachedVideoDurMs / 1000).toFixed(1)}s`
+                  : tt('영상 배경')}
               </button>
               {attachedVideoUrl && (
                 <button
                   onClick={(e) => { e.stopPropagation(); clearAttachedVideo(); }}
                   className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/25 hover:bg-white/35 flex items-center justify-center"
-                  aria-label="영상 제거"
+                  aria-label={tt('영상 제거')}
                 >
                   <X size={14} className="text-white" strokeWidth={2.5} />
                 </button>
@@ -1737,7 +1760,7 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
                 }`}
               >
                 <Video size={14} />
-                동영상
+                {tt('동영상')}
               </button>
               <button
                 onClick={() => setShareAsVideo(false)}
@@ -1748,7 +1771,7 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
                 }`}
               >
                 <ImageIcon size={14} />
-                이미지
+                {tt('이미지')}
               </button>
             </div>
           )}
@@ -1768,7 +1791,7 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
                   <Check size={14} className="absolute text-white pointer-events-none" strokeWidth={3} />
                 )}
               </span>
-              <span className="text-sm text-[var(--foreground)]">러닝사진에 등록</span>
+              <span className="text-sm text-[var(--foreground)]">{tt('러닝사진에 등록')}</span>
             </label>
           )}
 
@@ -1799,15 +1822,15 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
             {renderingVideo ? (
               <>
                 <span className="animate-spin w-4 h-4 border-2 border-white/70 border-t-transparent rounded-full" />
-                <span>동영상 만드는 중...</span>
+                <span>{tt('동영상 만드는 중...')}</span>
               </>
             ) : registering ? (
               <>
                 <span className="animate-spin w-4 h-4 border-2 border-white/70 border-t-transparent rounded-full" />
-                <span>공유 중...</span>
+                <span>{tt('공유 중...')}</span>
               </>
             ) : (
-              <><Share2 size={18} /> 공유</>
+              <><Share2 size={18} /> {tt('공유')}</>
             )}
           </button>
         </div>
@@ -1820,7 +1843,7 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
             <div className="w-20 h-20 rounded-full bg-emerald-500 flex items-center justify-center shadow-2xl animate-[pulse_0.6s_ease-out]">
               <Check size={40} className="text-white" strokeWidth={3} />
             </div>
-            <p className="text-white text-base font-bold drop-shadow-lg">공유됨!</p>
+            <p className="text-white text-base font-bold drop-shadow-lg">{tt('공유됨!')}</p>
           </div>
         </div>
       )}
@@ -1828,9 +1851,9 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
       {registerToast && (
         <AppToast
           text={registerToast}
-          tone={registerToast.startsWith('등록 실패') ? 'warn' : 'ok'}
+          tone={registerToastToneRef.current}
           onClose={() => setRegisterToast(null)}
-          durationMs={registerToast.startsWith('등록 실패') ? 3000 : 1500}
+          durationMs={registerToastToneRef.current === 'warn' ? 3000 : 1500}
         />
       )}
     </div>

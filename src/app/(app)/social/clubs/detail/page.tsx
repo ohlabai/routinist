@@ -34,6 +34,7 @@ import ClubChallengeSection from '@/components/club/ClubChallengeSection';
 import Link from 'next/link';
 import type { Club, ClubMember } from '@/types';
 import AppLogo from '@/components/AppLogo';
+import { useI18n } from '@/lib/i18n';
 
 type TabId = 'dashboard' | 'feed' | 'challenges' | 'worldrun' | 'members' | 'activity' | 'archive' | 'settings';
 
@@ -41,6 +42,7 @@ function ClubDetail() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user } = useAuth();
+  const { tt, locale } = useI18n();
   const clubId = searchParams.get('id');
 
   const [club, setClub] = useState<Club | null>(null);
@@ -153,6 +155,7 @@ function ClubDetail() {
   const now = new Date();
   const dashYear = now.getFullYear();
   const dashMonth = now.getMonth() + 1;
+  const dashMonthName = now.toLocaleDateString('en-US', { month: 'long' }); // en 헤딩용 (예: July)
 
   useEffect(() => {
     if (activeTab !== 'dashboard' || !clubId) return;
@@ -179,7 +182,7 @@ function ClubDetail() {
   };
 
   const handleLeave = async () => {
-    if (!clubId || !confirm('정말 클럽을 탈퇴하시겠습니까?')) return;
+    if (!clubId || !confirm(tt('정말 클럽을 탈퇴하시겠습니까?'))) return;
     setActionLoading(true);
     try { await leaveClub(clubId); await loadData(); } catch {} finally { setActionLoading(false); }
   };
@@ -205,7 +208,7 @@ function ClubDetail() {
   };
 
   const handleRemoveMember = async (userId: string, name: string) => {
-    if (!clubId || !confirm(`${name}님을 클럽에서 추방하시겠습니까?`)) return;
+    if (!clubId || !confirm(locale === 'en' ? `Remove ${name} from the club?` : `${name}님을 클럽에서 추방하시겠습니까?`)) return;
     try {
       await removeMember(clubId, userId);
       await loadData();
@@ -229,14 +232,14 @@ function ClubDetail() {
   const isAppAdmin = user?.email === 'hans@openhan.kr';
   const canDelete = myRole === 'owner' || isAppAdmin;
   const tabs: { id: TabId; label: string; show: boolean }[] = [
-    { id: 'dashboard', label: '대시보드', show: isMember },
-    { id: 'feed', label: '피드', show: isMember },
-    { id: 'challenges', label: '챌린지·모임', show: isMember },
-    { id: 'worldrun', label: '🌍 월드런', show: isMember },
-    { id: 'members', label: `멤버 (${members.length})`, show: true },
-    { id: 'activity', label: '활동', show: isMember },
-    { id: 'archive', label: '결산', show: true },
-    { id: 'settings', label: '설정', show: isAdmin || isAppAdmin },
+    { id: 'dashboard', label: tt('대시보드'), show: isMember },
+    { id: 'feed', label: tt('피드'), show: isMember },
+    { id: 'challenges', label: tt('챌린지·모임'), show: isMember },
+    { id: 'worldrun', label: tt('🌍 월드런'), show: isMember },
+    { id: 'members', label: `${tt('멤버')} (${members.length})`, show: true },
+    { id: 'activity', label: tt('활동'), show: isMember },
+    { id: 'archive', label: tt('결산'), show: true },
+    { id: 'settings', label: tt('설정'), show: isAdmin || isAppAdmin },
   ];
 
   // 피드 로드
@@ -272,7 +275,7 @@ function ClubDetail() {
       setComposeBody(''); setComposePhoto(null); setComposeIsNotice(false); setComposeOpen(false);
       await loadFeed();
     } catch (e) {
-      alert(e instanceof Error ? e.message : '게시글 등록 실패');
+      alert(e instanceof Error ? e.message : tt('게시글 등록 실패'));
     } finally {
       setComposing(false);
     }
@@ -298,17 +301,17 @@ function ClubDetail() {
       await toggleClubPostNotice(post.id, !post.is_notice);
       await loadFeed();
     } catch (e) {
-      alert(e instanceof Error ? e.message : '공지 전환 실패');
+      alert(e instanceof Error ? e.message : tt('공지 전환 실패'));
     }
   };
 
   const handleDeletePost = async (post: ClubPost) => {
-    if (!confirm('게시글을 삭제할까요?')) return;
+    if (!confirm(tt('게시글을 삭제할까요?'))) return;
     try {
       await deleteClubPost(post.id);
       setFeedPosts(prev => prev.filter(p => p.id !== post.id));
     } catch (e) {
-      alert(e instanceof Error ? e.message : '삭제 실패');
+      alert(e instanceof Error ? e.message : tt('삭제 실패'));
     }
   };
 
@@ -351,13 +354,13 @@ function ClubDetail() {
       });
       setChOpen(false); setChTitle(''); setChDesc(''); setChTargetKm(''); setChTargetCount('');
       await loadChallenges();
-    } catch (e) { alert(e instanceof Error ? e.message : '챌린지 등록 실패'); }
+    } catch (e) { alert(e instanceof Error ? e.message : tt('챌린지 등록 실패')); }
   };
 
   const handleDeleteChallenge = async (id: string) => {
-    if (!confirm('챌린지를 삭제할까요?')) return;
+    if (!confirm(tt('챌린지를 삭제할까요?'))) return;
     try { await deleteClubChallenge(id); await loadChallenges(); }
-    catch (e) { alert(e instanceof Error ? e.message : '삭제 실패'); }
+    catch (e) { alert(e instanceof Error ? e.message : tt('삭제 실패')); }
   };
 
   // ========== 이벤트 ==========
@@ -380,19 +383,19 @@ function ClubDetail() {
       });
       setEvOpen(false); setEvTitle(''); setEvDesc(''); setEvLocation(''); setEvMax('');
       await loadEvents();
-    } catch (e) { alert(e instanceof Error ? e.message : '이벤트 등록 실패'); }
+    } catch (e) { alert(e instanceof Error ? e.message : tt('이벤트 등록 실패')); }
   };
 
   const handleRsvp = async (eventId: string, status: 'going' | 'maybe' | 'no') => {
     if (!user) return;
     try { await rsvpClubEvent(eventId, user.id, status); await loadEvents(); }
-    catch (e) { alert(e instanceof Error ? e.message : 'RSVP 실패'); }
+    catch (e) { alert(e instanceof Error ? e.message : tt('RSVP 실패')); }
   };
 
   const handleDeleteEvent = async (id: string) => {
-    if (!confirm('이벤트를 삭제할까요?')) return;
+    if (!confirm(tt('이벤트를 삭제할까요?'))) return;
     try { await deleteClubEvent(id); await loadEvents(); }
-    catch (e) { alert(e instanceof Error ? e.message : '삭제 실패'); }
+    catch (e) { alert(e instanceof Error ? e.message : tt('삭제 실패')); }
   };
 
   useEffect(() => {
@@ -425,7 +428,7 @@ function ClubDetail() {
         (acts ?? []).forEach(a => kmMap.set(a.user_id, (kmMap.get(a.user_id) ?? 0) + Number(a.distance_km)));
         const rows = members.map(m => ({
           id: m.user_id,
-          name: m.profile?.display_name ?? '러너',
+          name: m.profile?.display_name ?? tt('러너'),
           avatar: m.profile?.avatar_url ?? null,
           km: kmMap.get(m.user_id) ?? 0,
           isMe: m.user_id === user?.id,
@@ -499,21 +502,24 @@ function ClubDetail() {
       setOpenComments(prev => ({ ...prev, [postId]: list }));
       setFeedPosts(prev => prev.map(p => p.id === postId ? { ...p, comment_count: p.comment_count + 1 } : p));
     } catch (e) {
-      alert(e instanceof Error ? e.message : '댓글 등록 실패');
+      alert(e instanceof Error ? e.message : tt('댓글 등록 실패'));
     }
   };
 
   const handleDeleteClub = async () => {
     if (!clubId || !club) return;
-    const label = isAppAdmin && myRole !== 'owner' ? '[관리자] ' : '';
-    if (!confirm(`${label}"${club.name}" 클럽을 삭제할까요? 멤버 기록과 함께 영구 삭제됩니다.`)) return;
+    const label = isAppAdmin && myRole !== 'owner' ? (locale === 'en' ? '[Admin] ' : '[관리자] ') : '';
+    const confirmMsg = locale === 'en'
+      ? `${label}Delete the club "${club.name}"? It will be permanently deleted along with member records.`
+      : `${label}"${club.name}" 클럽을 삭제할까요? 멤버 기록과 함께 영구 삭제됩니다.`;
+    if (!confirm(confirmMsg)) return;
     setSaving(true);
     try {
       await deleteClub(clubId);
-      alert('클럽이 삭제되었습니다.');
+      alert(tt('클럽이 삭제되었습니다.'));
       router.replace('/social?tab=clubs');
     } catch (e) {
-      alert(e instanceof Error ? e.message : '삭제 실패');
+      alert(e instanceof Error ? e.message : tt('삭제 실패'));
     } finally {
       setSaving(false);
     }
@@ -526,8 +532,8 @@ function ClubDetail() {
   if (!club) {
     return (
       <div className="max-w-lg mx-auto px-4 py-6 text-center">
-        <p className="text-[var(--muted)]">클럽을 찾을 수 없습니다.</p>
-        <button onClick={() => router.back()} className="text-[var(--accent)] text-sm mt-4">뒤로가기</button>
+        <p className="text-[var(--muted)]">{tt('클럽을 찾을 수 없습니다.')}</p>
+        <button onClick={() => router.back()} className="text-[var(--accent)] text-sm mt-4">{tt('뒤로가기')}</button>
       </div>
     );
   }
@@ -556,17 +562,17 @@ function ClubDetail() {
         </div>
         <h2 className="text-3xl font-bold text-[var(--foreground)]">{club.name}</h2>
         {club.description && <p className="text-xs text-[var(--muted)] mt-1">{club.description}</p>}
-        <p className="text-sm text-[var(--accent)] font-semibold mt-2">멤버 {club.member_count}명</p>
+        <p className="text-sm text-[var(--accent)] font-semibold mt-2">{locale === 'en' ? `${club.member_count} members` : `멤버 ${club.member_count}명`}</p>
 
         {!isMember ? (
           <button onClick={handleJoin} disabled={actionLoading} className="mt-4 inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[var(--accent)] text-white font-semibold text-sm disabled:opacity-50">
-            <LogIn size={16} /> 클럽 가입
+            <LogIn size={16} /> {tt('클럽 가입')}
           </button>
         ) : myRole === 'owner' ? (
-          <p className="mt-3 text-sm text-[var(--accent)] font-semibold flex items-center justify-center gap-1"><Crown size={14} /> 클럽 오너</p>
+          <p className="mt-3 text-sm text-[var(--accent)] font-semibold flex items-center justify-center gap-1"><Crown size={14} /> {tt('클럽 오너')}</p>
         ) : (
           <button onClick={handleLeave} disabled={actionLoading} className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--card)] border border-[var(--card-border)] text-[var(--muted)] font-semibold text-sm disabled:opacity-50">
-            <LogOut size={14} /> 탈퇴
+            <LogOut size={14} /> {tt('탈퇴')}
           </button>
         )}
       </div>
@@ -579,8 +585,8 @@ function ClubDetail() {
               {copied ? <Check size={18} className="text-green-500" /> : <Copy size={18} className="text-emerald-600" />}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-[var(--foreground)]">{copied ? '복사됨!' : '초대 링크'}</p>
-              <p className="text-xs text-[var(--muted)] truncate">URL 복사</p>
+              <p className="text-sm font-semibold text-[var(--foreground)]">{copied ? tt('복사됨!') : tt('초대 링크')}</p>
+              <p className="text-xs text-[var(--muted)] truncate">{tt('URL 복사')}</p>
             </div>
           </button>
           <button onClick={() => setQrOpen(true)} className="card p-3 flex items-center gap-2 text-left">
@@ -588,8 +594,8 @@ function ClubDetail() {
               <Share2 size={18} className="text-white" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-[var(--foreground)]">QR 카드</p>
-              <p className="text-xs text-[var(--muted)] truncate">이미지로 공유</p>
+              <p className="text-sm font-semibold text-[var(--foreground)]">{tt('QR 카드')}</p>
+              <p className="text-xs text-[var(--muted)] truncate">{tt('이미지로 공유')}</p>
             </div>
           </button>
         </div>
@@ -617,7 +623,7 @@ function ClubDetail() {
           {weeklyMvp.length > 0 && (
             <div className="card p-5 bg-gradient-to-br from-amber-50 via-white to-emerald-50 border border-amber-200/60">
               <h3 className="text-base font-bold text-[var(--foreground)] mb-3 flex items-center gap-1.5">
-                <Trophy size={18} className="text-amber-500" /> 이번 주 MVP
+                <Trophy size={18} className="text-amber-500" /> {tt('이번 주 MVP')}
               </h3>
               <div className="space-y-2.5">
                 {weeklyMvp.map(mvp => (
@@ -639,8 +645,8 @@ function ClubDetail() {
                     </div>
                     <span className="text-lg font-extrabold text-emerald-600">
                       {mvp.category === 'distance' ? `${Number(mvp.value).toFixed(1)}km`
-                        : mvp.category === 'runs' ? `${mvp.value}회`
-                        : `${mvp.value}일`}
+                        : mvp.category === 'runs' ? (locale === 'en' ? `${mvp.value} runs` : `${mvp.value}회`)
+                        : (locale === 'en' ? `${mvp.value} days` : `${mvp.value}일`)}
                     </span>
                   </Link>
                 ))}
@@ -658,24 +664,24 @@ function ClubDetail() {
               {dashSummary && (
                 <div className="grid grid-cols-2 gap-3">
                   <div className="card p-4">
-                    <p className="text-xs text-[var(--muted)]">클럽 총 거리</p>
+                    <p className="text-xs text-[var(--muted)]">{tt('클럽 총 거리')}</p>
                     <p className="text-3xl font-extrabold text-[var(--accent)]">{dashSummary.totalDistance.toFixed(0)}<span className="text-base ml-1">km</span></p>
-                    <p className="text-xs text-[var(--muted)]">{dashSummary.activeMembers}명 활동</p>
+                    <p className="text-xs text-[var(--muted)]">{locale === 'en' ? `${dashSummary.activeMembers} active` : `${dashSummary.activeMembers}명 활동`}</p>
                   </div>
                   <div className="card p-4">
-                    <p className="text-xs text-[var(--muted)]">인당 평균</p>
+                    <p className="text-xs text-[var(--muted)]">{tt('인당 평균')}</p>
                     <p className="text-3xl font-extrabold text-green-600">{dashSummary.avgDistance.toFixed(1)}<span className="text-base ml-1">km</span></p>
-                    <p className="text-xs text-[var(--muted)]">활동 멤버 기준</p>
+                    <p className="text-xs text-[var(--muted)]">{tt('활동 멤버 기준')}</p>
                   </div>
                   <div className="card p-4">
-                    <p className="text-xs text-[var(--muted)]">총 러닝</p>
-                    <p className="text-3xl font-extrabold text-purple-600">{dashSummary.totalRuns}<span className="text-base ml-1">회</span></p>
-                    <p className="text-xs text-[var(--muted)]">{dashSummary.daysRemaining > 0 ? `D-${dashSummary.daysRemaining}` : '이달 완료'}</p>
+                    <p className="text-xs text-[var(--muted)]">{tt('총 러닝')}</p>
+                    <p className="text-3xl font-extrabold text-purple-600">{dashSummary.totalRuns}<span className="text-base ml-1">{locale === 'en' ? 'runs' : '회'}</span></p>
+                    <p className="text-xs text-[var(--muted)]">{dashSummary.daysRemaining > 0 ? `D-${dashSummary.daysRemaining}` : tt('이달 완료')}</p>
                   </div>
                   <div className="card p-4">
-                    <p className="text-xs text-[var(--muted)]">활동 멤버</p>
-                    <p className="text-3xl font-extrabold text-orange-600">{dashSummary.activeMembers}<span className="text-base ml-1">명</span></p>
-                    <p className="text-xs text-[var(--muted)]">전체 {dashSummary.totalMembers}명</p>
+                    <p className="text-xs text-[var(--muted)]">{tt('활동 멤버')}</p>
+                    <p className="text-3xl font-extrabold text-orange-600">{dashSummary.activeMembers}<span className="text-base ml-1">{locale === 'en' ? 'ppl' : '명'}</span></p>
+                    <p className="text-xs text-[var(--muted)]">{locale === 'en' ? `of ${dashSummary.totalMembers} total` : `전체 ${dashSummary.totalMembers}명`}</p>
                   </div>
                 </div>
               )}
@@ -683,7 +689,7 @@ function ClubDetail() {
               {/* 거리 순위 */}
               {dashMembers.length > 0 && (
                 <div className="card p-5">
-                  <h3 className="text-base font-bold text-[var(--foreground)] mb-3">{dashMonth}월 거리 순위</h3>
+                  <h3 className="text-base font-bold text-[var(--foreground)] mb-3">{locale === 'en' ? `${dashMonthName} distance ranking` : `${dashMonth}월 거리 순위`}</h3>
                   <div className="space-y-2">
                     {[...dashMembers].sort((a, b) => b.distance_km - a.distance_km).map((m, i) => {
                       const maxDist = dashMembers[0] ? Math.max(...dashMembers.map(x => x.distance_km)) : 1;
@@ -712,7 +718,7 @@ function ClubDetail() {
               {/* 목표 달성률 */}
               {dashMembers.filter(m => m.goal_km > 0).length > 0 && (
                 <div className="card p-5">
-                  <h3 className="text-base font-bold text-[var(--foreground)] mb-3">{dashMonth}월 목표 달성률</h3>
+                  <h3 className="text-base font-bold text-[var(--foreground)] mb-3">{locale === 'en' ? `${dashMonthName} goal progress` : `${dashMonth}월 목표 달성률`}</h3>
                   <div className="space-y-2.5">
                     {[...dashMembers].filter(m => m.goal_km > 0).sort((a, b) => b.progress - a.progress).map(m => (
                       <div key={m.user_id}>
@@ -736,7 +742,7 @@ function ClubDetail() {
               {/* 러닝 횟수 */}
               {dashRunCounts.length > 0 && (
                 <div className="card p-5">
-                  <h3 className="text-base font-bold text-[var(--foreground)] mb-3">{dashMonth}월 러닝 횟수</h3>
+                  <h3 className="text-base font-bold text-[var(--foreground)] mb-3">{locale === 'en' ? `${dashMonthName} run count` : `${dashMonth}월 러닝 횟수`}</h3>
                   <div className="space-y-1.5">
                     {dashRunCounts.map(m => {
                       const maxC = Math.max(...dashRunCounts.map(x => x.run_count));
@@ -747,7 +753,7 @@ function ClubDetail() {
                           <div className="flex-1 h-4 bg-[var(--card-border)] rounded-full overflow-hidden">
                             <div className="h-full rounded-full bg-gradient-to-r from-blue-400 to-blue-500" style={{ width: `${Math.max(barW, 4)}%` }} />
                           </div>
-                          <span className="text-xs font-semibold w-8 text-right">{m.run_count}회</span>
+                          <span className="text-xs font-semibold w-8 text-right">{locale === 'en' ? m.run_count : `${m.run_count}회`}</span>
                         </div>
                       );
                     })}
@@ -758,7 +764,7 @@ function ClubDetail() {
               {/* 통산 누적 랭킹 */}
               {dashCumulative.length > 0 && (
                 <div className="card p-5">
-                  <h3 className="text-base font-bold text-[var(--foreground)] mb-3">통산 누적 랭킹</h3>
+                  <h3 className="text-base font-bold text-[var(--foreground)] mb-3">{tt('통산 누적 랭킹')}</h3>
                   <div className="space-y-1.5">
                     {dashCumulative.map((m, i) => {
                       const maxD = dashCumulative[0]?.total_distance_km || 1;
@@ -781,7 +787,7 @@ function ClubDetail() {
               {/* 명예의 전당 */}
               {dashHallOfFame.length > 0 && (
                 <div className="card p-5">
-                  <h3 className="text-base font-bold text-[var(--foreground)] mb-4">명예의 전당</h3>
+                  <h3 className="text-base font-bold text-[var(--foreground)] mb-4">{tt('명예의 전당')}</h3>
                   <div className="space-y-4">
                     {dashHallOfFame.map(cat => (
                       <div key={cat.category} className="bg-[var(--card-border)]/20 rounded-xl p-4">
@@ -805,7 +811,7 @@ function ClubDetail() {
 
               {/* 히스토리 전체 보기 */}
               <Link href="/history" className="card p-4 flex items-center justify-between">
-                <span className="text-sm font-semibold text-[var(--foreground)]">전체 히스토리 보기</span>
+                <span className="text-sm font-semibold text-[var(--foreground)]">{tt('전체 히스토리 보기')}</span>
                 <ChevronRight size={16} className="text-[var(--accent)]" />
               </Link>
             </>
@@ -822,7 +828,7 @@ function ClubDetail() {
             className="w-full flex items-center gap-3 p-4 rounded-2xl bg-white border border-emerald-200 text-[var(--muted)] shadow-sm active:scale-[0.99] transition"
           >
             <MessageSquare size={18} className="text-emerald-600" />
-            <span className="text-sm font-semibold">클럽에 글을 남겨보세요...</span>
+            <span className="text-sm font-semibold">{tt('클럽에 글을 남겨보세요...')}</span>
           </button>
 
           {feedLoading ? (
@@ -831,8 +837,8 @@ function ClubDetail() {
             </div>
           ) : feedPosts.length === 0 ? (
             <div className="card p-8 text-center">
-              <p className="text-base font-semibold text-[var(--foreground)]">아직 게시글이 없어요</p>
-              <p className="text-sm text-[var(--muted)] mt-1">첫 글을 남겨보세요!</p>
+              <p className="text-base font-semibold text-[var(--foreground)]">{tt('아직 게시글이 없어요')}</p>
+              <p className="text-sm text-[var(--muted)] mt-1">{tt('첫 글을 남겨보세요!')}</p>
             </div>
           ) : (
             feedPosts.map(post => {
@@ -842,7 +848,7 @@ function ClubDetail() {
                 <div key={post.id} className={`card p-4 ${post.is_notice ? 'border-emerald-300 bg-emerald-50/40' : ''}`}>
                   {post.is_notice && (
                     <div className="flex items-center gap-1 text-xs font-bold text-emerald-700 mb-2">
-                      <Pin size={12} /> 공지
+                      <Pin size={12} /> {tt('공지')}
                     </div>
                   )}
                   <div className="flex items-start gap-3">
@@ -861,7 +867,7 @@ function ClubDetail() {
                         <span className="font-bold text-[var(--foreground)]">{post.author_name}</span>
                         {post.author_role === 'owner' && <Crown size={12} className="text-amber-500" />}
                         {post.author_role === 'admin' && <Shield size={12} className="text-emerald-600" />}
-                        <span className="text-xs text-[var(--muted)]">· {new Date(post.created_at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                        <span className="text-xs text-[var(--muted)]">· {new Date(post.created_at).toLocaleString(locale === 'en' ? 'en-US' : 'ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                       <p className="mt-1 text-base leading-relaxed text-[var(--foreground)] whitespace-pre-wrap break-words">{post.body}</p>
                       {post.photo_url && (
@@ -880,7 +886,7 @@ function ClubDetail() {
                         </button>
                         {isAdmin && (
                           <button onClick={() => handleToggleNotice(post)} className={`flex items-center gap-1 ${post.is_notice ? 'text-emerald-600 font-semibold' : 'text-[var(--muted)]'}`}>
-                            <Pin size={16} /> {post.is_notice ? '공지 해제' : '공지로'}
+                            <Pin size={16} /> {post.is_notice ? tt('공지 해제') : tt('공지로')}
                           </button>
                         )}
                         {canEdit && (
@@ -894,7 +900,7 @@ function ClubDetail() {
                       {commentsList && (
                         <div className="mt-3 pt-3 border-t border-[var(--card-border)] space-y-2">
                           {commentsList.length === 0 ? (
-                            <p className="text-sm text-[var(--muted)]">첫 댓글을 남겨보세요</p>
+                            <p className="text-sm text-[var(--muted)]">{tt('첫 댓글을 남겨보세요')}</p>
                           ) : commentsList.map(c => (
                             <div key={c.id} className="flex items-start gap-2">
                               <div className="w-6 h-6 rounded-full bg-[var(--card-border)] overflow-hidden flex-shrink-0">
@@ -909,10 +915,10 @@ function ClubDetail() {
                               </div>
                               <div className="flex-1">
                                 <p className="text-sm">
-                                  <span className="font-semibold text-[var(--foreground)]">{c.profiles?.display_name ?? '러너'}</span>
+                                  <span className="font-semibold text-[var(--foreground)]">{c.profiles?.display_name ?? tt('러너')}</span>
                                   <span className="text-[var(--foreground)] ml-2">{c.body}</span>
                                 </p>
-                                <p className="text-xs text-[var(--muted)] mt-0.5">{new Date(c.created_at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                                <p className="text-xs text-[var(--muted)] mt-0.5">{new Date(c.created_at).toLocaleString(locale === 'en' ? 'en-US' : 'ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                               </div>
                             </div>
                           ))}
@@ -922,7 +928,7 @@ function ClubDetail() {
                               value={commentDraft[post.id] ?? ''}
                               onChange={e => setCommentDraft(prev => ({ ...prev, [post.id]: e.target.value }))}
                               onKeyDown={e => { if (e.key === 'Enter') handleSubmitComment(post.id); }}
-                              placeholder="댓글 남기기..."
+                              placeholder={tt('댓글 남기기...')}
                               className="flex-1 px-3 py-2 rounded-lg bg-[var(--background)] border border-[var(--card-border)] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
                             />
                             <button onClick={() => handleSubmitComment(post.id)} className="px-3 py-2 rounded-lg bg-emerald-500 text-white">
@@ -943,13 +949,13 @@ function ClubDetail() {
             <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50 backdrop-blur-sm" onClick={() => setComposeOpen(false)}>
               <div className="w-full max-w-lg bg-[var(--card-bg)] rounded-t-3xl p-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] space-y-3 animate-slide-up" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold text-[var(--foreground)]">새 게시글</h3>
+                  <h3 className="text-xl font-bold text-[var(--foreground)]">{tt('새 게시글')}</h3>
                   <button onClick={() => setComposeOpen(false)} className="text-[var(--muted)]"><X size={20} /></button>
                 </div>
                 <textarea
                   value={composeBody}
                   onChange={e => setComposeBody(e.target.value.slice(0, 500))}
-                  placeholder="클럽에 공유할 이야기를 적어보세요..."
+                  placeholder={tt('클럽에 공유할 이야기를 적어보세요...')}
                   rows={5}
                   className="w-full p-3 rounded-xl bg-[var(--background)] border border-[var(--card-border)] text-base focus:outline-none focus:ring-2 focus:ring-emerald-500/40 resize-none"
                 />
@@ -964,13 +970,13 @@ function ClubDetail() {
                 <div className="flex items-center gap-3">
                   <label className="flex items-center gap-1.5 text-sm text-emerald-600 font-semibold cursor-pointer">
                     <ImageIcon size={18} />
-                    사진
+                    {tt('사진')}
                     <input type="file" accept="image/*" hidden onChange={e => setComposePhoto(e.target.files?.[0] ?? null)} />
                   </label>
                   {isAdmin && (
                     <label className="flex items-center gap-1.5 text-sm text-[var(--foreground)] cursor-pointer ml-auto">
                       <input type="checkbox" checked={composeIsNotice} onChange={e => setComposeIsNotice(e.target.checked)} className="accent-emerald-500" />
-                      <Pin size={14} /> 공지로 등록
+                      <Pin size={14} /> {tt('공지로 등록')}
                     </label>
                   )}
                 </div>
@@ -979,7 +985,7 @@ function ClubDetail() {
                   disabled={composing || !composeBody.trim()}
                   className="w-full py-3 rounded-xl bg-emerald-500 text-white font-bold text-base disabled:opacity-50"
                 >
-                  {composing ? '올리는 중...' : '게시하기'}
+                  {composing ? tt('올리는 중...') : tt('게시하기')}
                 </button>
               </div>
             </div>
@@ -1000,17 +1006,17 @@ function ClubDetail() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-base font-bold text-[var(--foreground)] flex items-center gap-1.5">
-                <Flame size={18} className="text-emerald-600" /> 챌린지
+                <Flame size={18} className="text-emerald-600" /> {tt('챌린지')}
               </h3>
               {isAdmin && (
                 <button onClick={() => setChOpen(true)} className="text-sm font-semibold text-emerald-600 flex items-center gap-0.5">
-                  <TrendingUp size={14} /> 만들기
+                  <TrendingUp size={14} /> {tt('만들기')}
                 </button>
               )}
             </div>
             {challenges.length === 0 ? (
               <div className="card p-5 text-center text-sm text-[var(--muted)]">
-                {isAdmin ? '첫 챌린지를 만들어 보세요 (예: "이번 주 10km")' : '진행 중인 챌린지가 없어요'}
+                {isAdmin ? tt('첫 챌린지를 만들어 보세요 (예: "이번 주 10km")') : tt('진행 중인 챌린지가 없어요')}
               </div>
             ) : challenges.map(ch => {
               const today = todayStr();
@@ -1023,7 +1029,7 @@ function ClubDetail() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isActive ? 'bg-emerald-500 text-white' : isPast ? 'bg-[var(--card-border)] text-[var(--muted)]' : 'bg-amber-100 text-amber-700'}`}>
-                          {isActive ? '진행중' : isPast ? '종료' : '예정'}
+                          {isActive ? tt('진행중') : isPast ? tt('종료') : tt('예정')}
                         </span>
                         <p className="text-base font-bold text-[var(--foreground)] truncate">{ch.title}</p>
                       </div>
@@ -1031,7 +1037,7 @@ function ClubDetail() {
                       <p className="text-xs text-[var(--muted)] mt-1">
                         {ch.start_date} ~ {ch.end_date}
                         {ch.target_km && ` · ${ch.target_km}km`}
-                        {ch.target_run_count && ` · ${ch.target_run_count}회`}
+                        {ch.target_run_count && (locale === 'en' ? ` · ${ch.target_run_count} runs` : ` · ${ch.target_run_count}회`)}
                       </p>
                     </div>
                     {(isAdmin || ch.created_by === user?.id) && (
@@ -1052,7 +1058,7 @@ function ClubDetail() {
                                 {p.display_name}{p.completed ? ' ✅' : ''}
                               </span>
                               <span className="text-[var(--muted)]">
-                                {ch.target_km ? `${Number(p.distance_km).toFixed(1)}/${ch.target_km}km` : `${p.run_count}/${ch.target_run_count}회`}
+                                {ch.target_km ? `${Number(p.distance_km).toFixed(1)}/${ch.target_km}km` : (locale === 'en' ? `${p.run_count}/${ch.target_run_count} runs` : `${p.run_count}/${ch.target_run_count}회`)}
                               </span>
                             </div>
                             <div className="h-2 bg-[var(--card-border)] rounded-full overflow-hidden">
@@ -1075,15 +1081,15 @@ function ClubDetail() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-base font-bold text-[var(--foreground)] flex items-center gap-1.5">
-                <Zap size={18} className="text-amber-500" /> 모임
+                <Zap size={18} className="text-amber-500" /> {tt('모임')}
               </h3>
               <button onClick={() => setEvOpen(true)} className="text-sm font-semibold text-emerald-600 flex items-center gap-0.5">
-                <TrendingUp size={14} /> 모임 만들기
+                <TrendingUp size={14} /> {tt('모임 만들기')}
               </button>
             </div>
             {events.length === 0 ? (
               <div className="card p-5 text-center text-sm text-[var(--muted)]">
-                예정된 모임이 없어요. "주말 한강 러닝" 같은 모임을 만들어보세요!
+                {tt('예정된 모임이 없어요. "주말 한강 러닝" 같은 모임을 만들어보세요!')}
               </div>
             ) : events.map(ev => {
               const isPast = new Date(ev.event_at) < new Date();
@@ -1094,14 +1100,14 @@ function ClubDetail() {
                     <div className="flex-1 min-w-0">
                       <p className="text-base font-bold text-[var(--foreground)]">{ev.title}</p>
                       <p className="text-sm text-emerald-700 font-semibold mt-0.5">
-                        📅 {new Date(ev.event_at).toLocaleString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit' })}
+                        📅 {new Date(ev.event_at).toLocaleString(locale === 'en' ? 'en-US' : 'ko-KR', { month: 'long', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit' })}
                       </p>
                       {ev.location && <p className="text-sm text-[var(--muted)] mt-0.5">📍 {ev.location}</p>}
                       {ev.description && <p className="text-sm text-[var(--foreground)] mt-2 whitespace-pre-wrap">{ev.description}</p>}
                       <p className="text-xs text-[var(--muted)] mt-2">
-                        {ev.created_by_name} · 참석 <b className="text-emerald-600">{ev.going_count}</b>
-                        {ev.maybe_count > 0 && ` · 관심 ${ev.maybe_count}`}
-                        {ev.max_participants && ` / ${ev.max_participants}명`}
+                        {ev.created_by_name} · {tt('참석')} <b className="text-emerald-600">{ev.going_count}</b>
+                        {ev.maybe_count > 0 && (locale === 'en' ? ` · interested ${ev.maybe_count}` : ` · 관심 ${ev.maybe_count}`)}
+                        {ev.max_participants && (locale === 'en' ? ` / ${ev.max_participants} max` : ` / ${ev.max_participants}명`)}
                       </p>
                     </div>
                     {(isAdmin || ev.created_by === user?.id) && (
@@ -1114,15 +1120,15 @@ function ClubDetail() {
                     <div className="mt-3 pt-3 border-t border-[var(--card-border)] flex gap-2">
                       <button onClick={() => handleRsvp(ev.id, 'going')}
                         className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${myStatus === 'going' ? 'bg-emerald-500 text-white' : 'bg-[var(--card-border)]/40 text-[var(--muted)]'}`}>
-                        참석 ✊
+                        {tt('참석')} ✊
                       </button>
                       <button onClick={() => handleRsvp(ev.id, 'maybe')}
                         className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${myStatus === 'maybe' ? 'bg-amber-400 text-white' : 'bg-[var(--card-border)]/40 text-[var(--muted)]'}`}>
-                        관심
+                        {tt('관심')}
                       </button>
                       <button onClick={() => handleRsvp(ev.id, 'no')}
                         className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${myStatus === 'no' ? 'bg-rose-400 text-white' : 'bg-[var(--card-border)]/40 text-[var(--muted)]'}`}>
-                        불참
+                        {tt('불참')}
                       </button>
                     </div>
                   )}
@@ -1136,20 +1142,20 @@ function ClubDetail() {
             <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50 backdrop-blur-sm" onClick={() => setChOpen(false)}>
               <div className="w-full max-w-lg bg-[var(--card-bg)] rounded-t-3xl p-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] space-y-3 animate-slide-up" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold text-[var(--foreground)]">새 챌린지</h3>
+                  <h3 className="text-xl font-bold text-[var(--foreground)]">{tt('새 챌린지')}</h3>
                   <button onClick={() => setChOpen(false)}><X size={20} className="text-[var(--muted)]" /></button>
                 </div>
-                <input value={chTitle} onChange={e => setChTitle(e.target.value)} placeholder="제목 (예: 이번 주 10km 챌린지)" maxLength={60}
+                <input value={chTitle} onChange={e => setChTitle(e.target.value)} placeholder={tt('제목 (예: 이번 주 10km 챌린지)')} maxLength={60}
                   className="w-full p-3 rounded-xl bg-[var(--background)] border border-[var(--card-border)] text-base focus:outline-none focus:ring-2 focus:ring-emerald-500/40" />
-                <textarea value={chDesc} onChange={e => setChDesc(e.target.value.slice(0, 300))} placeholder="설명 (선택)" rows={2}
+                <textarea value={chDesc} onChange={e => setChDesc(e.target.value.slice(0, 300))} placeholder={tt('설명 (선택)')} rows={2}
                   className="w-full p-3 rounded-xl bg-[var(--background)] border border-[var(--card-border)] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 resize-none" />
                 <div className="grid grid-cols-2 gap-2">
-                  <input value={chTargetKm} onChange={e => setChTargetKm(e.target.value)} type="number" step="0.1" placeholder="목표 km"
+                  <input value={chTargetKm} onChange={e => setChTargetKm(e.target.value)} type="number" step="0.1" placeholder={tt('목표 km')}
                     className="w-full p-3 rounded-xl bg-[var(--background)] border border-[var(--card-border)] text-base focus:outline-none focus:ring-2 focus:ring-emerald-500/40" />
-                  <input value={chTargetCount} onChange={e => setChTargetCount(e.target.value)} type="number" placeholder="목표 횟수"
+                  <input value={chTargetCount} onChange={e => setChTargetCount(e.target.value)} type="number" placeholder={tt('목표 횟수')}
                     className="w-full p-3 rounded-xl bg-[var(--background)] border border-[var(--card-border)] text-base focus:outline-none focus:ring-2 focus:ring-emerald-500/40" />
                 </div>
-                <p className="text-xs text-[var(--muted)]">둘 중 하나 이상 입력. 둘 다 달성해야 완료.</p>
+                <p className="text-xs text-[var(--muted)]">{tt('둘 중 하나 이상 입력. 둘 다 달성해야 완료.')}</p>
                 <div className="grid grid-cols-2 gap-2">
                   <input type="date" value={chStart} onChange={e => setChStart(e.target.value)}
                     className="w-full p-3 rounded-xl bg-[var(--background)] border border-[var(--card-border)] text-sm" />
@@ -1158,7 +1164,7 @@ function ClubDetail() {
                 </div>
                 <button onClick={handleCreateChallenge} disabled={!chTitle.trim() || (!chTargetKm && !chTargetCount)}
                   className="w-full py-3 rounded-xl bg-emerald-500 text-white font-bold text-base disabled:opacity-50">
-                  챌린지 시작
+                  {tt('챌린지 시작')}
                 </button>
               </div>
             </div>
@@ -1169,22 +1175,22 @@ function ClubDetail() {
             <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50 backdrop-blur-sm" onClick={() => setEvOpen(false)}>
               <div className="w-full max-w-lg bg-[var(--card-bg)] rounded-t-3xl p-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] space-y-3 animate-slide-up" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold text-[var(--foreground)]">새 모임</h3>
+                  <h3 className="text-xl font-bold text-[var(--foreground)]">{tt('새 모임')}</h3>
                   <button onClick={() => setEvOpen(false)}><X size={20} className="text-[var(--muted)]" /></button>
                 </div>
-                <input value={evTitle} onChange={e => setEvTitle(e.target.value)} placeholder="모임 제목 (예: 한강 5km 러닝)" maxLength={80}
+                <input value={evTitle} onChange={e => setEvTitle(e.target.value)} placeholder={tt('모임 제목 (예: 한강 5km 러닝)')} maxLength={80}
                   className="w-full p-3 rounded-xl bg-[var(--background)] border border-[var(--card-border)] text-base focus:outline-none focus:ring-2 focus:ring-emerald-500/40" />
                 <input type="datetime-local" value={evDate} onChange={e => setEvDate(e.target.value)}
                   className="w-full p-3 rounded-xl bg-[var(--background)] border border-[var(--card-border)] text-base" />
-                <input value={evLocation} onChange={e => setEvLocation(e.target.value)} placeholder="장소 (예: 반포 한강공원)" maxLength={120}
+                <input value={evLocation} onChange={e => setEvLocation(e.target.value)} placeholder={tt('장소 (예: 반포 한강공원)')} maxLength={120}
                   className="w-full p-3 rounded-xl bg-[var(--background)] border border-[var(--card-border)] text-base focus:outline-none focus:ring-2 focus:ring-emerald-500/40" />
-                <input value={evMax} onChange={e => setEvMax(e.target.value)} type="number" placeholder="최대 인원 (비우면 제한 없음)"
+                <input value={evMax} onChange={e => setEvMax(e.target.value)} type="number" placeholder={tt('최대 인원 (비우면 제한 없음)')}
                   className="w-full p-3 rounded-xl bg-[var(--background)] border border-[var(--card-border)] text-base" />
-                <textarea value={evDesc} onChange={e => setEvDesc(e.target.value.slice(0, 500))} placeholder="소개 (선택)" rows={3}
+                <textarea value={evDesc} onChange={e => setEvDesc(e.target.value.slice(0, 500))} placeholder={tt('소개 (선택)')} rows={3}
                   className="w-full p-3 rounded-xl bg-[var(--background)] border border-[var(--card-border)] text-sm resize-none" />
                 <button onClick={handleCreateEvent} disabled={!evTitle.trim() || !evDate}
                   className="w-full py-3 rounded-xl bg-emerald-500 text-white font-bold text-base disabled:opacity-50">
-                  모임 만들기
+                  {tt('모임 만들기')}
                 </button>
               </div>
             </div>
@@ -1207,7 +1213,7 @@ function ClubDetail() {
           {/* build 227: 시계열 추이 — 본인 + 멤버 최대 5명. 일간 14일 / 주간 8주 */}
           {compareRows.length > 1 && (
             <MultiUserTimeSeriesChart
-              title="클럽 멤버 추이 비교"
+              title={tt('클럽 멤버 추이 비교')}
               users={compareRows.map(r => ({ id: r.id, name: r.name, isMe: r.isMe })) as CompareUser[]}
               defaultSelectedIds={compareRows.filter(r => r.isMe || r.km > 0).slice(0, 5).map(r => r.id)}
             />
@@ -1219,7 +1225,7 @@ function ClubDetail() {
                 <div className="flex items-center gap-2 min-w-0">
                   <BarChart3 size={16} className="text-emerald-600 flex-shrink-0" />
                   <h3 className="text-base font-extrabold text-[var(--foreground)] truncate">
-                    {comparePeriod === 'week' ? '이번 주 멤버 비교' : '이번 달 멤버 비교'}
+                    {comparePeriod === 'week' ? tt('이번 주 멤버 비교') : tt('이번 달 멤버 비교')}
                   </h3>
                 </div>
                 <div className="flex gap-1 bg-[var(--card-border)]/30 rounded-full p-1 flex-shrink-0">
@@ -1228,26 +1234,26 @@ function ClubDetail() {
                     className={`px-3 py-1 rounded-full text-xs font-extrabold transition ${
                       comparePeriod === 'week' ? 'bg-emerald-500 text-white shadow-sm' : 'text-[var(--muted)]'
                     }`}
-                  >이번주</button>
+                  >{tt('이번주')}</button>
                   <button
                     onClick={() => setComparePeriod('month')}
                     className={`px-3 py-1 rounded-full text-xs font-extrabold transition ${
                       comparePeriod === 'month' ? 'bg-emerald-500 text-white shadow-sm' : 'text-[var(--muted)]'
                     }`}
-                  >이번달</button>
+                  >{tt('이번달')}</button>
                 </div>
               </div>
               {compareLoading ? (
-                <p className="text-xs text-[var(--muted)] text-center py-4">불러오는 중…</p>
+                <p className="text-xs text-[var(--muted)] text-center py-4">{tt('불러오는 중…')}</p>
               ) : (
                 <>
                   {hiddenMemberIds.size > 0 && (
                     <div className="mb-2 flex items-center justify-between text-[11px] text-[var(--muted)]">
-                      <span>{hiddenMemberIds.size}명 숨김</span>
+                      <span>{locale === 'en' ? `${hiddenMemberIds.size} hidden` : `${hiddenMemberIds.size}명 숨김`}</span>
                       <button
                         onClick={() => setHiddenMemberIds(new Set())}
                         className="font-bold text-emerald-600 active:scale-95"
-                      >모두 보이기</button>
+                      >{tt('모두 보이기')}</button>
                     </div>
                   )}
                   <div className="space-y-2">
@@ -1273,7 +1279,7 @@ function ClubDetail() {
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-baseline justify-between">
                                   <span className={`text-sm truncate ${r.isMe ? 'font-bold text-emerald-600' : 'font-medium text-[var(--foreground)]'}`}>
-                                    {r.name}{r.isMe ? ' (나)' : ''}
+                                    {r.name}{r.isMe ? ` ${tt('(나)')}` : ''}
                                   </span>
                                   <span className="text-xs text-[var(--muted)] ml-2">{r.km.toFixed(1)}km</span>
                                 </div>
@@ -1286,7 +1292,7 @@ function ClubDetail() {
                               </div>
                               <button
                                 onClick={() => toggleMemberVisibility(r.id)}
-                                aria-label="숨기기"
+                                aria-label={tt('숨기기')}
                                 className="p-1.5 rounded-lg text-[var(--muted)] hover:bg-[var(--card-border)]/40 active:scale-90"
                               >
                                 <Eye size={14} />
@@ -1295,7 +1301,7 @@ function ClubDetail() {
                           ))}
                           {hiddenMemberIds.size > 0 && (
                             <div className="pt-2 mt-2 border-t border-[var(--card-border)]/40">
-                              <p className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest mb-1.5">숨김</p>
+                              <p className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest mb-1.5">{tt('숨김')}</p>
                               {compareRows.filter(r => hiddenMemberIds.has(r.id)).map(r => (
                                 <button
                                   key={r.id}
@@ -1339,27 +1345,27 @@ function ClubDetail() {
                   </div>
                 </Link>
                 <Link href={`/profile/view?id=${member.user_id}`} className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-[var(--foreground)] truncate">{member.profile?.display_name ?? '러너'}</p>
-                  <p className="text-xs text-[var(--muted)]">{Number(member.profile?.total_distance_km ?? 0).toFixed(1)}km · {member.profile?.total_runs ?? 0}회</p>
+                  <p className="text-sm font-semibold text-[var(--foreground)] truncate">{member.profile?.display_name ?? tt('러너')}</p>
+                  <p className="text-xs text-[var(--muted)]">{Number(member.profile?.total_distance_km ?? 0).toFixed(1)}km · {locale === 'en' ? `${member.profile?.total_runs ?? 0} runs` : `${member.profile?.total_runs ?? 0}회`}</p>
                 </Link>
                 {member.role !== 'member' && (
                   <span className={`text-sm font-semibold px-2 py-0.5 rounded-full ${
                     member.role === 'owner' ? 'bg-[var(--accent)]/10 text-[var(--accent)]' : 'bg-yellow-100 dark:bg-yellow-500/10 text-yellow-600'
-                  }`}>{member.role === 'owner' ? '오너' : '관리자'}</span>
+                  }`}>{member.role === 'owner' ? tt('오너') : tt('관리자')}</span>
                 )}
                 {/* 관리자 액션 */}
                 {isAdmin && member.user_id !== user?.id && member.role !== 'owner' && (
                   <div className="flex gap-1">
                     <button
                       onClick={() => handleRoleChange(member.user_id, member.role === 'admin' ? 'member' : 'admin')}
-                      title={member.role === 'admin' ? '관리자 해제' : '관리자 지정'}
+                      title={member.role === 'admin' ? tt('관리자 해제') : tt('관리자 지정')}
                       className="p-1.5 rounded-lg hover:bg-[var(--card-border)] text-[var(--muted)]"
                     >
                       {member.role === 'admin' ? <ShieldOff size={14} /> : <Shield size={14} />}
                     </button>
                     <button
-                      onClick={() => handleRemoveMember(member.user_id, member.profile?.display_name ?? '러너')}
-                      title="추방"
+                      onClick={() => handleRemoveMember(member.user_id, member.profile?.display_name ?? tt('러너'))}
+                      title={tt('추방')}
                       className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-red-400"
                     >
                       <UserMinus size={14} />
@@ -1379,7 +1385,7 @@ function ClubDetail() {
           {activities.length === 0 ? (
             <div className="card p-8 text-center">
               <Activity size={32} className="mx-auto mb-2 text-[var(--muted)]" />
-              <p className="text-xs text-[var(--muted)]">아직 클럽 활동이 없습니다</p>
+              <p className="text-xs text-[var(--muted)]">{tt('아직 클럽 활동이 없습니다')}</p>
             </div>
           ) : (
             activities.map((a: any) => {
@@ -1399,11 +1405,11 @@ function ClubDetail() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-[var(--foreground)]">
-                        {a.profiles?.display_name ?? '러너'}
+                        {a.profiles?.display_name ?? tt('러너')}
                         <span className="text-[var(--muted)] font-normal ml-2">{Number(a.distance_km).toFixed(2)}km</span>
                       </p>
                       <p className="text-xs text-[var(--muted)]">
-                        {new Date(a.activity_date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' })}
+                        {new Date(a.activity_date).toLocaleDateString(locale === 'en' ? 'en-US' : 'ko-KR', { month: 'short', day: 'numeric', weekday: 'short' })}
                         {a.duration_seconds ? ` · ${formatDuration(a.duration_seconds)}` : ''}
                         {a.pace_avg_sec_per_km ? ` · ${formatPace(a.pace_avg_sec_per_km)}/km` : ''}
                       </p>
@@ -1430,11 +1436,11 @@ function ClubDetail() {
                         onClick={() => setCheerOpen(showCheerBar ? null : a.id)}
                         className="px-2.5 py-1 rounded-full bg-[var(--card-border)]/30 text-[var(--muted)] text-sm active:scale-95 transition"
                       >
-                        + 응원
+                        {tt('+ 응원')}
                       </button>
                     )}
                     {isMine && cheers.length === 0 && (
-                      <span className="text-xs text-[var(--muted)]">내 활동은 클럽원의 응원을 받을 수 있어요</span>
+                      <span className="text-xs text-[var(--muted)]">{tt('내 활동은 클럽원의 응원을 받을 수 있어요')}</span>
                     )}
                   </div>
                   {showCheerBar && !isMine && (
@@ -1483,7 +1489,7 @@ function ClubDetail() {
           {isAdmin && (<>
 
           <div>
-            <label className="text-sm font-semibold text-[var(--muted)] mb-1 block">클럽 이름</label>
+            <label className="text-sm font-semibold text-[var(--muted)] mb-1 block">{tt('클럽 이름')}</label>
             <input
               type="text"
               value={editName}
@@ -1493,7 +1499,7 @@ function ClubDetail() {
             />
           </div>
           <div>
-            <label className="text-sm font-semibold text-[var(--muted)] mb-1 block">소개</label>
+            <label className="text-sm font-semibold text-[var(--muted)] mb-1 block">{tt('소개')}</label>
             <textarea
               value={editDesc}
               onChange={(e) => setEditDesc(e.target.value)}
@@ -1504,8 +1510,8 @@ function ClubDetail() {
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-[var(--foreground)]">공개 클럽</p>
-              <p className="text-xs text-[var(--muted)]">누구나 검색하고 가입할 수 있습니다</p>
+              <p className="text-sm font-semibold text-[var(--foreground)]">{tt('공개 클럽')}</p>
+              <p className="text-xs text-[var(--muted)]">{tt('누구나 검색하고 가입할 수 있습니다')}</p>
             </div>
             <button
               onClick={() => setEditPublic(!editPublic)}
@@ -1519,7 +1525,7 @@ function ClubDetail() {
             disabled={saving || !editName.trim()}
             className="w-full py-3 rounded-xl bg-[var(--accent)] text-white font-semibold text-sm disabled:opacity-50"
           >
-            {saving ? '저장 중...' : '저장'}
+            {saving ? tt('저장 중...') : tt('저장')}
           </button>
           </>)}
 
@@ -1527,7 +1533,7 @@ function ClubDetail() {
           {canDelete && (
             <div className="pt-4 border-t border-[var(--card-border)]">
               <p className="text-xs text-[var(--muted)] mb-2">
-                {myRole === 'owner' ? '이 클럽을 삭제합니다.' : '앱 관리자 권한으로 이 클럽을 삭제합니다.'} 되돌릴 수 없습니다.
+                {myRole === 'owner' ? tt('이 클럽을 삭제합니다.') : tt('앱 관리자 권한으로 이 클럽을 삭제합니다.')} {tt('되돌릴 수 없습니다.')}
               </p>
               <button
                 onClick={handleDeleteClub}
@@ -1535,7 +1541,7 @@ function ClubDetail() {
                 className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-red-500 text-white font-bold text-sm disabled:opacity-50"
               >
                 <Trash2 size={16} />
-                {saving ? '삭제 중...' : isAppAdmin && myRole !== 'owner' ? '[관리자] 이 클럽 삭제' : '이 클럽 삭제'}
+                {saving ? tt('삭제 중...') : isAppAdmin && myRole !== 'owner' ? tt('[관리자] 이 클럽 삭제') : tt('이 클럽 삭제')}
               </button>
             </div>
           )}

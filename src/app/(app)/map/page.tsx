@@ -11,6 +11,7 @@ import type { Activity, Profile } from '@/types';
 import PullToRefresh from '@/components/PullToRefresh';
 import AppLogo from '@/components/AppLogo';
 import { syncRouteData, isNativeApp } from '@/lib/health-sync';
+import { useI18n } from '@/lib/i18n';
 
 // 마지막 자동 GPS 경로 sync 시간 — localStorage 에 저장 (5분 throttle)
 const ROUTE_SYNC_KEY = 'routinist_last_route_sync';
@@ -209,6 +210,7 @@ function navigateToFallback(map: google.maps.Map, profile: Profile | null) {
 // build 156: ?userId= 받으면 친구 경로 모드 (자체 sync skip, 읽기 전용)
 function MapPageInner() {
   const router = useRouter();
+  const { tt, locale } = useI18n();
   const { user, profile } = useAuth();
   const searchParams = useSearchParams();
   const viewUserId = searchParams.get('userId');
@@ -289,7 +291,7 @@ function MapPageInner() {
         if (Date.now() - last < ROUTE_SYNC_THROTTLE_MS) return;
 
         setRouteSyncing(true);
-        setRouteSyncMsg('GPS 경로 가져오는 중...');
+        setRouteSyncMsg(tt('GPS 경로 가져오는 중...'));
 
         const r = await Promise.race([
           syncRouteData(user.id, 90),
@@ -302,19 +304,19 @@ function MapPageInner() {
         localStorage.setItem(ROUTE_SYNC_KEY, String(Date.now()));
 
         if (r.updated > 0) {
-          setRouteSyncMsg(`GPS 경로 ${r.updated}건 추가됨`);
+          setRouteSyncMsg(locale === 'en' ? `Added ${r.updated} GPS route${r.updated > 1 ? 's' : ''}` : `GPS 경로 ${r.updated}건 추가됨`);
           await loadRoutes();
         } else if (r.fetched === 0) {
           setRouteSyncMsg(r.reason === 'no_routes_from_plugin'
-            ? 'Apple Watch 러닝이 없어요'
-            : `GPS 경로 0건 (${r.reason ?? '알 수 없음'})`);
+            ? tt('Apple Watch 러닝이 없어요')
+            : locale === 'en' ? `0 GPS routes (${r.reason ?? 'unknown'})` : `GPS 경로 0건 (${r.reason ?? '알 수 없음'})`);
         } else {
-          setRouteSyncMsg(`GPS 경로 다 챙겨놨어요! ${r.fetched}건 ✨`);
+          setRouteSyncMsg(locale === 'en' ? `All GPS routes are in! ${r.fetched} found ✨` : `GPS 경로 다 챙겨놨어요! ${r.fetched}건 ✨`);
         }
         setTimeout(() => setRouteSyncMsg(null), 4000);
       } catch (e) {
         if (cancelled) return;
-        setRouteSyncMsg(`동기화 실패: ${e instanceof Error ? e.message : '알 수 없음'}`);
+        setRouteSyncMsg(`${tt('동기화 실패')}: ${e instanceof Error ? e.message : tt('알 수 없음')}`);
         setTimeout(() => setRouteSyncMsg(null), 4000);
       } finally {
         if (!cancelled) setRouteSyncing(false);
@@ -426,12 +428,12 @@ function MapPageInner() {
           <button
             onClick={() => router.back()}
             className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition"
-            aria-label="뒤로"
+            aria-label={tt('뒤로')}
           >
             <ArrowLeft size={20} />
           </button>
           <AppLogo size={28} />
-          <h1 className="text-xl font-extrabold tracking-tight">지도</h1>
+          <h1 className="text-xl font-extrabold tracking-tight">{tt('지도')}</h1>
         </div>
       </header>
 
@@ -459,8 +461,8 @@ function MapPageInner() {
             <AppLogo size={20} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-extrabold text-white">동네 러너 코스 보기</p>
-            <p className="text-[11px] text-white/85 mt-0.5">같은 동네 러너들의 폴리라인을 색별로</p>
+            <p className="text-sm font-extrabold text-white">{tt('동네 러너 코스 보기')}</p>
+            <p className="text-[11px] text-white/85 mt-0.5">{tt('같은 동네 러너들의 폴리라인을 색별로')}</p>
           </div>
           <span className="text-white text-base font-bold">→</span>
         </div>
@@ -477,7 +479,7 @@ function MapPageInner() {
                 filterMode === f.id ? 'bg-[var(--accent)] text-white' : 'bg-[var(--card)] text-[var(--muted)]'
               }`}
             >
-              {f.label}
+              {tt(f.label)}
             </button>
           ))}
         </div>
@@ -491,7 +493,7 @@ function MapPageInner() {
                 activeCluster === null ? 'bg-emerald-500 text-white' : 'bg-[var(--card)] text-[var(--muted)] border border-[var(--card-border)]'
               }`}
             >
-              🌍 전체
+              🌍 {tt('전체')}
             </button>
             {clusters.map(c => (
               <button
@@ -501,7 +503,7 @@ function MapPageInner() {
                   activeCluster === c.id ? 'bg-emerald-500 text-white' : 'bg-[var(--card)] text-[var(--muted)] border border-[var(--card-border)]'
                 }`}
               >
-                {c.label} {c.activities.length}회
+                {tt(c.label)} {locale === 'en' ? `${c.activities.length}x` : `${c.activities.length}회`}
               </button>
             ))}
           </div>
@@ -509,7 +511,7 @@ function MapPageInner() {
         {filterMode !== '1d' && (
           <div className="card px-3 py-2">
             <div className="flex items-center justify-center gap-1 text-xs text-[var(--muted)]">
-              <span className="mr-1">덧칠 횟수</span>
+              <span className="mr-1">{tt('덧칠 횟수')}</span>
               {(filterMode === 'all' ? CHIP_LEGEND_ALL : CHIP_LEGEND).map(c => (
                 <div key={c.label} className="flex items-center gap-0.5">
                   <span className="w-3.5 h-3.5 rounded-sm" style={{ background: c.color }} />
@@ -526,11 +528,11 @@ function MapPageInner() {
         <div className="grid grid-cols-2 text-center">
           <div>
             <p className="text-xl font-extrabold text-[var(--foreground)]">{totalKm.toFixed(1)} km</p>
-            <p className="text-xs text-[var(--muted)]">총 거리</p>
+            <p className="text-xs text-[var(--muted)]">{tt('총 거리')}</p>
           </div>
           <div>
             <p className="text-xl font-extrabold text-[var(--foreground)]">{routeCount}</p>
-            <p className="text-xs text-[var(--muted)]">GPS 기록</p>
+            <p className="text-xs text-[var(--muted)]">{tt('GPS 기록')}</p>
           </div>
         </div>
       </div>
@@ -541,7 +543,7 @@ function MapPageInner() {
           <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
         ) : (
           <div className="h-full bg-[var(--card)] flex items-center justify-center border border-[var(--card-border)] rounded-2xl">
-            <p className="text-xs text-[var(--muted)]">Google Maps API 키를 설정하면 지도가 표시됩니다</p>
+            <p className="text-xs text-[var(--muted)]">{tt('Google Maps API 키를 설정하면 지도가 표시됩니다')}</p>
           </div>
         )}
       </div>
@@ -558,10 +560,10 @@ function MapPageInner() {
             <div>
               <p className="text-base font-bold text-[var(--foreground)]">{selectedActivity.distance_km.toFixed(2)} km</p>
               <p className="text-xs text-[var(--muted)]">
-                {new Date(selectedActivity.activity_date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
+                {new Date(selectedActivity.activity_date).toLocaleDateString(locale === 'en' ? 'en-US' : 'ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
               </p>
             </div>
-            <Link href={`/activity?id=${selectedActivity.id}`} className="text-sm text-[var(--accent)] font-semibold">상세 보기</Link>
+            <Link href={`/activity?id=${selectedActivity.id}`} className="text-sm text-[var(--accent)] font-semibold">{tt('상세 보기')}</Link>
           </div>
         </div>
       )}
@@ -569,10 +571,10 @@ function MapPageInner() {
       {!loading && routeCount === 0 && (
         <div className="card p-6 text-center space-y-4">
           <p className="text-4xl">🗺️</p>
-          <p className="text-base font-semibold text-[var(--foreground)]">아직 GPS 러닝 기록이 없습니다</p>
+          <p className="text-base font-semibold text-[var(--foreground)]">{tt('아직 GPS 러닝 기록이 없습니다')}</p>
           <p className="text-xs text-[var(--muted)]">
-            Apple Health만 연동하면 거리·시간은 보이지만 GPS 경로는 포함되지 않아요.<br />
-            아래 앱에서 달리면 자동으로 이 지도에 경로가 쌓입니다.
+            {tt('Apple Health만 연동하면 거리·시간은 보이지만 GPS 경로는 포함되지 않아요.')}<br />
+            {tt('아래 앱에서 달리면 자동으로 이 지도에 경로가 쌓입니다.')}
           </p>
 
           <div className="space-y-2 pt-2">
@@ -580,7 +582,7 @@ function MapPageInner() {
               href="/connect"
               className="block w-full py-3 rounded-xl bg-red-500 text-white font-semibold text-sm"
             >
-              ❤️ Apple Health 연동하기
+              ❤️ {tt('Apple Health 연동하기')}
             </Link>
             <div className="grid grid-cols-2 gap-2">
               <a
@@ -597,7 +599,7 @@ function MapPageInner() {
                 rel="noopener noreferrer"
                 className="py-2.5 rounded-xl border border-[var(--card-border)] text-[var(--foreground)] font-semibold text-xs flex items-center justify-center gap-1.5"
               >
-                🏃 런데이
+                🏃 {tt('런데이')}
               </a>
             </div>
           </div>

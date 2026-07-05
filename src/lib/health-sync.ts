@@ -1,6 +1,8 @@
 import { getSupabase } from './supabase';
 import type { HealthDataType } from '@capgo/capacitor-health';
 import { logClientError, logClientWarn, logClientInfo } from './error-logger';
+// build 291 i18n Phase D: 사용자 노출 message/label 만 번역 (ttl). 로그/메모/로직은 한국어 유지.
+import { ttl, getCurrentLocale } from './i18n';
 
 // capgo 가 UTC ISO 로 주는 timestamp 를 사용자 폰의 timezone 기준 YYYY-MM-DD 로 변환.
 // 이전: `.split('T')[0]` UTC 자르기 → 한국 새벽 러닝이 전날로. 그 후 KST 하드코딩 → 해외 사용자 같은 버그.
@@ -148,7 +150,7 @@ async function ensureAuthorization(): Promise<{ authorized: boolean; denied: Hea
 // Apple Health 권한 요청만 수행 (사용자가 "연결하기" 버튼 누를 때).
 export async function connectHealthKit(): Promise<SyncResult> {
   if (getPlatform() !== 'ios') {
-    return { success: false, message: 'iOS가 아닙니다', synced: 0 };
+    return { success: false, message: ttl('iOS가 아닙니다'), synced: 0 };
   }
 
   try {
@@ -156,26 +158,28 @@ export async function connectHealthKit(): Promise<SyncResult> {
 
     const { available } = await Health.isAvailable();
     if (!available) {
-      return { success: false, message: '이 기기에서 Apple Health를 사용할 수 없습니다.', synced: 0 };
+      return { success: false, message: ttl('이 기기에서 Apple Health를 사용할 수 없습니다.'), synced: 0 };
     }
 
     const { authorized, denied } = await ensureAuthorization();
     if (!authorized) {
       return {
         success: false,
-        message: '설정 > 개인정보 보호 > 건강 > Routinist 에서 권한을 허용해주세요.',
+        message: ttl('설정 > 개인정보 보호 > 건강 > Routinist 에서 권한을 허용해주세요.'),
         synced: 0,
         authDenied: true,
       };
     }
 
     const message = denied.length > 0
-      ? `Apple Health 연결됨. 일부 항목 미허용 (${denied.join(', ')}) — 정확도가 떨어질 수 있어요.`
-      : 'Apple Health 연결 완료! 러닝 기록을 가져오는 중...';
+      ? (getCurrentLocale() === 'en'
+          ? `Apple Health connected. Some items not allowed (${denied.join(', ')}) — accuracy may be reduced.`
+          : `Apple Health 연결됨. 일부 항목 미허용 (${denied.join(', ')}) — 정확도가 떨어질 수 있어요.`)
+      : ttl('Apple Health 연결 완료! 러닝 기록을 가져오는 중...');
     return { success: true, message, synced: 0 };
   } catch (error) {
-    const message = error instanceof Error ? error.message : '알 수 없는 오류';
-    return { success: false, message: `연결 실패: ${message}`, synced: 0 };
+    const message = error instanceof Error ? error.message : ttl('알 수 없는 오류');
+    return { success: false, message: `${ttl('연결 실패')}: ${message}`, synced: 0 };
   }
 }
 
@@ -188,7 +192,7 @@ const syncStageState = new Map<string, { stage: string; enteredAt: number; allSt
 
 async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise<SyncResult> {
   const progress = options?.onProgress;
-  progress?.({ stage: 'auth', percent: 5, label: '권한 확인 중...' });
+  progress?.({ stage: 'auth', percent: 5, label: ttl('권한 확인 중...') });
   const t0 = Date.now();
   syncStageState.set(userId, { stage: 'auth', enteredAt: t0, allStarted: t0 });
   const setStage = (s: string) => {
@@ -203,7 +207,7 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
       logClientWarn('health-sync', 'authorization denied', { denied: auth.denied });
       return {
         success: false,
-        message: '설정 > 개인정보 보호 > 건강 > Routinist 에서 권한을 허용해주세요.',
+        message: ttl('설정 > 개인정보 보호 > 건강 > Routinist 에서 권한을 허용해주세요.'),
         synced: 0,
         authDenied: true,
       };
@@ -219,7 +223,7 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     const startDate = startDt.toISOString();
     const endDate = new Date().toISOString();
 
-    progress?.({ stage: 'query', percent: 15, label: 'Apple Health 러닝 기록 조회 중...' });
+    progress?.({ stage: 'query', percent: 15, label: ttl('Apple Health 러닝 기록 조회 중...') });
     setStage('query-workouts');
 
     // 기본은 러닝만. 걷기는 연동 페이지 토글을 켠 사용자만 병렬 fetch (기본 OFF).
@@ -259,7 +263,9 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
       if (queryErrors.length > 0) {
         return {
           success: false,
-          message: `Apple Health 조회 실패: ${queryErrors[0]}\n잠시 후 다시 시도해주세요`,
+          message: getCurrentLocale() === 'en'
+            ? `Apple Health query failed: ${queryErrors[0]}\nPlease try again in a moment`
+            : `Apple Health 조회 실패: ${queryErrors[0]}\n잠시 후 다시 시도해주세요`,
           synced: 0,
         };
       }
@@ -267,7 +273,7 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
       return syncViaDistance(userId, startDate, endDate);
     }
 
-    progress?.({ stage: 'fetch_existing', percent: 50, label: '중복 검사 중...' });
+    progress?.({ stage: 'fetch_existing', percent: 50, label: ttl('중복 검사 중...') });
     setStage('fetch-existing');
 
     // 배치 중복 체크 — started_at ±60초 윈도우 매칭 (1순위) + 거리 폴백 (옛 데이터에 started_at 없을 때).
@@ -296,7 +302,9 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
       // 중복 검사 못 하면 새 INSERT 시 unique 충돌 가능 → 안전하게 실패 처리.
       return {
         success: false,
-        message: `중복 검사 실패: ${existingResult.error.message}. 잠시 후 다시 시도해주세요.`,
+        message: getCurrentLocale() === 'en'
+          ? `Duplicate check failed: ${existingResult.error.message}. Please try again in a moment.`
+          : `중복 검사 실패: ${existingResult.error.message}. 잠시 후 다시 시도해주세요.`,
         synced: 0,
       };
     }
@@ -455,7 +463,7 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     let insertErrors = 0;
     const failedSamples: string[] = [];
     if (toInsert.length > 0) {
-      progress?.({ stage: 'insert', percent: 60, label: `새 기록 ${toInsert.length}건 저장 중...` });
+      progress?.({ stage: 'insert', percent: 60, label: getCurrentLocale() === 'en' ? `Saving ${toInsert.length} new records...` : `새 기록 ${toInsert.length}건 저장 중...` });
       setStage(`insert(${toInsert.length})`);
       // 100건씩 청크로 나눠 insert. 청크 단위 실패 시 row-by-row 폴백으로 정상 row 는 살림.
       // (트리거 1건 버그 때문에 99건이 같이 죽는 회귀 차단 — build 53 회고)
@@ -509,7 +517,7 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
         }
         // chunk 진행률: 60 → 90 사이에 분배
         const chunkProgress = 60 + Math.round((30 * (chunkIdx + 1)) / totalChunks);
-        progress?.({ stage: 'insert', percent: chunkProgress, label: `저장 중 ${syncedCount}/${toInsert.length}` });
+        progress?.({ stage: 'insert', percent: chunkProgress, label: `${ttl('저장 중')} ${syncedCount}/${toInsert.length}` });
       }
       if (insertErrors > 0) {
         logClientError('health-sync', 'row insert 실패 누적', {
@@ -517,7 +525,7 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
         });
       }
     } else {
-      progress?.({ stage: 'insert', percent: 90, label: '새 기록 없음' });
+      progress?.({ stage: 'insert', percent: 90, label: ttl('새 기록 없음') });
     }
 
     const elapsedMs = Date.now() - t0;
@@ -545,24 +553,35 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
 
     // 메시지 분기: insert 실패가 있으면 "이미 동기화됨" 잘못된 메시지 금지.
     // (build 53 회고: trigger SQL 버그로 candidate=1, inserted=0, errors=1 인데 "이미 동기화됨" 표시됐던 회귀)
+    const en = getCurrentLocale() === 'en';
     let message: string;
     let success = true;
     if (insertErrors > 0 && syncedCount === 0) {
       success = false;
-      message = `${insertErrors}건이 저장되지 못했어요\n잠시 후 다시 시도해주세요`;
+      message = en
+        ? `${insertErrors} record${insertErrors === 1 ? '' : 's'} couldn't be saved\nPlease try again in a moment`
+        : `${insertErrors}건이 저장되지 못했어요\n잠시 후 다시 시도해주세요`;
     } else if (insertErrors > 0) {
-      message = `${syncedCount}건 가져왔어요 (${insertErrors}건은 다음에)`;
+      message = en
+        ? `Got ${syncedCount} records (${insertErrors} will come later)`
+        : `${syncedCount}건 가져왔어요 (${insertErrors}건은 다음에)`;
     } else if (syncedCount > 0 && upgradedCount > 0) {
-      message = `러닝 ${syncedCount}건 도착 · ${upgradedCount}건 거리 보정 ✨`;
+      message = en
+        ? `${syncedCount} run${syncedCount === 1 ? '' : 's'} arrived · ${upgradedCount} distance${upgradedCount === 1 ? '' : 's'} corrected ✨`
+        : `러닝 ${syncedCount}건 도착 · ${upgradedCount}건 거리 보정 ✨`;
     } else if (syncedCount > 0) {
-      message = `러닝 ${syncedCount}건 새로 도착! 🎉`;
+      message = en
+        ? `${syncedCount} new run${syncedCount === 1 ? '' : 's'} just arrived! 🎉`
+        : `러닝 ${syncedCount}건 새로 도착! 🎉`;
     } else if (upgradedCount > 0) {
-      message = `${upgradedCount}건 GPS 거리를 Apple Watch 기준으로 보정했어요 ✨`;
+      message = en
+        ? `Corrected ${upgradedCount} GPS distance${upgradedCount === 1 ? '' : 's'} to Apple Watch data ✨`
+        : `${upgradedCount}건 GPS 거리를 Apple Watch 기준으로 보정했어요 ✨`;
     } else if (toInsert.length === 0) {
-      message = '최신 상태예요. 오늘도 가볍게 한 바퀴? 👟';
+      message = ttl('최신 상태예요. 오늘도 가볍게 한 바퀴? 👟');
     } else {
       // candidates 가 있는데 syncedCount=0 이고 errors=0 인 비정상 경로
-      message = '동기화 결과 확인이 안 됐어요\n잠시 후 다시 시도해주세요';
+      message = ttl('동기화 결과 확인이 안 됐어요\n잠시 후 다시 시도해주세요');
       success = false;
     }
 
@@ -577,9 +596,9 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
       },
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : '알 수 없는 오류';
+    const message = error instanceof Error ? error.message : ttl('알 수 없는 오류');
     logClientError('health-sync', 'sync 예외', { err: message });
-    return { success: false, message: `동기화 중에 문제가 생겼어요\n${message}`, synced: 0 };
+    return { success: false, message: `${ttl('동기화 중에 문제가 생겼어요')}\n${message}`, synced: 0 };
   }
 }
 
@@ -600,7 +619,7 @@ async function syncViaDistance(
     });
 
     if (!samples || samples.length === 0) {
-      return { success: true, message: 'Apple Health 에 러닝 기록이 아직 없어요 👟', synced: 0 };
+      return { success: true, message: ttl('Apple Health 에 러닝 기록이 아직 없어요 👟'), synced: 0 };
     }
 
     const dailyDistance: Record<string, number> = {};
@@ -661,13 +680,15 @@ async function syncViaDistance(
     return {
       success: true,
       message: syncedCount > 0
-        ? `러닝 ${syncedCount}건 새로 도착! 🎉`
-        : '최신 상태예요. 오늘도 가볍게 한 바퀴? 👟',
+        ? (getCurrentLocale() === 'en'
+            ? `${syncedCount} new run${syncedCount === 1 ? '' : 's'} just arrived! 🎉`
+            : `러닝 ${syncedCount}건 새로 도착! 🎉`)
+        : ttl('최신 상태예요. 오늘도 가볍게 한 바퀴? 👟'),
       synced: syncedCount,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : '알 수 없는 오류';
-    return { success: false, message: `거리 합산 중에 문제가 생겼어요\n${message}`, synced: 0 };
+    const message = error instanceof Error ? error.message : ttl('알 수 없는 오류');
+    return { success: false, message: `${ttl('거리 합산 중에 문제가 생겼어요')}\n${message}`, synced: 0 };
   }
 }
 
@@ -986,13 +1007,13 @@ export async function syncHealthData(userId: string, options?: SyncOptions): Pro
   if (!isNativeApp()) {
     return {
       success: false,
-      message: '건강 데이터 동기화는 Routinist 앱에서만 사용할 수 있습니다.',
+      message: ttl('건강 데이터 동기화는 Routinist 앱에서만 사용할 수 있습니다.'),
       synced: 0,
     };
   }
 
   if (getPlatform() !== 'ios') {
-    return { success: false, message: '지원하지 않는 플랫폼입니다.', synced: 0 };
+    return { success: false, message: ttl('지원하지 않는 플랫폼입니다.'), synced: 0 };
   }
 
   const existing = inFlightSyncs.get(userId);
@@ -1008,7 +1029,7 @@ export async function syncHealthData(userId: string, options?: SyncOptions): Pro
 
     // 권한 거부 케이스에선 후처리 의미 없음.
     if (!result.authDenied) {
-      options?.onProgress?.({ stage: 'route', percent: 95, label: 'GPS 경로 백그라운드 동기화...' });
+      options?.onProgress?.({ stage: 'route', percent: 95, label: ttl('GPS 경로 백그라운드 동기화...') });
       void updateProfileTotals(userId).catch((e) => console.warn('[health-sync] updateProfileTotals 백그라운드 실패', e));
       // syncRouteData 가 끝난 후에 region 자동 등록 — route_data 가 채워진 활동이 필요.
       void syncRouteData(userId)
@@ -1016,7 +1037,7 @@ export async function syncHealthData(userId: string, options?: SyncOptions): Pro
         .catch((e) => console.warn('[health-sync] syncRouteData / region 백그라운드 실패', e));
     }
 
-    options?.onProgress?.({ stage: 'done', percent: 100, label: '완료' });
+    options?.onProgress?.({ stage: 'done', percent: 100, label: ttl('완료') });
     return result;
   })();
 
@@ -1036,7 +1057,7 @@ export async function syncHealthData(userId: string, options?: SyncOptions): Pro
       logClientWarn('health-sync', 'mutex 35s timeout — 강제 해제 + client 재생성', stageInfo);
       // SDK 락 가능성 있는 client 폐기 — 다음 호출 시 fresh client 로 복구.
       void import('./supabase').then(({ resetSupabaseClient }) => resetSupabaseClient()).catch(() => {});
-      resolve({ success: false, message: '동기화가 너무 오래 걸리네요\n잠시 후 다시 시도해주세요', synced: 0 });
+      resolve({ success: false, message: ttl('동기화가 너무 오래 걸리네요\n잠시 후 다시 시도해주세요'), synced: 0 });
     }, 35000);
   });
 

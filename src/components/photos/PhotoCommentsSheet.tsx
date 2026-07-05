@@ -15,6 +15,7 @@ import {
   type PhotoComment,
 } from '@/lib/photo-comments';
 import AppToast from '@/components/AppToast';
+import { useI18n } from '@/lib/i18n';
 
 interface Props {
   photoId: string;
@@ -22,9 +23,18 @@ interface Props {
   onCountChange?: (count: number) => void;
 }
 
-function relativeTime(iso: string): string {
+function relativeTime(iso: string, locale: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const min = Math.floor(diff / 60000);
+  if (locale === 'en') {
+    if (min < 1) return 'just now';
+    if (min < 60) return `${min}m ago`;
+    const hrEn = Math.floor(min / 60);
+    if (hrEn < 24) return `${hrEn}h ago`;
+    const dayEn = Math.floor(hrEn / 24);
+    if (dayEn < 7) return `${dayEn}d ago`;
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
   if (min < 1) return '방금';
   if (min < 60) return `${min}분 전`;
   const hr = Math.floor(min / 60);
@@ -36,6 +46,7 @@ function relativeTime(iso: string): string {
 
 export default function PhotoCommentsSheet({ photoId, onClose, onCountChange }: Props) {
   const { user } = useAuth();
+  const { tt, locale } = useI18n();
   const [comments, setComments] = useState<PhotoComment[]>([]);
   const [loading, setLoading] = useState(true);
   const [body, setBody] = useState('');
@@ -71,7 +82,7 @@ export default function PhotoCommentsSheet({ photoId, onClose, onCountChange }: 
     const trimmed = body.trim();
     if (!trimmed) return;
     if (!user) {
-      setToast({ text: '로그인이 필요해요', tone: 'warn' });
+      setToast({ text: tt('로그인이 필요해요'), tone: 'warn' });
       return;
     }
     setSubmitting(true);
@@ -95,8 +106,9 @@ export default function PhotoCommentsSheet({ photoId, onClose, onCountChange }: 
           ? e.message
           : typeof e === 'object' && e !== null && 'message' in e
             ? String((e as { message: unknown }).message)
-            : '알 수 없는 오류';
-      const friendly = msg.includes('부적절') ? msg : `등록 실패 — ${msg.slice(0, 80)}`;
+            : tt('알 수 없는 오류');
+      // DB trigger 의 한국어 '부적절' 메시지 매칭은 원문 유지 (로직 접점).
+      const friendly = msg.includes('부적절') ? msg : `${tt('등록 실패')} — ${msg.slice(0, 80)}`;
       setToast({ text: friendly, tone: 'warn' });
     } finally {
       setSubmitting(false);
@@ -114,7 +126,7 @@ export default function PhotoCommentsSheet({ photoId, onClose, onCountChange }: 
           ? e.message
           : typeof e === 'object' && e !== null && 'message' in e
             ? String((e as { message: unknown }).message)
-            : '삭제 실패';
+            : tt('삭제 실패');
       setToast({ text: msg, tone: 'warn' });
     }
   };
@@ -133,13 +145,13 @@ export default function PhotoCommentsSheet({ photoId, onClose, onCountChange }: 
           <div className="flex items-center gap-2">
             <MessageCircle size={18} className="text-emerald-500" />
             <h2 className="text-base font-extrabold text-[var(--foreground)]">
-              댓글 {comments.length > 0 && <span className="text-emerald-600">{comments.length}</span>}
+              {tt('댓글')} {comments.length > 0 && <span className="text-emerald-600">{comments.length}</span>}
             </h2>
           </div>
           <button
             onClick={onClose}
             className="w-9 h-9 rounded-full bg-[var(--card-border)]/40 flex items-center justify-center active:scale-95 transition"
-            aria-label="닫기"
+            aria-label={tt('닫기')}
           >
             <X size={18} className="text-[var(--foreground)]" />
           </button>
@@ -154,8 +166,8 @@ export default function PhotoCommentsSheet({ photoId, onClose, onCountChange }: 
           ) : comments.length === 0 ? (
             <div className="py-12 text-center">
               <MessageCircle size={28} className="mx-auto text-[var(--muted)] opacity-40 mb-2" />
-              <p className="text-sm font-semibold text-[var(--foreground)]">첫 댓글을 남겨보세요</p>
-              <p className="text-xs text-[var(--muted)] mt-1">응원 한 마디가 큰 힘이 돼요</p>
+              <p className="text-sm font-semibold text-[var(--foreground)]">{tt('첫 댓글을 남겨보세요')}</p>
+              <p className="text-xs text-[var(--muted)] mt-1">{tt('응원 한 마디가 큰 힘이 돼요')}</p>
             </div>
           ) : (
             <ul className="space-y-3">
@@ -180,9 +192,9 @@ export default function PhotoCommentsSheet({ photoId, onClose, onCountChange }: 
                           href={isMine ? '/profile' : `/social/user?id=${c.user_id}`}
                           className={`text-xs font-bold truncate ${isMine ? 'text-emerald-700 dark:text-emerald-400' : 'text-[var(--foreground)]'}`}
                         >
-                          {c.display_name ?? '러너'}{isMine && ' (나)'}
+                          {c.display_name ?? tt('러너')}{isMine && (locale === 'en' ? ' (me)' : ' (나)')}
                         </Link>
-                        <span className="text-[10px] text-[var(--muted)]">{relativeTime(c.created_at)}</span>
+                        <span className="text-[10px] text-[var(--muted)]">{relativeTime(c.created_at, locale)}</span>
                       </div>
                       <p className="text-sm text-[var(--foreground)] mt-0.5 whitespace-pre-wrap break-words">
                         {c.body}
@@ -191,7 +203,7 @@ export default function PhotoCommentsSheet({ photoId, onClose, onCountChange }: 
                     {isMine && (
                       <button
                         onClick={() => handleDelete(c.id)}
-                        aria-label="삭제"
+                        aria-label={tt('삭제')}
                         className="w-7 h-7 rounded-full flex items-center justify-center text-[var(--muted)] hover:text-rose-500 active:scale-90 transition flex-shrink-0"
                       >
                         <Trash2 size={13} />
@@ -218,7 +230,7 @@ export default function PhotoCommentsSheet({ photoId, onClose, onCountChange }: 
                   void handleSubmit();
                 }
               }}
-              placeholder={user ? '응원의 한 마디를 남겨보세요' : '로그인 후 댓글 작성'}
+              placeholder={user ? tt('응원의 한 마디를 남겨보세요') : tt('로그인 후 댓글 작성')}
               disabled={!user || submitting}
               className="flex-1 px-3.5 py-2.5 rounded-full border border-[var(--card-border)] bg-[var(--card)] text-sm focus:outline-none focus:border-emerald-500 disabled:opacity-50"
             />
@@ -226,7 +238,7 @@ export default function PhotoCommentsSheet({ photoId, onClose, onCountChange }: 
               onClick={handleSubmit}
               disabled={!user || submitting || !body.trim()}
               className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white flex items-center justify-center active:scale-90 disabled:opacity-40 transition flex-shrink-0"
-              aria-label="등록"
+              aria-label={tt('등록')}
             >
               {submitting ? (
                 <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />

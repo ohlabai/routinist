@@ -14,6 +14,7 @@ import { useAuth } from '@/components/AuthProvider';
 import AppToast from '@/components/AppToast';
 import PhotoCommentsSheet from './PhotoCommentsSheet';
 import GenderBadge from '@/components/profile/GenderBadge';
+import { useI18n } from '@/lib/i18n';
 
 interface Props {
   photo: RoutinePhoto;
@@ -29,6 +30,7 @@ interface Props {
 // 이전: 사진 통째로 사용자 프로필로 점프 → 사진 자체를 크게 보고 싶을 때 우회 못함.
 export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props) {
   const { user } = useAuth();
+  const { tt, locale } = useI18n();
   const isOwner = !!user && user.id === photo.user_id;
   const [liked, setLiked] = useState(!!photo.liked_by_me);
   const [likes, setLikes] = useState(photo.like_count);
@@ -61,13 +63,18 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
     setReporting(true);
     try {
       await blockUser(photo.user_id);
-      setToast({ text: `${photo.display_name}님을 차단했어요. 콘텐츠가 더 이상 보이지 않아요`, tone: 'ok' });
+      setToast({
+        text: locale === 'en'
+          ? `Blocked @${photo.display_name}. Their content is now hidden`
+          : `${photo.display_name}님을 차단했어요. 콘텐츠가 더 이상 보이지 않아요`,
+        tone: 'ok',
+      });
       setTimeout(() => {
         setRemoved(true);
         onDeleted?.(photo.photo_id);
       }, 900);
     } catch (err) {
-      setToast({ text: `차단 실패 — ${err instanceof Error ? err.message.slice(0, 60) : '다시 시도해주세요'}`, tone: 'warn' });
+      setToast({ text: `${tt('차단 실패')} — ${err instanceof Error ? err.message.slice(0, 60) : tt('다시 시도해주세요')}`, tone: 'warn' });
     } finally {
       setShowReport(false);
       setReporting(false);
@@ -79,12 +86,12 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
     setReporting(true);
     try {
       await reportPhoto(photo.photo_id, reason);
-      setToast({ text: '신고가 접수됐어요. 24시간 안에 검토합니다', tone: 'ok' });
+      setToast({ text: tt('신고가 접수됐어요. 24시간 안에 검토합니다'), tone: 'ok' });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       const friendly =
-        msg.includes('duplicate key') || msg.includes('unique') ? '이미 신고하신 사진이에요' :
-        `신고 실패 — ${msg.slice(0, 80)}`;
+        msg.includes('duplicate key') || msg.includes('unique') ? tt('이미 신고하신 사진이에요') :
+        `${tt('신고 실패')} — ${msg.slice(0, 80)}`;
       setToast({ text: friendly, tone: 'warn' });
     } finally {
       setShowReport(false);
@@ -98,12 +105,12 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
     setDeleting(true);
     try {
       await deleteMyPhoto(photo.photo_id, photo.photo_url);
-      setToast({ text: '사진을 삭제했어요', tone: 'ok' });
+      setToast({ text: tt('사진을 삭제했어요'), tone: 'ok' });
       setRemoved(true);
       onDeleted?.(photo.photo_id);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      setToast({ text: `삭제 실패 — ${msg.slice(0, 80)}`, tone: 'warn' });
+      setToast({ text: `${tt('삭제 실패')} — ${msg.slice(0, 80)}`, tone: 'warn' });
       setDeleting(false);
     } finally {
       setShowDeleteConfirm(false);
@@ -154,7 +161,7 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
           type="button"
           onClick={() => setShowLightbox(true)}
           className="block w-full text-left"
-          aria-label="사진 크게 보기"
+          aria-label={tt('사진 크게 보기')}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -175,7 +182,7 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
             <Link
               href={`/social/user?id=${photo.user_id}`}
               className="inline-flex items-center gap-1 text-[13px] font-extrabold text-[var(--foreground)] active:scale-95"
-              aria-label={`${photo.display_name} 프로필 보기`}
+              aria-label={locale === 'en' ? `View ${photo.display_name}'s profile` : `${photo.display_name} 프로필 보기`}
             >
               <span className="truncate max-w-[160px]">@{photo.display_name}</span>
               <GenderBadge gender={photo.gender} show={photo.show_gender} size={11} />
@@ -205,7 +212,7 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
         <button
           onClick={handleLike}
           disabled={busy}
-          aria-label="좋아요"
+          aria-label={tt('좋아요')}
           className={`absolute top-2 right-2 w-9 h-9 rounded-full bg-white/90 backdrop-blur shadow-md flex items-center justify-center transition-transform ${animate ? 'scale-125' : 'scale-100'}`}
         >
           <Heart
@@ -231,7 +238,7 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
               <button
                 onClick={(e) => { e.stopPropagation(); setShowComments(true); }}
                 className="px-2 py-0.5 rounded-full bg-white/90 backdrop-blur text-[11px] font-bold text-gray-800 flex items-center gap-0.5 shadow-sm active:scale-95 transition"
-                aria-label="댓글 보기"
+                aria-label={tt('댓글 보기')}
               >
                 <MessageCircle size={10} className="text-emerald-600" strokeWidth={2.5} />
                 {commentCount}
@@ -243,7 +250,7 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
         {/* 댓글 버튼 + 더보기 — 우측에 묶음 */}
         <button
           onClick={(e) => { e.stopPropagation(); setShowComments(true); }}
-          aria-label="댓글 작성"
+          aria-label={tt('댓글 작성')}
           className="absolute top-12 right-2 w-9 h-9 rounded-full bg-white/90 backdrop-blur shadow-md flex items-center justify-center active:scale-95 transition z-10"
         >
           <MessageCircle size={16} className="text-gray-700" strokeWidth={2.2} />
@@ -253,7 +260,7 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
         {user && (
           <button
             onClick={(e) => { e.stopPropagation(); if (isOwner) setShowDeleteConfirm(true); else setShowReport(true); }}
-            aria-label={isOwner ? '삭제' : '신고'}
+            aria-label={isOwner ? tt('삭제') : tt('신고')}
             className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-white/85 backdrop-blur shadow flex items-center justify-center active:scale-95 z-10"
           >
             {isOwner ? <Trash2 size={13} className="text-rose-500" /> : <Flag size={13} className="text-amber-600" />}
@@ -285,7 +292,7 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
             onClick={() => setShowLightbox(false)}
             className="absolute right-3 w-12 h-12 rounded-full bg-white/20 active:bg-white/30 backdrop-blur flex items-center justify-center active:scale-95 transition"
             style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
-            aria-label="닫기"
+            aria-label={tt('닫기')}
           >
             <X size={26} strokeWidth={2.5} className="text-white" />
           </button>
@@ -302,7 +309,7 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
                 onClick={() => setShowLightbox(false)}
                 className="flex-1 px-4 py-3 rounded-2xl bg-white/15 backdrop-blur text-white text-sm font-semibold active:scale-95 transition"
               >
-                @{photo.display_name} 프로필 보기
+                {locale === 'en' ? `View @${photo.display_name}'s profile` : `@${photo.display_name} 프로필 보기`}
               </Link>
               <div className="px-4 py-3 rounded-2xl bg-white/15 backdrop-blur text-white text-sm font-semibold">
                 {Number(photo.distance_km).toFixed(1)}km
@@ -311,7 +318,7 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
               {isOwner && (
                 <button
                   onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(true); }}
-                  aria-label="삭제"
+                  aria-label={tt('삭제')}
                   className="w-12 h-12 rounded-2xl bg-red-500/80 backdrop-blur text-white flex items-center justify-center active:scale-95 transition flex-shrink-0"
                 >
                   <Trash2 size={18} />
@@ -336,9 +343,9 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
               <div className="w-14 h-14 rounded-2xl bg-red-50 dark:bg-red-950/40 flex items-center justify-center">
                 <Trash2 size={26} className="text-red-500" />
               </div>
-              <h3 className="text-base font-bold text-[var(--foreground)] text-center">사진을 삭제할까요?</h3>
+              <h3 className="text-base font-bold text-[var(--foreground)] text-center">{tt('사진을 삭제할까요?')}</h3>
               <p className="text-sm text-[var(--muted)] text-center leading-relaxed">
-                삭제하면 다른 사람들에게도 즉시 안 보이며 복구할 수 없어요.
+                {tt('삭제하면 다른 사람들에게도 즉시 안 보이며 복구할 수 없어요.')}
               </p>
             </div>
             <div className="flex gap-2">
@@ -347,7 +354,7 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
                 disabled={deleting}
                 className="flex-1 py-3 rounded-xl bg-[var(--card-border)]/30 text-[var(--foreground)] font-semibold disabled:opacity-50"
               >
-                취소
+                {tt('취소')}
               </button>
               <button
                 onClick={handleDelete}
@@ -357,9 +364,9 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
                 {deleting ? (
                   <>
                     <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    삭제 중
+                    {tt('삭제 중')}
                   </>
-                ) : '삭제'}
+                ) : tt('삭제')}
               </button>
             </div>
           </div>
@@ -380,9 +387,9 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
               <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center">
                 <Flag size={26} className="text-amber-600" />
               </div>
-              <h3 className="text-base font-bold text-[var(--foreground)] text-center">사진 신고</h3>
+              <h3 className="text-base font-bold text-[var(--foreground)] text-center">{tt('사진 신고')}</h3>
               <p className="text-xs text-[var(--muted)] text-center leading-relaxed">
-                신고 사유를 선택해주세요. 검토 후 24시간 안에 조치합니다.
+                {tt('신고 사유를 선택해주세요. 검토 후 24시간 안에 조치합니다.')}
               </p>
             </div>
             <div className="space-y-1.5">
@@ -398,7 +405,7 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
                   disabled={reporting}
                   className="w-full px-3 py-3 rounded-xl bg-[var(--card-border)]/30 text-[var(--foreground)] text-sm font-semibold disabled:opacity-50 active:bg-[var(--card-border)]/60 transition"
                 >
-                  {opt.label}
+                  {tt(opt.label)}
                 </button>
               ))}
             </div>
@@ -408,7 +415,7 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
                 disabled={reporting}
                 className="w-full mt-1.5 px-3 py-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 text-sm font-semibold disabled:opacity-50 active:bg-rose-100 transition"
               >
-                {photo.display_name}님 차단하기
+                {locale === 'en' ? `Block @${photo.display_name}` : `${photo.display_name}님 차단하기`}
               </button>
             )}
             <button
@@ -416,7 +423,7 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
               disabled={reporting}
               className="w-full mt-3 py-2.5 text-sm text-[var(--muted)] disabled:opacity-50"
             >
-              취소
+              {tt('취소')}
             </button>
           </div>
         </div>
