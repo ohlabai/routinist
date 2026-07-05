@@ -1,25 +1,26 @@
-v1.2.6 — Worldwide Region Labels + Running Coach Fix + Stability
+v1.2.7 — GPS Run Tracking · Invite Friends · Habit Features
 
-[Region Labels, Everywhere]
-• Your share cards now show a region name in every country in the world (all UN member states registered).
-• Fixed Taiwan, Hong Kong, Canada, Ireland and others being mislabeled as neighboring countries.
-• In English mode, region names are shown in English (e.g. "Gangnam, Seoul").
+[🏃 GPS Run Tracking is here]
+• Tap "Start Running" on Home to track distance, pace and route — no watch needed.
+• Keeps recording with your screen locked, with voice cues every kilometer.
+• Auto-pauses at stoplights, and fills weak-GPS sections using step data.
 
-[Running Coach Restored]
-• Fixed the Running Coach only showing "not enough activities to analyze".
-• Condition score, fatigue trend and today's advice now work correctly.
+[🎁 Invite Friends]
+• Share your invite code — you both earn 100P when a friend joins.
+• Share cards now carry a QR so friends can jump right in.
 
-[Block Users]
-• You can now block users from their profile, photos, or messages.
-• Blocked users' photos, comments and messages are hidden immediately.
+[🔥 Habit Features]
+• Weekly run-count goal (we recommend 3×/week) with day dots on Home
+• Streak Shield — protect your streak when you miss a day (1 free per month)
+• 5 new badges with celebrations — first 5km, first 3-run week, and more
 
-[Notifications]
-• Restored reminder and monthly recap notifications that had stopped sending.
-• Notification preferences now apply correctly to every notification type.
+[🌍 Global]
+• "Same country" tab in Nearby Runners, plus a worldwide runners view
+• Mile (mi) units and greatly expanded English coverage
 
-[Stability]
-• Fixed a rare case where the same workout could be imported twice from Apple Health.
-• Fixed monthly stats being off by one day for users in the Americas.
-• Faster loading for message and photo lists.
+[Improvements]
+• Reminders and weekly recaps now arrive in your local evening/morning.
+• Fixed walking distance mixing into weekly challenge totals.
+• Many stability and security improvements.
 
 Run steady — Routinist runs with you.
