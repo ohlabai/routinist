@@ -93,6 +93,7 @@ function ActivityDetail() {
     manual: t('activity.sourceManual'),
     gps: t('activity.sourceGps'),
     health_kit: 'Apple Health',
+    health_kit_walk: 'Apple Health',
     health_connect: 'Health Connect',
   }[activity.source];
 

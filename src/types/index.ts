@@ -66,7 +66,9 @@ export interface DashboardStats {
 // Routinist 타입 (새 스키마)
 // =============================================
 
-export type ActivitySource = 'manual' | 'gps' | 'health_kit' | 'health_connect';
+// health_kit_walk: opt-in 걷기 전용 (build 289+). DB 트리거가 source='health_kit' 걷기를
+// 구버전 재동기화로 간주해 drop 하므로 걷기는 이 값으로 저장됨.
+export type ActivitySource = 'manual' | 'gps' | 'health_kit' | 'health_kit_walk' | 'health_connect';
 
 export type ActivityVisibility = 'public' | 'followers' | 'club' | 'private';
 

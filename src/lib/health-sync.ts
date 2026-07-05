@@ -416,7 +416,12 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
         ended_at: workout.endDate || null,
       };
       if (workout.totalEnergyBurned) insertData.active_energy_kcal = Math.round(workout.totalEnergyBurned);
-      if (activityType === 'walking') insertData.activity_type = 'walking';
+      if (activityType === 'walking') {
+        insertData.activity_type = 'walking';
+        // DB 트리거 trg_block_legacy_walking 계약: source='health_kit' 걷기는 구버전 (≤288)
+        // 재동기화로 간주해 조용히 drop 됨. opt-in 걷기는 health_kit_walk 로 보내야 저장됨.
+        insertData.source = 'health_kit_walk';
+      }
 
       toInsert.push(insertData);
       // binary search invariant — 새 행 추가 후 정렬 유지.
