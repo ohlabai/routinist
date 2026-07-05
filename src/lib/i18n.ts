@@ -2372,6 +2372,33 @@ const EXTRAS_EN: Record<string, string> = {
   '진행 중': 'In progress',
   '30초 초과': 'Timed out after 30s',
   '안내 닫기': 'Dismiss hint',
+  // EXTRAS_EN 머지용 조각 — build 290 마일/임페리얼 단위 지원 (할일 #22).
+  // 사용처: src/components/profile/UnitToggle.tsx
+  // tt()/ttl() 은 키 없으면 ko fallback 이라 머지 전에도 안전.
+  // ---- profile/UnitToggle.tsx ----
+  '거리 단위': 'Distance unit',
+  '킬로미터 또는 마일로 표시해요': 'Show distances in kilometers or miles',
+  // EXTRAS_EN 머지용 조각 — P2 클라이언트 3건 (build 291).
+  // dedup 확인 완료: '알 수 없음', '차단을 해제했어요' 는 i18n.ts 에 이미 존재 → 제외.
+  // tt() 는 키 없으면 ko fallback 이라 머지 전에도 앱은 안전.
+  // ---- profile/blocked/page.tsx (신규 — 차단 사용자 관리) ----
+'차단한 사용자': 'Blocked users',
+'차단한 사용자의 사진·댓글·쪽지가 보이지 않아요. 언제든 다시 해제할 수 있어요.': "You won't see photos, comments, or messages from blocked users. You can unblock anytime.",
+'차단한 사용자가 없어요': 'No blocked users',
+'모두와 기분 좋게 달리고 있다는 뜻이에요 🏃': "That means you're running happily with everyone 🏃",
+'목록을 불러오지 못했어요': "Couldn't load the list",
+'차단 해제': 'Unblock',
+'해제 중…': 'Unblocking…',
+'차단 해제 실패': 'Failed to unblock',
+  // ---- profile/push-settings/page.tsx (신규 토글 라벨) ----
+'친구 신기록': 'Friend PB',
+'월드런 진행': 'World run progress',
+'월드런 완주': 'World run finish',
+'월드런 추격': 'World run chase',
+'클럽 마라톤 시작': 'Club marathon start',
+'클럽 마라톤 완주': 'Club marathon finish',
+'러닝 리마인더': 'Running reminder',
+'월말 결산': 'Month-end recap',
 };
 
 export function I18nProvider({ children }: { children: ReactNode }) {

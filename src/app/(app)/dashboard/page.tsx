@@ -9,6 +9,7 @@ import {
   getMaxStreak,
   getMonthlyDistance,
   getWeeklyActivities,
+  runningOnly,
   formatPace,
   formatDuration,
 } from '@/lib/routinist-data';
@@ -64,6 +65,7 @@ import {
 } from 'lucide-react';
 import { chartStyle } from '@/lib/chart-theme';
 import { toLocalDateStr } from '@/lib/kst';
+import { useDistanceUnit, toDisplayDistance, unitLabel, paceUnitLabel, formatPaceForUnit } from '@/lib/units';
 
 type PeriodMode = 'weekly' | 'monthly' | 'quarterly' | 'half' | 'yearly';
 type ChartType = 'bar' | 'line';
@@ -78,6 +80,7 @@ const PERIOD_OPTIONS: { id: PeriodMode; label: string }[] = [
 
 export default function DashboardPage() {
   const { t, tt, locale } = useI18n();
+  const unit = useDistanceUnit(); // build 290: 표시 단위 (km/mi). 랭킹/목표/월드런/차트 데이터는 km 유지
   const { user, profile } = useAuth();
   const { activities, goals, loading: userDataLoading, refresh, lastUpdated } = useUserData();
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -258,8 +261,9 @@ export default function DashboardPage() {
   }, []);
 
   // ========== 요약 계산 ==========
+  // build 291: 거리 지표는 러닝만 (걷기 opt-in 유저 산책 km 제외 — 사용자 신고)
   const todayActivities = useMemo(
-    () => activities.filter(a => a.activity_date === todayStr),
+    () => runningOnly(activities).filter(a => a.activity_date === todayStr),
     [activities, todayStr]
   );
   const todaySummary = useMemo(() => {
@@ -307,7 +311,7 @@ export default function DashboardPage() {
     // activity_date 'YYYY-MM-DD' 는 문자열 prefix 비교 (UTC 파싱 시 서쪽 timezone 하루 밀림)
     const ym = `${year}-${String(month).padStart(2, '0')}`;
     const daySet = new Set(
-      activities
+      runningOnly(activities)
         .filter(a => a.activity_date.slice(0, 7) === ym)
         .map(a => a.activity_date)
     );
@@ -656,8 +660,9 @@ export default function DashboardPage() {
             </h2>
             <div className="flex items-center gap-2 mt-0.5">
               <p className="text-xs text-[var(--muted)]">
+                {/* '{km}km' 을 통째로 치환해 mi 모드에서 단위 문구까지 변환 (i18n.ts 불변) */}
                 {t('home.totalSummary')
-                  .replace('{km}', totalKm.toFixed(0))
+                  .replace('{km}km', `${toDisplayDistance(totalKm, unit).toFixed(0)}${unitLabel(unit)}`)
                   .replace('{runs}', String(totalRuns))}
               </p>
               <FreshnessBadge ts={lastUpdated} onRefresh={refresh} />
@@ -688,16 +693,16 @@ export default function DashboardPage() {
               {userDataLoading && activities.length === 0 ? (
                 <p className="text-3xl font-extrabold text-[var(--accent)] opacity-30">···</p>
               ) : (
-                <p className="text-3xl font-extrabold text-[var(--accent)]">{todayKm.toFixed(1)}</p>
+                <p className="text-3xl font-extrabold text-[var(--accent)]">{toDisplayDistance(todayKm, unit).toFixed(1)}</p>
               )}
-              <p className="text-sm font-medium text-[var(--muted)] mt-1">{t('home.todayKm')}</p>
+              <p className="text-sm font-medium text-[var(--muted)] mt-1">{t('home.todayKm').replace(/km$/, unitLabel(unit))}</p>
             </div>
             <div className="pb-4 min-w-0">
               {userDataLoading && activities.length === 0 ? (
                 <p className="text-3xl font-extrabold text-[var(--foreground)] opacity-30">···</p>
               ) : (
                 <p className="text-3xl font-extrabold text-[var(--foreground)]">
-                  {todayPaceSec ? formatPace(todayPaceSec) : recentPace ? formatPace(recentPace.pace) : '-'}
+                  {todayPaceSec ? formatPaceForUnit(todayPaceSec, unit) : recentPace ? formatPaceForUnit(recentPace.pace, unit) : '-'}
                 </p>
               )}
               <p className="text-sm font-medium text-[var(--muted)] mt-1">
@@ -708,9 +713,9 @@ export default function DashboardPage() {
               {userDataLoading && activities.length === 0 && !profileMonthCacheValid ? (
                 <p className="text-3xl font-extrabold text-green-600 opacity-30">···</p>
               ) : (
-                <p className="text-3xl font-extrabold text-green-600">{monthlyDistance.toFixed(1)}</p>
+                <p className="text-3xl font-extrabold text-green-600">{toDisplayDistance(monthlyDistance, unit).toFixed(1)}</p>
               )}
-              <p className="text-sm font-medium text-[var(--muted)] mt-1">{t('home.monthKm')}</p>
+              <p className="text-sm font-medium text-[var(--muted)] mt-1">{t('home.monthKm').replace(/km$/, unitLabel(unit))}</p>
             </div>
             <div className="pt-4 min-w-0">
               {userDataLoading && activities.length === 0 && !profileMonthCacheValid ? (
@@ -925,15 +930,15 @@ export default function DashboardPage() {
               {pb.longestRun && (
                 <div className="bg-[var(--card-border)]/30 rounded-xl p-3">
                   <p className="text-xs text-[var(--muted)] mb-1">{tt('최장 거리')}</p>
-                  <p className="text-2xl font-extrabold text-[var(--foreground)]">{pb.longestRun.distance_km.toFixed(2)}km</p>
+                  <p className="text-2xl font-extrabold text-[var(--foreground)]">{toDisplayDistance(pb.longestRun.distance_km, unit).toFixed(2)}{unitLabel(unit)}</p>
                   <p className="text-xs text-[var(--muted)]">{pb.longestRun.date}</p>
                 </div>
               )}
               {pb.fastestPace && (
                 <div className="bg-[var(--card-border)]/30 rounded-xl p-3">
                   <p className="text-xs text-[var(--muted)] mb-1">{tt('최빠 페이스')}</p>
-                  <p className="text-2xl font-extrabold text-[var(--foreground)]">{formatPace(pb.fastestPace.pace)}/km</p>
-                  <p className="text-xs text-[var(--muted)]">{pb.fastestPace.date} ({pb.fastestPace.distance_km.toFixed(1)}km)</p>
+                  <p className="text-2xl font-extrabold text-[var(--foreground)]">{formatPaceForUnit(pb.fastestPace.pace, unit)}{paceUnitLabel(unit)}</p>
+                  <p className="text-xs text-[var(--muted)]">{pb.fastestPace.date} ({toDisplayDistance(pb.fastestPace.distance_km, unit).toFixed(1)}{unitLabel(unit)})</p>
                 </div>
               )}
               {pb.longestDuration && (
@@ -1194,7 +1199,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="text-center mb-3">
-          <p className="text-3xl font-extrabold text-[var(--accent)]">{detailTotal.toFixed(1)} km</p>
+          <p className="text-3xl font-extrabold text-[var(--accent)]">{toDisplayDistance(detailTotal, unit).toFixed(1)} {unitLabel(unit)}</p>
           {hasDetailPrev && detailPrevTotal > 0 && (() => {
             const diff = detailTotal - detailPrevTotal;
             const pct = ((detailTotal / detailPrevTotal - 1) * 100);
@@ -1218,7 +1223,7 @@ export default function DashboardPage() {
             );
             return (
               <p className={`text-sm mt-1 font-semibold ${color}`}>
-                {periodLabel} {sign}{diff.toFixed(1)}km ({sign}{pct.toFixed(0)}%)
+                {periodLabel} {sign}{toDisplayDistance(diff, unit).toFixed(1)}{unitLabel(unit)} ({sign}{pct.toFixed(0)}%)
               </p>
             );
           })()}
@@ -1319,36 +1324,36 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-[var(--card-border)]/30 rounded-xl p-4">
             <p className="text-xs text-[var(--muted)] mb-1">{t('home.summaryWeek')}</p>
-            <p className="text-2xl font-extrabold text-[var(--accent)]">{weekKm.toFixed(1)}<span className="text-sm ml-1">km</span></p>
+            <p className="text-2xl font-extrabold text-[var(--accent)]">{toDisplayDistance(weekKm, unit).toFixed(1)}<span className="text-sm ml-1">{unitLabel(unit)}</span></p>
             <p className="text-xs text-[var(--muted)] mt-1">{t('home.summaryRuns').replace('{n}', String(weekRuns))}</p>
             {yoyComparison.week.last > 0.5 && (
               <p className={`text-xs mt-1 ${yoyComparison.week.diff >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
-                {t('home.yoyLast').replace('{sign}', yoyComparison.week.diff >= 0 ? '+' : '').replace('{km}', yoyComparison.week.diff.toFixed(0))}
+                {t('home.yoyLast').replace('{sign}', yoyComparison.week.diff >= 0 ? '+' : '').replace('{km}km', `${toDisplayDistance(yoyComparison.week.diff, unit).toFixed(0)}${unitLabel(unit)}`)}
               </p>
             )}
           </div>
           <div className="bg-[var(--card-border)]/30 rounded-xl p-4">
             <p className="text-xs text-[var(--muted)] mb-1">{t('home.summaryMonth')}</p>
-            <p className="text-2xl font-extrabold text-green-600">{monthlyDistance.toFixed(1)}<span className="text-sm ml-1">km</span></p>
+            <p className="text-2xl font-extrabold text-green-600">{toDisplayDistance(monthlyDistance, unit).toFixed(1)}<span className="text-sm ml-1">{unitLabel(unit)}</span></p>
             <p className="text-xs text-[var(--muted)] mt-1">{t('home.summaryMonthDays').replace('{days}', String(monthlyRunDays)).replace('{runs}', String(calendarActivities.length))}</p>
             {yoyComparison.month.last > 0.5 && (
               <p className={`text-xs mt-1 ${yoyComparison.month.diff >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
-                {t('home.yoyLast').replace('{sign}', yoyComparison.month.diff >= 0 ? '+' : '').replace('{km}', yoyComparison.month.diff.toFixed(0))}
+                {t('home.yoyLast').replace('{sign}', yoyComparison.month.diff >= 0 ? '+' : '').replace('{km}km', `${toDisplayDistance(yoyComparison.month.diff, unit).toFixed(0)}${unitLabel(unit)}`)}
               </p>
             )}
           </div>
           <div className="bg-[var(--card-border)]/30 rounded-xl p-4">
             <p className="text-xs text-[var(--muted)] mb-1">{t('home.summaryYear')}</p>
-            <p className="text-2xl font-extrabold text-purple-600">{yearlyTotal.toFixed(0)}<span className="text-sm ml-1">km</span></p>
+            <p className="text-2xl font-extrabold text-purple-600">{toDisplayDistance(yearlyTotal, unit).toFixed(0)}<span className="text-sm ml-1">{unitLabel(unit)}</span></p>
             {yearlyPrevTotal > 0 && (
               <p className={`text-xs mt-1 ${yearlyTotal >= yearlyPrevTotal ? 'text-emerald-600' : 'text-rose-500'}`}>
-                {t('home.yoyLast').replace('{sign}', yearlyTotal >= yearlyPrevTotal ? '+' : '').replace('{km}', (yearlyTotal - yearlyPrevTotal).toFixed(0))}
+                {t('home.yoyLast').replace('{sign}', yearlyTotal >= yearlyPrevTotal ? '+' : '').replace('{km}km', `${toDisplayDistance(yearlyTotal - yearlyPrevTotal, unit).toFixed(0)}${unitLabel(unit)}`)}
               </p>
             )}
           </div>
           <div className="bg-[var(--card-border)]/30 rounded-xl p-4">
             <p className="text-xs text-[var(--muted)] mb-1">{t('home.summaryAllTime')}</p>
-            <p className="text-2xl font-extrabold text-orange-600">{totalKm.toFixed(0)}<span className="text-sm ml-1">km</span></p>
+            <p className="text-2xl font-extrabold text-orange-600">{toDisplayDistance(totalKm, unit).toFixed(0)}<span className="text-sm ml-1">{unitLabel(unit)}</span></p>
             <p className="text-xs text-[var(--muted)] mt-1">{t('home.summaryRuns').replace('{n}', String(totalRuns))}</p>
           </div>
         </div>
@@ -1391,7 +1396,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-[var(--foreground)]">
-                    {a.distance_km.toFixed(2)} km
+                    {toDisplayDistance(a.distance_km, unit).toFixed(2)} {unitLabel(unit)}
                     {a.duration_seconds && (
                       <span className="text-[var(--muted)] font-normal ml-2 text-sm">
                         {formatDuration(a.duration_seconds)}
@@ -1404,7 +1409,7 @@ export default function DashboardPage() {
                       const [ay, am, ad] = a.activity_date.split('-').map(Number);
                       return new Date(ay, am - 1, ad).toLocaleDateString(locale === 'en' ? 'en-US' : 'ko-KR', { month: 'short', day: 'numeric', weekday: 'short' });
                     })()}
-                    {a.pace_avg_sec_per_km ? ` · ${formatPace(a.pace_avg_sec_per_km)}/km` : ''}
+                    {a.pace_avg_sec_per_km ? ` · ${formatPaceForUnit(a.pace_avg_sec_per_km, unit)}${paceUnitLabel(unit)}` : ''}
                   </p>
                 </div>
                 <ChevronRight size={14} className="text-[var(--muted)]" />

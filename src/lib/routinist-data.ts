@@ -187,11 +187,20 @@ export async function setMonthlyGoal(userId: string, year: number, month: number
 
 // ===== 통계 유틸 =====
 
+// build 291: 거리 지표 (오늘/이달/주간 도전/목표) 는 러닝만 집계.
+// 걷기 opt-in 유저의 산책 km 를 도전·목표에서 제외 (사용자 신고 — 홈 '이번 주 도전' 걷기 포함).
+// activity_type='walking' 만 제외. NULL 은 러닝으로 간주 — 구버전 (≤1.2.5) 앱이 무표기로 넣은
+// 걷기는 서버에서 식별 불가한 한계 (v1.2.6 보급 전까지 잔존).
+// 달력·기록 목록은 걷기도 계속 표시 (필터는 거리 지표 전용).
+export function runningOnly(activities: Activity[]): Activity[] {
+  return activities.filter(a => a.activity_type !== 'walking');
+}
+
 export function getMonthlyDistance(activities: Activity[], year: number, month: number): number {
   // activity_date 는 'YYYY-MM-DD' 로컬 날짜 문자열 — new Date() UTC 파싱 후 로컬 getter 를 쓰면
   // UTC 서쪽 timezone 에서 하루 밀림. 문자열 prefix 비교가 정확.
   const ym = `${year}-${String(month).padStart(2, '0')}`;
-  return activities
+  return runningOnly(activities)
     .filter(a => a.activity_date.slice(0, 7) === ym)
     .reduce((sum, a) => sum + a.distance_km, 0);
 }
@@ -199,8 +208,9 @@ export function getMonthlyDistance(activities: Activity[], year: number, month: 
 export function getWeeklyActivities(activities: Activity[]): Activity[] {
   // 주 시작 = 월요일 (KST). 일요일이 한 주의 마지막 날. activity_date 는 'YYYY-MM-DD' 문자열 (KST)
   // 이라 string 비교가 정확. startOfWeekStr 은 사용자 timezone 의 그 주 월요일을 반환.
+  // build 291: 주간 도전 은 러닝만
   const monday = startOfWeekStr();
-  return activities.filter(a => a.activity_date >= monday);
+  return runningOnly(activities).filter(a => a.activity_date >= monday);
 }
 
 export function getMaxStreak(activities: Activity[]): number {

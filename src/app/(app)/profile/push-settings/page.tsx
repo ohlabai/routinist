@@ -5,7 +5,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Bell, Trophy, Users, Award, MessageSquare, TrendingUp, Megaphone, Flag, Save, Heart, UserPlus } from 'lucide-react';
+import { ArrowLeft, Bell, Trophy, Users, Award, MessageSquare, TrendingUp, Megaphone, Flag, Save, Heart, UserPlus, Globe, AlarmClock, CalendarDays } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import AppToast from '@/components/AppToast';
@@ -13,8 +13,15 @@ import { useI18n } from '@/lib/i18n';
 
 // build 268: build 261/264/266 의 user_notifications push 카테고리 추가.
 // social_cheer / social_comment / social_follow / social_friend 4종.
-type CategoryKey = 'chat_message' | 'mileage_gift' | 'feedback_reply' | 'likes' | 'friend_overtake' | 'milestone' | 'contest' | 'club_course' | 'weekly_recap' | 'marketing'
-  | 'social_cheer' | 'social_comment' | 'social_follow' | 'social_friend' | 'social_rival';
+// build 291 (P2 #23): producer 없는 죽은 토글 제거 (milestone / weekly_recap — push_send_log 에
+// 이 카테고리로 INSERT 하는 곳이 repo 어디에도 없음) + 실제 producer 가 있는데 끌 수 없던
+// 카테고리 추가 (friend_pb / course_progress / course_complete / world_chase / idle_reminder /
+// month_end_recap). club_course 는 producer 가 'club_course_start'/'club_course_complete' 로
+// 분리 체크해서 (enqueue_club_course_pushes: 'club_course_' || p_event) 죽은 키 → 2개로 교체.
+type CategoryKey = 'chat_message' | 'mileage_gift' | 'feedback_reply' | 'likes' | 'friend_overtake' | 'contest' | 'marketing'
+  | 'social_cheer' | 'social_comment' | 'social_follow' | 'social_friend' | 'social_rival'
+  | 'friend_pb' | 'course_progress' | 'course_complete' | 'club_course_start' | 'club_course_complete'
+  | 'world_chase' | 'idle_reminder' | 'month_end_recap';
 
 // build 175 #5: 핵심 알림 4종을 상단에 노출 — 채팅·선물·답글·좋아요. 기본 ON.
 // 친선런(contest) 은 메뉴 숨김 (build 144) 과 동일하게 알림 설정에서도 표시 안 함.
@@ -33,9 +40,14 @@ function getCategories(tt: (ko: string) => string, locale: 'ko' | 'en'): Categor
     { key: 'feedback_reply', label: tt('운영자 답글'), description: tt('내 제안에 운영자가 답글을 달았을 때'), Icon: MessageSquare },
     { key: 'likes', label: tt('좋아요'), description: locale === 'en' ? 'When someone likes your photo or note' : '내 사진·한 줄에 좋아요가 도착했을 때', Icon: Heart },
     { key: 'friend_overtake', label: locale === 'en' ? 'Friend overtake' : '친구 추월', description: locale === 'en' ? 'When a friend passes your km, or you pass theirs' : '친구가 내 km 를 추월하거나 내가 추월했을 때', Icon: Users },
-    { key: 'milestone', label: locale === 'en' ? 'My records' : '나의 기록', description: locale === 'en' ? 'Reaching #1, longest distance, etc.' : '1위 등극, 최장 거리 갱신 등', Icon: TrendingUp },
-    { key: 'club_course', label: locale === 'en' ? 'Club marathon' : '클럽 마라톤', description: locale === 'en' ? 'Club course start and finish alerts' : '클럽 코스 시작·완주 알림', Icon: Flag },
-    { key: 'weekly_recap', label: locale === 'en' ? 'Weekly recap' : '주간 회고', description: locale === 'en' ? 'Weekly running summary' : '매주 내 러닝 요약', Icon: Award },
+    { key: 'friend_pb', label: tt('친구 신기록'), description: locale === 'en' ? 'When a friend sets a new personal best' : '친구가 개인 최고 기록을 세웠을 때', Icon: Trophy },
+    { key: 'course_progress', label: tt('월드런 진행'), description: locale === 'en' ? 'Halfway and 90% milestones on your world run course' : '진행 중인 월드런 코스 절반·90% 도달 소식', Icon: TrendingUp },
+    { key: 'course_complete', label: tt('월드런 완주'), description: locale === 'en' ? 'When you finish a world run course' : '월드런 코스를 완주했을 때', Icon: Flag },
+    { key: 'world_chase', label: tt('월드런 추격'), description: locale === 'en' ? 'When a friend is closing in on you on a course' : '같은 코스에서 친구가 바짝 따라붙었을 때', Icon: Globe },
+    { key: 'club_course_start', label: tt('클럽 마라톤 시작'), description: locale === 'en' ? 'When your club starts a new course together' : '우리 클럽이 새 코스를 함께 시작했을 때', Icon: Flag },
+    { key: 'club_course_complete', label: tt('클럽 마라톤 완주'), description: locale === 'en' ? 'When your club finishes a course together' : '우리 클럽이 코스를 함께 완주했을 때', Icon: Award },
+    { key: 'idle_reminder', label: tt('러닝 리마인더'), description: locale === 'en' ? 'A gentle nudge when you have been away for a while' : '한동안 달리지 않았을 때 살짝 보내는 안부', Icon: AlarmClock },
+    { key: 'month_end_recap', label: tt('월말 결산'), description: locale === 'en' ? 'Your monthly running recap at month-end' : '월말에 받아보는 이달의 내 러닝 요약', Icon: CalendarDays },
     { key: 'marketing', label: locale === 'en' ? 'Events & marketing' : '이벤트·마케팅', description: locale === 'en' ? 'New features, shop discounts, etc. (default OFF)' : '신기능, 쇼핑 할인 등 (기본 OFF)', Icon: Megaphone },
   ];
 }
@@ -46,10 +58,7 @@ const DEFAULTS: Record<CategoryKey, boolean> = {
   feedback_reply: true,
   likes: true,
   friend_overtake: true,
-  milestone: true,
   contest: true,
-  club_course: true,
-  weekly_recap: true,
   marketing: false,
   // build 268: 신규 4종 — 기본 ON. should_send_push 는 default TRUE 라 일관성 맞춤.
   social_cheer: true,
@@ -57,6 +66,15 @@ const DEFAULTS: Record<CategoryKey, boolean> = {
   social_follow: true,
   social_friend: true,
   social_rival: true,
+  // build 291: producer 존재하는데 토글이 없던 카테고리 — 기본 ON (should_send_push 기본 TRUE 와 일치).
+  friend_pb: true,
+  course_progress: true,
+  course_complete: true,
+  club_course_start: true,
+  club_course_complete: true,
+  world_chase: true,
+  idle_reminder: true,
+  month_end_recap: true,
 };
 
 export default function PushSettingsPage() {
@@ -91,6 +109,11 @@ export default function PushSettingsPage() {
       (Object.keys(DEFAULTS) as CategoryKey[]).forEach(k => {
         if (k in stored) merged[k] = stored[k];
       });
+      // build 291: 옛 'club_course' 단일 키를 끈 사용자 → 새 분리 키에 승계 (저장 시 새 키로 기록됨).
+      if ('club_course' in stored) {
+        if (!('club_course_start' in stored)) merged.club_course_start = stored.club_course;
+        if (!('club_course_complete' in stored)) merged.club_course_complete = stored.club_course;
+      }
       setSettings(merged);
     } catch (e) {
       console.warn('[push-settings] load', e);

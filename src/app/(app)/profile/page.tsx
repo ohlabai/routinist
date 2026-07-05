@@ -21,6 +21,7 @@ import { useI18n, SUPPORTED_LOCALES } from '@/lib/i18n';
 import { getSupabase } from '@/lib/supabase';
 import AppToast from '@/components/AppToast';
 import { logClientWarn } from '@/lib/error-logger';
+import UnitToggle from '@/components/profile/UnitToggle';
 
 function formatPace(sec: number) {
   const m = Math.floor(sec / 60);
@@ -236,6 +237,9 @@ export default function ProfilePage() {
   const settings: { href: string; label: string; Icon: typeof HelpCircle }[] = [
     { href: '/feedback', label: t('profile.menuFeedback'), Icon: HelpCircle },
     { href: '/profile/push-settings', label: t('profile.menuPushSettings'), Icon: HelpCircle },
+    // build 291: 차단 관리 (Apple 1.2 — 차단 해제 경로 제공)
+    { href: '/profile/blocked', label: tt('차단한 사용자'), Icon: Shield },
+    // build 291: 거리 단위 km/mi — UnitToggle 카드는 아래 별도 렌더 (액션 아님)
     { href: '/shop/orders', label: t('profile.menuOrders'), Icon: HelpCircle },
     { href: '/shop/addresses', label: t('profile.menuAddresses'), Icon: HelpCircle },
     // build 205 #15: 셀러 신청 / 셀러 콘솔. 승인 여부 모름 → /seller/products 로 보내고 그 안에서 분기.
@@ -507,6 +511,11 @@ export default function ProfilePage() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* build 291: 거리 단위 km/mi */}
+        <div className="px-4 py-4 border-t border-[var(--card-border)]">
+          <UnitToggle />
         </div>
 
         {/* 화면 모드 */}

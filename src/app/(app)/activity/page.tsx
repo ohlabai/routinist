@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
-import { formatPace, formatDuration, fetchActivityRoute, fetchActivityById } from '@/lib/routinist-data';
+import { formatDuration, fetchActivityRoute, fetchActivityById } from '@/lib/routinist-data';
+import { useDistanceUnit, toDisplayDistance, unitLabel, paceUnitLabel, formatPaceForUnit } from '@/lib/units';
 import type { Activity } from '@/types';
 import CommentSection from '@/components/social/CommentSection';
 import CheerButton from '@/components/social/CheerButton';
@@ -23,6 +24,7 @@ function ActivityDetail() {
   const { user, profile } = useAuth();
   const { activities, refresh } = useUserData();
   const { t, locale } = useI18n();
+  const unit = useDistanceUnit(); // build 290: 표시 단위 (km/mi) — 저장·계산은 km 그대로
   const id = searchParams.get('id');
   const newPbRaw = searchParams.get('new_pb');
   const newPbDistances = useMemo<number[]>(() => {
@@ -125,7 +127,7 @@ function ActivityDetail() {
       {/* 핵심 통계 */}
       <div className="card p-6">
         <p className="text-4xl font-extrabold text-[var(--accent)] text-center mb-4">
-          {activity.distance_km.toFixed(2)} <span className="text-lg">km</span>
+          {toDisplayDistance(activity.distance_km, unit).toFixed(2)} <span className="text-lg">{unitLabel(unit)}</span>
         </p>
         <div className="grid grid-cols-3 gap-4 text-center">
           <div>
@@ -136,9 +138,10 @@ function ActivityDetail() {
           </div>
           <div>
             <p className="text-2xl font-extrabold text-[var(--foreground)]">
-              {activity.pace_avg_sec_per_km ? formatPace(activity.pace_avg_sec_per_km) : '-'}
+              {activity.pace_avg_sec_per_km ? formatPaceForUnit(activity.pace_avg_sec_per_km, unit) : '-'}
             </p>
-            <p className="text-xs text-[var(--muted)]">{t('activity.pacePerKm')}</p>
+            {/* i18n.ts 수정 금지 표면이라 기존 "페이스/km" 라벨의 단위 부분만 치환 */}
+            <p className="text-xs text-[var(--muted)]">{t('activity.pacePerKm').replace('/km', paceUnitLabel(unit))}</p>
           </div>
           <div>
             <p className="text-2xl font-extrabold text-[var(--foreground)]">

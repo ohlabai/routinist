@@ -3,7 +3,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
-import { getMonthlyDistance, formatPace, formatDuration } from '@/lib/routinist-data';
+import { getMonthlyDistance, formatDuration } from '@/lib/routinist-data';
+import { useDistanceUnit, toDisplayDistance, unitLabel, paceUnitLabel, formatPaceForUnit } from '@/lib/units';
 import { getMyClubs } from '@/lib/social-data';
 import {
   fetchClubMemberProgress,
@@ -25,6 +26,7 @@ import { useI18n } from '@/lib/i18n';
 export default function HistoryPage() {
   const { user } = useAuth();
   const { tt, locale } = useI18n();
+  const unit = useDistanceUnit(); // build 290: 표시 단위 — 클럽 랭킹/목표 바는 km 유지 (서버 정합)
   const { activities, loading } = useUserData();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
@@ -150,7 +152,7 @@ export default function HistoryPage() {
           <div className="absolute top-2 right-3 text-[var(--accent)] opacity-30"><TrendingUp size={24} /></div>
           <p className="text-xs text-[var(--muted)] mb-1">{effectiveSummary ? tt('클럽 총 거리') : tt('이달 거리')}</p>
           <p className="text-3xl font-extrabold text-[var(--accent)] italic">
-            {effectiveSummary ? effectiveSummary.totalDistance.toFixed(0) : monthlyDistance.toFixed(1)}<span className="text-base font-bold not-italic ml-1">km</span>
+            {effectiveSummary ? toDisplayDistance(effectiveSummary.totalDistance, unit).toFixed(0) : toDisplayDistance(monthlyDistance, unit).toFixed(1)}<span className="text-base font-bold not-italic ml-1">{unitLabel(unit)}</span>
           </p>
           <p className="text-xs text-[var(--muted)] mt-1">
             {effectiveSummary
@@ -162,7 +164,7 @@ export default function HistoryPage() {
           <div className="absolute top-2 right-3 text-green-500 opacity-30"><Activity size={24} /></div>
           <p className="text-xs text-[var(--muted)] mb-1">{effectiveSummary ? tt('인당 평균') : tt('이달 러닝')}</p>
           <p className="text-3xl font-extrabold text-green-600 italic">
-            {effectiveSummary ? effectiveSummary.avgDistance.toFixed(1) : monthlyActivities.length}<span className="text-base font-bold not-italic ml-1">{effectiveSummary ? 'km' : tt('회')}</span>
+            {effectiveSummary ? toDisplayDistance(effectiveSummary.avgDistance, unit).toFixed(1) : monthlyActivities.length}<span className="text-base font-bold not-italic ml-1">{effectiveSummary ? unitLabel(unit) : tt('회')}</span>
           </p>
           <p className="text-xs text-[var(--muted)] mt-1">
             {effectiveSummary ? tt('활동 멤버 기준') : (locale === 'en' ? `${monthName} activity` : `${month}월 활동`)}
@@ -409,8 +411,8 @@ export default function HistoryPage() {
         </h3>
         <div className="grid grid-cols-3 gap-4 text-center mb-4">
           <div>
-            <p className="text-2xl font-bold text-[var(--accent)]">{monthlyDistance.toFixed(1)}</p>
-            <p className="text-xs text-[var(--muted)]">km</p>
+            <p className="text-2xl font-bold text-[var(--accent)]">{toDisplayDistance(monthlyDistance, unit).toFixed(1)}</p>
+            <p className="text-xs text-[var(--muted)]">{unitLabel(unit)}</p>
           </div>
           <div>
             <p className="text-2xl font-bold text-[var(--foreground)]">{monthlyActivities.length}</p>
@@ -440,11 +442,11 @@ export default function HistoryPage() {
                   <Zap size={16} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-[var(--foreground)]">{a.distance_km.toFixed(2)} km</p>
+                  <p className="text-sm font-semibold text-[var(--foreground)]">{toDisplayDistance(a.distance_km, unit).toFixed(2)} {unitLabel(unit)}</p>
                   <p className="text-xs text-[var(--muted)]">
                     {new Date(a.activity_date).toLocaleDateString(locale === 'en' ? 'en-US' : 'ko-KR', { month: 'short', day: 'numeric', weekday: 'short' })}
                     {a.duration_seconds && ` · ${formatDuration(a.duration_seconds)}`}
-                    {a.pace_avg_sec_per_km && ` · ${formatPace(a.pace_avg_sec_per_km)}/km`}
+                    {a.pace_avg_sec_per_km && ` · ${formatPaceForUnit(a.pace_avg_sec_per_km, unit)}${paceUnitLabel(unit)}`}
                   </p>
                 </div>
                 <ChevronRight size={14} className="text-[var(--muted)]" />

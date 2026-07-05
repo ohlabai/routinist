@@ -103,7 +103,8 @@ function ClubDetail() {
   const [evDesc, setEvDesc] = useState('');
   const [evDate, setEvDate] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() + 3); d.setHours(19, 0, 0, 0);
-    return d.toISOString().slice(0, 16);
+    // toISOString 은 UTC — KST 유저에게 9시간 어긋난 기본값이 됨. 로컬 시각 기준으로 변환.
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
   });
   const [evLocation, setEvLocation] = useState('');
   const [evMax, setEvMax] = useState('');

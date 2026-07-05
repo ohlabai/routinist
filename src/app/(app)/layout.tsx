@@ -8,7 +8,8 @@ import Link from 'next/link';
 import { Home, Trophy, User, ShoppingBag, Users } from 'lucide-react';
 import { syncHealthData, isNativeApp } from '@/lib/health-sync';
 import AppLogo from '@/components/AppLogo';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, getCurrentLocale } from '@/lib/i18n';
+import { getSupabase } from '@/lib/supabase';
 import AnalyticsAutoTracker from '@/components/AnalyticsAutoTracker';
 import { fetchUnreadNotificationSummary, markNotificationsRead, SOCIAL_KINDS } from '@/lib/notifications-data';
 import { setAppBadge } from '@/lib/app-badge';
@@ -140,6 +141,28 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     void setAppBadge(messageUnread); // 앱 아이콘 배지에서 social 분 제거 (쪽지만 남김)
     void markNotificationsRead(SOCIAL_KINDS);
   }, [user, normalizedPath, messageUnread]);
+
+  // build 291: locale/timezone 을 profiles 에 동기화 — push 다국어·로컬 저녁 발송용.
+  // 세션당 1회, 값이 바뀌었을 때만 UPDATE (fire-and-forget).
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const locale = getCurrentLocale();
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+      const snapshot = `${locale}|${timezone}`;
+      const key = `profile_locale_tz:${user.id}`;
+      if (window.localStorage.getItem(key) === snapshot) return;
+      void getSupabase()
+        .from('profiles')
+        .update({ locale, timezone })
+        .eq('id', user.id)
+        .then(({ error }) => {
+          if (!error) window.localStorage.setItem(key, snapshot);
+        });
+    } catch {
+      // Intl/localStorage 불가 환경 — 무시 (push 는 KST/ko 기본값으로 동작)
+    }
+  }, [user]);
 
   // 신문 모델 (build 57): 자동 sync 제거.
   // 첫 로그인 직후 1회만 환영 sync (localStorage flag), 이후엔 사용자가 직접 동기화 버튼을 눌러야 sync.

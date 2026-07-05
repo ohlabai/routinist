@@ -140,13 +140,40 @@ export async function POST(req: NextRequest) {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  // pending log 100건 가져옴
-  const { data: logs, error: logErr } = await supabase
+  // build 291: claim 방식으로 전환 — 이전엔 pending 을 SELECT 만 하고 발송해서,
+  // APNs 지연으로 배치가 다음 cron (1분) 을 넘기거나 수동 GET 과 겹치면 같은 100건이
+  // 두 invocation 에서 중복 발송됐다. UPDATE ... RETURNING 원자 선점으로 차단.
+  // send_after (build 291, 사용자 로컬 저녁 창) 가 미래인 행은 아직 안 집는다.
+  const nowIso = new Date().toISOString();
+
+  // 죽은 배치 회수 — 이전 invocation 이 claim 후 크래시하면 'sending' 에 갇힘.
+  // 정상 배치는 60초 내 끝나므로 10분 초과분만 pending 으로 복귀.
+  const staleIso = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  await supabase
     .from('push_send_log')
-    .select('id, user_id, device_token_id, category, title, body, payload, status')
+    .update({ status: 'pending', claimed_at: null })
+    .eq('status', 'sending')
+    .lt('claimed_at', staleIso);
+
+  const { data: claimable, error: claimSelErr } = await supabase
+    .from('push_send_log')
+    .select('id')
     .eq('status', 'pending')
+    .or(`send_after.is.null,send_after.lte.${nowIso}`)
     .order('created_at', { ascending: true })
     .limit(100);
+  if (claimSelErr) {
+    return NextResponse.json({ error: claimSelErr.message }, { status: 500 });
+  }
+  if (!claimable || claimable.length === 0) {
+    return NextResponse.json({ ok: true, sent: 0, skipped: 0, failed: 0 });
+  }
+  const { data: logs, error: logErr } = await supabase
+    .from('push_send_log')
+    .update({ status: 'sending', claimed_at: nowIso })
+    .in('id', claimable.map(c => c.id))
+    .eq('status', 'pending') // 동시 invocation 이 먼저 집어간 행은 제외 (원자성)
+    .select('id, user_id, device_token_id, category, title, body, payload, status');
   if (logErr) {
     return NextResponse.json({ error: logErr.message }, { status: 500 });
   }

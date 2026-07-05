@@ -13,6 +13,7 @@ import { getSupabase } from '@/lib/supabase';
 import { track } from '@/lib/analytics';
 import { fetchActivityRoute } from '@/lib/routinist-data';
 import { createUserQuote } from '@/lib/user-quotes';
+import { getDistanceUnit, toDisplayDistance, unitLabel, formatPaceForUnit } from '@/lib/units';
 import AppToast from '@/components/AppToast';
 import type { Activity } from '@/types';
 
@@ -129,6 +130,8 @@ function drawCard(
   // 일간 카드: 오늘 막대 / 가로 누적바가 0 → 목표 까지 차오른 후 bounce → 원래 색.
   // PeriodShareCard (주간/월간) 는 별도 캔버스라 영향 없음.
   const barProgress = routeProgress;
+  // build 290: 표시 단위 (km/mi). kmDisplay/goal 등 입력은 전부 km — 그리기 직전에만 변환.
+  const distUnit = getDistanceUnit();
   // easeOutCubic + elastic bounce (period-share-canvas.ts 와 동일 공식)
   const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
   const easeOutElastic = (t: number) => {
@@ -404,8 +407,8 @@ function drawCard(
         ctx.textAlign = 'center';
         ctx.textBaseline = 'alphabetic';
         const text = getCurrentLocale() === 'en'
-          ? `🌍 +${otherCount} more region${otherCount === 1 ? '' : 's'} · ${otherKm.toFixed(1)}km`
-          : `🌍 +${otherCount}개 지역 ${otherKm.toFixed(1)}km 더`;
+          ? `🌍 +${otherCount} more region${otherCount === 1 ? '' : 's'} · ${toDisplayDistance(otherKm, distUnit).toFixed(1)}${unitLabel(distUnit)}`
+          : `🌍 +${otherCount}개 지역 ${toDisplayDistance(otherKm, distUnit).toFixed(1)}${unitLabel(distUnit)} 더`;
         ctx.fillText(text, W / 2, mapY + mapH + 28);
       }
 
@@ -724,12 +727,12 @@ function drawCard(
   const kmFont = 'bold 180px -apple-system, BlinkMacSystemFont, sans-serif';
   ctx.font = kmFont;
   ctx.fillStyle = mainColor;
-  const kmValue = typeof kmDisplay === 'number' ? kmDisplay : activity.distance_km;
+  const kmValue = toDisplayDistance(typeof kmDisplay === 'number' ? kmDisplay : activity.distance_km, distUnit);
   const kmText = kmValue.toFixed(2);
   const dotIdx = kmText.indexOf('.');
   const intPart = dotIdx >= 0 ? kmText.slice(0, dotIdx) : kmText;
   const fracPart = dotIdx >= 0 ? kmText.slice(dotIdx) : '';
-  const finalKmText = activity.distance_km.toFixed(2);
+  const finalKmText = toDisplayDistance(activity.distance_km, distUnit).toFixed(2);
   const finalDotIdx = finalKmText.indexOf('.');
   const finalIntPart = finalDotIdx >= 0 ? finalKmText.slice(0, finalDotIdx) : finalKmText;
   const finalTotalWidth = ctx.measureText(finalKmText).width;
@@ -743,7 +746,7 @@ function drawCard(
 
   ctx.font = 'bold 56px -apple-system, BlinkMacSystemFont, sans-serif';
   ctx.fillStyle = accentColor;
-  ctx.fillText('KILOMETERS', W / 2, distY + 60);
+  ctx.fillText(distUnit === 'mi' ? 'MILES' : 'KILOMETERS', W / 2, distY + 60);
 
   // 구분선
   const lineY = distY + 110;
@@ -762,11 +765,11 @@ function drawCard(
     : `${activityMonth + 1}월`;
   const stats = [
     { label: ttl('시간'), value: activity.duration_seconds ? formatDur(activity.duration_seconds) : '--' },
-    { label: ttl('페이스'), value: activity.pace_avg_sec_per_km ? formatPc(activity.pace_avg_sec_per_km) : '--' },
+    { label: ttl('페이스'), value: activity.pace_avg_sec_per_km ? formatPaceForUnit(activity.pace_avg_sec_per_km, distUnit) : '--' },
     { label: ttl('칼로리'), value: activity.calories ? `${activity.calories}` : '--' },
     {
       label: monthSum > 0 ? monthStatLabel : ttl('월 누적'),
-      value: monthSum > 0 ? `${monthSum.toFixed(1)}km` : '--',
+      value: monthSum > 0 ? `${toDisplayDistance(monthSum, distUnit).toFixed(1)}${unitLabel(distUnit)}` : '--',
     },
   ];
 
