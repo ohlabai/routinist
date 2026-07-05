@@ -2434,6 +2434,39 @@ const EXTRAS_EN: Record<string, string> = {
   '복사했어요!': 'Copied!',
   // ---- components/home/HomeOnboardingCard.tsx (InlineInviteCodeForm) ----
   '코드 등록하기': 'Register code',
+  // EXTRAS_EN 머지용 조각 — 습관 형성 UI (주간 횟수 목표 + 스트릭 보호권 + 배지 축하).
+  // src/lib/i18n.ts 의 EXTRAS_EN 객체에 그대로 붙여넣기.
+  // 기존 키와 dedup 완료: '닫기' 는 이미 있음 (추가 불필요). 아래 키는 전부 신규.
+  // tt()/ttl() 은 키 없으면 ko fallback 이라 머지 전에도 안전.
+  // ---- goals/page.tsx (주간 러닝 횟수 목표) ----
+  '주간 러닝 횟수': 'Runs per week',
+  '거리보다 꾸준함! 일주일에 몇 번 달릴지 정해보세요': 'Consistency beats distance! Pick how many runs a week',
+  '추천': 'Best',
+  '주간 횟수 목표를 해제했어요': 'Weekly run goal cleared',
+  '저장하지 못했어요. 잠시 후 다시 시도해주세요': "Couldn't save — please try again in a moment",
+  '처음이라면 주 3회부터 — 습관이 되는 가장 부담 없는 횟수예요': 'New to running? Start with 3 a week — the easiest way to build the habit',
+  // ---- home/HomeChallengeCard.tsx (요일 도트 줄) ----
+  '주 몇 번 달릴까요? 횟수 목표 정하기': 'How many runs a week? Set a goal',
+  // ---- home/StreakWarningCard.tsx (스트릭 보호권) ----
+  '보호권 쓰기': 'Use freeze',
+  '사용 중...': 'Using...',
+  '어제는 이미 지켜져 있어요': 'Yesterday is already covered',
+  '남은 보호권이 없어요': 'No streak freezes left',
+  '지금은 보호권을 쓸 수 없어요. 잠시 후 다시 시도해주세요': "Can't use a freeze right now — please try again shortly",
+  // ---- home/BadgeCelebration.tsx (배지 획득 축하 모달) ----
+  '새 배지 획득!': 'New badge unlocked!',
+  '내 배지 자랑하러 가기': 'Show off my badges',
+  // ---- lib/achievements-data.ts (신규 배지 5종 이름/설명 — AchievementsCard 가 tt() 로 렌더) ----
+  '첫 주 3회': 'First 3-run week',
+  '한 주에 3번 달리기 달성': 'Ran 3 times in a single week',
+  '첫 5K': 'First 5K',
+  '한 번에 5km 달리기': 'Ran 5km in one go',
+  '3일 연속': '3-day streak',
+  '3일 연속 달리기': 'Ran 3 days in a row',
+  '첫 인증샷': 'First photo',
+  '첫 러닝 사진 올리기': 'Uploaded your first running photo',
+  '첫 응원': 'First cheer',
+  '친구에게 첫 응원 보내기': 'Sent your first cheer to a friend',
 };
 
 export function I18nProvider({ children }: { children: ReactNode }) {

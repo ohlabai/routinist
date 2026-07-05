@@ -213,9 +213,17 @@ export function getWeeklyActivities(activities: Activity[]): Activity[] {
   return runningOnly(activities).filter(a => a.activity_date >= monday);
 }
 
-export function getMaxStreak(activities: Activity[]): number {
+// 스트릭 보호권 (습관 형성): freezeDates 는 보호권으로 지킨 날 ('YYYY-MM-DD' Set) — 달린 날로 간주.
+// optional 파라미터라 기존 호출부 (미전달) 는 동작 완전 동일 (하위호환 필수 — 호출부 많음).
+function mergeRunDates(activities: Activity[], freezeDates?: Set<string>): string[] {
+  const set = new Set(activities.map(a => a.activity_date));
+  if (freezeDates) freezeDates.forEach(d => set.add(d));
+  return [...set];
+}
+
+export function getMaxStreak(activities: Activity[], freezeDates?: Set<string>): number {
   if (activities.length === 0) return 0;
-  const dates = [...new Set(activities.map(a => a.activity_date))].sort();
+  const dates = mergeRunDates(activities, freezeDates).sort();
   let maxStreak = 1;
   let currentStreak = 1;
   for (let i = 1; i < dates.length; i++) {
@@ -232,10 +240,10 @@ export function getMaxStreak(activities: Activity[]): number {
   return maxStreak;
 }
 
-export function getStreak(activities: Activity[]): number {
+export function getStreak(activities: Activity[], freezeDates?: Set<string>): number {
   if (activities.length === 0) return 0;
 
-  const dates = [...new Set(activities.map(a => a.activity_date))].sort().reverse();
+  const dates = mergeRunDates(activities, freezeDates).sort().reverse();
   const today = todayStr();
   const yesterday = daysAgoStr(1);
 

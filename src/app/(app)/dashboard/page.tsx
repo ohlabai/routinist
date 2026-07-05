@@ -55,6 +55,7 @@ import PullDownOnboardingHint from '@/components/home/PullDownOnboardingHint';
 import MonthEndRecapCard from '@/components/home/MonthEndRecapCard';
 import RunOfTheDayCard from '@/components/home/RunOfTheDayCard';
 import MonthlyRivalCard from '@/components/home/MonthlyRivalCard';
+import BadgeCelebration from '@/components/home/BadgeCelebration';
 import HomeFriendStories from '@/components/home/HomeFriendStories';
 import FreshnessBadge from '@/components/FreshnessBadge';
 import AppToast from '@/components/AppToast';
@@ -238,11 +239,33 @@ export default function DashboardPage() {
 
   useEffect(() => { loadDetail(); }, [loadDetail]);
 
-  // Achievement 자동 체크 (build 129) — dashboard 진입 시 1회
+  // Achievement 자동 체크 (build 129) — dashboard 진입 시 1회.
+  // 습관 형성: 반환값의 newly_awarded===true (SQL fix 후 진짜 신규만) 배지는 축하 모달 큐로.
+  // localStorage `badge_celebrated:{code}` 로 기기당 1회만 — 모달 남발 방지.
+  const [badgeQueue, setBadgeQueue] = useState<string[]>([]);
   useEffect(() => {
     if (!user) return;
-    import('@/lib/achievements-data').then(m => m.checkAndAwardAchievements()).catch(() => { /* silent */ });
+    import('@/lib/achievements-data').then(async m => {
+      const results = await m.checkAndAwardAchievements();
+      const fresh = results
+        .filter(r => r.newly_awarded && m.ACHIEVEMENTS[r.code])
+        .map(r => r.code)
+        .filter(code => !localStorage.getItem(`badge_celebrated:${code}`));
+      if (fresh.length > 0) setBadgeQueue(fresh);
+    }).catch(() => { /* silent */ });
   }, [user]);
+
+  // 스트릭 보호권 (습관 형성) — 보유 수 + 최근 60일 사용일.
+  // get_my_streak_freezes 호출이 lazy 충전도 겸함. RPC 미배포/실패 시 빈 Set → 기존 스트릭 동작 그대로.
+  const [freezes, setFreezes] = useState<{ count: number; uses: Set<string> }>({ count: 0, uses: new Set() });
+  const loadFreezes = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { fetchStreakFreezes } = await import('@/lib/streak-freeze');
+      setFreezes(await fetchStreakFreezes());
+    } catch { /* silent — 기본값 유지 */ }
+  }, [user]);
+  useEffect(() => { void loadFreezes(); }, [loadFreezes]);
 
   // build 259: 마일리지 잔액 — 홈 헤더 chip 표시.
   // /profile 의 fetchMileageBalance 와 동일 함수. 사용자가 앱 들어오자마자 잔액 보임 + 적립 동기 강화.
@@ -339,15 +362,16 @@ export default function DashboardPage() {
   const totalKm = Number(profile?.total_distance_km ?? 0);
   const totalRuns = profile?.total_runs ?? 0;
   const streakState = useMemo(() => {
-    const streak = getStreak(activities);
-    const maxStreak = getMaxStreak(activities);
+    // 보호권 사용일은 달린 날로 간주 (freezes.uses 빈 Set 이면 기존과 동일)
+    const streak = getStreak(activities, freezes.uses);
+    const maxStreak = getMaxStreak(activities, freezes.uses);
     return {
       streak,
       maxStreak,
       isRecordBreaking: streak > 0 && streak === maxStreak,
       daysToRecord: streak > 0 && streak < maxStreak ? maxStreak - streak : 0,
     };
-  }, [activities]);
+  }, [activities, freezes.uses]);
   const { streak, maxStreak, isRecordBreaking, daysToRecord } = streakState;
 
   const ytdMonth = new Date().getMonth();
@@ -600,6 +624,17 @@ export default function DashboardPage() {
   return (
     <PullToRefresh onRefresh={handleRefresh}>
     <CourseCompletionModal />
+    {/* 배지 획득 축하 — newly_awarded 큐 순차 표시. key=code 로 리마운트 (팝 애니메이션 재생) */}
+    {badgeQueue.length > 0 && (
+      <BadgeCelebration
+        key={badgeQueue[0]}
+        code={badgeQueue[0]}
+        onClose={() => {
+          try { localStorage.setItem(`badge_celebrated:${badgeQueue[0]}`, '1'); } catch {}
+          setBadgeQueue(q => q.slice(1));
+        }}
+      />
+    )}
     <div className="max-w-lg mx-auto pb-8 bg-[var(--background)] min-h-screen">
     {/* Sticky Header — build 208 #6-2: 좌 Home 로고/타이틀, 우 컴팩트 START 칩 고정. */}
     <header className="sticky top-0 z-20 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30">
@@ -637,7 +672,13 @@ export default function DashboardPage() {
         {/* 2 주간 리캡 + 3 스트릭 경고 (둘 다 조건부, 자체 padding 없어 wrap) */}
         <div className="mx-4 space-y-3">
           <WeeklyRecapCard activities={activities} />
-          <StreakWarningCard activities={activities} streak={getStreak(activities)} />
+          <StreakWarningCard
+            activities={activities}
+            streak={streak}
+            freezeCount={freezes.count}
+            freezeUses={freezes.uses}
+            onFreezeUsed={loadFreezes}
+          />
         </div>
 
         {/* build 167 #10: 월말 정산 카드 (조건부 — 월말 3일 + 다음달 첫 7일) */}

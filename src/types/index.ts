@@ -105,6 +105,10 @@ export interface Profile {
   max_hr?: number | null;
   resting_hr?: number | null;
   coach_opt_in?: boolean;
+  // 습관 형성: 주간 러닝 횟수 목표 (1~7, null = 미설정) + 스트릭 보호권 보유 수.
+  // SQL 마이그레이션 별도 트랙 — 컬럼 미배포 시 undefined 로 내려와도 안전해야 함.
+  weekly_run_goal?: number | null;
+  streak_freezes?: number;
 }
 
 export interface Activity {

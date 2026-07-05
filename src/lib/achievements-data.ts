@@ -7,7 +7,7 @@ export interface AchievementDef {
   name: string;
   description: string;
   emoji: string;
-  category: 'run' | 'distance' | 'course' | 'series';
+  category: 'run' | 'distance' | 'course' | 'series' | 'social';
 }
 
 export const ACHIEVEMENTS: Record<string, AchievementDef> = {
@@ -23,6 +23,12 @@ export const ACHIEVEMENTS: Record<string, AchievementDef> = {
   courses_3: { code: 'courses_3', name: '3 코스 완주', description: '월드런 챌린지 3개 완주', emoji: '🎖️', category: 'course' },
   courses_10: { code: 'courses_10', name: '10 코스 마스터', description: '월드런 챌린지 10개 완주', emoji: '🌟', category: 'course' },
   six_stars: { code: 'six_stars', name: 'Six Stars', description: 'World Marathon Majors 6개 완주', emoji: '⭐⭐⭐⭐⭐⭐', category: 'series' },
+  // 습관 형성 초반 배지 (SQL 지급 로직 별도 트랙) — 첫 주 안에 "얻는 경험" 을 주는 이지 배지.
+  first_week_3runs: { code: 'first_week_3runs', name: '첫 주 3회', description: '한 주에 3번 달리기 달성', emoji: '📅', category: 'run' },
+  first_5km: { code: 'first_5km', name: '첫 5K', description: '한 번에 5km 달리기', emoji: '🏅', category: 'distance' },
+  streak_3: { code: 'streak_3', name: '3일 연속', description: '3일 연속 달리기', emoji: '🔥', category: 'run' },
+  first_photo: { code: 'first_photo', name: '첫 인증샷', description: '첫 러닝 사진 올리기', emoji: '📸', category: 'social' },
+  first_cheer_sent: { code: 'first_cheer_sent', name: '첫 응원', description: '친구에게 첫 응원 보내기', emoji: '📣', category: 'social' },
 };
 
 export interface UserAchievement {
@@ -38,9 +44,19 @@ export async function fetchUserAchievements(userId: string): Promise<UserAchieve
   return (data ?? []) as UserAchievement[];
 }
 
-export async function checkAndAwardAchievements(): Promise<string[]> {
+export interface AwardCheckResult {
+  code: string;
+  /** 이번 호출에서 처음 지급된 배지만 true (SQL fix 이후 계약). */
+  newly_awarded: boolean;
+}
+
+export async function checkAndAwardAchievements(): Promise<AwardCheckResult[]> {
   const supabase = getSupabase();
   const { data, error } = await supabase.rpc('check_and_award_achievements');
   if (error) throw error;
-  return ((data ?? []) as { code: string }[]).map(r => r.code);
+  // 구버전 RPC (newly_awarded 컬럼 없음) 는 false 처리 → 축하 모달이 잘못 뜨지 않게 보수적으로.
+  return ((data ?? []) as { code: string; newly_awarded?: boolean }[]).map(r => ({
+    code: r.code,
+    newly_awarded: r.newly_awarded === true,
+  }));
 }

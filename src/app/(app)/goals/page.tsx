@@ -6,12 +6,15 @@ import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
 import { useI18n } from '@/lib/i18n';
 import { setMonthlyGoal, getMonthlyDistance } from '@/lib/routinist-data';
+import AppToast from '@/components/AppToast';
 
 const PRESETS = [30, 50, 100, 150, 200];
+// 습관 형성: 주간 러닝 횟수 목표 (주 1~7회). 초보 추천 = 3회 (연구 기반 습관 형성 최소 빈도).
+const WEEKLY_RECOMMENDED = 3;
 
 export default function GoalsPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const { tt, locale } = useI18n();
   const { activities, goals, refresh } = useUserData();
 
@@ -34,6 +37,44 @@ export default function GoalsPage() {
       setGoalKm(String(currentGoal.goal_km));
     }
   }, [currentGoal]);
+
+  // ---- 주간 러닝 횟수 목표 (습관 형성) ----
+  // 칩 탭 = 즉시 저장 (optimistic), 선택된 칩 재탭 = 해제 (미설정 허용).
+  const [weeklyGoal, setWeeklyGoal] = useState<number | null>(null);
+  const [weeklySaving, setWeeklySaving] = useState(false);
+  const [weeklyToast, setWeeklyToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
+  useEffect(() => {
+    setWeeklyGoal(profile?.weekly_run_goal ?? null);
+  }, [profile?.weekly_run_goal]);
+
+  const handleWeeklyGoal = async (n: number) => {
+    if (!user || weeklySaving) return;
+    const prev = weeklyGoal;
+    const next = weeklyGoal === n ? null : n; // 재탭 = 해제
+    setWeeklySaving(true);
+    setWeeklyGoal(next); // optimistic
+    try {
+      const { getSupabase } = await import('@/lib/supabase');
+      const { error } = await getSupabase()
+        .from('profiles')
+        .update({ weekly_run_goal: next, updated_at: new Date().toISOString() })
+        .eq('id', user.id);
+      if (error) throw error;
+      refreshProfile().catch(() => {}); // 홈 도트 줄이 profile 을 읽음 — 실패해도 저장은 완료
+      setWeeklyToast({
+        text: next !== null
+          ? (locale === 'en' ? `Weekly goal set — ${next} runs a week!` : `주 ${next}회 목표 설정 완료!`)
+          : tt('주간 횟수 목표를 해제했어요'),
+        tone: 'ok',
+      });
+    } catch (e) {
+      console.warn('[goals] weekly_run_goal 저장 실패 (컬럼 미배포 가능)', e);
+      setWeeklyGoal(prev); // rollback
+      setWeeklyToast({ text: tt('저장하지 못했어요. 잠시 후 다시 시도해주세요'), tone: 'warn' });
+    } finally {
+      setWeeklySaving(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!user) return;
@@ -126,6 +167,56 @@ export default function GoalsPage() {
           {saved ? tt('저장됨!') : saving ? tt('저장 중...') : tt('목표 저장')}
         </button>
       </div>
+
+      {/* 주간 러닝 횟수 (습관 형성) — 거리 목표와 별개. 탭 즉시 저장, 재탭 해제. */}
+      <div className="card p-5 space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-[var(--foreground)]">{tt('주간 러닝 횟수')}</label>
+          <p className="text-xs text-[var(--muted)] mt-1">
+            {tt('거리보다 꾸준함! 일주일에 몇 번 달릴지 정해보세요')}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-7 gap-1.5">
+          {[1, 2, 3, 4, 5, 6, 7].map(n => (
+            <button
+              key={n}
+              onClick={() => handleWeeklyGoal(n)}
+              disabled={weeklySaving}
+              className={`relative py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-60 ${
+                weeklyGoal === n
+                  ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/30'
+                  : 'bg-[var(--card-border)] text-[var(--foreground)]'
+              }`}
+            >
+              {n}
+              {n === WEEKLY_RECOMMENDED && (
+                <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-px rounded-full bg-amber-400 text-[9px] font-extrabold text-amber-950 whitespace-nowrap">
+                  {tt('추천')}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        <p className="text-xs text-[var(--muted)]">
+          {weeklyGoal !== null
+            ? (locale === 'en'
+                ? `Goal: ${weeklyGoal} run${weeklyGoal === 1 ? '' : 's'} a week — the home card tracks your week day by day. Tap again to clear.`
+                : `주 ${weeklyGoal}회 목표 — 홈 '이번 주 도전' 카드에서 요일별로 채워져요. 다시 누르면 해제돼요`)
+            : tt('처음이라면 주 3회부터 — 습관이 되는 가장 부담 없는 횟수예요')}
+        </p>
+      </div>
+
+      {weeklyToast && (
+        <AppToast
+          text={weeklyToast.text}
+          tone={weeklyToast.tone}
+          position="top"
+          onClose={() => setWeeklyToast(null)}
+          durationMs={2500}
+        />
+      )}
     </div>
   );
 }
