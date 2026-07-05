@@ -36,10 +36,15 @@ export async function POST(req: NextRequest) {
   const tasks: Promise<RpcResult>[] = [
     wrap(supabase.rpc('enqueue_review_reminders') as unknown as PromiseLike<RpcResult>),
     wrap(supabase.rpc('enqueue_low_stock_wishlist') as unknown as PromiseLike<RpcResult>),
-    // build 167 #9: 3일 미접속 이탈 리마인더 (매일)
+    // build 167 #9 → build 293: 3단계 win-back (3d/7d/30d, payload.stage dedup) 로 재작성됨
     wrap(supabase.rpc('enqueue_idle_reminders') as unknown as PromiseLike<RpcResult>),
     // build 167 #11: Run of the Day 매일 1회 자동 선정 (어제 활동 기준)
     wrap(supabase.rpc('pick_run_of_the_day') as unknown as PromiseLike<RpcResult>),
+    // build 293 리텐션 래더 — 전부 매일 호출 (함수 내부가 유저별 로컬 날짜/dedup 판정).
+    // weekly recap 은 유저별 로컬 월요일 판정을 함수가 하므로 라우트에 요일 게이트 금지.
+    wrap(supabase.rpc('enqueue_welcome_pushes') as unknown as PromiseLike<RpcResult>),
+    wrap(supabase.rpc('enqueue_streak_risk_pushes') as unknown as PromiseLike<RpcResult>),
+    wrap(supabase.rpc('enqueue_weekly_recap_pushes') as unknown as PromiseLike<RpcResult>),
   ];
   if (isSunday) {
     tasks.push(wrap(supabase.rpc('enqueue_weekly_best_quote') as unknown as PromiseLike<RpcResult>));
@@ -57,8 +62,11 @@ export async function POST(req: NextRequest) {
     low_stock_pushes: results[1].data ?? 0,
     idle_reminders: results[2].data ?? 0,
     run_of_the_day: results[3].data ?? 0,
-    weekly_best_quotes: isSunday ? (results[4]?.data ?? 0) : null,
-    month_end_recaps: isLastDayOfMonth ? (results[isSunday ? 5 : 4]?.data ?? 0) : null,
+    welcome_d1: results[4].data ?? 0,
+    streak_risk: results[5].data ?? 0,
+    weekly_recaps: results[6].data ?? 0,
+    weekly_best_quotes: isSunday ? (results[7]?.data ?? 0) : null,
+    month_end_recaps: isLastDayOfMonth ? (results[isSunday ? 8 : 7]?.data ?? 0) : null,
     errors: results.map(r => r.error?.message).filter(Boolean),
   });
 }

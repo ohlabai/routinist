@@ -11,7 +11,8 @@ import CommentSection from '@/components/social/CommentSection';
 import CheerButton from '@/components/social/CheerButton';
 import ShareCard from '@/components/activity/ShareCard';
 import BestSplitsCard from '@/components/activity/BestSplitsCard';
-import { Share2 } from 'lucide-react';
+import { Share2, Sparkles } from 'lucide-react';
+import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { Suspense } from 'react';
 import { useI18n } from '@/lib/i18n';
@@ -23,7 +24,11 @@ function ActivityDetail() {
   const router = useRouter();
   const { user, profile } = useAuth();
   const { activities, refresh } = useUserData();
-  const { t, locale } = useI18n();
+  const { t, tt, locale } = useI18n();
+  // build 293: 비로그인 게스트 read-only 모드 — /r/{id} 공유 랜딩 "웹으로 보기" 유입.
+  // RLS 가 visibility=public 활동만 anon 에게 허용 → 조회 자체가 접근 제어.
+  // 게스트에겐 댓글/응원/공유 UI 숨김 + 하단 "Routinist 시작하기" CTA.
+  const isGuest = !user;
   const unit = useDistanceUnit(); // build 290: 표시 단위 (km/mi) — 저장·계산은 km 그대로
   const id = searchParams.get('id');
   const newPbRaw = searchParams.get('new_pb');
@@ -83,6 +88,24 @@ function ActivityDetail() {
         </div>
       );
     }
+    // 게스트: 비공개/삭제된 활동 — RLS 에 걸려 조회 자체가 안 됨. 친근한 안내 + 시작 CTA.
+    if (isGuest) {
+      return (
+        <div className="p-6 max-w-lg mx-auto text-center py-20">
+          <div className="w-16 h-16 rounded-full bg-emerald-50 dark:bg-emerald-950/30 mx-auto mb-3 flex items-center justify-center">
+            <Sparkles size={28} className="text-emerald-500" />
+          </div>
+          <p className="text-base font-extrabold text-[var(--foreground)]">{tt('지금은 볼 수 없는 기록이에요')}</p>
+          <p className="text-sm text-[var(--muted)] mt-1.5">{tt('비공개이거나 삭제된 기록일 수 있어요')}</p>
+          <Link
+            href="/login"
+            className="mt-6 inline-flex items-center justify-center gap-1.5 px-6 py-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-sm font-extrabold shadow-md shadow-emerald-500/25 active:scale-95"
+          >
+            {tt('Routinist 시작하기')}
+          </Link>
+        </div>
+      );
+    }
     return (
       <div className="p-4 max-w-lg mx-auto text-center py-20">
         <p className="text-[var(--muted)]">{t('activity.notFound')}</p>
@@ -109,13 +132,15 @@ function ActivityDetail() {
           </svg>
         </button>
         <h2 className="text-lg font-bold text-[var(--foreground)] flex-1">{t('activity.title')}</h2>
-        <button onClick={() => setShowShare(true)} className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-[var(--card-border)] text-[var(--accent)]">
-          <Share2 size={20} />
-        </button>
+        {!isGuest && (
+          <button onClick={() => setShowShare(true)} className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-[var(--card-border)] text-[var(--accent)]">
+            <Share2 size={20} />
+          </button>
+        )}
       </div>
 
       {/* 공유 카드 모달 */}
-      {showShare && (
+      {showShare && !isGuest && (
         <ShareCard activity={activity} displayName={profile?.display_name ?? t('profile.runner')} onClose={() => setShowShare(false)} />
       )}
 
@@ -219,11 +244,24 @@ function ActivityDetail() {
         </div>
       )}
 
-      {/* 응원 + 댓글 */}
-      <div className="card p-5">
-        <h3 className="text-sm font-semibold text-[var(--foreground)] mb-3">{t('activity.commentsTitle')}</h3>
-        <CommentSection activityId={activity.id} activityOwnerId={activity.user_id} />
-      </div>
+      {/* 응원 + 댓글 — 게스트에겐 숨기고 가입 CTA 로 대체 (read-only) */}
+      {!isGuest ? (
+        <div className="card p-5">
+          <h3 className="text-sm font-semibold text-[var(--foreground)] mb-3">{t('activity.commentsTitle')}</h3>
+          <CommentSection activityId={activity.id} activityOwnerId={activity.user_id} />
+        </div>
+      ) : (
+        <div className="card p-6 text-center bg-gradient-to-br from-emerald-50/80 to-teal-50/40 dark:from-emerald-950/30 dark:to-teal-950/10 border-emerald-200/60 dark:border-emerald-900/40">
+          <p className="text-base font-extrabold text-[var(--foreground)]">{tt('이 러너의 기록이 마음에 드나요?')}</p>
+          <p className="text-sm text-[var(--muted)] mt-1.5">{tt('가입하면 응원과 댓글을 남길 수 있어요')}</p>
+          <Link
+            href="/login"
+            className="mt-4 inline-flex items-center justify-center gap-1.5 px-6 py-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-sm font-extrabold shadow-md shadow-emerald-500/25 active:scale-95"
+          >
+            <Sparkles size={14} /> {tt('Routinist 시작하기')}
+          </Link>
+        </div>
+      )}
 
       {/* 공유카드 만들기 — 사용자 피드백 #11: Apple Health sync 데이터 정합성 위해
           기록 삭제는 제거. 활동 상세의 주된 동기는 공유이므로 큰 진입점으로 대체. */}

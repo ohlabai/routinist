@@ -49,10 +49,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const isShop = normalizedPath === '/shop' || normalizedPath.startsWith('/shop/');
   // 게스트 진입 허용 — 고객지원/약관 등 정보성 페이지. (app) 내부에 있지만 로그인 강제 안 함.
   // (Apple App Review 가 미로그인 상태에서 우연히 진입할 가능성 — 무반응처럼 보임 방지.)
+  // build 293: /activity 도 게스트 허용 — /r/{id} 공유 랜딩의 "웹으로 보기" → /activity?id= 가
+  // 로그인 벽 없이 read-only 로 열리게 (RLS 가 visibility=public 활동 anon 읽기 허용).
+  // 페이지 내부에서 비로그인 시 댓글/응원/공유 숨김 + 가입 CTA (activity/page.tsx).
   const isGuestAllowed = isShop ||
     normalizedPath === '/support' ||
     normalizedPath === '/privacy' ||
-    normalizedPath === '/terms';
+    normalizedPath === '/terms' ||
+    normalizedPath === '/activity';
   const isChat = normalizedPath === '/messages/chat' || normalizedPath.startsWith('/messages/chat/');
   // 메인 탭 5개 중 자체 sticky header 를 가진 페이지들 — layout 공통 헤더 중복 회피 (사용자 신고).
   // map 은 자체 헤더가 없어 layout 헤더 유지. dashboard/social/profile 은 본인 페이지의 sticky header 만 사용.

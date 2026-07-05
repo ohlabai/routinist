@@ -11,8 +11,10 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
-import { Sparkles, Check, ChevronRight, ChevronDown, MapPin, Heart } from 'lucide-react';
+import { Sparkles, Check, ChevronRight, ChevronDown, MapPin, Heart, UserPlus } from 'lucide-react';
 import { claimReferralCode, claimReasonMessage } from '@/lib/referral-data';
+import { fetchNearbyRunners, type NearbyRunner } from '@/lib/nearby-data';
+import { followUser, fetchFollowing } from '@/lib/social-data';
 import { detectRegion } from '@/lib/geo';
 import { getSupabase } from '@/lib/supabase';
 import { syncHealthData, isNativeApp, getPlatform } from '@/lib/health-sync';
@@ -388,6 +390,104 @@ function InlineInviteCodeForm({ onClaimed }: { onClaimed: () => void }) {
   );
 }
 
+// build 293: 추천 팔로우 — 최근 7일 활동한 공개 러너 미니 카드 줄 (같은 나라 우선, 없으면 글로벌).
+// 체크리스트 '친구' 항목 바로 아래. 이미 팔로잉 3명 이상이면 숨김.
+// country 스코프 RPC 미배포 환경에선 빈 결과 → national fallback 이 자연 대응 (에러 없음).
+function RecommendedRunnersRow({ onFollowed }: { onFollowed: () => void }) {
+  const { user } = useAuth();
+  const { tt, locale } = useI18n();
+  const [runners, setRunners] = useState<NearbyRunner[]>([]);
+  const [followed, setFollowed] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const following = await fetchFollowing(user.id).catch(() => []);
+        if (following.length >= 3) return; // 이미 친구가 충분 — 추천 줄 숨김
+        const followingIds = new Set(following.map(f => f.id));
+        const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        const activeOnly = (list: NearbyRunner[]) => list.filter(r =>
+          !followingIds.has(r.user_id) && r.last_active && new Date(r.last_active).getTime() >= weekAgo);
+        // 같은 나라 우선 → 부족하면 글로벌로 채움
+        let picks = activeOnly(await fetchNearbyRunners('country', 20).catch(() => []));
+        if (picks.length < 3) {
+          const global = activeOnly(await fetchNearbyRunners('national', 20).catch(() => []));
+          const seen = new Set(picks.map(p => p.user_id));
+          picks = [...picks, ...global.filter(g => !seen.has(g.user_id))];
+        }
+        if (!cancelled) setRunners(picks.slice(0, 5));
+      } catch { /* 조용히 — 추천 줄은 없어도 체크리스트는 정상 */ }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
+
+  if (runners.length === 0) return null;
+
+  const handleFollow = async (r: NearbyRunner) => {
+    if (!user || busy || followed.has(r.user_id)) return;
+    setBusy(r.user_id);
+    setFollowed(prev => new Set(prev).add(r.user_id)); // optimistic
+    try {
+      await followUser(r.user_id);
+      try { window.localStorage.setItem(`first_friend_added:${user.id}`, String(Date.now())); } catch {}
+      onFollowed();
+    } catch {
+      setFollowed(prev => { const n = new Set(prev); n.delete(r.user_id); return n; });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="mt-2 p-3 rounded-2xl bg-white dark:bg-zinc-900 border border-emerald-200/60 dark:border-emerald-900/40">
+      <p className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 mb-2 inline-flex items-center gap-1">
+        <Sparkles size={11} /> {tt('요즘 달리고 있는 러너들이에요')}
+      </p>
+      <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-0.5">
+        {runners.map(r => {
+          const isFollowed = followed.has(r.user_id);
+          return (
+            <div key={r.user_id} className="flex-shrink-0 w-[104px] p-2.5 rounded-xl border border-[var(--card-border)] bg-[var(--background)] text-center">
+              <Link href={`/social/user?id=${r.user_id}`} className="block">
+                <div className="w-11 h-11 rounded-full bg-[var(--card-border)]/40 overflow-hidden mx-auto">
+                  {r.avatar_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={r.avatar_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-sm font-bold text-[var(--muted)]">
+                      {r.display_name.slice(0, 1)}
+                    </div>
+                  )}
+                </div>
+                <p className="text-[11px] font-extrabold truncate mt-1.5 text-[var(--foreground)]">{r.display_name}</p>
+              </Link>
+              <p className="text-[10px] text-[var(--muted)] font-bold mt-0.5">
+                {locale === 'en' ? `${r.km_30d.toFixed(1)}km · 30d` : `30일 ${r.km_30d.toFixed(1)}km`}
+              </p>
+              <button
+                type="button"
+                onClick={() => handleFollow(r)}
+                disabled={busy === r.user_id || isFollowed}
+                className={`mt-1.5 w-full inline-flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-extrabold active:scale-95 transition disabled:opacity-70 ${
+                  isFollowed
+                    ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
+                    : 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm shadow-emerald-500/25'
+                }`}
+              >
+                {isFollowed ? <Check size={11} strokeWidth={3} /> : <UserPlus size={11} />}
+                {isFollowed ? tt('추가됨') : tt('팔로우')}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function HomeOnboardingCard() {
   const { profile, user } = useAuth();
   const { activities, goals } = useUserData();
@@ -398,6 +498,8 @@ export default function HomeOnboardingCard() {
   const [inviteExpanded, setInviteExpanded] = useState(false);
   // build 292: 이 세션에서 초대 코드 등록 성공 — profile 캐시(invited_by)는 stale 이라 별도 state.
   const [inviteClaimed, setInviteClaimed] = useState(false);
+  // build 293: 추천 팔로우 줄에서 이 세션에 팔로우 성공 — localStorage flag 는 렌더 트리거가 아니라 별도 state.
+  const [friendJustAdded, setFriendJustAdded] = useState(false);
   const [iosNative, setIosNative] = useState(false);
 
   useEffect(() => {
@@ -446,9 +548,9 @@ export default function HomeOnboardingCard() {
   }
   // build 166 #2: 사용자 요청 — 친구 1명 추가 → 5월 목표 정하기 순서.
   // (마지막 항목이 완료되면 시작 가이드 카드 자체가 사라지므로, 목표 정하기를 마지막에 둠.)
-  const friendDone = typeof window !== 'undefined'
+  const friendDone = friendJustAdded || (typeof window !== 'undefined'
     ? !!window.localStorage.getItem(`first_friend_added:${user.id}`)
-    : false;
+    : false);
   items.push({ id: 'friend', label: locale === 'en' ? 'Add 1 friend' : '친구 1명 추가', done: friendDone, href: '/social' });
   // build 292: 초대 코드 입력 — 이미 invited_by 가 있으면 항목 자체 숨김.
   // getProfile 은 select('*') 라 컬럼 배포 후엔 profile 에 invited_by 가 실려 옴
@@ -550,6 +652,10 @@ export default function HomeOnboardingCard() {
           return (
             <li key={it.id}>
               <Link href={it.href} className={rowClass}>{inner}</Link>
+              {/* build 293: '친구' 항목 아래 추천 팔로우 미니 카드 줄 */}
+              {it.id === 'friend' && !it.done && (
+                <RecommendedRunnersRow onFollowed={() => setFriendJustAdded(true)} />
+              )}
             </li>
           );
         })}

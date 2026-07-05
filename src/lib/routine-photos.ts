@@ -56,9 +56,18 @@ export async function fetchTrendingPhotos(limit = 20): Promise<RoutinePhoto[]> {
       setTimeout(() => resolve({ error: { message: 'trending 5s timeout' } }), 5000)
     ),
   ]);
-  if ('data' in result && !result.error) return excludeBlocked((result.data ?? []) as RoutinePhoto[]);
-  console.warn('[routine_photos] trending 실패', result.error);
-  return [];
+  let rows: RoutinePhoto[] = [];
+  if ('data' in result && !result.error) {
+    rows = await excludeBlocked((result.data ?? []) as RoutinePhoto[]);
+  } else {
+    console.warn('[routine_photos] trending 실패', result.error);
+  }
+  // build 293: 콜드스타트 backfill — 트렌딩(7일 윈도우)이 6장 미만이면 최신 사진으로 채움.
+  // 초기 시장/해외 유저의 빈 캐러셀 방지. fetchRecentPhotos 는 excludeBlocked 이미 경유.
+  if (rows.length >= 6) return rows;
+  const recent = await fetchRecentPhotos({ limit });
+  const seen = new Set(rows.map(p => p.photo_id));
+  return [...rows, ...recent.filter(p => !seen.has(p.photo_id))].slice(0, limit);
 }
 
 interface PageOptions {

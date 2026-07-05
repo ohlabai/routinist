@@ -4,15 +4,17 @@
 // 반경 4단계 (같은 동/구/시/전국). region 기반 매칭 (GPS 정확도 X — privacy).
 // 친구 찾기 + 함께 달리기 모집판 진입점.
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, MapPin, Users, Activity, MessageCircle, Search, UserPlus, Calendar, Zap } from 'lucide-react';
+import { ArrowLeft, MapPin, Users, Activity, MessageCircle, Search, UserPlus, Calendar, Zap, Globe, Share2 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import {
   fetchNearbyRunners,
   fetchPaceMatchedRunners,
+  fetchActiveGlobalRunners,
   formatPace,
+  scopeNeedsRegion,
   SCOPE_LABEL,
   SCOPE_DESC,
   type NearbyRunner,
@@ -20,13 +22,15 @@ import {
   type PaceMatchedRunner,
 } from '@/lib/nearby-data';
 import { followUser, unfollowUser, fetchFollowing } from '@/lib/social-data';
+import { shareInvite } from '@/lib/referral-data';
 import GenderBadge from '@/components/profile/GenderBadge';
 import AppLogo from '@/components/AppLogo';
 import AppToast from '@/components/AppToast';
 import { track } from '@/lib/analytics';
 import { useI18n } from '@/lib/i18n';
 
-const SCOPES: NearbyScope[] = ['dong', 'gu', 'si', 'national'];
+// build 293: 'country' (같은 나라) 스코프 추가 — 해외 유저 콜드스타트.
+const SCOPES: NearbyScope[] = ['dong', 'gu', 'si', 'country', 'national'];
 
 function ageOf(year: number | null, locale: string): string {
   if (!year) return '';
@@ -83,12 +87,24 @@ export default function NearbyPage() {
     }
   }, [user, scope, mode]);
 
-  // 첫 진입 + mode 변경 시 자동 검색
+  // build 293: 지역 미설정 유저 초기 스코프 — country_code 있으면 '같은 나라', 없으면 '전 세계'.
+  // (한국 행정구역이 없는 해외 유저도 빈 화면 대신 바로 결과를 보게.)
+  const scopeInitRef = useRef(false);
   useEffect(() => {
-    if (user && (mode === 'pace' || profile?.region_gu)) {
+    if (!profile || scopeInitRef.current) return;
+    scopeInitRef.current = true;
+    if (!profile.region_gu) {
+      setScope(profile.country_code ? 'country' : 'national');
+    }
+  }, [profile]);
+
+  // 첫 진입 + mode/scope 변경 시 자동 검색.
+  // country/national 스코프는 지역 미설정이어도 검색 가능 (build 293).
+  useEffect(() => {
+    if (user && (mode === 'pace' || profile?.region_gu || !scopeNeedsRegion(scope))) {
       void search();
     }
-  }, [user, profile?.region_gu, mode, search]);
+  }, [user, profile?.region_gu, mode, scope, search]);
 
   const handleFollow = async (target: NearbyRunner) => {
     if (busy === target.user_id) return;
@@ -112,7 +128,22 @@ export default function NearbyPage() {
     }
   };
 
+  // build 293: 빈 결과 empty state 의 친구 초대 — InviteFriendCard 와 같은 공유 로직 (referral-data).
+  const [inviting, setInviting] = useState(false);
+  const handleInvite = async () => {
+    if (!user || inviting) return;
+    setInviting(true);
+    try {
+      const r = await shareInvite(user.id, locale);
+      if (r === 'copied') showToast(tt('초대 링크를 복사했어요'));
+    } finally {
+      setInviting(false);
+    }
+  };
+
   const noRegion = !profile?.region_gu;
+  // 지역이 필요한 스코프(dong/gu/si)인데 지역 미설정 — 검색 불가, 지역 설정 유도.
+  const regionBlocked = noRegion && scopeNeedsRegion(scope);
 
   return (
     <div className="max-w-lg mx-auto pb-20 bg-[var(--background)] min-h-screen">
@@ -152,8 +183,8 @@ export default function NearbyPage() {
               <button
                 key={s}
                 onClick={() => setScope(s)}
-                disabled={loading}
-                className={`flex-shrink-0 px-3.5 py-2 rounded-full text-sm font-bold whitespace-nowrap active:scale-95 transition ${
+                disabled={loading || (noRegion && scopeNeedsRegion(s))}
+                className={`flex-shrink-0 px-3.5 py-2 rounded-full text-sm font-bold whitespace-nowrap active:scale-95 transition disabled:opacity-40 ${
                   scope === s
                     ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/30'
                     : 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--muted)]'
@@ -164,7 +195,7 @@ export default function NearbyPage() {
             ))}
             <button
               onClick={search}
-              disabled={loading || noRegion}
+              disabled={loading || regionBlocked}
               className="flex-shrink-0 ml-auto px-3.5 py-2 rounded-full bg-emerald-500 text-white font-bold text-sm active:scale-95 disabled:opacity-50 inline-flex items-center gap-1"
             >
               <Search size={14} /> {t('nearby.searchCta')}
@@ -182,7 +213,7 @@ export default function NearbyPage() {
             busy={busy}
             onFollow={(r) => handleFollow({ ...r, region_si: null, region_dong: null, bio: null, birth_year: null, total_runs: 0, total_distance_km: 0, last_active: null } as NearbyRunner)}
           />
-        ) : noRegion ? (
+        ) : regionBlocked ? (
           <Link href="/profile/edit" className="block rounded-2xl bg-gradient-to-br from-emerald-100/80 to-emerald-50/40 dark:from-emerald-950/30 dark:to-emerald-950/10 border border-emerald-200/60 dark:border-emerald-900/40 p-5 active:scale-[0.99]">
             <p className="text-base font-extrabold text-[var(--foreground)] inline-flex items-center gap-1.5">
               <MapPin size={16} className="text-emerald-600" /> {tt('우리 동네부터 설정해주세요')}
@@ -212,92 +243,178 @@ export default function NearbyPage() {
                 {[0,1,2,3].map(i => <div key={i} className="card p-3 h-20 animate-pulse" />)}
               </div>
             ) : runners.length === 0 ? (
-              <div className="text-center py-16 px-6">
-                <div className="w-16 h-16 rounded-full bg-emerald-50 dark:bg-emerald-950/30 mx-auto mb-3 flex items-center justify-center">
-                  <Users size={28} className="text-emerald-500" />
+              <>
+                <div className="text-center pt-12 pb-6 px-6">
+                  <div className="w-16 h-16 rounded-full bg-emerald-50 dark:bg-emerald-950/30 mx-auto mb-3 flex items-center justify-center">
+                    <Users size={28} className="text-emerald-500" />
+                  </div>
+                  <p className="text-base font-extrabold mb-1">
+                    {locale === 'en' ? `No runners in ${tt(SCOPE_LABEL[scope])} yet` : `${SCOPE_LABEL[scope]}에 아직 러너가 없어요`}
+                  </p>
+                  <p className="text-sm text-[var(--muted)]">
+                    {tt('범위를 더 넓혀 보거나 친구를 초대해서 함께 달려보세요')}
+                  </p>
+                  {/* build 293: 콜드스타트 — 빈 화면에서 곧장 초대 공유 */}
+                  <button
+                    onClick={handleInvite}
+                    disabled={inviting}
+                    className="mt-4 inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-sm font-extrabold shadow-md shadow-emerald-500/25 active:scale-95 disabled:opacity-50"
+                  >
+                    <Share2 size={14} /> {tt('친구 초대하기')}
+                  </button>
                 </div>
-                <p className="text-base font-extrabold mb-1">
-                  {locale === 'en' ? `No runners in ${tt(SCOPE_LABEL[scope])} yet` : `${SCOPE_LABEL[scope]}에 아직 러너가 없어요`}
-                </p>
-                <p className="text-sm text-[var(--muted)]">
-                  {tt('범위를 더 넓혀 보거나 친구를 초대해서 함께 달려보세요')}
-                </p>
-              </div>
+                {/* build 293: 글로벌 fallback — 이번 주 활동한 전 세계 러너 */}
+                {scope !== 'national' && (
+                  <GlobalRunnersFallback
+                    followingIds={followingIds}
+                    busy={busy}
+                    onFollow={handleFollow}
+                  />
+                )}
+              </>
             ) : (
-              runners.map(r => {
-                const following = followingIds.has(r.user_id);
-                const isActive30d = (r.runs_30d ?? 0) > 0;
-                return (
-                  <article key={r.user_id} className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] p-4">
-                    <div className="flex items-start gap-3">
-                      <Link href={`/social/user?id=${r.user_id}`} className="flex-shrink-0">
-                        <div className="w-12 h-12 rounded-full bg-[var(--card-border)]/40 overflow-hidden">
-                          {r.avatar_url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={r.avatar_url} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-base font-bold text-[var(--muted)]">
-                              {r.display_name.slice(0, 1)}
-                            </div>
-                          )}
-                        </div>
-                      </Link>
-                      <div className="flex-1 min-w-0">
-                        <Link href={`/social/user?id=${r.user_id}`} className="inline-flex items-center gap-1.5">
-                          <p className="text-base font-extrabold truncate">{r.display_name}</p>
-                          <GenderBadge gender={r.gender} show={r.show_gender} size={13} />
-                        </Link>
-                        <p className="text-xs text-[var(--muted)] inline-flex items-center gap-1 mt-0.5">
-                          <MapPin size={11} />
-                          {[r.region_si, r.region_gu, r.region_dong].filter(Boolean).join(' ')}
-                          {ageOf(r.birth_year, locale) && <span className="ml-1">· {ageOf(r.birth_year, locale)}</span>}
-                        </p>
-                        {r.bio && <p className="text-xs text-[var(--muted)] mt-1 line-clamp-2 italic">{r.bio}</p>}
-                        <p className="text-[11px] text-[var(--muted)] inline-flex items-center gap-2 mt-1.5">
-                          <span className="inline-flex items-center gap-0.5 font-bold">
-                            <Activity size={10} className="text-emerald-500" />
-                            {isActive30d
-                              ? (locale === 'en' ? `30d ${r.runs_30d} runs · ${r.km_30d.toFixed(1)}km` : `30일 ${r.runs_30d}회·${r.km_30d.toFixed(1)}km`)
-                              : tt('최근 비활성')}
-                          </span>
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => handleFollow(r)}
-                        disabled={busy === r.user_id}
-                        aria-label={following ? tt('친구 끊기') : tt('친구 추가')}
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-50 transition ${
-                          following
-                            ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
-                            : 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/25'
-                        }`}
-                      >
-                        <UserPlus size={16} />
-                      </button>
-                    </div>
-                    <div className="mt-3 flex items-center gap-2">
-                      <Link
-                        href={`/messages?to=${r.user_id}`}
-                        className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-xl bg-[var(--card-border)]/30 text-sm font-bold active:scale-95"
-                      >
-                        <MessageCircle size={13} /> {tt('쪽지')}
-                      </Link>
-                      <Link
-                        href={`/ranking?tab=contest&invite=${r.user_id}`}
-                        className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-xl bg-[var(--card-border)]/30 text-sm font-bold active:scale-95"
-                      >
-                        <Calendar size={13} /> {tt('친선런 초대')}
-                      </Link>
-                    </div>
-                  </article>
-                );
-              })
+              runners.map(r => (
+                <RunnerCard
+                  key={r.user_id}
+                  r={r}
+                  following={followingIds.has(r.user_id)}
+                  busy={busy === r.user_id}
+                  onFollow={() => handleFollow(r)}
+                />
+              ))
             )}
           </>
         )}
       </div>
 
       {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2000} />}
+    </div>
+  );
+}
+
+// 러너 카드 — 지역 결과 / 글로벌 fallback 공용 (build 293 추출).
+function RunnerCard({ r, following, busy, onFollow }: {
+  r: NearbyRunner;
+  following: boolean;
+  busy: boolean;
+  onFollow: () => void;
+}) {
+  const { tt, locale } = useI18n();
+  const isActive30d = (r.runs_30d ?? 0) > 0;
+  return (
+    <article className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] p-4">
+      <div className="flex items-start gap-3">
+        <Link href={`/social/user?id=${r.user_id}`} className="flex-shrink-0">
+          <div className="w-12 h-12 rounded-full bg-[var(--card-border)]/40 overflow-hidden">
+            {r.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={r.avatar_url} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-base font-bold text-[var(--muted)]">
+                {r.display_name.slice(0, 1)}
+              </div>
+            )}
+          </div>
+        </Link>
+        <div className="flex-1 min-w-0">
+          <Link href={`/social/user?id=${r.user_id}`} className="inline-flex items-center gap-1.5">
+            <p className="text-base font-extrabold truncate">{r.display_name}</p>
+            <GenderBadge gender={r.gender} show={r.show_gender} size={13} />
+          </Link>
+          <p className="text-xs text-[var(--muted)] inline-flex items-center gap-1 mt-0.5">
+            <MapPin size={11} />
+            {[r.region_si, r.region_gu, r.region_dong].filter(Boolean).join(' ') || tt('지역 미설정')}
+            {ageOf(r.birth_year, locale) && <span className="ml-1">· {ageOf(r.birth_year, locale)}</span>}
+          </p>
+          {r.bio && <p className="text-xs text-[var(--muted)] mt-1 line-clamp-2 italic">{r.bio}</p>}
+          <p className="text-[11px] text-[var(--muted)] inline-flex items-center gap-2 mt-1.5">
+            <span className="inline-flex items-center gap-0.5 font-bold">
+              <Activity size={10} className="text-emerald-500" />
+              {isActive30d
+                ? (locale === 'en' ? `30d ${r.runs_30d} runs · ${r.km_30d.toFixed(1)}km` : `30일 ${r.runs_30d}회·${r.km_30d.toFixed(1)}km`)
+                : tt('최근 비활성')}
+            </span>
+          </p>
+        </div>
+        <button
+          onClick={onFollow}
+          disabled={busy}
+          aria-label={following ? tt('친구 끊기') : tt('친구 추가')}
+          className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-50 transition ${
+            following
+              ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
+              : 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/25'
+          }`}
+        >
+          <UserPlus size={16} />
+        </button>
+      </div>
+      <div className="mt-3 flex items-center gap-2">
+        <Link
+          href={`/messages?to=${r.user_id}`}
+          className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-xl bg-[var(--card-border)]/30 text-sm font-bold active:scale-95"
+        >
+          <MessageCircle size={13} /> {tt('쪽지')}
+        </Link>
+        <Link
+          href={`/ranking?tab=contest&invite=${r.user_id}`}
+          className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-xl bg-[var(--card-border)]/30 text-sm font-bold active:scale-95"
+        >
+          <Calendar size={13} /> {tt('친선런 초대')}
+        </Link>
+      </div>
+    </article>
+  );
+}
+
+// build 293: 지역 결과 0명일 때 "전 세계 러너" fallback — 이번 주 활동한 공개 러너 상위 N.
+// 해외 신규 시장에서 nearby 가 완전히 빈 화면이 되는 콜드스타트 방지.
+function GlobalRunnersFallback({ followingIds, busy, onFollow }: {
+  followingIds: Set<string>;
+  busy: string | null;
+  onFollow: (r: NearbyRunner) => void;
+}) {
+  const { tt } = useI18n();
+  const [runners, setRunners] = useState<NearbyRunner[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchActiveGlobalRunners(8)
+      .then(list => { if (!cancelled) setRunners(list); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="space-y-2">
+        {[0, 1, 2].map(i => <div key={i} className="card p-3 h-20 animate-pulse" />)}
+      </div>
+    );
+  }
+  if (runners.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-2xl bg-gradient-to-br from-emerald-50/70 to-teal-50/40 dark:from-emerald-950/30 dark:to-teal-950/10 border border-emerald-200/50 dark:border-emerald-900/40 p-4">
+        <p className="text-sm font-extrabold text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1.5 mb-1">
+          <Globe size={14} /> {tt('전 세계 러너')}
+        </p>
+        <p className="text-xs text-[var(--muted)] leading-relaxed">
+          {tt('이번 주에 달린 전 세계 러너들이에요. 먼저 친구를 걸어보세요!')}
+        </p>
+      </div>
+      {runners.map(r => (
+        <RunnerCard
+          key={r.user_id}
+          r={r}
+          following={followingIds.has(r.user_id)}
+          busy={busy === r.user_id}
+          onFollow={() => onFollow(r)}
+        />
+      ))}
     </div>
   );
 }

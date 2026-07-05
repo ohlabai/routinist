@@ -2467,6 +2467,35 @@ const EXTRAS_EN: Record<string, string> = {
   '첫 러닝 사진 올리기': 'Uploaded your first running photo',
   '첫 응원': 'First cheer',
   '친구에게 첫 응원 보내기': 'Sent your first cheer to a friend',
+  // EXTRAS_EN 머지용 조각 — build 293 콜드스타트·글로벌 안착.
+  // 사용처: src/lib/nearby-data.ts (SCOPE_LABEL/DESC — page 에서 tt 경유)
+  //        / src/app/(app)/nearby/page.tsx (초대·글로벌 fallback)
+  //        / src/components/home/HomeOnboardingCard.tsx (추천 팔로우 줄)
+  //        / src/app/(app)/activity/page.tsx (게스트 read-only CTA)
+  // tt()/ttl() 은 키 없으면 ko fallback 이라 머지 전에도 안전.
+  // 기존 EXTRAS_EN 과 dedup 완료: '지역 미설정'(2010행), '초대 링크'(1698행) 는 이미 있음.
+  // 주의: SCOPE_LABEL national 라벨이 '전국'(기존 키 'All Korea') → '전 세계' 로 변경됨 —
+  //       기존 '전국' 키는 다른 화면에서 쓰일 수 있어 제거하지 말 것.
+  // ---- lib/nearby-data.ts (SCOPE_LABEL / SCOPE_DESC — nearby page tt) ----
+  '같은 나라': 'Same country',
+  '전 세계': 'Worldwide',
+  '같은 나라에서 달리는 러너': 'Runners in your country',
+  '전 세계 러너 모두': 'Every runner worldwide',
+  // ---- app/(app)/nearby/page.tsx ----
+  '친구 초대하기': 'Invite friends',
+  '초대 링크를 복사했어요': 'Invite link copied',
+  '전 세계 러너': 'Runners around the world',
+  '이번 주에 달린 전 세계 러너들이에요. 먼저 친구를 걸어보세요!': 'These runners were out this week. Say hi and add them first!',
+  // ---- components/home/HomeOnboardingCard.tsx (추천 팔로우) ----
+  '요즘 달리고 있는 러너들이에요': 'Runners on a roll lately',
+  '팔로우': 'Follow',
+  '추가됨': 'Added',
+  // ---- app/(app)/activity/page.tsx (게스트 read-only) ----
+  '지금은 볼 수 없는 기록이에요': "This run isn't available right now",
+  '비공개이거나 삭제된 기록일 수 있어요': 'It may be private or deleted',
+  'Routinist 시작하기': 'Get started with Routinist',
+  '이 러너의 기록이 마음에 드나요?': "Enjoying this runner's story?",
+  '가입하면 응원과 댓글을 남길 수 있어요': 'Join to leave cheers and comments',
 };
 
 export function I18nProvider({ children }: { children: ReactNode }) {

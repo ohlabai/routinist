@@ -80,6 +80,38 @@ export async function claimPendingReferral(): Promise<boolean> {
   }
 }
 
+/**
+ * 친구 초대 공유 시트 열기 (build 293) — InviteFriendCard 의 공유 로직을 재사용 가능하게 추출.
+ * 코드 조회(getMyReferralCode) → Capacitor Share / navigator.share / clipboard 순 폴백.
+ * 반환: 'shared' 공유 시트 완료, 'copied' 클립보드 복사 폴백, 'dismissed' 실패·시트 닫음 (조용히 처리 권장).
+ */
+export async function shareInvite(userId: string, locale: string): Promise<'shared' | 'copied' | 'dismissed'> {
+  const code = await getMyReferralCode(userId);
+  if (!code) return 'dismissed';
+  const inviteUrl = buildInviteUrl(code);
+  const text = locale === 'en'
+    ? `Run with me on Routinist! 🏃 Sign up with my code ${code} and we both get 100P`
+    : `Routinist 에서 같이 달려요! 🏃 내 코드 ${code} 로 가입하면 서로 100P 를 받아요`;
+  const title = locale === 'en' ? 'Routinist invite' : 'Routinist 친구 초대';
+  try {
+    const { isNativeApp } = await import('@/lib/health-sync');
+    if (isNativeApp()) {
+      const { Share } = await import('@capacitor/share');
+      await Share.share({ title, text, url: inviteUrl });
+      return 'shared';
+    }
+    if (navigator.share) {
+      await navigator.share({ title, text, url: inviteUrl });
+      return 'shared';
+    }
+    await navigator.clipboard.writeText(`${text}\n${inviteUrl}`);
+    return 'copied';
+  } catch {
+    // 사용자가 공유 시트를 닫음 / clipboard 권한 없음 — 조용히
+    return 'dismissed';
+  }
+}
+
 /** claim 실패 reason → 친근한 안내 문구 */
 export function claimReasonMessage(reason?: ClaimReason): string {
   switch (reason) {
