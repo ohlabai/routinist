@@ -14,6 +14,7 @@ import AnalyticsAutoTracker from '@/components/AnalyticsAutoTracker';
 import { fetchUnreadNotificationSummary, markNotificationsRead, SOCIAL_KINDS } from '@/lib/notifications-data';
 import { setAppBadge } from '@/lib/app-badge';
 import { getUnreadCount as getUnreadMessageCount } from '@/lib/message-data';
+import AppToast from '@/components/AppToast';
 
 // 5탭 구조 (build 100 재편): 홈 / 랭킹 / 소셜 / 쇼핑 / 내정보.
 // 지도는 홈 캘린더 아래 미니맵으로 흡수. 랭킹 ↔ 소셜 분리 (이전 /social 의 me, mileage 서브탭이 랭킹으로 이전).
@@ -164,6 +165,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
+  // build 292: /login?ref=CODE 또는 초대 딥링크가 저장한 pending 초대 코드 — 로그인 후 1회 자동 claim.
+  // 결과 무관 키 삭제 (claimPendingReferral 내부). 성공 시에만 토스트, 실패는 조용히 (RPC 미배포 안전).
+  const pendingRefTriedRef = useRef(false);
+  const [referralToast, setReferralToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (!user || pendingRefTriedRef.current) return;
+    pendingRefTriedRef.current = true;
+    import('@/lib/referral-data')
+      .then(async ({ claimPendingReferral, claimSuccessMessage }) => {
+        const ok = await claimPendingReferral();
+        if (ok) setReferralToast(claimSuccessMessage());
+      })
+      .catch(() => {});
+  }, [user]);
+
   // 신문 모델 (build 57): 자동 sync 제거.
   // 첫 로그인 직후 1회만 환영 sync (localStorage flag), 이후엔 사용자가 직접 동기화 버튼을 눌러야 sync.
   // 이전엔 layout mount 마다 (=화면 이동마다) sync 가 발사 → SDK lock + 60s timeout 회귀의 근원.
@@ -253,6 +269,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* 자체 헤더 페이지에선 status bar 영역만 padding (헤더 자리 비워둠) */}
       {hideLayoutHeader && (
         <div className="flex-shrink-0 bg-[var(--background)] pt-[env(safe-area-inset-top)]" />
+      )}
+
+      {/* build 292: 초대 코드 자동 claim 성공 토스트 */}
+      {referralToast && (
+        <AppToast text={referralToast} tone="ok" onClose={() => setReferralToast(null)} durationMs={3500} />
       )}
 
       {/* 메인 컨텐츠 — 유일한 스크롤 영역 */}

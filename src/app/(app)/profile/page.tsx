@@ -22,6 +22,7 @@ import { getSupabase } from '@/lib/supabase';
 import AppToast from '@/components/AppToast';
 import { logClientWarn } from '@/lib/error-logger';
 import UnitToggle from '@/components/profile/UnitToggle';
+import InviteFriendCard from '@/components/profile/InviteFriendCard';
 
 function formatPace(sec: number) {
   const m = Math.floor(sec / 60);
@@ -480,6 +481,9 @@ export default function ProfilePage() {
           <p className="text-xs text-[var(--muted)] flex-1">{t('profile.pushOnSummary')}</p>
         </div>
       )}
+
+      {/* 친구 초대 — build 292 성장 루프. 코드 조회 실패(RPC 미배포)면 자체 숨김 */}
+      <InviteFriendCard />
 
       {/* 설정 카드 */}
       <div className="card divide-y divide-[var(--card-border)]">

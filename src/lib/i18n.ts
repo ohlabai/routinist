@@ -2414,6 +2414,26 @@ const EXTRAS_EN: Record<string, string> = {
   'GPS 좋음': 'GPS good',
   'GPS 약함': 'GPS weak',
   'GPS 끊김': 'GPS lost',
+  // EXTRAS_EN 머지용 조각 — build 292 성장 루프 ① (공유카드 QR 유입 경로).
+  // src/lib/i18n.ts 의 EXTRAS_EN 객체에 그대로 붙여넣기. 기존 키와 중복 없음 확인 완료.
+  'QR 링크 (카드에 앱 링크 QR 표시)': 'QR link (show app link QR on card)',
+  // EXTRAS_EN 머지용 조각 — build 292 친구 초대 (referral) 성장 루프.
+  // 사용처: src/lib/referral-data.ts (ttl) / src/components/profile/InviteFriendCard.tsx (tt)
+  //        / src/components/home/HomeOnboardingCard.tsx InlineInviteCodeForm (tt)
+  // tt()/ttl() 은 키 없으면 ko fallback 이라 머지 전에도 안전.
+  // 기존 EXTRAS_EN 과 dedup 완료: '등록 중…', '공유' 는 이미 있음 (추가 불필요).
+  // ---- lib/referral-data.ts (claim reason / 성공 토스트 — ttl) ----
+  '내 코드는 입력할 수 없어요 😅': "You can't use your own code 😅",
+  '이미 초대 코드를 등록했어요': "You've already registered an invite code",
+  '초대 코드는 가입 직후에만 입력할 수 있어요': 'Invite codes can only be entered shortly after signing up',
+  '코드를 찾지 못했어요. 다시 확인해주세요': "We couldn't find that code. Please double-check it",
+  '100P 적립! 🎉 친구와 함께 달려봐요': '+100P earned! 🎉 Run together with your friend',
+  // ---- components/profile/InviteFriendCard.tsx ----
+  '친구 초대': 'Invite a friend',
+  '복사': 'Copy',
+  '복사했어요!': 'Copied!',
+  // ---- components/home/HomeOnboardingCard.tsx (InlineInviteCodeForm) ----
+  '코드 등록하기': 'Register code',
 };
 
 export function I18nProvider({ children }: { children: ReactNode }) {

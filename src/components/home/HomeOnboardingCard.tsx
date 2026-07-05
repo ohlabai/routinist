@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
 import { Sparkles, Check, ChevronRight, ChevronDown, MapPin, Heart } from 'lucide-react';
+import { claimReferralCode, claimReasonMessage } from '@/lib/referral-data';
 import { detectRegion } from '@/lib/geo';
 import { getSupabase } from '@/lib/supabase';
 import { syncHealthData, isNativeApp, getPlatform } from '@/lib/health-sync';
@@ -317,6 +318,76 @@ function InlineHealthConnect({ onSynced }: { onSynced: () => void }) {
   );
 }
 
+// build 292: 초대 코드 입력 인라인 폼 — claim_referral_code RPC.
+// 명시적 액션이므로 실패 사유는 친근한 문구로 노출 (자동 claim 과 달리 조용히 넘기지 않음).
+function InlineInviteCodeForm({ onClaimed }: { onClaimed: () => void }) {
+  const { user } = useAuth();
+  const { tt, locale } = useI18n();
+  const [code, setCode] = useState('');
+  const [claiming, setClaiming] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [msgKind, setMsgKind] = useState<'info' | 'error'>('info');
+
+  const handleClaim = async () => {
+    if (!user || claiming || !code.trim()) return;
+    setClaiming(true);
+    setMsg('');
+    try {
+      const r = await claimReferralCode(code);
+      if (r.ok) {
+        try { window.localStorage.setItem(`referral_claimed:${user.id}`, String(Date.now())); } catch {}
+        setMsg(tt('100P 적립! 🎉 친구와 함께 달려봐요'));
+        setMsgKind('info');
+        setTimeout(() => onClaimed(), 900);
+      } else {
+        setMsg(claimReasonMessage(r.reason));
+        setMsgKind('error');
+      }
+    } catch {
+      setMsg(locale === 'en'
+        ? "Couldn't register the code right now. Please try again later"
+        : '지금은 등록할 수 없어요. 잠시 후 다시 시도해주세요');
+      setMsgKind('error');
+    } finally {
+      setClaiming(false);
+    }
+  };
+
+  return (
+    <div className="mt-2 p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-emerald-200/60 dark:border-emerald-900/40 space-y-2.5">
+      <p className="text-[11px] text-[var(--muted)] leading-relaxed">
+        {locale === 'en'
+          ? 'Got a 6-letter code from a friend? Enter it and you both get 100P 🎁'
+          : '친구에게 받은 6자리 초대 코드를 입력하면 서로 100P 를 받아요 🎁'}
+      </p>
+      <input
+        type="text"
+        value={code}
+        onChange={(e) => setCode(e.target.value.toUpperCase().replace(/\s/g, '').slice(0, 6))}
+        placeholder="ABC123"
+        maxLength={6}
+        autoCapitalize="characters"
+        autoCorrect="off"
+        spellCheck={false}
+        className="w-full px-3 py-2.5 rounded-xl border border-[var(--card-border)] bg-[var(--background)] text-base font-extrabold text-center tracking-[0.25em] uppercase"
+      />
+      <button
+        type="button"
+        onClick={handleClaim}
+        disabled={claiming || code.trim().length === 0}
+        className="w-full py-2.5 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-sm font-extrabold disabled:opacity-50"
+      >
+        {claiming ? tt('등록 중…') : tt('코드 등록하기')}
+      </button>
+      {msg && (
+        <p className={`text-[11px] text-center ${msgKind === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+          {msg}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function HomeOnboardingCard() {
   const { profile, user } = useAuth();
   const { activities, goals } = useUserData();
@@ -324,6 +395,9 @@ export default function HomeOnboardingCard() {
   const [profileExpanded, setProfileExpanded] = useState(false);
   const [healthExpanded, setHealthExpanded] = useState(false);
   const [goalExpanded, setGoalExpanded] = useState(false);
+  const [inviteExpanded, setInviteExpanded] = useState(false);
+  // build 292: 이 세션에서 초대 코드 등록 성공 — profile 캐시(invited_by)는 stale 이라 별도 state.
+  const [inviteClaimed, setInviteClaimed] = useState(false);
   const [iosNative, setIosNative] = useState(false);
 
   useEffect(() => {
@@ -359,7 +433,7 @@ export default function HomeOnboardingCard() {
   const goalDone = goals.some(g => g.year === curYear && g.month === curMonth && g.goal_km > 0);
 
   type Item =
-    | { id: string; label: string; done: boolean; inline: 'profile' | 'health' | 'goal' }
+    | { id: string; label: string; done: boolean; inline: 'profile' | 'health' | 'goal' | 'invite' }
     | { id: string; label: string; done: boolean; href: string };
 
   const items: Item[] = [
@@ -376,6 +450,17 @@ export default function HomeOnboardingCard() {
     ? !!window.localStorage.getItem(`first_friend_added:${user.id}`)
     : false;
   items.push({ id: 'friend', label: locale === 'en' ? 'Add 1 friend' : '친구 1명 추가', done: friendDone, href: '/social' });
+  // build 292: 초대 코드 입력 — 이미 invited_by 가 있으면 항목 자체 숨김.
+  // getProfile 은 select('*') 라 컬럼 배포 후엔 profile 에 invited_by 가 실려 옴
+  // (컬럼 미배포면 undefined → 항목 노출, claim 시도에서 사유 안내).
+  // claim 직후엔 profile 이 stale (invited_by null) — localStorage flag 로 done 표시.
+  const invitedByVal = (profile as { invited_by?: string | null }).invited_by;
+  const inviteDone = inviteClaimed || (typeof window !== 'undefined'
+    ? !!window.localStorage.getItem(`referral_claimed:${user.id}`)
+    : false);
+  if (!invitedByVal) {
+    items.push({ id: 'invite', label: locale === 'en' ? 'Enter invite code' : '초대 코드 입력', done: inviteDone, inline: 'invite' });
+  }
   const monthShort = locale === 'en'
     ? new Date(curYear, curMonth - 1, 1).toLocaleString('en-US', { month: 'long' })
     : `${curMonth}월`;
@@ -406,6 +491,8 @@ export default function HomeOnboardingCard() {
             ? healthExpanded
             : isInline && it.inline === 'goal'
             ? goalExpanded
+            : isInline && it.inline === 'invite'
+            ? inviteExpanded
             : false;
           const inner = (
             <>
@@ -438,6 +525,7 @@ export default function HomeOnboardingCard() {
               if (it.inline === 'profile') setProfileExpanded(v => !v);
               else if (it.inline === 'health') setHealthExpanded(v => !v);
               else if (it.inline === 'goal') setGoalExpanded(v => !v);
+              else if (it.inline === 'invite') setInviteExpanded(v => !v);
             };
             return (
               <li key={it.id}>
@@ -452,6 +540,9 @@ export default function HomeOnboardingCard() {
                 )}
                 {!it.done && expanded && it.inline === 'goal' && (
                   <InlineMonthlyGoalForm onSaved={() => setGoalExpanded(false)} />
+                )}
+                {!it.done && expanded && it.inline === 'invite' && (
+                  <InlineInviteCodeForm onClaimed={() => { setInviteClaimed(true); setInviteExpanded(false); }} />
                 )}
               </li>
             );

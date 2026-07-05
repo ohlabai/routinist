@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase';
 import { getProfile, initializeSocialLogin, handleOAuthCallback } from '@/lib/auth';
 import { dataCache } from '@/lib/data-cache';
+import AppToast from '@/components/AppToast';
 import type { Profile } from '@/types';
 import type { User, Session } from '@supabase/supabase-js';
 
@@ -68,6 +69,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // race 가드: 빠른 SIGNED_IN(A) → SIGNED_OUT → SIGNED_IN(B) 시퀀스에서 A 의 늦은 응답이
   // B 의 profile 을 덮어쓰는 회귀 차단. 매 호출마다 gen 증가 후 결과 적용 전 비교.
   const loadGenRef = useRef(0);
+  // build 292: routinist://invite?code= 딥링크 claim 성공 토스트.
+  const [referralToast, setReferralToast] = useState<string | null>(null);
 
   const loadProfile = useCallback(async (userId: string) => {
     const gen = ++loadGenRef.current;
@@ -218,6 +221,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return;
           }
         }
+        // build 292: 친구 초대 딥링크 routinist://invite?code=ABC123 (/invite 랜딩의 "앱에서 가입하기").
+        // 로그인 상태면 즉시 claim + 성공 토스트, 아니면 pending 저장 → 로그인 후 (app)/layout 이 claim.
+        if (parsed.protocol === 'routinist:' && parsed.host === 'invite') {
+          const code = parsed.searchParams.get('code');
+          if (code) {
+            try {
+              const { storePendingReferral, claimPendingReferral, claimSuccessMessage } = await import('@/lib/referral-data');
+              storePendingReferral(code);
+              const { data: { session: s } } = await getSupabase().auth.getSession();
+              if (s?.user) {
+                const ok = await claimPendingReferral();
+                if (ok) setReferralToast(claimSuccessMessage());
+              }
+            } catch { /* RPC 미배포 등 — 조용히 (pending 은 이미 저장됨) */ }
+          }
+          return;
+        }
+
         // build 189: 토스 결제 후 routinist:// 스킴 deep link 복귀 처리.
         // appScheme='routinist' 옵션 + 외부 카드 ACS 흐름에서 토스가 결제 완료 시
         // routinist://shop/payment/success?paymentKey=...&orderId=...&amount=... 로 콜백.
@@ -273,6 +294,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={{ user, profile, session, loading, refreshProfile }}>
       {children}
+      {/* build 292: 초대 딥링크 claim 성공 토스트 */}
+      {referralToast && (
+        <AppToast text={referralToast} tone="ok" onClose={() => setReferralToast(null)} durationMs={3500} />
+      )}
     </AuthContext.Provider>
   );
 }

@@ -14,6 +14,7 @@ import { track } from '@/lib/analytics';
 import { fetchActivityRoute } from '@/lib/routinist-data';
 import { createUserQuote } from '@/lib/user-quotes';
 import { getDistanceUnit, toDisplayDistance, unitLabel, formatPaceForUnit } from '@/lib/units';
+import QRCode from 'qrcode';
 import AppToast from '@/components/AppToast';
 import type { Activity } from '@/types';
 
@@ -125,6 +126,8 @@ function drawCard(
   },
   /** build 218 #3: 영상 배경 (시네마틱). 지정 시 bgImage 대체 — 카드 전체가 video frame 위에 overlay. */
   videoBgEl?: HTMLVideoElement | null,
+  /** build 292 성장 루프 ①: 앱 유입 QR (사전 로드된 이미지). 정적 카드 + MP4 마지막 프레임(routeProgress>=1)에만 그림. */
+  qrImage?: HTMLImageElement | null,
 ) {
   // build 205 #11: 막대 그래프 애니메이션 진행도. routeProgress 와 동일 timeline (0~1).
   // 일간 카드: 오늘 막대 / 가로 누적바가 0 → 목표 까지 차오른 후 bounce → 원래 색.
@@ -1064,6 +1067,32 @@ function drawCard(
   ctx.fillText('Run Your Routine.', lineRightX, footerY + 56);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
+
+  // build 292 성장 루프 ①: 앱 유입 QR — 우하단, 흰 라운드 카드 위 (다크 카드에서도 스캔 가능).
+  // MP4 애니메이션 중간 프레임에는 그리지 않고 마지막 hold 프레임(routeProgress>=1)에만 노출.
+  // footer 텍스트는 가운데 정렬이라 우하단 코너와 겹치지 않음.
+  if (qrImage && routeProgress >= 1) {
+    const qrSize = Math.round(W * 0.12);      // ~130px (전체 폭의 12%)
+    const qrPad = 12;
+    const boxSize = qrSize + qrPad * 2;
+    const boxX = W - 44 - boxSize;
+    const boxY = H - 58 - boxSize;
+    ctx.save();
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = 'rgba(0,0,0,0.25)';
+    ctx.shadowBlur = 14;
+    ctx.shadowOffsetY = 4;
+    ctx.beginPath();
+    ctx.roundRect(boxX, boxY, boxSize, boxSize, 18);
+    ctx.fill();
+    ctx.restore();
+    ctx.drawImage(qrImage, boxX + qrPad, boxY + qrPad, qrSize, qrSize);
+    ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillStyle = hasMedia ? 'rgba(255,255,255,0.9)' : subColor;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText('app.routinist.kr', boxX + boxSize / 2, boxY + boxSize + 28);
+  }
 }
 
 function formatDur(s: number): string {
@@ -1182,6 +1211,37 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
   const [shareAsVideo, setShareAsVideo] = useState(true);
   const [renderingVideo, setRenderingVideo] = useState(false);
 
+  // build 292 성장 루프 ①: 앱 유입 QR — 기본 ON, localStorage 기억.
+  // 일간 카드: 활동이 public 일 때만 /r/{id} (비공개 링크는 랜딩에서 안 열림 → QR 자체 생략).
+  // 주간/월간 (periodOverrides): 활동 id 없음 → 앱 홈으로.
+  const [qrEnabled, setQrEnabled] = useState(() => {
+    try { return localStorage.getItem('routinist_share_qr') !== '0'; } catch { return true; }
+  });
+  const toggleQr = (on: boolean) => {
+    setQrEnabled(on);
+    try { localStorage.setItem('routinist_share_qr', on ? '1' : '0'); } catch { /* private mode 등 */ }
+  };
+  const qrUrl = useMemo<string | null>(() => {
+    if (periodOverrides) return 'https://app.routinist.kr';
+    return activity.visibility === 'public' ? `https://app.routinist.kr/r/${activity.id}` : null;
+  }, [periodOverrides, activity.visibility, activity.id]);
+  // QR 이미지 사전 생성 — drawCard 는 동기 함수라 미리 로드해 전달 (bgImage 패턴과 동일).
+  const [qrImage, setQrImage] = useState<HTMLImageElement | null>(null);
+  useEffect(() => {
+    if (!qrEnabled || !qrUrl) { setQrImage(null); return; }
+    let cancelled = false;
+    QRCode.toDataURL(qrUrl, { width: 280, margin: 1, color: { dark: '#0f172a', light: '#ffffff' } })
+      .then(dataUrl => new Promise<HTMLImageElement>((res, rej) => {
+        const img = new Image();
+        img.onload = () => res(img);
+        img.onerror = rej;
+        img.src = dataUrl;
+      }))
+      .then(img => { if (!cancelled) setQrImage(img); })
+      .catch(() => { if (!cancelled) setQrImage(null); });
+    return () => { cancelled = true; };
+  }, [qrEnabled, qrUrl]);
+
   // GPS 첫 좌표 + profile region → 지역 라벨 (한국이면 "서울 강남", 해외면 "중국 항저우")
   const regionLabelBase = (() => {
     const first = activity.route_data?.coordinates?.[0] as [number, number] | undefined;
@@ -1272,9 +1332,9 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
 
   const generate = useCallback(() => {
     if (!canvasRef.current) return;
-    drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel ?? undefined, 1, undefined, periodOverrides);
+    drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel ?? undefined, 1, undefined, periodOverrides, null, qrImage);
     // locale: 캔버스 안 ttl()/getCurrentLocale() 텍스트가 언어 전환 시 다시 그려지도록 (build 291 i18n Phase D).
-  }, [activity, displayName, themeIdx, bgImage, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel, locale]);
+  }, [activity, displayName, themeIdx, bgImage, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel, locale, qrImage]);
 
   useEffect(() => { generate(); }, [generate]);
 
@@ -1587,6 +1647,7 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
               activity.distance_km * distR,
               periodOverrides,
               videoEl,    // build 218 #3: 영상을 카드 bg 로 사용. 카드 콘텐츠 위에 overlay.
+              qrImage,    // build 292: 마지막 hold 프레임(progress>=1)에만 그려짐.
             );
           },
           { fps: 30, bitsPerSecond: 5_000_000, durationMs: periodDurMs, holdMs: 1500 },
@@ -1795,6 +1856,25 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
                 )}
               </span>
               <span className="text-sm text-[var(--foreground)]">{tt('러닝사진에 등록')}</span>
+            </label>
+          )}
+
+          {/* build 292 성장 루프 ①: QR 링크 토글 — public 활동(또는 기간 카드)일 때만 노출. 기본 ON, localStorage 기억. */}
+          {qrUrl && (
+            <label className="flex items-center gap-2.5 px-1 cursor-pointer select-none">
+              <span className="relative flex items-center justify-center">
+                <input
+                  type="checkbox"
+                  checked={qrEnabled}
+                  onChange={(e) => toggleQr(e.target.checked)}
+                  className="peer sr-only"
+                />
+                <span className="w-5 h-5 rounded-md border-2 border-[var(--card-border)] peer-checked:bg-emerald-500 peer-checked:border-emerald-500 transition-all" />
+                {qrEnabled && (
+                  <Check size={14} className="absolute text-white pointer-events-none" strokeWidth={3} />
+                )}
+              </span>
+              <span className="text-sm text-[var(--foreground)]">{tt('QR 링크 (카드에 앱 링크 QR 표시)')}</span>
             </label>
           )}
 

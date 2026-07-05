@@ -82,6 +82,13 @@ export default function LoginPage() {
     } else if (params.get('reason') === 'force_fresh') {
       setInfo(tt('세션을 초기화했어요. 다시 로그인해주세요.'));
     }
+    // build 292: 초대 링크 /login?ref=CODE — 로그인 완료 후 (app)/layout 이 1회 자동 claim.
+    const ref = params.get('ref');
+    if (ref) {
+      import('@/lib/referral-data')
+        .then(({ storePendingReferral }) => storePendingReferral(ref))
+        .catch(() => {});
+    }
   }, []);
 
   const refreshDebug = () => {
