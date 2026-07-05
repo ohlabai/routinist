@@ -70,9 +70,9 @@ export async function addRunningLog(memberId: string, runDate: string, distanceK
   });
   if (error) throw error;
 
-  const date = new Date(runDate);
-  const year = date.getFullYear();
-  const month = date.getMonth() + 1;
+  // runDate 'YYYY-MM-DD' 를 new Date() 로 파싱하면 UTC 자정 → 서쪽 timezone 에서 전월로 밀림. 문자열 slice 사용.
+  const year = Number(runDate.slice(0, 4));
+  const month = Number(runDate.slice(5, 7));
 
   const { data: existing } = await getSupabase().from('monthly_records').select('*')
     .eq('member_id', memberId).eq('year', year).eq('month', month).single();

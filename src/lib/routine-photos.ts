@@ -2,6 +2,20 @@
 // 2026-04-21 컨셉 피벗: opt-out 기본, 좋아요, 친구/동네 가중치 트렌딩
 
 import { getSupabase } from './supabase';
+import { fetchMyBlockedIds } from './message-data';
+
+// build 290: 차단한 사용자의 사진을 모든 피드에서 제외 (Apple 1.2 — 차단 콘텐츠 숨김).
+// lib 레벨 한 곳에서 걸러 PhotosTab/트렌딩/에세이 등 모든 화면이 자동 적용.
+async function excludeBlocked<T extends { user_id: string }>(rows: T[]): Promise<T[]> {
+  if (rows.length === 0) return rows;
+  try {
+    const blocked = await fetchMyBlockedIds();
+    if (blocked.size === 0) return rows;
+    return rows.filter(r => !blocked.has(r.user_id));
+  } catch {
+    return rows;
+  }
+}
 
 export interface RoutinePhoto {
   photo_id: string;
@@ -23,6 +37,7 @@ export interface RoutinePhoto {
   like_count: number;
   liked_by_me?: boolean;
   created_at: string;
+  comment_count?: number;            // build 290: view 컬럼 — 카드별 count 쿼리 N+1 제거 (트렌딩 RPC 경로엔 없음)
 }
 
 // 메인 하단 캐러셀 — 최근 7일 × 친구×1.5 × 동네×1.3 가중치 트렌딩
@@ -41,7 +56,7 @@ export async function fetchTrendingPhotos(limit = 20): Promise<RoutinePhoto[]> {
       setTimeout(() => resolve({ error: { message: 'trending 5s timeout' } }), 5000)
     ),
   ]);
-  if ('data' in result && !result.error) return (result.data ?? []) as RoutinePhoto[];
+  if ('data' in result && !result.error) return excludeBlocked((result.data ?? []) as RoutinePhoto[]);
   console.warn('[routine_photos] trending 실패', result.error);
   return [];
 }
@@ -62,7 +77,7 @@ export async function fetchRecentPhotos(opts: PageOptions = {}): Promise<Routine
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
   if (error) { console.warn('[routine_photos] recent 실패', error); return []; }
-  return (data ?? []).map(mapRow);
+  return excludeBlocked((data ?? []).map(mapRow));
 }
 
 // 친구만 (포토 탭 '친구')
@@ -78,7 +93,7 @@ export async function fetchFriendPhotos(friendIds: string[], opts: PageOptions =
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
   if (error) { console.warn('[routine_photos] friends 실패', error); return []; }
-  return (data ?? []).map(mapRow);
+  return excludeBlocked((data ?? []).map(mapRow));
 }
 
 // 내 구(區) (포토 탭 '동네')
@@ -94,7 +109,7 @@ export async function fetchRegionPhotos(regionGu: string, opts: PageOptions = {}
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
   if (error) { console.warn('[routine_photos] region 실패', error); return []; }
-  return (data ?? []).map(mapRow);
+  return excludeBlocked((data ?? []).map(mapRow));
 }
 
 // 내가 좋아요한 (포토 탭 '좋아요함')
@@ -295,7 +310,7 @@ export async function fetchEssayFeed(opts: PageOptions = {}): Promise<RoutinePho
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
   if (error) { console.warn('[essay feed] fail', error); return []; }
-  return (data ?? []).map(mapRow);
+  return excludeBlocked((data ?? []).map(mapRow));
 }
 
 // 단일 photo (essay 단독 페이지용)

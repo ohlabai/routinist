@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { Heart, MapPin, X, Trash2, Flag, MessageCircle } from 'lucide-react';
 import type { RoutinePhoto } from '@/lib/routine-photos';
 import { togglePhotoLike, deleteMyPhoto, reportPhoto } from '@/lib/routine-photos';
+import { blockUser } from '@/lib/message-data';
 import { fetchPhotoCommentCount } from '@/lib/photo-comments';
 import { useAuth } from '@/components/AuthProvider';
 import AppToast from '@/components/AppToast';
@@ -41,17 +42,37 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
   const [showReport, setShowReport] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [showComments, setShowComments] = useState(false);
-  const [commentCount, setCommentCount] = useState<number>(0);
+  const [commentCount, setCommentCount] = useState<number>(photo.comment_count ?? 0);
 
-  // 댓글 카운트 lazy fetch (sheet 안 열어도 카운트 표시).
-  // 갤러리 그리드에서 N개 동시 fetch — 작은 head:true count 라 부담 적음.
+  // 댓글 카운트 — build 290: 갤러리 view 가 comment_count 를 내려주면 그대로 사용 (카드당
+  // count 쿼리 N+1 제거). 트렌딩 RPC 등 comment_count 없는 경로만 기존 lazy fetch 폴백.
   useEffect(() => {
+    if (photo.comment_count !== undefined) return;
     let cancelled = false;
     fetchPhotoCommentCount(photo.photo_id)
       .then(n => { if (!cancelled) setCommentCount(n); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [photo.photo_id]);
+  }, [photo.photo_id, photo.comment_count]);
+
+  // build 290: 차단 진입점 (Apple 1.2) — 차단 즉시 이 카드도 화면에서 제거.
+  const handleBlockUser = async () => {
+    if (reporting) return;
+    setReporting(true);
+    try {
+      await blockUser(photo.user_id);
+      setToast({ text: `${photo.display_name}님을 차단했어요. 콘텐츠가 더 이상 보이지 않아요`, tone: 'ok' });
+      setTimeout(() => {
+        setRemoved(true);
+        onDeleted?.(photo.photo_id);
+      }, 900);
+    } catch (err) {
+      setToast({ text: `차단 실패 — ${err instanceof Error ? err.message.slice(0, 60) : '다시 시도해주세요'}`, tone: 'warn' });
+    } finally {
+      setShowReport(false);
+      setReporting(false);
+    }
+  };
 
   const handleReport = async (reason: 'inappropriate' | 'spam' | 'harassment' | 'other') => {
     if (reporting) return;
@@ -381,6 +402,15 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
                 </button>
               ))}
             </div>
+            {!isOwner && (
+              <button
+                onClick={handleBlockUser}
+                disabled={reporting}
+                className="w-full mt-1.5 px-3 py-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 text-sm font-semibold disabled:opacity-50 active:bg-rose-100 transition"
+              >
+                {photo.display_name}님 차단하기
+              </button>
+            )}
             <button
               onClick={() => setShowReport(false)}
               disabled={reporting}

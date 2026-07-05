@@ -3,6 +3,7 @@
 // 자동 필터 (is_clean_text trigger) — 욕설/스팸 reject.
 
 import { getSupabase } from './supabase';
+import { fetchMyBlockedIds } from './message-data';
 
 export interface PhotoComment {
   id: string;
@@ -29,7 +30,9 @@ export async function fetchPhotoComments(photoId: string, limit = 50): Promise<P
     .order('created_at', { ascending: true })
     .limit(limit);
   if (error) throw error;
-  return (data ?? []).map((r: {
+  // build 290: 차단한 사용자의 댓글 숨김 (Apple 1.2)
+  const blocked = await fetchMyBlockedIds().catch(() => new Set<string>());
+  return (data ?? []).filter((r: { user_id: string }) => !blocked.has(r.user_id)).map((r: {
     id: string; photo_id: string; user_id: string; body: string; created_at: string;
     profiles?: ProfileSlim | ProfileSlim[];
   }) => {

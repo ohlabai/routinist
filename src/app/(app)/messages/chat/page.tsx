@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
-import { fetchMessages, sendMessage, markAsRead, getOrCreateConversation } from '@/lib/message-data';
+import { fetchMessages, sendMessage, markAsRead, getOrCreateConversation, blockUser } from '@/lib/message-data';
 import { getSupabase } from '@/lib/supabase';
 import { PUBLIC_PROFILE_FIELDS } from '@/lib/profile-fields';
 import { ArrowLeft, Send, ShieldAlert } from 'lucide-react';
@@ -170,6 +170,25 @@ function ChatView() {
             {otherUser?.display_name ?? '러너'}
           </span>
         </Link>
+        {/* build 290: 차단 (Apple 1.2) — 차단 후 대화 목록으로 복귀 (목록에서 자동 숨김) */}
+        {otherUser && (
+          <button
+            onClick={async () => {
+              if (!window.confirm(`${otherUser.display_name ?? '이 사용자'}님을 차단할까요?\n차단하면 대화가 목록에서 숨겨지고 사진·댓글도 보이지 않아요.`)) return;
+              try {
+                await blockUser(otherUser.id);
+                router.push('/messages');
+              } catch (e) {
+                logClientWarn('Chat', '차단 실패', { err: String(e) });
+              }
+            }}
+            className="p-2 text-[var(--muted)] active:opacity-60"
+            aria-label="사용자 차단"
+            title="사용자 차단"
+          >
+            <ShieldAlert size={20} />
+          </button>
+        )}
       </div>
 
       {/* 메시지 영역 */}

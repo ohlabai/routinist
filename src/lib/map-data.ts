@@ -1,4 +1,5 @@
 import { getSupabase } from './supabase';
+import { daysAgoStr } from './kst';
 import type { Activity } from '@/types';
 
 interface FetchRoutesOptions {
@@ -35,9 +36,8 @@ export async function fetchRoutesForUser(
     const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-01`;
     query = query.gte('activity_date', startDate).lt('activity_date', endDate);
   } else if (typeof options.daysBack === 'number') {
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - options.daysBack);
-    query = query.gte('activity_date', cutoff.toISOString().slice(0, 10));
+    // toISOString 은 UTC 라 KST 새벽에 컷오프가 하루 어긋남 — 로컬 날짜 기준 daysAgoStr 사용
+    query = query.gte('activity_date', daysAgoStr(options.daysBack));
   }
 
   const { data, error } = await query.range(offset, offset + pageSize - 1);

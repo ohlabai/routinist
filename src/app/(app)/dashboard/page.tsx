@@ -304,12 +304,11 @@ export default function DashboardPage() {
     if (activities.length === 0 && profileMonthCacheValid && profile?.this_month_runs !== undefined) {
       return Number(profile.this_month_runs);
     }
+    // activity_date 'YYYY-MM-DD' 는 문자열 prefix 비교 (UTC 파싱 시 서쪽 timezone 하루 밀림)
+    const ym = `${year}-${String(month).padStart(2, '0')}`;
     const daySet = new Set(
       activities
-        .filter(a => {
-          const d = new Date(a.activity_date);
-          return d.getFullYear() === year && d.getMonth() + 1 === month;
-        })
+        .filter(a => a.activity_date.slice(0, 7) === ym)
         .map(a => a.activity_date)
     );
     return daySet.size;
@@ -329,10 +328,7 @@ export default function DashboardPage() {
   const { goalKm, goalProgress, goalRemaining, dailyNeeded } = goalState;
 
   const calendarActivities = useMemo(() =>
-    activities.filter(a => {
-      const d = new Date(a.activity_date);
-      return d.getFullYear() === year && d.getMonth() + 1 === month;
-    }),
+    activities.filter(a => a.activity_date.slice(0, 7) === `${year}-${String(month).padStart(2, '0')}`),
     [activities, year, month]
   );
 
@@ -384,7 +380,9 @@ export default function DashboardPage() {
     let hThis = 0, hLast = 0;
 
     activities.forEach(a => {
-      const t = new Date(a.activity_date).getTime();
+      // 'YYYY-MM-DD' 를 UTC 로 파싱하면 로컬 자정 경계와 어긋남 — 로컬 자정으로 파싱
+      const [ay, am, ad] = a.activity_date.split('-').map(Number);
+      const t = new Date(ay, am - 1, ad).getTime();
       const km = a.distance_km;
       if (t >= startOfThisWeek.getTime()) weekThis += km;
       else if (t >= startOfLastWeek.getTime() && t <= endOfLastWeekRange.getTime() + dayMs) weekLast += km;
@@ -433,10 +431,12 @@ export default function DashboardPage() {
       : ['일','월','화','수','목','금','토'];
     const stats: DayOfWeekStat[] = days.map((day, i) => ({ day, dayIndex: i, runCount: 0, totalDistance: 0, avgDistance: 0 }));
     const filtered = dayScope === 'year'
-      ? activities.filter(a => new Date(a.activity_date).getFullYear() === year)
+      ? activities.filter(a => a.activity_date.slice(0, 4) === String(year))
       : activities;
     filtered.forEach(a => {
-      const di = new Date(a.activity_date).getDay();
+      // UTC 파싱 시 서쪽 timezone 에서 요일이 하루 밀림 — 로컬 생성 후 getDay
+      const [ay, am, ad] = a.activity_date.split('-').map(Number);
+      const di = new Date(ay, am - 1, ad).getDay();
       stats[di].runCount++;
       stats[di].totalDistance += Number(a.distance_km);
     });
@@ -994,7 +994,8 @@ export default function DashboardPage() {
               const yearMs = 365 * 24 * 60 * 60 * 1000;
               let thisSum = 0, lastSum = 0;
               activities.forEach(a => {
-                const t = new Date(a.activity_date).getTime();
+                const [ay, am, ad] = a.activity_date.split('-').map(Number);
+                const t = new Date(ay, am - 1, ad).getTime(); // 로컬 자정 (UTC 파싱 금지)
                 if (t >= nowMs - _12wMs) thisSum += a.distance_km;
                 else if (t >= nowMs - yearMs - _12wMs && t < nowMs - yearMs) lastSum += a.distance_km;
               });
@@ -1388,7 +1389,11 @@ export default function DashboardPage() {
                     )}
                   </p>
                   <p className="text-xs text-[var(--muted)]">
-                    {new Date(a.activity_date).toLocaleDateString(locale === 'en' ? 'en-US' : 'ko-KR', { month: 'short', day: 'numeric', weekday: 'short' })}
+                    {(() => {
+                      // 'YYYY-MM-DD' UTC 파싱 금지 — 로컬 자정으로 생성 후 표시
+                      const [ay, am, ad] = a.activity_date.split('-').map(Number);
+                      return new Date(ay, am - 1, ad).toLocaleDateString(locale === 'en' ? 'en-US' : 'ko-KR', { month: 'short', day: 'numeric', weekday: 'short' });
+                    })()}
                     {a.pace_avg_sec_per_km ? ` · ${formatPace(a.pace_avg_sec_per_km)}/km` : ''}
                   </p>
                 </div>

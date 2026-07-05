@@ -188,11 +188,11 @@ export async function setMonthlyGoal(userId: string, year: number, month: number
 // ===== 통계 유틸 =====
 
 export function getMonthlyDistance(activities: Activity[], year: number, month: number): number {
+  // activity_date 는 'YYYY-MM-DD' 로컬 날짜 문자열 — new Date() UTC 파싱 후 로컬 getter 를 쓰면
+  // UTC 서쪽 timezone 에서 하루 밀림. 문자열 prefix 비교가 정확.
+  const ym = `${year}-${String(month).padStart(2, '0')}`;
   return activities
-    .filter(a => {
-      const d = new Date(a.activity_date);
-      return d.getFullYear() === year && d.getMonth() + 1 === month;
-    })
+    .filter(a => a.activity_date.slice(0, 7) === ym)
     .reduce((sum, a) => sum + a.distance_km, 0);
 }
 

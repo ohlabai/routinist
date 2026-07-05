@@ -25,30 +25,32 @@ export async function fetchConversations(userId: string): Promise<Conversation[]
   const convs = (data || []) as ConvWithProfiles[];
   if (convs.length === 0) return [];
 
-  // 마지막 메시지: conversation_id IN (...) 단일 쿼리. created_at DESC 로 정렬 후 conversation 별 첫 행만.
+  // 마지막 메시지: DISTINCT ON RPC 로 대화당 1행만.
+  // build 290: 이전엔 모든 대화의 전체 메시지를 limit 없이 받아 첫 행만 사용 — 대화가 길수록
+  // 목록 진입이 수천 row 전송으로 느려지던 N+1 계열 버그.
   const convIds = convs.map(c => c.id);
   const { data: lastMsgs } = await supabase
-    .from('messages')
-    .select('*')
-    .in('conversation_id', convIds)
-    .order('created_at', { ascending: false });
+    .rpc('fetch_last_messages', { p_conversation_ids: convIds });
 
   const lastMsgByConv = new Map<string, Message>();
   for (const m of (lastMsgs || []) as Message[]) {
-    if (!lastMsgByConv.has(m.conversation_id)) {
-      lastMsgByConv.set(m.conversation_id, m);
-    }
+    lastMsgByConv.set(m.conversation_id, m);
   }
 
-  return convs.map(c => ({
-    id: c.id,
-    user_a: c.user_a,
-    user_b: c.user_b,
-    last_message_at: c.last_message_at,
-    created_at: c.created_at,
-    other_user: (c.user_a === userId ? c.user_b_profile : c.user_a_profile) as Profile | undefined,
-    last_message: lastMsgByConv.get(c.id),
-  }));
+  // build 290: 차단한 사용자와의 대화는 목록에서 숨김 (Apple 1.2)
+  const blocked = await fetchMyBlockedIds().catch(() => new Set<string>());
+
+  return convs
+    .filter(c => !blocked.has(c.user_a === userId ? c.user_b : c.user_a))
+    .map(c => ({
+      id: c.id,
+      user_a: c.user_a,
+      user_b: c.user_b,
+      last_message_at: c.last_message_at,
+      created_at: c.created_at,
+      other_user: (c.user_a === userId ? c.user_b_profile : c.user_a_profile) as Profile | undefined,
+      last_message: lastMsgByConv.get(c.id),
+    }));
 }
 
 // 대화 메시지 조회
@@ -142,13 +144,49 @@ export async function getUnreadCount(userId: string): Promise<number> {
   return count ?? 0;
 }
 
+// build 290: 내 차단 목록 — 피드/댓글/쪽지 필터용. 모듈 캐시 (60s TTL) + in-flight 공유.
+// 차단/해제 시 즉시 로컬 갱신하므로 TTL 은 다중 기기 동기화 지연 한도일 뿐.
+let blockedIdsCache: { userId: string; at: number; ids: Set<string> } | null = null;
+let blockedIdsInflight: { userId: string; promise: Promise<Set<string>> } | null = null;
+const BLOCKED_IDS_TTL_MS = 60_000;
+
+export async function fetchMyBlockedIds(): Promise<Set<string>> {
+  const supabase = getSupabase();
+  const { data: { session } } = await supabase.auth.getSession();
+  const userId = session?.user?.id;
+  if (!userId) return new Set();
+
+  if (blockedIdsCache?.userId === userId && Date.now() - blockedIdsCache.at < BLOCKED_IDS_TTL_MS) {
+    return blockedIdsCache.ids;
+  }
+  if (blockedIdsInflight?.userId === userId) return blockedIdsInflight.promise;
+
+  const promise = (async () => {
+    const { data, error } = await supabase.from('user_blocks').select('blocked_id').eq('blocker_id', userId);
+    blockedIdsInflight = null;
+    if (error) return blockedIdsCache?.userId === userId ? blockedIdsCache.ids : new Set<string>();
+    const ids = new Set<string>((data ?? []).map((r: { blocked_id: string }) => r.blocked_id));
+    blockedIdsCache = { userId, at: Date.now(), ids };
+    return ids;
+  })();
+  blockedIdsInflight = { userId, promise };
+  return promise;
+}
+
 // 유저 차단
 export async function blockUser(blockedId: string): Promise<void> {
   const supabase = getSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('로그인이 필요합니다');
 
-  await supabase.from('user_blocks').insert({ blocker_id: user.id, blocked_id: blockedId });
+  const { error } = await supabase.from('user_blocks').insert({ blocker_id: user.id, blocked_id: blockedId });
+  // 23505 = 이미 차단됨 — 성공으로 간주
+  if (error && error.code !== '23505') throw new Error(error.message);
+  if (blockedIdsCache?.userId === user.id) blockedIdsCache.ids.add(blockedId);
+
+  // 차단하면 내 쪽 팔로우도 해제 — 친구 피드/친구 사진 탭에서 즉시 사라지게.
+  // (상대 → 나 방향은 RLS 상 삭제 불가; 내 피드 노출은 내 follows 기준이라 이것으로 충분)
+  await supabase.from('follows').delete().eq('follower_id', user.id).eq('following_id', blockedId);
 }
 
 // 차단 해제
@@ -157,7 +195,9 @@ export async function unblockUser(blockedId: string): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('로그인이 필요합니다');
 
-  await supabase.from('user_blocks').delete().eq('blocker_id', user.id).eq('blocked_id', blockedId);
+  const { error } = await supabase.from('user_blocks').delete().eq('blocker_id', user.id).eq('blocked_id', blockedId);
+  if (error) throw new Error(error.message);
+  if (blockedIdsCache?.userId === user.id) blockedIdsCache.ids.delete(blockedId);
 }
 
 // 차단 여부 확인

@@ -12,7 +12,7 @@ import {
   type MemberProgress, type ClubSummary, type MemberRunCount, type CumulativeRanking, type HallOfFameEntry,
 } from '@/lib/stats-data';
 import { formatPace, formatDuration } from '@/lib/routinist-data';
-import { startOfWeekStr, startOfMonthStr } from '@/lib/kst';
+import { startOfWeekStr, startOfMonthStr, todayStr, daysAgoStr } from '@/lib/kst';
 import { getSupabase } from '@/lib/supabase';
 import { ArrowLeft, Users, LogIn, LogOut, Share2, Shield, ShieldOff, UserMinus, Settings, Activity, Crown, Copy, Check, TrendingUp, Zap, Trophy, Flame, ChevronRight, Trash2, MessageSquare, Heart, Image as ImageIcon, Pin, X, Send, Eye, EyeOff, BarChart3 } from 'lucide-react';
 import {
@@ -93,11 +93,9 @@ function ClubDetail() {
   const [chDesc, setChDesc] = useState('');
   const [chTargetKm, setChTargetKm] = useState('');
   const [chTargetCount, setChTargetCount] = useState('');
-  const [chStart, setChStart] = useState(() => new Date().toISOString().slice(0, 10));
-  const [chEnd, setChEnd] = useState(() => {
-    const d = new Date(); d.setDate(d.getDate() + 6);
-    return d.toISOString().slice(0, 10);
-  });
+  // toISOString 은 UTC 라 KST 새벽에 하루 어긋남 — 로컬 날짜 기준 helper 사용
+  const [chStart, setChStart] = useState(() => todayStr());
+  const [chEnd, setChEnd] = useState(() => daysAgoStr(-6));
   const [evOpen, setEvOpen] = useState(false);
   const [evTitle, setEvTitle] = useState('');
   const [evDesc, setEvDesc] = useState('');
@@ -1015,7 +1013,7 @@ function ClubDetail() {
                 {isAdmin ? '첫 챌린지를 만들어 보세요 (예: "이번 주 10km")' : '진행 중인 챌린지가 없어요'}
               </div>
             ) : challenges.map(ch => {
-              const today = new Date().toISOString().slice(0, 10);
+              const today = todayStr();
               const isActive = ch.start_date <= today && today <= ch.end_date;
               const isPast = today > ch.end_date;
               const prog = challengeProgress[ch.id] ?? [];

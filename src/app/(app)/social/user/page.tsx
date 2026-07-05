@@ -20,7 +20,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { followUser, unfollowUser, isFollowing } from '@/lib/social-data';
 import { sendFriendRequest, getFriendshipStatus, cancelFriendRequest, type FriendshipStatus } from '@/lib/friend-requests-data';
 import CheerButton from '@/components/social/CheerButton';
-import { getOrCreateConversation } from '@/lib/message-data';
+import { getOrCreateConversation, blockUser, unblockUser, isBlocked } from '@/lib/message-data';
 import { PUBLIC_PROFILE_FIELDS } from '@/lib/profile-fields';
 import type { Profile } from '@/types';
 import AppLogo from '@/components/AppLogo';
@@ -158,6 +158,10 @@ function UserProfileContent() {
   const [friendStatus, setFriendStatus] = useState<FriendshipStatus>('none');
   const [friendRequestId, setFriendRequestId] = useState<string | null>(null);
 
+  // build 290: 차단 상태 (Apple 1.2 — 사용자 차단 진입점)
+  const [blockedByMe, setBlockedByMe] = useState(false);
+  const [blockToggling, setBlockToggling] = useState(false);
+
   useEffect(() => {
     if (!user || user.id === userId) return;
     let mounted = true;
@@ -167,8 +171,30 @@ function UserProfileContent() {
       setFriendStatus(s.status);
       setFriendRequestId(s.requestId);
     })();
+    isBlocked(userId).then(b => { if (mounted) setBlockedByMe(b); }).catch(() => {});
     return () => { mounted = false; };
   }, [user, userId]);
+
+  const handleBlockToggle = async () => {
+    if (!user || blockToggling) return;
+    if (!blockedByMe && !window.confirm('이 사용자를 차단할까요?\n차단하면 이 사용자의 사진·댓글·쪽지가 더 이상 보이지 않아요.')) return;
+    setBlockToggling(true);
+    try {
+      if (blockedByMe) {
+        await unblockUser(userId);
+        setBlockedByMe(false);
+        setToast({ text: '차단을 해제했어요', tone: 'ok' });
+      } else {
+        await blockUser(userId);
+        setBlockedByMe(true);
+        setToast({ text: '차단했어요. 이 사용자의 콘텐츠가 더 이상 보이지 않아요', tone: 'ok' });
+      }
+    } catch (e) {
+      setToast({ text: `처리 실패 — ${e instanceof Error ? e.message.slice(0, 60) : '다시 시도해주세요'}`, tone: 'warn' });
+    } finally {
+      setBlockToggling(false);
+    }
+  };
 
   const handleFriendAction = async () => {
     if (!user || toggling) return;
@@ -445,6 +471,17 @@ function UserProfileContent() {
           </Link>
         </div>
       ))}
+
+      {/* build 290: 차단/해제 (Apple 1.2) — 액션 그리드 하단의 절제된 텍스트 버튼 */}
+      {user && !isMe && (
+        <button
+          onClick={handleBlockToggle}
+          disabled={blockToggling}
+          className="w-full py-2 text-xs font-semibold text-rose-500/80 disabled:opacity-50 active:opacity-70 transition"
+        >
+          {blockedByMe ? '차단 해제하기' : '이 사용자 차단하기'}
+        </button>
+      )}
 
       {/* 친구 이번 주 회고 (build 130) */}
       <FriendWeeklyRecap userId={profile.id} />
@@ -793,19 +830,17 @@ function FriendCalendarCard({ userId }: { userId: string }) {
   if (loading) return <div className="card p-4 h-32 animate-pulse" />;
   if (rows.length === 0) return null;
 
-  // 30일 그리드 + 일별 km 합
-  const today = new Date();
+  // 30일 그리드 + 일별 km 합 (toISOString 은 UTC 라 KST 새벽에 하루 어긋남 — daysAgoStr 사용)
   const cells: { date: string; km: number; isToday: boolean }[] = [];
   for (let i = 29; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const ymd = d.toISOString().slice(0, 10);
+    const ymd = daysAgoStr(i);
     const km = rows.filter(r => r.activity_date === ymd).reduce((s, r) => s + Number(r.distance_km), 0);
     cells.push({ date: ymd, km, isToday: i === 0 });
   }
 
-  // 첫 셀의 요일에 맞춰 padding (일=0)
-  const firstWeekday = new Date(cells[0].date).getDay();
+  // 첫 셀의 요일에 맞춰 padding (일=0). 'YYYY-MM-DD' UTC 파싱 금지 — 로컬 생성 후 getDay.
+  const [fy, fm, fd] = cells[0].date.split('-').map(Number);
+  const firstWeekday = new Date(fy, fm - 1, fd).getDay();
   const padded: ({ date: string; km: number; isToday: boolean } | null)[] = [
     ...Array(firstWeekday).fill(null),
     ...cells,
@@ -842,7 +877,7 @@ function FriendCalendarCard({ userId }: { userId: string }) {
               } ${c.isToday ? 'ring-2 ring-amber-400' : ''}`}
               title={`${c.date} · ${c.km.toFixed(1)}km`}
             >
-              <span className="text-[9px] opacity-70">{new Date(c.date).getDate()}</span>
+              <span className="text-[9px] opacity-70">{Number(c.date.slice(8, 10))}</span>
               {c.km > 0 && <span className="text-[10px] tabular-nums">{c.km.toFixed(0)}</span>}
             </div>
           );
@@ -1048,13 +1083,10 @@ function FriendActivityChart({ userId }: { userId: string }) {
   if (loading) return <div className="card p-4 h-28 animate-pulse" />;
   if (rows.length === 0) return null;
 
-  // 30일 그리드
-  const today = new Date();
+  // 30일 그리드 (toISOString 은 UTC 라 KST 새벽에 하루 어긋남 — daysAgoStr 사용)
   const days: { date: string; km: number }[] = [];
   for (let i = 29; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const ymd = d.toISOString().slice(0, 10);
+    const ymd = daysAgoStr(i);
     const km = rows.filter(r => r.activity_date === ymd).reduce((s, r) => s + Number(r.distance_km), 0);
     days.push({ date: ymd, km });
   }

@@ -41,19 +41,19 @@ export default function MonthEndRecapCard({ activities }: Props) {
   // 총 2일만 노출. 6/2 부터는 자동으로 사라짐.
   const isEndOfMonth = day === lastDay;
   const isStartOfNextMonth = day === 1;
-  if (!isEndOfMonth && !isStartOfNextMonth) return null;
 
   // 대상 월: end-of-month 면 이달, start-of-next-month 면 지난 달
   const targetYear = isEndOfMonth ? year : (month === 1 ? year - 1 : year);
   const targetMonth = isEndOfMonth ? month : (month === 1 ? 12 : month - 1);
 
   const monthActs = useMemo(() => {
-    return activities.filter(a => {
-      const d = new Date(a.activity_date);
-      return d.getFullYear() === targetYear && d.getMonth() + 1 === targetMonth;
-    });
+    // activity_date 'YYYY-MM-DD' 는 문자열 prefix 비교 (UTC 파싱 시 서쪽 timezone 하루 밀림)
+    const ym = `${targetYear}-${String(targetMonth).padStart(2, '0')}`;
+    return activities.filter(a => a.activity_date.slice(0, 7) === ym);
   }, [activities, targetYear, targetMonth]);
 
+  // early return 은 모든 훅 (useMemo) 뒤에 — React hooks 규칙 (조건부 훅 호출 금지)
+  if (!isEndOfMonth && !isStartOfNextMonth) return null;
   if (monthActs.length === 0) return null;
 
   const totalKm = monthActs.reduce((s, a) => s + Number(a.distance_km), 0);

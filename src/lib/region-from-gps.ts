@@ -14,12 +14,13 @@ interface CoarseRegion {
   bbox: [number, number, number, number];
 }
 
-const KR_BBOX: [number, number, number, number] = [33.0, 38.7, 124.5, 131.9];
+// (KR_* export 는 테스트용 — scripts/check-region-bboxes.ts)
+export const KR_BBOX: [number, number, number, number] = [33.0, 38.7, 124.5, 131.9];
 
 // build 171 #2: 서울 25개 구 bbox — profile.region_gu 가 비어있어도 GPS 좌표로 "서울 강남" 표시.
 // 굵은 사각형이라 인접 구 경계는 살짝 부정확하지만 모서리 ↔ 중심부 대략적인 매칭은 충분.
 // 좁은 → 넓은 순서 (검색 정렬에서 좁은 구가 먼저 매칭됨).
-const KR_SEOUL_GU: CoarseRegion[] = [
+export const KR_SEOUL_GU: CoarseRegion[] = [
   { name: '서울 강남', bbox: [37.460, 37.545, 127.000, 127.115] },
   { name: '서울 서초', bbox: [37.450, 37.510, 126.985, 127.060] },
   { name: '서울 송파', bbox: [37.465, 37.535, 127.080, 127.180] },
@@ -50,7 +51,7 @@ const KR_SEOUL_GU: CoarseRegion[] = [
 // build 218 #1: 비-서울 한국 시·군 2-tier bbox. "경기 양평" / "경남 진주" 등.
 // 정확도는 ±0.05도 (≈5km) 수준. 좁은 도시 매칭 → 광역시·도 fallback 순서.
 // 군은 전 면적 포괄하도록 넓게 잡음.
-const KR_NON_SEOUL_CITY: CoarseRegion[] = [
+export const KR_NON_SEOUL_CITY: CoarseRegion[] = [
   // 경기
   { name: '경기 양평', bbox: [37.39, 37.66, 127.31, 127.86] },
   { name: '경기 가평', bbox: [37.66, 38.00, 127.25, 127.65] },
@@ -115,7 +116,7 @@ const KR_NON_SEOUL_CITY: CoarseRegion[] = [
 ];
 
 // 한국 시·도 단위 bbox — KR_NON_SEOUL_CITY 에서 매칭 안 되면 fallback.
-const KR_CITY: CoarseRegion[] = [
+export const KR_CITY: CoarseRegion[] = [
   { name: '서울', bbox: [37.42, 37.71, 126.76, 127.18] },
   { name: '인천', bbox: [37.30, 37.65, 126.40, 126.78] },
   { name: '경기', bbox: [36.85, 38.30, 126.30, 127.90] },
@@ -140,11 +141,13 @@ const KR_CITY: CoarseRegion[] = [
 // build 288 (2026-06-13): 주요 50+ 국가 선제 등록. 이전엔 사용자 신고 받을 때마다 추가하던 방식.
 // 한국 outbound 인기 destination 위주 — 아시아 / 미주 / 유럽 / 오세아니아 / 아프리카 / 중동 망라.
 //
-// **순서 룰** (매우 중요 — 첫 매칭 우선이라 잘못 배치하면 작은 나라가 큰 이웃에 흡수됨):
-//   1. 도시 bbox 먼저 (좁음) → 국가 bbox 나중 (넓음)
-//   2. 작은 나라가 큰 이웃보다 위에 (예: 포르투갈 ↑, 스페인 ↓ / 슬로베니아 ↑, 이탈리아 ↓)
-//   3. tiny 국가 (모나코·룩셈부르크·안도라·리히텐슈타인) 는 자기 그룹 맨 위
-const WORLD: CoarseRegion[] = [
+// **매칭 룰** (build 290 변경): 첫 매칭이 아니라 **포인트를 포함하는 bbox 중 면적 최소**를 선택.
+//   → 배열 순서에 의존하지 않음. 도시 > 소국 > 대국이 면적으로 자연 우선됨.
+//   → 이전의 first-match 방식은 중국 bbox 가 대만/홍콩/몽골을, 미국이 캐나다 도시를,
+//     영국이 더블린을, 러시아가 우크라이나를 shadow 하는 버그가 있었음.
+//   면적 동률일 때만 배열 앞쪽이 이김. 아래 배열은 가독성을 위해 좁은 → 넓은 순서 유지.
+// (테스트용 export — scripts/check-region-bboxes.ts 에서 전수 검사)
+export const WORLD: CoarseRegion[] = [
   // ─── 동아시아 ─────────────────────────────────────────────────
   // 일본
   { name: '일본 도쿄', bbox: [35.40, 35.95, 139.30, 139.95] },
@@ -439,6 +442,29 @@ function inBox(lat: number, lng: number, bbox: [number, number, number, number])
   return lat >= bbox[0] && lat <= bbox[1] && lng >= bbox[2] && lng <= bbox[3];
 }
 
+// bbox 면적 (위도범위 × 경도범위). 라벨 우선순위 비교용 — 실제 km² 아님.
+function bboxArea(bbox: [number, number, number, number]): number {
+  return (bbox[1] - bbox[0]) * (bbox[3] - bbox[2]);
+}
+
+// build 290: KR 분기 fall-through 를 허용하는 WORLD bbox 최대 면적 (도시 스케일).
+const KR_WORLD_OVERRIDE_MAX_AREA = 2;
+
+// build 290: 포인트를 포함하는 모든 bbox 중 면적 최소 엔트리. 동률이면 배열 앞쪽 우선.
+function smallestContaining(lat: number, lng: number, regions: CoarseRegion[]): CoarseRegion | null {
+  let best: CoarseRegion | null = null;
+  let bestArea = Infinity;
+  for (const r of regions) {
+    if (!inBox(lat, lng, r.bbox)) continue;
+    const a = bboxArea(r.bbox);
+    if (a < bestArea) {
+      best = r;
+      bestArea = a;
+    }
+  }
+  return best;
+}
+
 export interface ProfileRegionHint {
   region_si?: string | null;
   region_gu?: string | null;
@@ -468,18 +494,40 @@ export function detectRegionLabel(
   //   변경: 한국 안 + GPS 좌표 → 25개 구 bbox 룩업 (서울) 또는 KR_CITY (시·도) 룩업 우선.
   //   profile region 은 마지막 fallback (GPS 가 매칭 안 될 때).
   if (inBox(lat, lng, KR_BBOX)) {
+    // 한국 내부 룩업 — 기존 tier 순서 그대로 (서울 구 → 시·군 → 시·도).
+    let kr: CoarseRegion | null = null;
     // 1) 서울 25개 구 (가장 정밀)
     for (const r of KR_SEOUL_GU) {
-      if (inBox(lat, lng, r.bbox)) return r.name;
+      if (inBox(lat, lng, r.bbox)) { kr = r; break; }
     }
     // 2) build 218 #1: 비-서울 주요 시·군 (2-tier "경기 양평" 등)
-    for (const r of KR_NON_SEOUL_CITY) {
-      if (inBox(lat, lng, r.bbox)) return r.name;
+    if (!kr) {
+      for (const r of KR_NON_SEOUL_CITY) {
+        if (inBox(lat, lng, r.bbox)) { kr = r; break; }
+      }
     }
     // 3) 광역시·도 fallback
-    for (const r of KR_CITY) {
-      if (inBox(lat, lng, r.bbox)) return r.name;
+    if (!kr) {
+      for (const r of KR_CITY) {
+        if (inBox(lat, lng, r.bbox)) { kr = r; break; }
+      }
     }
+    // build 290: KR_BBOX 가 일본 후쿠오카·쓰시마 일부를 포함 — KR 분기에 갇히면
+    // 후쿠오카 러닝이 "한국"으로 표기되던 버그. WORLD 에서 도시 스케일 매칭
+    // (예: '일본 후쿠오카' bbox) 이 있고, 한국 내부 매칭보다 좁으면 그쪽 우선.
+    // 도시 스케일 (< 2 deg² ≈ 150km×150km) 로 제한하는 이유: 국가·성(省) 단위 bbox 는
+    // KR_BBOX 모서리에 걸치기만 해도 (예: 중국 랴오닝 하단 == KR_BBOX 상단 lat 38.7)
+    // 경계선 좌표가 '중국 랴오닝' 등으로 새는 노이즈가 생김. 한국 실좌표는 도시 스케일
+    // WORLD bbox 와 겹치지 않으므로 기존 동작에 영향 없음.
+    const world = smallestContaining(lat, lng, WORLD);
+    if (
+      world &&
+      bboxArea(world.bbox) < KR_WORLD_OVERRIDE_MAX_AREA &&
+      (!kr || bboxArea(world.bbox) < bboxArea(kr.bbox))
+    ) {
+      return world.name;
+    }
+    if (kr) return kr.name;
     // 4) 변두리 — profile region 사용
     if (profile?.region_si || profile?.region_gu) {
       return shortenKR(profile.region_si, profile.region_gu);
@@ -487,11 +535,9 @@ export function detectRegionLabel(
     return '한국';
   }
 
-  // 해외 — 첫 매칭 룩업 (좁은 도시 → 넓은 국가 순서로 정렬됨)
-  for (const r of WORLD) {
-    if (inBox(lat, lng, r.bbox)) return r.name;
-  }
-  return null; // 알 수 없는 좌표 — 라벨 생략
+  // 해외 — build 290: 포함하는 bbox 중 면적 최소 선택 (도시 > 소국 > 대국 자연 우선)
+  const best = smallestContaining(lat, lng, WORLD);
+  return best ? best.name : null; // 알 수 없는 좌표 — 라벨 생략
 }
 
 function shortenKR(si?: string | null, gu?: string | null): string | null {

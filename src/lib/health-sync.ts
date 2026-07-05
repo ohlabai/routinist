@@ -253,12 +253,18 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     const allWorkouts: any[] = queryResults.flat();
 
     if (allWorkouts.length === 0) {
-      logClientWarn('health-sync', 'no workouts in 90d, distance fallback', { queryErrors });
-      const fallback = await syncViaDistance(userId, startDate, endDate);
-      if (!fallback.success && queryErrors.length === workoutTypes.length) {
-        return { success: false, message: `Apple Health 조회 실패: ${queryErrors[0]}`, synced: 0 };
+      // build 290: 일시적 query 실패(타임아웃 등)에도 거리 폴백이 발동하면 일별 합산 행이 들어가고,
+      // 다음 sync 에서 실제 워크아웃이 별도 INSERT 되어 이중 카운트됨. 전 타입 조회가
+      // 성공했는데도 진짜 0건일 때만 폴백. 실패면 재시도 유도.
+      if (queryErrors.length > 0) {
+        return {
+          success: false,
+          message: `Apple Health 조회 실패: ${queryErrors[0]}\n잠시 후 다시 시도해주세요`,
+          synced: 0,
+        };
       }
-      return fallback;
+      logClientWarn('health-sync', 'no workouts in 90d, distance fallback', {});
+      return syncViaDistance(userId, startDate, endDate);
     }
 
     progress?.({ stage: 'fetch_existing', percent: 50, label: '중복 검사 중...' });
@@ -457,8 +463,15 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
       for (let i = 0; i < toInsert.length; i += 100) {
         const chunkIdx = Math.floor(i / 100);
         const chunk = toInsert.slice(i, i + 100);
+        // build 290: insert → upsert(ignoreDuplicates). (user_id, source, started_at) unique index 와
+        // 한 세트 — 서버엔 커밋됐는데 클라이언트만 타임아웃 난 chunk 를 재삽입해도 중복이 안 생긴다.
+        // count 는 실제 INSERT 된 행 수만 반환 (충돌 skip 제외).
         const chunkResult = await withTimeout(
-          supabase.from('activities').insert(chunk, { count: 'exact' }),
+          supabase.from('activities').upsert(chunk, {
+            onConflict: 'user_id,source,started_at',
+            ignoreDuplicates: true,
+            count: 'exact',
+          }),
           15000,
           `insert chunk[${chunkIdx}]`,
         ).catch((e: unknown) => ({
@@ -475,14 +488,19 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
           for (let j = 0; j < chunk.length; j++) {
             const row = chunk[j];
             const rowResult = await withTimeout(
-              supabase.from('activities').insert(row),
+              supabase.from('activities').upsert(row, {
+                onConflict: 'user_id,source,started_at',
+                ignoreDuplicates: true,
+                count: 'exact',
+              }),
               8000,
               `insert row[${i + j}]`,
             ).catch((e: unknown) => ({
               error: { message: e instanceof Error ? e.message : String(e) },
+              count: null,
             } as const));
             if (!rowResult.error) {
-              syncedCount++;
+              syncedCount += rowResult.count ?? 1;
             } else {
               insertErrors++;
               if (failedSamples.length < 3) failedSamples.push(`${row.activity_date}:${rowResult.error.message}`);
@@ -595,13 +613,14 @@ async function syncViaDistance(
     const supabase = getSupabase();
 
     // 배치 dedup — 이전엔 일별로 N+1 쿼리 (90일이면 90번 라운드트립). 한 번에 가져와서 Map 비교.
+    // build 290: source 필터 제거 — build 222 #1 에서 main 경로만 "모든 source 비교"로 고치고
+    // 이 폴백엔 .eq('source','health_kit') 이 남아 gps/manual 행과 이중 카운트되던 잔존 버그.
     const startDateOnly = startDate.slice(0, 10);
     const endDateOnly = endDate.slice(0, 10);
     const { data: existingAll } = await supabase
       .from('activities')
       .select('activity_date, distance_km')
       .eq('user_id', userId)
-      .eq('source', 'health_kit')
       .gte('activity_date', startDateOnly)
       .lte('activity_date', endDateOnly);
 
@@ -635,6 +654,7 @@ async function syncViaDistance(
         const chunk = toInsert.slice(i, i + 100);
         const { error, count } = await supabase.from('activities').insert(chunk, { count: 'exact' });
         if (!error) syncedCount += count ?? chunk.length;
+        else logClientWarn('health-sync', 'distance fallback insert 실패', { err: error.message, chunk_size: chunk.length });
       }
     }
 

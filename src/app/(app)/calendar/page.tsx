@@ -58,10 +58,8 @@ export default function CalendarPage() {
   const [applying, setApplying] = useState(false);
 
   const monthlyActivities = useMemo(() =>
-    activities.filter(a => {
-      const d = new Date(a.activity_date);
-      return d.getFullYear() === year && d.getMonth() + 1 === month;
-    }),
+    // activity_date 'YYYY-MM-DD' 는 문자열 prefix 비교 (UTC 파싱 시 서쪽 timezone 하루 밀림)
+    activities.filter(a => a.activity_date.slice(0, 7) === `${year}-${String(month).padStart(2, '0')}`),
     [activities, year, month]
   );
 
