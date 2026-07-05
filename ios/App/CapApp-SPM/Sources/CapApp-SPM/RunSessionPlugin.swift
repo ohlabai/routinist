@@ -355,6 +355,9 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
                 self.state = .running
                 self.activeSegmentStart = now
                 self.resetAutoPauseWindows()
+                // 리뷰 H1: pause 중 GPS lost 상태로 걸어다닌 거리가 (pedDistAtAnchor 미동기화)
+                // 재개 직후 gap-fill 로 통째 가산되던 버그 — 재개 시점 걸음 누적치로 앵커 재동기화.
+                self.pedDistAtAnchor = self.pedometerDistanceM
                 // stale 복원 세션(트래킹 미가동) 이어가기 대응 — 이미 가동 중이면 no-op.
                 self.startTrackingIfNeeded()
                 self.persist(now: now)
@@ -459,6 +462,12 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
 
     private func startPedometer() {
         guard CMPedometer.isStepCountingAvailable() || CMPedometer.isDistanceAvailable() else {
+            pedometerActive = false
+            return
+        }
+        // 리뷰 M1: motion 권한 거부 시 pedometerActive 가 true 로 남으면 step-stall 기반
+        // 2차 자동정지 판정이 "달리는 중 오정지" 를 만든다 — 거부면 융합·판정 모두 비활성.
+        if CMPedometer.authorizationStatus() == .denied || CMPedometer.authorizationStatus() == .restricted {
             pedometerActive = false
             return
         }
@@ -793,6 +802,8 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         state = .running
         activeSegmentStart = now
         resetAutoPauseWindows()
+        // 리뷰 H1 동계열: 자동정지 중 걸은 거리의 재개 직후 gap-fill 가산 차단
+        pedDistAtAnchor = pedometerDistanceM
         speak(templates.autoResume)
         persist(now: now)
     }
