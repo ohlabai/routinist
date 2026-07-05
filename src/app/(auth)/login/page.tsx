@@ -71,12 +71,10 @@ export default function LoginPage() {
 
   // /login?debug=1 접근 시 진단 로그 패널 표시
   // /login?reason=session_expired 접근 시 안내 배너 (refreshSession 실패로 강제 로그아웃된 경우)
-  // build 240 임시 진단: 네이티브 앱은 무조건 debug 패널 표시 (사용자 자가 디버깅 가능하도록)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
-    const isNative = (window as CapacitorWindow).Capacitor !== undefined;
-    if (params.has('debug') || isNative) setShowDebug(true);
+    if (params.has('debug')) setShowDebug(true);
     if (params.get('reason') === 'session_expired') {
       setInfo('로그인이 만료되어 자동으로 로그아웃했어요. 다시 로그인해주세요.');
     } else if (params.get('reason') === 'force_fresh') {
