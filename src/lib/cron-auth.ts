@@ -25,8 +25,11 @@ export function isCronAuthenticated(req: NextRequest, ...secretEnvNames: string[
   if (!auth.startsWith('Bearer ')) return false;
   const provided = auth.slice('Bearer '.length).trim();
   if (!provided) return false;
-  // 명시적 secret + Vercel default CRON_SECRET 둘 다 체크
-  const candidates = [...secretEnvNames, 'CRON_SECRET'];
+  // 명시적 secret + Vercel default CRON_SECRET 둘 다 체크.
+  // build 293: PUSH_CRON_SECRET 도 전역 fallback 승격 — Vercel cron 이 플랫폼 레벨에서
+  // 죽어 (6/7~, 플랜 제한 추정) Supabase pg_cron 이 대체 호출하는데, pg_cron 은
+  // 시크릿 하나로 전 라우트를 호출한다 (같은 신뢰 수준의 서버 시크릿이라 보안 등가).
+  const candidates = [...secretEnvNames, 'CRON_SECRET', 'PUSH_CRON_SECRET'];
   for (const envName of candidates) {
     const expected = process.env[envName];
     if (expected && expected.length > 0 && safeEqual(provided, expected)) return true;
