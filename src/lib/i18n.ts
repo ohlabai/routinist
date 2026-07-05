@@ -1039,6 +1039,12 @@ function detectInitialLocale(): Locale {
   return 'ko';
 }
 
+// build 290: React context 밖 (lib 함수) 에서 현재 locale 이 필요할 때 사용.
+// I18nProvider.setLocale 이 STORAGE_KEY 에 즉시 기록하므로 저장값 = 현재 선택값.
+export function getCurrentLocale(): Locale {
+  return detectInitialLocale();
+}
+
 interface I18nState {
   locale: Locale;
   setLocale: (l: Locale) => void;

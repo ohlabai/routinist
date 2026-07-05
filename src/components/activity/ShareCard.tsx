@@ -7,6 +7,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
 import { fetchRandomQuote, isFallbackQuote, type DailyQuote } from '@/lib/quotes-data';
 import { detectRegionLabel } from '@/lib/region-from-gps';
+import { getCurrentLocale } from '@/lib/i18n';
 import { captureCanvasAnimation } from '@/lib/canvas-to-video';
 import { getSupabase } from '@/lib/supabase';
 import { track } from '@/lib/analytics';
@@ -411,7 +412,7 @@ function drawCard(
       if (clusters.length > 1) {
         const clusterFirst = activeCluster.routes[0]?.[0];
         const clusterRegion = clusterFirst
-          ? (detectRegionLabel([clusterFirst[0], clusterFirst[1]], null) ?? '')
+          ? (detectRegionLabel([clusterFirst[0], clusterFirst[1]], null, getCurrentLocale()) ?? '')
           : '';
         const label = isAnimating
           ? `${activeClusterIdx + 1} / ${clusters.length}${clusterRegion ? ` · ${clusterRegion}` : ''}`
@@ -1171,7 +1172,7 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
   // GPS 첫 좌표 + profile region → 지역 라벨 (한국이면 "서울 강남", 해외면 "중국 항저우")
   const regionLabelBase = (() => {
     const first = activity.route_data?.coordinates?.[0] as [number, number] | undefined;
-    return detectRegionLabel(first ?? null, profile);
+    return detectRegionLabel(first ?? null, profile, getCurrentLocale());
   })();
 
   // build 196: 일간 카드에 옵션 D 랭킹 suffix 추가. find_hero_rank time_axis='today' 재활용.

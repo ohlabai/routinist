@@ -4,6 +4,7 @@
 import { getSupabase } from './supabase';
 import { fetchRandomQuote } from './quotes-data';
 import { detectRegionLabel } from './region-from-gps';
+import { getCurrentLocale } from './i18n';
 import type { PeriodChartData } from './period-share-canvas';
 
 interface ActivityRow {
@@ -173,7 +174,7 @@ export async function fetchWeekChartData(userId: string, userName: string): Prom
   // 지역 라벨 — GPS 첫 좌표 + profile fallback
   const profile = (profileData ?? null) as ProfileRow | null;
   const firstCoord: [number, number] | null = routes[0]?.[0] ?? null;
-  const regionLabel = detectRegionLabel(firstCoord, profile);
+  const regionLabel = detectRegionLabel(firstCoord, profile, getCurrentLocale());
   const userHandle = profile?.handle ? `@${profile.handle}` : `@${userName}`;
 
   // 라벨 (5/19 ~ 5/25)
@@ -272,7 +273,7 @@ export async function fetchMonthChartData(userId: string, userName: string): Pro
 
   const profile = (profileData ?? null) as ProfileRow | null;
   const firstCoord: [number, number] | null = routes[0]?.[0] ?? null;
-  const regionLabel = detectRegionLabel(firstCoord, profile);
+  const regionLabel = detectRegionLabel(firstCoord, profile, getCurrentLocale());
   const userHandle = profile?.handle ? `@${profile.handle}` : `@${userName}`;
 
   const periodLabel = `${yy}년 ${mm + 1}월`;

@@ -47,6 +47,23 @@ const KNOWN_CASES: { desc: string; lat: number; lng: number; expect?: string; ex
   { desc: '후쿠오카', lat: 33.59, lng: 130.4, expectPrefix: '일본' },
   { desc: '서울 강남', lat: 37.5, lng: 127.03, expect: '서울 강남' },
   { desc: '뉴욕', lat: 40.71, lng: -74.01, expectPrefix: '미국' },
+  // build 290 전 세계 등록 검증 (대륙별 대표 좌표)
+  { desc: '싱가포르', lat: 1.35, lng: 103.82, expect: '싱가포르' },
+  { desc: '뭄바이', lat: 19.08, lng: 72.88, expectPrefix: '인도' },
+  { desc: '카트만두 네팔', lat: 27.72, lng: 85.32, expect: '네팔' },
+  { desc: '타슈켄트 우즈베키스탄', lat: 41.3, lng: 69.24, expect: '우즈베키스탄' },
+  { desc: '라고스 나이지리아', lat: 6.52, lng: 3.38, expectPrefix: '나이지리아' },
+  { desc: '나이로비 케냐', lat: -1.29, lng: 36.82, expectPrefix: '케냐' },
+  { desc: '아디스아바바 에티오피아', lat: 9.03, lng: 38.74, expect: '에티오피아' },
+  { desc: '루안다 앙골라', lat: -8.84, lng: 13.23, expect: '앙골라' },
+  { desc: '로메 토고', lat: 6.13, lng: 1.22, expect: '토고' },
+  { desc: '코토누 베냉', lat: 6.37, lng: 2.39, expect: '베냉' },
+  { desc: '리마 페루', lat: -12.05, lng: -77.04, expectPrefix: '페루' },
+  { desc: '킹스턴 자메이카', lat: 17.97, lng: -76.79, expect: '자메이카' },
+  { desc: '수바 피지 (180° 서쪽)', lat: -18.14, lng: 178.44, expect: '피지' },
+  { desc: '레이캬비크 아이슬란드', lat: 64.15, lng: -21.94, expectPrefix: '아이슬란드' },
+  { desc: '스플리트 크로아티아', lat: 43.51, lng: 16.44, expectPrefix: '크로아티아' },
+  { desc: '두브로브니크 크로아티아', lat: 42.65, lng: 18.09, expectPrefix: '크로아티아' },
 ];
 
 console.log('── 1. 알려진 케이스 ──');
@@ -69,6 +86,7 @@ const KNOWN_DATA_ISSUES = new Map<string, string>([
   ['중국 장쑤', '중국 안후이'],    // 성(省) bbox 상호 겹침 — 안후이가 근소하게 좁음
   ['중국 장시', '중국 푸젠'],      // 장시 중심이 푸젠 bbox 서쪽 끝에 걸침
   ['중국 톈진', '중국 베이징'],    // 톈진 중심이 베이징 bbox 동쪽 끝에 걸침 (베이징이 더 좁음)
+  ['크로아티아', '보스니아 헤르체고비나'], // 초승달 국토 — bbox 중심(44.45, 16.45)이 실제 보스니아 영토. 해안은 도시 bbox 로 구제
 ]);
 
 console.log('\n── 2. WORLD 중심점 전수 검사 ──');
@@ -130,6 +148,34 @@ if (unexpectedDiffs.length > 0) {
   failures += unexpectedDiffs.length;
   for (const d of unexpectedDiffs.slice(0, 20)) console.log(`FAIL   ${d}`);
 }
+
+// ─── 4. 영문 라벨 검사 ──────────────────────────────────────────────
+console.log('\n── 4. 영문 라벨 검사 ──');
+let enMissing = 0;
+for (const arr of [WORLD, KR_SEOUL_GU, KR_NON_SEOUL_CITY, KR_CITY]) {
+  for (const r of arr) {
+    if (!r.en || !r.en.trim()) {
+      enMissing++;
+      console.log(`FAIL   en 누락: ${r.name}`);
+    }
+  }
+}
+failures += enMissing;
+
+const EN_CASES: { desc: string; lat: number; lng: number; expect: string }[] = [
+  { desc: '타이베이 en', lat: 25.03, lng: 121.56, expect: 'Taiwan' },
+  { desc: '싱가포르 en', lat: 1.35, lng: 103.82, expect: 'Singapore' },
+  { desc: '서울 강남 en', lat: 37.5, lng: 127.03, expect: 'Gangnam, Seoul' },
+  { desc: '나이로비 en', lat: -1.29, lng: 36.82, expect: 'Nairobi, Kenya' },
+  { desc: '수바 피지 en', lat: -18.14, lng: 178.44, expect: 'Fiji' },
+];
+for (const c of EN_CASES) {
+  const got = detectRegionLabel([c.lng, c.lat], null, 'en');
+  const ok = got === c.expect;
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${c.desc} → ${got}  (기대: ${c.expect})`);
+  if (!ok) failures++;
+}
+console.log(`en 필드: ${enMissing === 0 ? '전 엔트리 존재' : `${enMissing}건 누락`}`);
 
 // ─── 결과 ───────────────────────────────────────────────────────────
 console.log(`\n${failures === 0 ? 'ALL PASS' : `${failures} FAILURES`} (known data issues: ${knownIssues})`);
