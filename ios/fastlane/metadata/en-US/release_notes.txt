@@ -1,18 +1,25 @@
-v1.2.5 — International GPS Recovery + Expanded Region Labels
+v1.2.6 — Worldwide Region Labels + Running Coach Fix + Stability
 
-[GPS Recovery for International Marathons / Long Runs]
-• Fixed a regression where large, long activities were dropped when loading 90 days of GPS routes at once.
-• GPS routes are now matched in 30-day chunks, with an automatic retry split if a chunk runs out of time.
-• Long international runs (Switzerland, Spain, Portugal, etc.) now show their full GPS route on share cards.
+[Region Labels, Everywhere]
+• Your share cards now show a region name in every country in the world (all UN member states registered).
+• Fixed Taiwan, Hong Kong, Canada, Ireland and others being mislabeled as neighboring countries.
+• In English mode, region names are shown in English (e.g. "Gangnam, Seoul").
 
-[Region Label City Expansion]
-• Switzerland +13: Bern, Basel, Lausanne, Lucerne, Interlaken, Zermatt, Grindelwald, St. Moritz, Davos, Locarno, Lugano, Montreux, Winterthur.
-• Spain +14: Santiago de Compostela, Seville, Valencia, Málaga, Granada, Bilbao, San Sebastián, Mallorca, Ibiza, Tenerife, Gran Canaria, etc.
-• Portugal +7: Sintra, Cascais, Coimbra, Faro, Lagos, Madeira, Azores.
-• Offshore islands beyond the mainland bbox (Tenerife, Mallorca, Madeira, etc.) are now labeled correctly too.
+[Running Coach Restored]
+• Fixed the Running Coach only showing "not enough activities to analyze".
+• Condition score, fatigue trend and today's advice now work correctly.
 
-[Home Calendar]
-• When you have multiple activities on the same day, the one with a GPS map is now picked first.
-• Previously a later short activity could open first and hide the map.
+[Block Users]
+• You can now block users from their profile, photos, or messages.
+• Blocked users' photos, comments and messages are hidden immediately.
 
-Your routes and region names now show up correctly when running abroad.
+[Notifications]
+• Restored reminder and monthly recap notifications that had stopped sending.
+• Notification preferences now apply correctly to every notification type.
+
+[Stability]
+• Fixed a rare case where the same workout could be imported twice from Apple Health.
+• Fixed monthly stats being off by one day for users in the Americas.
+• Faster loading for message and photo lists.
+
+Run steady — Routinist runs with you.
