@@ -115,9 +115,24 @@ function TrackComingSoon() {
   useEffect(() => {
     clearState();
   }, []);
+  // build 292: 앱 안에서는 URL 에 ?dev=1 을 칠 수 없으므로 숨은 입구 —
+  // 아이콘을 3초 안에 7번 탭하면 dev 게이트 활성화 + 리로드 (실기기 테스트용).
+  const tapRef = useRef<{ count: number; firstAt: number }>({ count: 0, firstAt: 0 });
+  const handleSecretTap = () => {
+    const now = Date.now();
+    if (now - tapRef.current.firstAt > 3000) tapRef.current = { count: 0, firstAt: now };
+    tapRef.current.count++;
+    if (tapRef.current.count >= 7) {
+      try { window.localStorage.setItem(TRACKING_DEV_KEY, '1'); } catch {}
+      window.location.reload();
+    }
+  };
   return (
     <div className="max-w-lg mx-auto px-6 py-16 text-center bg-[var(--background)] min-h-screen flex flex-col justify-center">
-      <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+      <div
+        className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/30"
+        onClick={handleSecretTap}
+      >
         <Sparkles size={44} className="text-white" />
       </div>
       <h1 className="text-2xl font-extrabold mb-3 text-[var(--foreground)]">
