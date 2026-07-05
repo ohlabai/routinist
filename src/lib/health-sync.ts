@@ -73,6 +73,24 @@ export interface SyncOptions {
 
 const HEALTH_READ_TYPES: HealthDataType[] = ['workouts', 'distance', 'heartRate', 'calories', 'exerciseTime'];
 
+// 걷기 동기화 opt-in — 달리기 앱 취지에 맞게 기본은 러닝만 가져온다.
+// 걷기로 유지/관리하는 사용자만 연동 페이지에서 켤 수 있음 (기기별 설정).
+const WALKING_SYNC_KEY = 'health_sync_include_walking';
+export function isWalkingSyncEnabled(): boolean {
+  try {
+    return localStorage.getItem(WALKING_SYNC_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+export function setWalkingSyncEnabled(enabled: boolean): void {
+  try {
+    localStorage.setItem(WALKING_SYNC_KEY, enabled ? 'true' : 'false');
+  } catch {
+    // localStorage 불가 환경 (SSR 등) — 무시
+  }
+}
+
 export function isNativeApp(): boolean {
   if (typeof window === 'undefined') return false;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -204,8 +222,9 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     progress?.({ stage: 'query', percent: 15, label: 'Apple Health 러닝 기록 조회 중...' });
     setStage('query-workouts');
 
-    // 러닝 + 걷기 병렬 fetch
-    const workoutTypes = ['running', 'walking'] as const;
+    // 기본은 러닝만. 걷기는 연동 페이지 토글을 켠 사용자만 병렬 fetch (기본 OFF).
+    const workoutTypes: ReadonlyArray<'running' | 'walking'> =
+      isWalkingSyncEnabled() ? ['running', 'walking'] : ['running'];
     const queryErrors: string[] = [];
     const queryResults = await Promise.all(workoutTypes.map(async (wType) => {
       try {

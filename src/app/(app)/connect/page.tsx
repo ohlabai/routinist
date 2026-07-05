@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
-import { connectHealthKit, syncHealthData, isNativeApp, getPlatform, type SyncProgress } from '@/lib/health-sync';
-import { ArrowLeft, Heart, Smartphone, Check, RefreshCw } from 'lucide-react';
+import { connectHealthKit, syncHealthData, isNativeApp, getPlatform, isWalkingSyncEnabled, setWalkingSyncEnabled, type SyncProgress } from '@/lib/health-sync';
+import { ArrowLeft, Heart, Smartphone, Check, RefreshCw, Footprints } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ConnectPage() {
@@ -17,12 +17,14 @@ export default function ConnectPage() {
   const [message, setMessage] = useState('');
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [progress, setProgress] = useState<SyncProgress | null>(null);
+  const [includeWalking, setIncludeWalking] = useState(false);
 
   useEffect(() => {
     const native = isNativeApp();
     const plat = getPlatform();
     setIsNative(native);
     setPlatform(plat);
+    setIncludeWalking(isWalkingSyncEnabled());
     // 마지막 동기화 시간 확인
     const saved = localStorage.getItem('last_health_sync');
     if (saved) setLastSync(saved);
@@ -205,6 +207,33 @@ export default function ConnectPage() {
           </div>
         </div>
       </div>
+
+      {/* 걷기 동기화 opt-in — 기본은 러닝만 가져옴 */}
+      {isNative && (
+        <button
+          onClick={() => {
+            const next = !includeWalking;
+            setIncludeWalking(next);
+            setWalkingSyncEnabled(next);
+          }}
+          className="w-full card p-4 mb-3 text-left active:scale-[0.99] transition flex items-center gap-3"
+        >
+          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+            includeWalking ? 'bg-gradient-to-br from-emerald-100 to-emerald-50 dark:from-emerald-900/40 dark:to-emerald-950/40 text-emerald-600' : 'bg-[var(--card-border)]/30 text-[var(--muted)]'
+          }`}>
+            <Footprints size={20} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-extrabold text-[var(--foreground)]">걷기 기록도 가져오기</p>
+            <p className="text-[11px] text-[var(--muted)] mt-0.5 leading-snug">
+              끄면 러닝 기록만 가져와요 · 걷기는 기록에 &lsquo;걷기&rsquo;로 구분 표시돼요
+            </p>
+          </div>
+          <div className={`w-11 h-6 rounded-full transition relative flex-shrink-0 ${includeWalking ? 'bg-gradient-to-r from-emerald-500 to-emerald-600' : 'bg-[var(--card-border)]'}`}>
+            <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${includeWalking ? 'left-[22px]' : 'left-0.5'}`} />
+          </div>
+        </button>
+      )}
 
       {/* Samsung Health / Health Connect */}
       <div className="card p-5 mb-3">
