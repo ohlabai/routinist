@@ -10,6 +10,8 @@ class MainViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
         bridge?.registerPluginInstance(WorkoutRoutePlugin())
         bridge?.registerPluginInstance(BackgroundLocationPlugin())
+        // build 292 Phase 1: 네이티브 러닝 세션 엔진. BackgroundLocation 은 레거시 폴백으로 공존.
+        bridge?.registerPluginInstance(RunSessionPlugin())
         bridge?.registerPluginInstance(LiveDistancePlugin())
         bridge?.registerPluginInstance(BadgeManagerPlugin())
         // build 240 임시 진단 — TestFlight/Release 빌드에서도 Safari Web Inspector 접근 가능.

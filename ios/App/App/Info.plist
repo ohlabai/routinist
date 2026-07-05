@@ -23,6 +23,8 @@
 	<string>현재 위치를 기반으로 지역 랭킹을 매칭하고 내 시/구를 자동으로 선택합니다. GPS 러닝 트래킹 시 실시간 경로를 기록합니다.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>러닝 트래킹을 시작하면 잠금화면 상태에서도 경로가 계속 기록되도록 백그라운드 위치 권한을 사용합니다. 트래킹을 종료하면 즉시 중단됩니다.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>걸음 데이터로 GPS 신호가 약한 구간의 거리를 보정합니다.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>

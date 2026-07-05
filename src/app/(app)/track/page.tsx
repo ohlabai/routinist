@@ -21,13 +21,21 @@ import {
   type VoiceGender, type VoiceCourseContext,
 } from '@/lib/voice-cue';
 import {
-  type TrackingState,
+  type TrackingState, type Coord,
   createInitialState, loadState, saveState, clearState,
   requestLocationPermission, checkLocationPermission, getCurrentLocation,
   startWatcher, type WatcherHandle,
   appendCoord, tickElapsed, formatDistanceKm,
   detectAutoPause, detectAutoResume,
 } from '@/lib/gps-tracking';
+// build 292 Phase 1: 네이티브 RunSession 엔진. 두뇌 (거리/자동정지/음성) 를 native 로 이관,
+// JS 는 'update' 이벤트 렌더러. 플러그인 미탑재 빌드는 위 레거시 JS 엔진 폴백 (동작 무변경).
+import {
+  isRunSessionAvailable, requestRunPermissions, startRunSession,
+  pauseRunSession, resumeRunSession, stopRunSession, getRunSnapshot,
+  attachRunSessionListeners,
+  type RunGpsSignal, type RunSessionSnapshot,
+} from '@/lib/run-session';
 
 // build 213 #7: 카운트다운 타이밍 상수 — 튜닝 쉽게.
 const COUNTDOWN_TICK_MS = 800;   // 각 숫자 (3, 2, 1) 표시 시간
@@ -72,9 +80,32 @@ type PermState = 'unknown' | 'prompt' | 'granted' | 'denied';
 // 복원 시: TRACKING_ENABLED = true 만 바꾸면 됨. TrackPageImpl 은 전부 보존.
 const TRACKING_ENABLED = false;
 
+// build 292: 개발자 게이트 — 실사용자 노출은 계속 차단하되, `/track?dev=1` 진입 시
+// localStorage 플래그를 심고 이후엔 쿼리 없이도 게이트 통과 (실기기 테스트용).
+const TRACKING_DEV_KEY = 'routinist_tracking_dev';
+function checkTrackingDevGate(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('dev') === '1') {
+      window.localStorage.setItem(TRACKING_DEV_KEY, '1');
+      return true;
+    }
+    return window.localStorage.getItem(TRACKING_DEV_KEY) === '1';
+  } catch { return false; }
+}
+
 export default function TrackPage() {
-  if (!TRACKING_ENABLED) return <TrackComingSoon />;
-  return <TrackPageImpl />;
+  // dev 게이트는 client 전용 (localStorage/query) — hydration mismatch 방지 위해
+  // 판정 전엔 아무것도 렌더하지 않음 (1 frame). TrackComingSoon 의 clearState() 가
+  // dev 테스터의 진행 중 세션을 지우는 사고도 함께 차단됨.
+  const [devGate, setDevGate] = useState<boolean | null>(null);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setDevGate(checkTrackingDevGate()); }, []);
+  if (TRACKING_ENABLED) return <TrackPageImpl />;
+  if (devGate === null) return null;
+  if (devGate) return <TrackPageImpl devMode />;
+  return <TrackComingSoon />;
 }
 
 function TrackComingSoon() {
@@ -111,14 +142,22 @@ function TrackComingSoon() {
   );
 }
 
-function TrackPageImpl() {
+function TrackPageImpl({ devMode = false }: { devMode?: boolean }) {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const { tt, locale } = useI18n();
 
+  // build 292: 엔진 선택. true=네이티브 RunSession (update 이벤트 렌더), false=레거시 JS 엔진.
+  // 네이티브 start 실패 시 setUseNative(false) 로 세션 단위 폴백 가능하도록 state 로 보관.
+  const [useNative, setUseNative] = useState<boolean>(() => isRunSessionAvailable());
+  const [gpsSignal, setGpsSignal] = useState<RunGpsSignal | null>(null);
+  // update 이벤트 사이 경과시간 로컬 보간 baseline (native 경로 전용).
+  const activeBaseRef = useRef<{ activeSec: number; at: number; running: boolean } | null>(null);
+
   const [perm, setPerm] = useState<PermState>('unknown');
   // lazy initializer 로 진행 중인 트래킹 복원 — useEffect 안 setState 보다 cleaner.
-  const [state, setState] = useState<TrackingState | null>(() => loadState());
+  // 네이티브 경로에선 localStorage 대신 getSnapshot() 재부착 (아래 effect) — stale 레거시 상태 무시.
+  const [state, setState] = useState<TrackingState | null>(() => (isRunSessionAvailable() ? null : loadState()));
   const [finished, setFinished] = useState<TrackingState | null>(null);
   // build 210 #1: 시작 카운트다운 (3 → 2 → 1 → GO!) — Apple Fitness 패턴 + 차별화 효과
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -272,7 +311,9 @@ function TrackPageImpl() {
         },
       });
       // 복원된 state 가 있으면 polyline 도 복원
-      const s = loadState();
+      // build 292: 네이티브 경로에선 localStorage 상태를 쓰지 않음 — getSnapshot 재부착
+      // effect 가 polyline 을 복원 (stale 레거시 좌표가 되살아나는 사고 방지).
+      const s = isRunSessionAvailable() ? null : loadState();
       if (s && s.coords.length > 0) {
         const path = s.coords.map(([lng, lat]) => ({ lat, lng }));
         polylineRef.current?.setPath(path);
@@ -306,21 +347,97 @@ function TrackPageImpl() {
   // 권한 확인 → 카운트다운 → 워처 시작.
   // build 205 #3: 권한 granted 직후 getCurrentLocation 으로 첫 좌표를 캐서 지도를 즉시 중심 이동.
   // build 210 #1: 시작 전 3-2-1 카운트다운 — Apple Fitness 영감, 사용자에게 출발 알림.
+  // build 292: 네이티브 세션 스냅샷 → 렌더용 TrackingState 매핑 (마운트 재부착 + already-active 회수 공용).
+  // 계약상 snapshot 에 startedAtMs 가 명시돼 있지 않아 없으면 근사 (첫 좌표 ts → now-activeSec).
+  const applyRunSnapshot = useCallback((snap: RunSessionSnapshot) => {
+    const coords: Coord[] = (snap.routeSoFar ?? []).map(([lng, lat, ts]) => [lng, lat, 0, ts] as Coord);
+    const startedAt = snap.startedAtMs ?? (coords[0]?.[3] ?? Date.now() - snap.activeSec * 1000);
+    activeBaseRef.current = { activeSec: snap.activeSec, at: Date.now(), running: snap.state === 'running' };
+    setGpsSignal(snap.gpsSignal);
+    setState(prev => {
+      if (prev) return prev;   // 이미 진행 중 화면이면 덮어쓰지 않음
+      return {
+        startedAt,
+        elapsedSeconds: snap.activeSec,
+        distanceMeters: snap.distanceM,
+        coords,
+        status: snap.state === 'running' ? 'active' : 'paused',
+        autoPaused: snap.state === 'autoPaused',
+        lastTickAt: Date.now(),
+        lastResumeAt: Date.now(),
+      };
+    });
+  }, []);
+
   const beginTrackingAfterCountdown = useCallback(() => {
+    if (useNative) {
+      // 네이티브 엔진: start 가 세션 소유. JS state 는 렌더 미러만.
+      void (async () => {
+        try {
+          const res = await startRunSession({
+            locale,
+            voiceEnabled: isVoiceCueEnabled(),
+            milestoneEveryKm: getVoiceCueIntervalMeters() === 500 ? 0.5 : 1,
+          });
+          const fresh = createInitialState();
+          fresh.startedAt = res.startedAtMs;
+          activeBaseRef.current = { activeSec: 0, at: Date.now(), running: true };
+          setState(fresh);
+          logClientInfo('track-start', 'native-begin', { startedAt: res.startedAtMs });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          void logClientWarn('run-session', 'start-fail', { message: msg });
+          if (msg.includes('session-already-active')) {
+            // 이전 세션이 native 에 살아있음 — 재부착으로 회수.
+            try {
+              const snap = await getRunSnapshot();
+              if (snap.active) { applyRunSnapshot(snap); return; }
+            } catch { /* fallthrough */ }
+          }
+          // 최후 폴백: 이 세션만 레거시 JS 엔진으로 시작 (사용자 관점 무중단).
+          setUseNative(false);
+          const fresh = createInitialState();
+          setState(fresh);
+          saveState(fresh);
+          logClientInfo('track-start', 'begin (native-fail fallback)', { startedAt: fresh.startedAt });
+        }
+      })();
+      return;
+    }
     const fresh = createInitialState();
     setState(fresh);
     saveState(fresh);
     logClientInfo('track-start', 'begin', { startedAt: fresh.startedAt });
-  }, []);
+  }, [useNative, locale, applyRunSnapshot]);
   // build 213 #1: countdown 진행 중이거나 이미 active 면 더블탭 무시 (race condition guard).
   const startingRef = useRef(false);
   const startTracking = useCallback(async () => {
     if (startingRef.current || countdown !== null || state !== null) return;
     startingRef.current = true;
     try {
-      const r = await requestLocationPermission();
-      setPerm(r);
-      if (r !== 'granted') return;
+      // build 292: 네이티브 경로는 RunSession.requestPermissions (위치 Always 승격 + motion).
+      // motion 거부여도 진행 (pedometer 융합만 빠짐) — location 만 gate.
+      if (useNative) {
+        try {
+          const p = await requestRunPermissions();
+          const mapped: PermState = p.location === 'granted' ? 'granted' : (p.location === 'denied' ? 'denied' : 'prompt');
+          setPerm(mapped);
+          if (mapped !== 'granted') return;
+        } catch (err) {
+          // 플러그인 미탑재/오류 — 레거시 엔진으로 폴백 후 기존 권한 흐름.
+          void logClientWarn('run-session', 'permission-fail → legacy fallback', {
+            message: err instanceof Error ? err.message : String(err),
+          });
+          setUseNative(false);
+          const r = await requestLocationPermission();
+          setPerm(r);
+          if (r !== 'granted') return;
+        }
+      } else {
+        const r = await requestLocationPermission();
+        setPerm(r);
+        if (r !== 'granted') return;
+      }
       const here = await getCurrentLocation();
       if (here && mapRef.current) {
         mapRef.current.panTo(here);
@@ -330,7 +447,41 @@ function TrackPageImpl() {
     } finally {
       startingRef.current = false;
     }
-  }, [countdown, state]);
+  }, [countdown, state, useNative]);
+
+  // build 292: 마운트 시 native 진행 중 세션 재부착 (앱 재시작 / 화면 이탈 복귀).
+  useEffect(() => {
+    if (!useNative) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const snap = await getRunSnapshot();
+        if (cancelled || !snap.active) return;
+        void logClientInfo('run-session', 'snapshot-reattach', {
+          state: snap.state,
+          distance_m: Math.round(snap.distanceM),
+          active_s: Math.round(snap.activeSec),
+          coords_n: snap.routeSoFar?.length ?? 0,
+        });
+        applyRunSnapshot(snap);
+      } catch { /* 플러그인 미탑재 빌드 등 — 무시 (시작 시점에 폴백 처리) */ }
+    })();
+    return () => { cancelled = true; };
+  }, [useNative, applyRunSnapshot]);
+
+  // build 292: 재부착 직후 지도 폴리라인 전체 복원 (map 은 async 로드라 준비될 때까지 재시도).
+  const nativeRouteRestoredRef = useRef(false);
+  useEffect(() => {
+    if (!useNative || nativeRouteRestoredRef.current) return;
+    if (!state || state.coords.length === 0) return;
+    if (!mapRef.current || !polylineRef.current || !youMarkerRef.current) return;
+    const path = state.coords.map(([lng, lat]) => ({ lat, lng }));
+    polylineRef.current.setPath(path);
+    const last = path[path.length - 1];
+    youMarkerRef.current.setPosition(last);
+    mapRef.current.setCenter(last);
+    nativeRouteRestoredRef.current = true;
+  }, [useNative, state]);
 
   // 카운트다운 tick (3 → 2 → 1 → GO!)
   // build 220 #1: 각 tick 마다 짧은 beep (3,2,1: 660Hz, GO: 880Hz 길게).
@@ -356,6 +507,9 @@ function TrackPageImpl() {
   // paused 상태에서도 watcher 살려두고 좌표 수신 → callback 안의 detectAutoResume 으로 정상 resume.
   const isTrackingActive = state !== null && state.status !== 'idle';
   useEffect(() => {
+    // build 292: 네이티브 경로에선 레거시 watcher / 100ms tick / JS 자동정지 / JS 음성 전부 비활성
+    // (전부 native RunSession 이 담당). 아래 별도 effect 가 update 이벤트 렌더 + 1s 보간 수행.
+    if (useNative) return;
     if (!isTrackingActive) {
       watcherRef.current?.clear().catch(() => {});
       watcherRef.current = null;
@@ -476,9 +630,77 @@ function TrackPageImpl() {
       watcherRef.current = null;
       if (tickRef.current) { clearInterval(tickRef.current); tickRef.current = null; }
     };
-  }, [isTrackingActive]);
+  }, [isTrackingActive, useNative]);
+
+  // build 292: 네이티브 경로 — 'update' 이벤트 렌더러.
+  // native 가 필터/적산/자동정지/음성을 전부 처리하므로 JS 는:
+  //   (1) newCoords 를 폴리라인에 append (전체 setPath 아님 — 좌표 수천 개여도 가벼움)
+  //   (2) distance/activeSec/state 를 렌더 state 로 미러
+  //   (3) update 이벤트 사이 경과시간 1s 로컬 보간 (running 일 때만)
+  useEffect(() => {
+    if (!useNative || !isTrackingActive) return;
+    let mounted = true;
+    let detach: (() => void) | null = null;
+    attachRunSessionListeners({
+      onUpdate: (e) => {
+        if (!mounted) return;
+        activeBaseRef.current = { activeSec: e.activeSec, at: Date.now(), running: e.state === 'running' };
+        setGpsSignal(e.gpsSignal);
+        if (e.newCoords.length > 0 && mapRef.current && polylineRef.current && youMarkerRef.current) {
+          const path = polylineRef.current.getPath();
+          for (const [lng, lat] of e.newCoords) path.push(new google.maps.LatLng(lat, lng));
+          const [lng, lat] = e.newCoords[e.newCoords.length - 1];
+          youMarkerRef.current.setPosition({ lat, lng });
+          mapRef.current.panTo({ lat, lng });
+        }
+        setState(prev => {
+          if (!prev) return prev;
+          const appended: Coord[] = e.newCoords.map(([lng, lat, ts]) => [lng, lat, 0, ts] as Coord);
+          return {
+            ...prev,
+            coords: appended.length > 0 ? [...prev.coords, ...appended] : prev.coords,
+            distanceMeters: e.distanceM,
+            elapsedSeconds: e.activeSec,
+            status: e.state === 'running' ? 'active' : 'paused',
+            autoPaused: e.state === 'autoPaused',
+            lastTickAt: Date.now(),
+          };
+        });
+      },
+      onMilestone: (m) => {
+        // 음성은 native 가 이미 발화 — JS 는 관측만.
+        void logClientInfo('run-session', 'milestone', { km: m.km, avg_pace: m.avgPaceSecPerKm });
+      },
+    }).then(fn => {
+      if (!mounted) { fn(); return; }
+      detach = fn;
+    }).catch(() => {});
+
+    const interval = window.setInterval(() => {
+      const base = activeBaseRef.current;
+      if (!base || !base.running) return;
+      setState(prev => {
+        if (!prev || prev.status !== 'active') return prev;
+        return { ...prev, elapsedSeconds: base.activeSec + (Date.now() - base.at) / 1000 };
+      });
+    }, 1000);
+
+    return () => {
+      mounted = false;
+      if (detach) detach();
+      clearInterval(interval);
+    };
+  }, [useNative, isTrackingActive]);
 
   const handlePause = () => {
+    if (useNative) {
+      // native 가 activeSec 적산 정지 소유. JS 는 낙관적 미러 (다음 update 이벤트가 확정).
+      void pauseRunSession().catch((e) => {
+        void logClientWarn('run-session', 'pause-fail', { message: e instanceof Error ? e.message : String(e) });
+      });
+      setState(prev => (prev ? { ...prev, status: 'paused', autoPaused: false, lastTickAt: Date.now() } : prev));
+      return;
+    }
     setState(prev => {
       if (!prev) return prev;
       const next: TrackingState = { ...prev, status: 'paused', lastTickAt: Date.now() };
@@ -488,6 +710,16 @@ function TrackPageImpl() {
   };
 
   const handleResume = () => {
+    if (useNative) {
+      // resume 은 autoPaused 상태도 해제 (계약).
+      void resumeRunSession().catch((e) => {
+        void logClientWarn('run-session', 'resume-fail', { message: e instanceof Error ? e.message : String(e) });
+      });
+      const now = Date.now();
+      if (activeBaseRef.current) activeBaseRef.current = { ...activeBaseRef.current, at: now, running: true };
+      setState(prev => (prev ? { ...prev, status: 'active', autoPaused: false, lastTickAt: now, lastResumeAt: now } : prev));
+      return;
+    }
     setState(prev => {
       if (!prev) return prev;
       // build 284: autoPaused 플래그 명시 해제 + lastResumeAt 갱신.
@@ -559,6 +791,46 @@ function TrackPageImpl() {
         return;
       }
     }
+    if (useNative) {
+      // build 292: native stop() 이 최종 진실 (GPS+pedometer 융합 거리, 필터 통과 route).
+      // route [lng,lat,tsMs] → 기존 Coord [lng,lat,alt,tsMs] 로 변환해 TrackSummarySheet
+      // (GeoJSON 변환 + splits + 저장 파이프라인) 를 무변경 재사용.
+      void (async () => {
+        let finalState: TrackingState;
+        try {
+          const summary = await stopRunSession();
+          finalState = {
+            startedAt: summary.startedAtMs,
+            elapsedSeconds: summary.activeSec,
+            distanceMeters: summary.distanceM,
+            coords: summary.route.map(([lng, lat, ts]) => [lng, lat, 0, ts] as Coord),
+            status: 'idle',
+            lastTickAt: summary.endedAtMs,
+          };
+          void logClientInfo('run-session', 'stop-summary', {
+            distance_m: Math.round(summary.distanceM),
+            gps_m: Math.round(summary.gpsDistanceM),
+            pedometer_m: Math.round(summary.pedometerDistanceM),
+            active_s: Math.round(summary.activeSec),
+            elapsed_s: Math.round(summary.elapsedSec),
+            auto_paused_s: Math.round(summary.autoPausedSec),
+            coords_n: summary.route.length,
+          });
+        } catch (e) {
+          // stop 실패 (no-active-session 등) — 렌더 미러 state 로라도 저장 기회 보존.
+          void logClientWarn('run-session', 'stop-fail → js-mirror fallback', {
+            message: e instanceof Error ? e.message : String(e),
+          });
+          finalState = { ...state, status: 'idle' };
+        }
+        archiveStateBeforeClear(finalState, 'native-finish-handoff-to-sheet');
+        setFinished(finalState);
+        setState(null);
+        activeBaseRef.current = null;
+        clearState();
+      })();
+      return;
+    }
     const finalState: TrackingState = { ...state, status: 'idle' };
     archiveStateBeforeClear(finalState, 'finish-handoff-to-sheet');
     setFinished(finalState);
@@ -578,6 +850,11 @@ function TrackPageImpl() {
       coords_n: state.coords.length,
     });
     archiveStateBeforeClear(state, 'abort');
+    // build 292: native 세션도 반드시 종료 — 안 하면 화면을 떠나도 native 가 계속 적산.
+    if (useNative) {
+      void stopRunSession().catch(() => {});
+      activeBaseRef.current = null;
+    }
     setState(null);
     clearState();
     router.back();
@@ -672,11 +949,29 @@ function TrackPageImpl() {
         )}
       </header>
 
+      {/* build 292: 개발자 게이트 통과 배너 — 일반 사용자는 TrackComingSoon 에서 차단됨 */}
+      {devMode && (
+        <div className="px-3 py-1.5 bg-amber-500/15 border-b border-amber-500/30 text-center z-10">
+          <p className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400">
+            {tt('개발자 테스트 모드')} · {useNative ? tt('네이티브 엔진') : tt('레거시 엔진')}
+          </p>
+        </div>
+      )}
+
       {/* 지도 영역 */}
       <div ref={mapEl} className="flex-1 relative">
         {!MAPS_KEY && (
           <div className="absolute inset-0 flex items-center justify-center text-sm text-[var(--muted)]">
             {tt('지도를 불러올 수 없어요')}
+          </div>
+        )}
+        {/* build 292: GPS 신호 배지 (native update 이벤트의 gpsSignal) */}
+        {useNative && hasState && gpsSignal && (
+          <div className="absolute top-3 left-3 z-[5] inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-black/55 backdrop-blur text-[11px] font-extrabold text-white pointer-events-none">
+            <span className={`w-2 h-2 rounded-full ${
+              gpsSignal === 'good' ? 'bg-emerald-400' : gpsSignal === 'weak' ? 'bg-amber-400' : 'bg-rose-500'
+            }`} />
+            {gpsSignal === 'good' ? tt('GPS 좋음') : gpsSignal === 'weak' ? tt('GPS 약함') : tt('GPS 끊김')}
           </div>
         )}
       </div>
@@ -722,8 +1017,10 @@ function TrackPageImpl() {
                       className={`h-9 px-3 text-xs font-extrabold transition ${voiceInterval === 500 ? 'bg-emerald-500 text-white' : 'text-[var(--muted)]'}`}
                     >500m</button>
                   </div>
-                  {/* build 234: ko 남성 voice 없으면 picker 자체 hide */}
-                  {malePickerVisible && (
+                  {/* build 234: ko 남성 voice 없으면 picker 자체 hide.
+                      build 292: 네이티브 엔진은 AVSpeechSynthesizer voice 를 locale+quality 로
+                      자체 선택 (계약에 gender 없음) — native 경로에선 성별 picker 숨김. */}
+                  {malePickerVisible && !useNative && (
                     <div className="inline-flex items-center rounded-full bg-[var(--card)] border border-[var(--card-border)] overflow-hidden">
                       <button
                         onClick={() => changeGender('female')}

@@ -2399,6 +2399,21 @@ const EXTRAS_EN: Record<string, string> = {
 '클럽 마라톤 완주': 'Club marathon finish',
 '러닝 리마인더': 'Running reminder',
 '월말 결산': 'Month-end recap',
+  // build 292 Phase 1 — /track 네이티브 RunSession 전환 신규 사용자 노출 문자열.
+  // EXTRAS_EN 머지용 조각 (src/lib/i18n.ts 의 EXTRAS_EN 객체에 그대로 붙여넣기).
+  // tt() 는 키 없으면 ko fallback 이라 머지 전에도 안전.
+  //
+  // 사용처: src/app/(app)/track/page.tsx
+  //   - 개발자 게이트 배너 (devMode)
+  //   - GPS 신호 배지 (native 'update' 이벤트 gpsSignal)
+  // ---- track/page.tsx (build 292 dev 게이트 배너) ----
+  '개발자 테스트 모드': 'Developer test mode',
+  '네이티브 엔진': 'Native engine',
+  '레거시 엔진': 'Legacy engine',
+  // ---- track/page.tsx (build 292 GPS 신호 배지) ----
+  'GPS 좋음': 'GPS good',
+  'GPS 약함': 'GPS weak',
+  'GPS 끊김': 'GPS lost',
 };
 
 export function I18nProvider({ children }: { children: ReactNode }) {
