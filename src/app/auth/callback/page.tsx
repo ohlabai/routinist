@@ -3,10 +3,12 @@
 import { useEffect, useRef, useState, Suspense } from 'react';
 import { getSupabase } from '@/lib/supabase';
 import { handleOAuthCallback } from '@/lib/auth';
+import { useI18n } from '@/lib/i18n';
 
 type Phase = 'processing' | 'email-success' | 'email-failed';
 
 function CallbackHandler() {
+  const { tt } = useI18n();
   const handled = useRef(false);
   const [phase, setPhase] = useState<Phase>('processing');
   const [reason, setReason] = useState<string | null>(null);
@@ -102,11 +104,11 @@ function CallbackHandler() {
             </svg>
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">이메일 인증 완료!</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{tt('이메일 인증 완료!')}</h1>
             <p className="mt-2 text-sm text-gray-600 leading-relaxed">
-              인증이 정상적으로 처리됐어요.
+              {tt('인증이 정상적으로 처리됐어요.')}
               <br />
-              이제 앱(또는 웹)으로 돌아가 로그인해주세요.
+              {tt('이제 앱(또는 웹)으로 돌아가 로그인해주세요.')}
             </p>
           </div>
           <a
@@ -114,16 +116,16 @@ function CallbackHandler() {
             className="block w-full py-3.5 rounded-xl text-white font-semibold"
             style={{ backgroundColor: '#0F766E' }}
           >
-            앱 열기
+            {tt('앱 열기')}
           </a>
           <a
             href="/login"
             className="block w-full py-3 rounded-xl border border-emerald-500 bg-white text-emerald-700 font-semibold"
           >
-            웹에서 로그인 계속하기
+            {tt('웹에서 로그인 계속하기')}
           </a>
           <p className="text-[11px] text-gray-400 leading-relaxed">
-            앱이 안 열리면 App Store 에서 Routinist 를 먼저 설치해주세요.
+            {tt('앱이 안 열리면 App Store 에서 Routinist 를 먼저 설치해주세요.')}
           </p>
         </div>
       </div>
@@ -147,11 +149,11 @@ function CallbackHandler() {
             </svg>
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">인증 링크가 만료됐어요</h1>
+            <h1 className="text-xl font-bold text-gray-900">{tt('인증 링크가 만료됐어요')}</h1>
             <p className="mt-2 text-sm text-gray-600 leading-relaxed">
-              링크가 이미 사용됐거나 시간이 지났을 수 있어요.
+              {tt('링크가 이미 사용됐거나 시간이 지났을 수 있어요.')}
               <br />
-              로그인 화면에서 메일을 다시 받아주세요.
+              {tt('로그인 화면에서 메일을 다시 받아주세요.')}
             </p>
             {reason && (
               <p className="mt-2 text-[11px] text-rose-500 break-all">{reason}</p>
@@ -162,7 +164,7 @@ function CallbackHandler() {
             className="block w-full py-3.5 rounded-xl text-white font-semibold"
             style={{ backgroundColor: '#0F766E' }}
           >
-            로그인 화면으로
+            {tt('로그인 화면으로')}
           </a>
         </div>
       </div>
@@ -173,7 +175,7 @@ function CallbackHandler() {
     <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
       <div className="text-center">
         <div className="animate-spin w-8 h-8 border-3 border-[var(--accent)] border-t-transparent rounded-full mx-auto mb-4" />
-        <p className="text-xs text-[var(--muted)]">로그인 처리 중...</p>
+        <p className="text-xs text-[var(--muted)]">{tt('로그인 처리 중...')}</p>
       </div>
     </div>
   );

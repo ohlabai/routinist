@@ -1,5 +1,6 @@
 import { getSupabase, resetSupabaseClient } from './supabase';
 import { dataCache } from './data-cache';
+import { ttl, getCurrentLocale } from './i18n';
 import type { Profile } from '@/types';
 import type { Provider, Session, User } from '@supabase/supabase-js';
 
@@ -74,7 +75,9 @@ function withSocialLoginTimeout<T>(p: PromiseLike<T>, ms: number, provider: stri
     const timer = setTimeout(() => {
       if (settled) return;
       settled = true;
-      reject(new Error(`${provider} 로그인 응답이 ${ms / 1000}초 안에 도착하지 않았어요`));
+      reject(new Error(getCurrentLocale() === 'en'
+        ? `${provider} sign-in didn't respond within ${ms / 1000}s. Please try again.`
+        : `${provider} 로그인 응답이 ${ms / 1000}초 안에 도착하지 않았어요`));
     }, ms);
     Promise.resolve(p).then(
       (v) => { if (settled) return; settled = true; clearTimeout(timer); resolve(v); },
@@ -130,7 +133,9 @@ export async function signInWithProvider(provider: Provider) {
 
 async function signInNative(provider: Provider) {
   if (provider !== 'apple' && provider !== 'google') {
-    throw new Error(`네이티브 ${provider} 로그인은 지원되지 않아요.`);
+    throw new Error(getCurrentLocale() === 'en'
+      ? `Native ${provider} sign-in isn't supported.`
+      : `네이티브 ${provider} 로그인은 지원되지 않아요.`);
   }
   logAuth(`signInNative(${provider}) start, initialized=${socialLoginInitialized}`);
   try {
@@ -165,14 +170,14 @@ async function signInNative(provider: Provider) {
       logAuth(`signInNative(apple) plugin fail: ${msg} — fallback to web OAuth`);
       // 사용자 취소 (사용자가 명시적 취소) 는 폴백 안 함 — 그냥 throw
       if (/cancel|canceled|cancelled/i.test(msg)) {
-        throw new Error('로그인이 취소됐어요.');
+        throw new Error(ttl('로그인이 취소됐어요.'));
       }
       // hang / timeout / "not supported" 등 → 웹 OAuth 폴백
       logAuth('signInNative(apple) falling back to signInWebOAuth');
       return await signInWebOAuth('apple');
     }
     logAuth(`signInNative(apple) login resolved provider=${res.provider}`);
-    if (res.provider !== 'apple') throw new Error('예상하지 못한 provider 응답');
+    if (res.provider !== 'apple') throw new Error(ttl('예상하지 못한 provider 응답'));
     const appleResult = res.result as { idToken?: string };
     const idToken = appleResult.idToken;
     if (!idToken) {
@@ -190,12 +195,12 @@ async function signInNative(provider: Provider) {
       const m = error.message.toLowerCase();
       // Supabase 가 cross-provider 충돌을 "Database error saving new user" 로 반환 (email 중복)
       if (m.includes('database error') || m.includes('already')) {
-        throw new Error('이 이메일은 이미 Google 또는 이메일로 가입되어 있어요. 처음 가입했던 방법으로 다시 시도해주세요.');
+        throw new Error(ttl('이 이메일은 이미 Google 또는 이메일로 가입되어 있어요. 처음 가입했던 방법으로 다시 시도해주세요.'));
       }
       if (m.includes('network') || m.includes('fetch')) {
-        throw new Error('네트워크 연결을 확인하고 다시 시도해주세요.');
+        throw new Error(ttl('네트워크 연결을 확인하고 다시 시도해주세요.'));
       }
-      throw new Error(`Apple 로그인 실패: ${error.message}`);
+      throw new Error(`${ttl('Apple 로그인 실패')}: ${error.message}`);
     }
     logAuth('Apple 로그인 성공');
     return data;
@@ -217,20 +222,20 @@ async function signInNative(provider: Provider) {
     const msg = e instanceof Error ? e.message : String(e);
     logAuth(`signInNative(google) plugin fail: ${msg} — fallback to web OAuth`);
     if (/cancel|canceled|cancelled/i.test(msg)) {
-      throw new Error('로그인이 취소됐어요.');
+      throw new Error(ttl('로그인이 취소됐어요.'));
     }
     return await signInWebOAuth('google');
   }
   logAuth(`signInNative(google) login resolved provider=${res.provider}`);
-  if (res.provider !== 'google') throw new Error('예상하지 못한 provider 응답');
+  if (res.provider !== 'google') throw new Error(ttl('예상하지 못한 provider 응답'));
   const googleResult = res.result as { responseType?: string; idToken?: string };
   if (googleResult.responseType !== 'online') {
-    throw new Error('Google 로그인 응답 형식이 올바르지 않아요.');
+    throw new Error(ttl('Google 로그인 응답 형식이 올바르지 않아요.'));
   }
   const idToken = googleResult.idToken;
   if (!idToken) {
     logAuth('Google idToken 없음');
-    throw new Error('Google 로그인이 취소됐거나 토큰을 받지 못했어요.');
+    throw new Error(ttl('Google 로그인이 취소됐거나 토큰을 받지 못했어요.'));
   }
   logAuth(`Google idToken length=${idToken.length}, calling Supabase signInWithIdToken`);
   const { data, error } = await supabase.auth.signInWithIdToken({
@@ -241,12 +246,12 @@ async function signInNative(provider: Provider) {
     logAuth(`Google signInWithIdToken 실패: ${error.message}`);
     const m = error.message.toLowerCase();
     if (m.includes('database error') || m.includes('already')) {
-      throw new Error('이 이메일은 이미 Apple 또는 이메일로 가입되어 있어요. 처음 가입했던 방법으로 다시 시도해주세요.');
+      throw new Error(ttl('이 이메일은 이미 Apple 또는 이메일로 가입되어 있어요. 처음 가입했던 방법으로 다시 시도해주세요.'));
     }
     if (m.includes('network') || m.includes('fetch')) {
-      throw new Error('네트워크 연결을 확인하고 다시 시도해주세요.');
+      throw new Error(ttl('네트워크 연결을 확인하고 다시 시도해주세요.'));
     }
-    throw new Error(`Google 로그인 실패: ${error.message}`);
+    throw new Error(`${ttl('Google 로그인 실패')}: ${error.message}`);
   }
   logAuth('Google 로그인 성공');
   return data;
@@ -275,7 +280,7 @@ async function signInWebOAuth(provider: Provider) {
     throw error;
   }
   if (!data?.url) {
-    throw new Error('OAuth URL 을 받지 못했어요.');
+    throw new Error(ttl('OAuth URL 을 받지 못했어요.'));
   }
 
   if (native) {
@@ -315,20 +320,20 @@ export async function handleOAuthCallback(url: string): Promise<Session | null> 
     const desc = queryParams.get('error_description') || hashParams.get('error_description') || '';
     const lower = `${oauthError} ${desc}`.toLowerCase();
     if (lower.includes('database error') || lower.includes('already')) {
-      throw new Error('이 이메일은 이미 다른 방식으로 가입되어 있어요. 처음 가입했던 방법으로 다시 시도해주세요.');
+      throw new Error(ttl('이 이메일은 이미 다른 방식으로 가입되어 있어요. 처음 가입했던 방법으로 다시 시도해주세요.'));
     }
     if (lower.includes('email')) {
-      throw new Error('이메일 정보를 받지 못했어요. 권한 요청 화면에서 이메일 공유를 허용해주세요.');
+      throw new Error(ttl('이메일 정보를 받지 못했어요. 권한 요청 화면에서 이메일 공유를 허용해주세요.'));
     }
     if (lower.includes('access_denied') || lower.includes('cancel')) {
-      throw new Error('로그인이 취소됐어요.');
+      throw new Error(ttl('로그인이 취소됐어요.'));
     }
-    throw new Error(`OAuth 프로바이더 에러: ${oauthError} ${desc}`);
+    throw new Error(`${ttl('OAuth 프로바이더 에러')}: ${oauthError} ${desc}`);
   }
 
   if (code) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) throw new Error(`exchangeCode 실패: ${error.message}`);
+    if (error) throw new Error(`${ttl('exchangeCode 실패')}: ${error.message}`);
     return data.session;
   }
   if (accessToken && refreshToken) {
@@ -336,7 +341,7 @@ export async function handleOAuthCallback(url: string): Promise<Session | null> 
       access_token: accessToken,
       refresh_token: refreshToken,
     });
-    if (error) throw new Error(`setSession 실패: ${error.message}`);
+    if (error) throw new Error(`${ttl('setSession 실패')}: ${error.message}`);
     return data.session;
   }
 
@@ -368,16 +373,16 @@ export async function signUpWithEmail(email: string, password: string, displayNa
     const msg = error.message || '';
     const code = (error as { code?: string }).code || '';
     if (code === 'over_email_send_rate_limit' || /email rate limit|rate limit exceeded|too many requests/i.test(msg)) {
-      throw new Error('인증 메일을 너무 자주 보내셨어요.\n약 1시간 후 다시 시도해주세요.');
+      throw new Error(ttl('인증 메일을 너무 자주 보내셨어요.\n약 1시간 후 다시 시도해주세요.'));
     }
     if (/password should be at least|password.*weak/i.test(msg)) {
-      throw new Error('비밀번호는 6자 이상으로 설정해주세요.');
+      throw new Error(ttl('비밀번호는 6자 이상으로 설정해주세요.'));
     }
     if (/signups not allowed|signup.*disabled/i.test(msg)) {
-      throw new Error('현재 회원가입이 일시 중단되었어요. 잠시 후 다시 시도해주세요.');
+      throw new Error(ttl('현재 회원가입이 일시 중단되었어요. 잠시 후 다시 시도해주세요.'));
     }
     if (/unable to validate email|invalid email/i.test(msg)) {
-      throw new Error('이메일 형식이 올바르지 않아요. 다시 확인해주세요.');
+      throw new Error(ttl('이메일 형식이 올바르지 않아요. 다시 확인해주세요.'));
     }
     throw error;
   }
@@ -404,20 +409,20 @@ export async function signInWithEmail(email: string, password: string) {
     const msg = error.message || '';
     const code = (error as { code?: string }).code || '';
     if (code === 'email_not_confirmed' || /email not confirmed/i.test(msg)) {
-      throw new Error('아직 이메일 인증이 완료되지 않았어요.\n가입 시 받으신 메일에서 인증 링크를 눌러주세요.');
+      throw new Error(ttl('아직 이메일 인증이 완료되지 않았어요.\n가입 시 받으신 메일에서 인증 링크를 눌러주세요.'));
     }
     if (code === 'invalid_credentials' || /invalid login credentials/i.test(msg)) {
-      throw new Error('이메일 또는 비밀번호가 일치하지 않아요.');
+      throw new Error(ttl('이메일 또는 비밀번호가 일치하지 않아요.'));
     }
     if (/too many requests|rate.?limit/i.test(msg)) {
-      throw new Error('잠시 후 다시 시도해주세요. 너무 자주 시도하셨어요.');
+      throw new Error(ttl('잠시 후 다시 시도해주세요. 너무 자주 시도하셨어요.'));
     }
     throw error;
   }
   if (data.user && !data.user.email_confirmed_at) {
     // 이메일 확인 안 된 계정 — 즉시 로그아웃 + 명확한 안내.
     await supabase.auth.signOut().catch(() => {});
-    throw new Error('아직 이메일 인증이 완료되지 않았어요.\n가입 시 받으신 메일에서 인증 링크를 눌러주세요.');
+    throw new Error(ttl('아직 이메일 인증이 완료되지 않았어요.\n가입 시 받으신 메일에서 인증 링크를 눌러주세요.'));
   }
   return data;
 }
@@ -434,7 +439,7 @@ export async function resendEmailConfirmation(email: string) {
     const msg = error.message || '';
     const code = (error as { code?: string }).code || '';
     if (code === 'over_email_send_rate_limit' || /email rate limit|rate limit exceeded|too many requests/i.test(msg)) {
-      throw new Error('인증 메일을 너무 자주 보내셨어요.\n약 1시간 후 다시 시도해주세요.');
+      throw new Error(ttl('인증 메일을 너무 자주 보내셨어요.\n약 1시간 후 다시 시도해주세요.'));
     }
     throw error;
   }

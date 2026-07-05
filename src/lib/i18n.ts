@@ -1034,15 +1034,24 @@ function detectInitialLocale(): Locale {
     const stored = window.localStorage.getItem(STORAGE_KEY) as Locale | null;
     if (stored && DICT[stored]) return stored;
   } catch {}
+  // build 290 (i18n Phase A): fallback 을 ko → en 으로 반전.
+  // 이전엔 "en 시작만 en, 나머지 전부 ko" — 프랑스/일본/스페인 등 비영어권 기기가
+  // 전부 한국어로 시작하는 글로벌 역행 버그. 한국어 기기만 ko, 그 외엔 en.
   const nav = (typeof navigator !== 'undefined' ? navigator.language : '').toLowerCase();
-  if (nav.startsWith('en')) return 'en';
-  return 'ko';
+  if (nav.startsWith('ko')) return 'ko';
+  return 'en';
 }
 
 // build 290: React context 밖 (lib 함수) 에서 현재 locale 이 필요할 때 사용.
 // I18nProvider.setLocale 이 STORAGE_KEY 에 즉시 기록하므로 저장값 = 현재 선택값.
 export function getCurrentLocale(): Locale {
   return detectInitialLocale();
+}
+
+// build 290 (i18n Phase A): lib 함수 (auth.ts 에러, health-sync 토스트 등 hook 사용 불가 위치) 용
+// tt() 대응물. EXTRAS_EN 에 키가 있으면 en 번역, 없으면 한국어 원문 (tt 와 동일 계약).
+export function ttl(ko: string): string {
+  return getCurrentLocale() === 'en' ? (EXTRAS_EN[ko] ?? ko) : ko;
 }
 
 interface I18nState {
@@ -1547,6 +1556,120 @@ const EXTRAS_EN: Record<string, string> = {
   '달리기 준비': 'Ready to run',
   '재개': 'Resume',
   '지도를 불러올 수 없어요': 'Map could not be loaded',
+  // ── build 290 i18n Phase A: 인증 여정 ──
+  // login page
+  '인증을 확인했어요. 비밀번호를 입력해 로그인해주세요.': "You're verified! Enter your password to sign in.",
+  '로그인이 만료되어 자동으로 로그아웃했어요. 다시 로그인해주세요.': 'Your session expired, so we signed you out. Please sign in again.',
+  '세션을 초기화했어요. 다시 로그인해주세요.': 'Your session was reset. Please sign in again.',
+  '(로그 없음)': '(no log)',
+  '(로그 접근 실패)': '(could not read log)',
+  '로그인 중 오류가 발생했습니다.': 'Something went wrong while signing in.',
+  '로그인 실패': 'Sign-in failed',
+  '오류가 발생했습니다.': 'Something went wrong.',
+  '가입되지 않은 이메일이거나 비밀번호가 틀렸어요.\n처음이라면 아래에서 회원가입을 진행해주세요.':
+    "We couldn't find that account, or the password didn't match.\nIf you're new here, just sign up below.",
+  '이미 가입된 이메일이에요.\n비밀번호로 로그인하거나, 비밀번호를 잊으셨다면 아래 "비밀번호를 잊으셨나요?"를 눌러주세요.':
+    'This email is already registered.\nSign in with your password, or tap "Forgot your password?" below if you need a reset.',
+  '비밀번호 재설정을 위해 이메일을 먼저 입력해주세요.': 'Please enter your email first so we can send a reset link.',
+  '비밀번호 재설정 메일을 보냈습니다.': 'Password reset email sent. Please check your inbox.',
+  '재설정 메일 전송 실패': 'Could not send the reset email',
+  '인증 메일 재전송을 위해 이메일을 먼저 입력해주세요.': 'Please enter your email first so we can resend the verification email.',
+  '인증 메일을 다시 보냈어요. 메일함을 확인해주세요.': 'Verification email sent again. Please check your inbox.',
+  '재전송 실패': 'Could not resend',
+  'Google로 이동 중...': 'Heading to Google...',
+  'Google로 시작하기': 'Continue with Google',
+  'Apple로 이동 중...': 'Heading to Apple...',
+  'Apple로 시작하기': 'Continue with Apple',
+  '또는': 'or',
+  '이메일 로그인': 'Email sign-in',
+  '이메일 회원가입': 'Email sign-up',
+  '메일을 보냈어요!': 'Email sent!',
+  '재전송 완료': 'Sent!',
+  '인증 메일 다시 보내기': 'Resend verification email',
+  '다른 이메일로 가입하기': 'Sign up with a different email',
+  '이미 인증을 마쳤어요 → 로그인': 'Already verified → Sign in',
+  '닉네임 (선택)': 'Nickname (optional)',
+  '비밀번호 (6자 이상)': 'Password (6+ characters)',
+  '처리 중...': 'Working on it...',
+  '로그인': 'Sign in',
+  '가입하기': 'Sign up',
+  '비밀번호를 잊으셨나요?': 'Forgot your password?',
+  '← 소셜 로그인으로 돌아가기': '← Back to social sign-in',
+  '외부 브라우저에서 인증을 완료해주세요. 인증이 끝나면 앱이 자동으로 돌아옵니다.':
+    "Please finish signing in from the browser window. The app will pick right back up once you're done.",
+  '진단 로그 (/login?debug=1)': 'Diagnostic log (/login?debug=1)',
+  '새로고침': 'Refresh',
+  '(새로고침 눌러 로그 보기)': '(tap Refresh to view the log)',
+  '🛍️ 로그인 없이 쇼핑 둘러보기 →': '🛍️ Browse the shop without signing in →',
+  // auth callback page
+  '이메일 인증 완료!': 'Email verified!',
+  '인증이 정상적으로 처리됐어요.': 'Your email was verified successfully.',
+  '이제 앱(또는 웹)으로 돌아가 로그인해주세요.': 'Now head back to the app (or web) and sign in.',
+  '앱 열기': 'Open the app',
+  '웹에서 로그인 계속하기': 'Continue signing in on the web',
+  '앱이 안 열리면 App Store 에서 Routinist 를 먼저 설치해주세요.':
+    "If the app doesn't open, please install Routinist from the App Store first.",
+  '인증 링크가 만료됐어요': 'This verification link has expired',
+  '링크가 이미 사용됐거나 시간이 지났을 수 있어요.': 'The link may have been used already or timed out.',
+  '로그인 화면에서 메일을 다시 받아주세요.': 'Please request a new email from the sign-in screen.',
+  '로그인 화면으로': 'Go to sign-in',
+  '로그인 처리 중...': 'Signing you in...',
+  // member page (클럽 멤버 상세)
+  '멤버를 찾을 수 없습니다': 'Member not found',
+  '대시보드로 돌아가기': 'Back to dashboard',
+  '대시보드': 'Dashboard',
+  '휴면': 'Inactive',
+  '통산': 'Total',
+  '월평균': 'Monthly avg',
+  '활동 기간': 'Active months',
+  '피니셔 달성': 'Finisher months',
+  '월 최고': 'Best month',
+  '피니셔 확률': 'Finisher rate',
+  '월별 목표 vs 달성': 'Monthly goal vs actual',
+  '목표': 'Goal',
+  '달성': 'Achieved',
+  '거리 성장 추이': 'Distance growth',
+  '평균': 'Avg',
+  '월별 기록': 'Monthly records',
+  '월': 'Month',
+  '달성률': 'Rate',
+  '상태': 'Status',
+  '미달': 'Missed',
+  '일별 러닝 거리': 'Daily running distance',
+  '일별 거리': 'Daily distance',
+  '누적 거리': 'Cumulative distance',
+  '일별 러닝 기록': 'Daily run log',
+  '날짜': 'Date',
+  '메모': 'Notes',
+  // lib/auth.ts 에러 메시지 (ttl 로 조회)
+  '로그인이 취소됐어요.': 'Sign-in was cancelled.',
+  '예상하지 못한 provider 응답': 'Unexpected provider response',
+  '이 이메일은 이미 Google 또는 이메일로 가입되어 있어요. 처음 가입했던 방법으로 다시 시도해주세요.':
+    'This email is already registered with Google or email sign-up. Please try again with the method you first used.',
+  '이 이메일은 이미 Apple 또는 이메일로 가입되어 있어요. 처음 가입했던 방법으로 다시 시도해주세요.':
+    'This email is already registered with Apple or email sign-up. Please try again with the method you first used.',
+  '네트워크 연결을 확인하고 다시 시도해주세요.': 'Please check your network connection and try again.',
+  'Apple 로그인 실패': 'Apple sign-in failed',
+  'Google 로그인 실패': 'Google sign-in failed',
+  'Google 로그인 응답 형식이 올바르지 않아요.': "Google's sign-in response looked off. Please try again.",
+  'Google 로그인이 취소됐거나 토큰을 받지 못했어요.': "Google sign-in was cancelled or we didn't receive a token.",
+  'OAuth URL 을 받지 못했어요.': "We couldn't get the sign-in URL. Please try again.",
+  '이 이메일은 이미 다른 방식으로 가입되어 있어요. 처음 가입했던 방법으로 다시 시도해주세요.':
+    'This email is already registered another way. Please try again with the method you first used.',
+  '이메일 정보를 받지 못했어요. 권한 요청 화면에서 이메일 공유를 허용해주세요.':
+    "We didn't receive your email address. Please allow email sharing on the permission screen.",
+  'OAuth 프로바이더 에러': 'OAuth provider error',
+  'exchangeCode 실패': 'Code exchange failed',
+  'setSession 실패': 'Session setup failed',
+  '인증 메일을 너무 자주 보내셨어요.\n약 1시간 후 다시 시도해주세요.':
+    "We've sent quite a few emails already.\nPlease try again in about an hour.",
+  '비밀번호는 6자 이상으로 설정해주세요.': 'Please use a password with at least 6 characters.',
+  '현재 회원가입이 일시 중단되었어요. 잠시 후 다시 시도해주세요.': 'Sign-ups are paused for a moment. Please try again soon.',
+  '이메일 형식이 올바르지 않아요. 다시 확인해주세요.': "That email address doesn't look right. Please double-check it.",
+  '아직 이메일 인증이 완료되지 않았어요.\n가입 시 받으신 메일에서 인증 링크를 눌러주세요.':
+    "Your email isn't verified yet.\nPlease tap the verification link in the email we sent when you signed up.",
+  '이메일 또는 비밀번호가 일치하지 않아요.': "Your email or password doesn't match. Please try again.",
+  '잠시 후 다시 시도해주세요. 너무 자주 시도하셨어요.': 'Please wait a moment and try again — that was a few too many tries.',
 };
 
 export function I18nProvider({ children }: { children: ReactNode }) {
