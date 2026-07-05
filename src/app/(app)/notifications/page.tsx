@@ -43,12 +43,14 @@ const KIND_ICONS: Record<NotificationKind, typeof Heart> = {
   follow: UserPlus,
   friend_request: UserPlus,
   friend_accepted: Check,
+  referral_joined: UserPlus,
 };
 
 const KIND_COLORS: Record<NotificationKind, string> = {
   cheer: 'bg-rose-100 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400',
   photo_comment: 'bg-sky-100 text-sky-600 dark:bg-sky-950/40 dark:text-sky-400',
   activity_comment: 'bg-sky-100 text-sky-600 dark:bg-sky-950/40 dark:text-sky-400',
+  referral_joined: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400',
   follow: 'bg-violet-100 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400',
   friend_request: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400',
   friend_accepted: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400',
@@ -69,7 +71,11 @@ function getHref(item: NotificationItem): string {
     case 'follow':
     case 'friend_request':
     case 'friend_accepted':
+    case 'referral_joined':
       return item.actor_id ? `/social/user?id=${item.actor_id}` : '/social?tab=friends';
+    default:
+      // 서버가 새 kind 를 먼저 배포해도 페이지가 깨지지 않게 (build 294 — referral_joined 크래시 교훈)
+      return '/social?tab=friends';
   }
 }
 
@@ -82,6 +88,8 @@ function describeKind(kind: NotificationKind, actorName: string, locale: 'ko' | 
       case 'follow': return `${actorName} started following you`;
       case 'friend_request': return `${actorName} sent you a friend request`;
       case 'friend_accepted': return `${actorName} accepted your friend request`;
+      case 'referral_joined': return `${actorName} joined with your invite code 🎉`;
+      default: return `${actorName} sent you a notification`;
     }
   }
   switch (kind) {
@@ -91,6 +99,8 @@ function describeKind(kind: NotificationKind, actorName: string, locale: 'ko' | 
     case 'follow': return `${actorName}님이 친구로 추가했어요`;
     case 'friend_request': return `${actorName}님이 친구 신청을 보냈어요`;
     case 'friend_accepted': return `${actorName}님이 친구 신청을 수락했어요`;
+    case 'referral_joined': return `${actorName}님이 내 초대 코드로 가입했어요 🎉`;
+    default: return `${actorName}님의 새 알림`;
   }
 }
 
@@ -194,8 +204,8 @@ export default function NotificationsPage() {
         ) : (
           <div className="space-y-2">
             {items.map((item) => {
-              const Icon = KIND_ICONS[item.kind];
-              const iconColor = KIND_COLORS[item.kind];
+              const Icon = KIND_ICONS[item.kind] ?? UserPlus;
+              const iconColor = KIND_COLORS[item.kind] ?? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400';
               const actorName = item.actor_display_name || tt('알 수 없음');
               const isUnread = !item.read_at;
               const isFriendRequest = item.kind === 'friend_request';
