@@ -1,20 +1,20 @@
 v1.2.7 — GPS Run Tracking · Invite Friends · Habit Features
 
-[🏃 GPS Run Tracking is here]
+[GPS Run Tracking is here]
 • Tap "Start Running" on Home to track distance, pace and route — no watch needed.
 • Keeps recording with your screen locked, with voice cues every kilometer.
 • Auto-pauses at stoplights, and fills weak-GPS sections using step data.
 
-[🎁 Invite Friends]
+[Invite Friends]
 • Share your invite code — you both earn 100P when a friend joins.
 • Share cards now carry a QR so friends can jump right in.
 
-[🔥 Habit Features]
+[Habit Features]
 • Weekly run-count goal (we recommend 3×/week) with day dots on Home
 • Streak Shield — protect your streak when you miss a day (1 free per month)
 • 5 new badges with celebrations — first 5km, first 3-run week, and more
 
-[🌍 Global]
+[Global]
 • "Same country" tab in Nearby Runners, plus a worldwide runners view
 • Mile (mi) units and greatly expanded English coverage
 
