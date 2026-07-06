@@ -161,6 +161,9 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
     // 자동 일시정지 히스테리시스 윈도우
     private var slowSince: Date?
     private var fastSince: Date?
+    // 실주행 fix (295): 세션 시작 후 "실제로 움직이기 시작" 전에는 자동정지를 무장하지 않는다.
+    // 출발선 대기 + GPS 워밍업(lost) 상태에서 12초 만에 오정지되던 신고 (hans 2026-07-06).
+    private var hasMovedThisSession = false
 
     // CMPedometer 융합
     private var pedometerActive = false
@@ -486,6 +489,7 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
                     // GPS lost 상태의 자동 재개 판정용 — 스텝이 "증가하기 시작한" 시점.
                     if self.stepIncreasingSince == nil {
                         self.stepIncreasingSince = Date()
+                        self.hasMovedThisSession = true
                     }
                 }
                 if let dist = data.distance?.doubleValue, dist > self.pedometerDistanceM {
@@ -640,6 +644,7 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
                 } else if doppler > Tuning.autoResumeSpeedMps {
                     if fastSince == nil { fastSince = Date() }
                     slowSince = nil
+                    hasMovedThisSession = true
                 } else {
                     // 중간 대역 — 히스테리시스: pause/resume 어느 쪽 카운트도 하지 않음.
                     slowSince = nil
@@ -756,6 +761,8 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
     private func evaluateAutoPause(now: Date) {
         switch state {
         case .running:
+            // 첫 움직임 전에는 자동정지 미무장 — 출발 대기/워밍업 오정지 차단.
+            guard hasMovedThisSession else { return }
             var shouldPause = false
             // 1차: 도플러 speed < 0.5 m/s 가 12초 지속.
             if let slow = slowSince, now.timeIntervalSince(slow) >= Tuning.autoPauseHoldSec {
@@ -894,12 +901,19 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
             // build 241 계약: launch 시점 setActive 금지 — 발화 직전에만 lazy activate.
             // 카테고리(.playback + .spokenAudio + .duckOthers)는 AppDelegate 가 이미 등록.
             do {
+                // 실주행 fix (295): WKWebView (카운트다운 beep 의 WebAudio) 가 오디오 세션
+                // 카테고리를 바꿔놓으면 ambient + 무음스위치 조합에서 TTS 가 통째로 무음이 된다.
+                // 발화 직전마다 카테고리를 재선점 — .playback 은 무음 스위치를 무시한다.
+                try AVAudioSession.sharedInstance().setCategory(
+                    .playback, mode: .spokenAudio, options: [.duckOthers, .mixWithOthers])
                 try AVAudioSession.sharedInstance().setActive(true)
             } catch {
                 NSLog("[RunSession] AVAudioSession activate failed: \(error)")
             }
             let utterance = AVSpeechUtterance(string: text)
             utterance.voice = voice
+            NSLog("[RunSession] speak: voice=%@ q=%d len=%d",
+                  voice?.identifier ?? "system-default", voice?.quality.rawValue ?? -1, text.count)
             // rate/pitch 는 기본값 유지 (계약 — 변조 금지).
             self.synthesizer.speak(utterance)
         }
@@ -1021,6 +1035,7 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
             // 회수한다 (startPedometer 가 원래 시작 시각부터 재질의하므로 누적치가 이어짐).
             lastAcceptedFixAt = Date(timeIntervalSince1970: persistedAtMs / 1000.0)
             pedDistAtAnchor = pedometerDistanceM
+            hasMovedThisSession = true   // 복원 세션 = 이미 달리던 세션 — 자동정지 즉시 무장
             startTrackingIfNeeded()
         } else {
             // 오래된 세션(예: 어제 강제종료) — GPS 자동 재가동 없이 paused 로만 보존.
@@ -1032,6 +1047,7 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
 
     /// 세션 종료/시작 전 전체 필드 초기화.
     private func resetSessionState() {
+        hasMovedThisSession = false
         state = .idle
         startedAtMs = 0
         gpsDistanceM = 0
