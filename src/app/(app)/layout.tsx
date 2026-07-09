@@ -11,6 +11,7 @@ import AppLogo from '@/components/AppLogo';
 import { useI18n, getCurrentLocale } from '@/lib/i18n';
 import { getSupabase } from '@/lib/supabase';
 import AnalyticsAutoTracker from '@/components/AnalyticsAutoTracker';
+import ActiveRunBanner from '@/components/track/ActiveRunBanner';
 import { fetchUnreadNotificationSummary, markNotificationsRead, SOCIAL_KINDS } from '@/lib/notifications-data';
 import { setAppBadge } from '@/lib/app-badge';
 import { getUnreadCount as getUnreadMessageCount } from '@/lib/message-data';
@@ -283,6 +284,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* 메인 컨텐츠 — 유일한 스크롤 영역 */}
       <main className="flex-1 overflow-y-auto overscroll-contain">
         <AnalyticsAutoTracker />
+        {/* build 297: 진행 중 러닝 전역 배너 — 어느 탭에서든 세션 복귀 경로 제공
+            (hans 신고: 1시간 달리고 앱 열었더니 홈이 세션 존재를 안 보여줌) */}
+        {user && <ActiveRunBanner />}
         <UserDataProvider>{children}</UserDataProvider>
       </main>
 

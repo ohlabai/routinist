@@ -2496,6 +2496,9 @@ const EXTRAS_EN: Record<string, string> = {
   'Routinist 시작하기': 'Get started with Routinist',
   '이 러너의 기록이 마음에 드나요?': "Enjoying this runner's story?",
   '가입하면 응원과 댓글을 남길 수 있어요': 'Join to leave cheers and comments',
+  // ── build 297: 진행 중 러닝 배너 ──
+  '진행 중인 러닝으로 돌아가기': 'Return to your run in progress',
+  '일시정지 중': 'Paused',
 };
 
 export function I18nProvider({ children }: { children: ReactNode }) {
