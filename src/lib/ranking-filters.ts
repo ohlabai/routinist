@@ -7,21 +7,25 @@ export type RankingFilters = Record<RankingFilterKey, boolean>;
 // build 209 #4-2: axis (time period) 도 동일 storage 로 공유 — 홈 hero ↔ /ranking 탭 한쪽 변경 시 양쪽 sync.
 export type RankingAxis = 'today' | 'week' | 'month' | 'year';
 
-const STORAGE_KEY = 'ranking.filters.v1';
-const AXIS_STORAGE_KEY = 'ranking.axis.v1';
+// build 296: 스토리지 키 v1 → v2 — 기본값 변경 (국가 단위 + 월간) 을 기존 사용자에게도
+// 1회 리셋 적용 (회원 소수·전원 지인 단계 결정. 이후엔 각자 변경값 유지).
+const STORAGE_KEY = 'ranking.filters.v2';
+const AXIS_STORAGE_KEY = 'ranking.axis.v2';
 const EVENT_NAME = 'ranking-filters-changed';
 const AXIS_EVENT_NAME = 'ranking-axis-changed';
 
+// build 296: 회원이 적은 동안은 시/구가 아니라 국가 단위가 기본 ("대한민국 N등").
+// 회원이 늘면 region_si 기본 재활성 검토 (hans 결정 2026-07-09).
 export const DEFAULT_FILTERS: RankingFilters = {
   country: true,
-  region_si: true,
+  region_si: false,
   region_gu: false,
   gender: false,
   decade: false,
   starter: false,
 };
-// build 209 #4-2: 기본 axis 'week' — 사용자 요청. 홈+랭킹 동일 default.
-export const DEFAULT_AXIS: RankingAxis = 'week';
+// build 296: 기본 axis 'week' → 'month' — 월간 누적이 기본 (hans 결정 2026-07-09).
+export const DEFAULT_AXIS: RankingAxis = 'month';
 
 export function readRankingFilters(): RankingFilters {
   if (typeof window === 'undefined') return DEFAULT_FILTERS;
