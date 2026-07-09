@@ -442,7 +442,15 @@ export default function HistoryPage() {
                   <Zap size={16} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-[var(--foreground)]">{toDisplayDistance(a.distance_km, unit).toFixed(2)} {unitLabel(unit)}</p>
+                  <p className="text-sm font-semibold text-[var(--foreground)]">
+                    {toDisplayDistance(a.distance_km, unit).toFixed(2)} {unitLabel(unit)}
+                    {/* build 296: 걷기 배지 — 러닝 합계 미포함 표시 */}
+                    {a.activity_type === 'walking' && (
+                      <span className="ml-1.5 px-1.5 py-0.5 rounded-md bg-sky-100 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 text-[10px] font-bold align-middle">
+                        🚶 {tt('걷기')}
+                      </span>
+                    )}
+                  </p>
                   <p className="text-xs text-[var(--muted)]">
                     {new Date(a.activity_date).toLocaleDateString(locale === 'en' ? 'en-US' : 'ko-KR', { month: 'short', day: 'numeric', weekday: 'short' })}
                     {a.duration_seconds && ` · ${formatDuration(a.duration_seconds)}`}

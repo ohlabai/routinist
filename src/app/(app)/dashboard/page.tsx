@@ -1438,6 +1438,12 @@ export default function DashboardPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-[var(--foreground)]">
                     {toDisplayDistance(a.distance_km, unit).toFixed(2)} {unitLabel(unit)}
+                    {/* build 296: 걷기 배지 — 러닝 합계에서 빠지는 이유를 목록에서 보이게 (hans 신고: 4건 보이는데 합계 3건) */}
+                    {a.activity_type === 'walking' && (
+                      <span className="ml-1.5 px-1.5 py-0.5 rounded-md bg-sky-100 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 text-[10px] font-bold align-middle">
+                        🚶 {tt('걷기')}
+                      </span>
+                    )}
                     {a.duration_seconds && (
                       <span className="text-[var(--muted)] font-normal ml-2 text-sm">
                         {formatDuration(a.duration_seconds)}
