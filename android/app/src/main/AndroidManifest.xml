@@ -22,31 +22,24 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- routinist:// 딥링크 전체 커버리지 (iOS 와 동일).
+                 auth/callback 외에도 invite, r/[id], payment, world 등 모든 path 를
+                 앱이 받아야 하므로 host 제한 없이 scheme 단위로 매칭. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="routinist" android:host="auth" android:pathPrefix="/callback" />
-            </intent-filter>
-
-            <!-- Health Connect 권한 요청 화면 -->
-            <intent-filter>
-                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+                <data android:scheme="@string/custom_url_scheme" />
             </intent-filter>
 
         </activity>
 
-        <!-- Health Connect 권한 요청 (Android 14+) -->
-        <activity-alias
-            android:name="ViewPermissionUsageActivity"
-            android:exported="true"
-            android:targetActivity=".MainActivity"
-            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
-                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
-            </intent-filter>
-        </activity-alias>
+        <!-- Health Connect 권한 rationale UI 는 @capgo/capacitor-health 가 자체 제공
+             (PermissionsRationaleActivity + ViewPermissionUsageActivity alias 가
+             플러그인 manifest 에서 merge 됨). 앱 쪽에 중복 선언하면 Android 14+
+             VIEW_PERMISSION_USAGE 처리가 모호해지므로 여기선 선언하지 않고,
+             표시할 개인정보처리방침 URL 만 strings.xml 의
+             health_connect_privacy_policy_url 로 지정한다. -->
 
         <provider
             android:name="androidx.core.content.FileProvider"

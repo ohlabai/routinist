@@ -4,4 +4,7 @@
     <string name="title_activity_main">Routinist</string>
     <string name="package_name">com.routinist.app</string>
     <string name="custom_url_scheme">routinist</string>
+    <!-- Health Connect 권한 다이얼로그의 "개인정보처리방침" 링크가 여는 URL.
+         @capgo/capacitor-health 의 PermissionsRationaleActivity 가 WebView 로 로드함. -->
+    <string name="health_connect_privacy_policy_url">https://app.routinist.kr/privacy</string>
 </resources>

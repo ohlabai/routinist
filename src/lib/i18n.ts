@@ -1141,6 +1141,23 @@ const EXTRAS_EN: Record<string, string> = {
   '이번 주 목표 달성! 멋져요': 'Weekly goal achieved! Awesome',
   '절반 넘어왔어요. 계속!': "Halfway there. Keep going!",
   '이번 주도 한 번 달려볼까요?': "Let's run this week",
+  // Android Health Connect (build 297)
+  'Health Connect 앱이 필요해요. Play 스토어에서 설치해주세요.': 'The Health Connect app is required. Please install it from the Play Store.',
+  'Health Connect 업데이트가 필요해요. Play 스토어에서 업데이트해주세요.': 'Health Connect needs an update. Please update it in the Play Store.',
+  'Health Connect 연결 완료! 러닝 기록을 가져오는 중...': 'Health Connect connected! Importing your runs...',
+  'Health Connect 앱에서 Routinist 권한을 허용해주세요.': 'Please allow Routinist access in the Health Connect app.',
+  'Health Connect 러닝 기록 조회 중...': 'Reading runs from Health Connect...',
+  'Health Connect 에 러닝 기록이 아직 없어요 👟': 'No runs in Health Connect yet 👟',
+  '삼성 헬스·갤럭시 워치 러닝 기록 자동 가져오기': 'Auto-import runs from Samsung Health & Galaxy Watch',
+  '건강 데이터를 가져오려면 Health Connect 앱이 필요해요': 'The Health Connect app is required to import health data',
+  'Play 스토어에서 Health Connect 받기': 'Get Health Connect on the Play Store',
+  '연결하는 중…': 'Connecting…',
+  '연결하기': 'Connect',
+  '연결됨': 'Connected',
+  '동기화': 'Sync',
+  '마지막 동기화': 'Last synced',
+  'Health Connect에서 권한 관리': 'Manage permissions in Health Connect',
+
   // Apple Health
   'Apple 건강 앱 연동하기': 'Connect Apple Health',
   '러닝·걷기·심박·GPS 자동으로 가져옵니다': 'Auto import runs, walks, heart rate, GPS',

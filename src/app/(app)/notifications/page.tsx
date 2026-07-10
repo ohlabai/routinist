@@ -65,7 +65,9 @@ function getHref(item: NotificationItem): string {
       // 이전엔 본인 프로필 (/profile) 으로 갔는데 사용자 신고: "알림 내용이 안 나오고 내 프로필만 나옴"
       return item.actor_id ? `/social/user?id=${item.actor_id}` : '/social?tab=friends';
     case 'photo_comment':
-      return item.source_id ? `/photos/${item.source_id}` : '/social?tab=photos';
+      // 사진 단건 라우트는 없음 (/photos/* 는 존재하지 않는 경로 — 탭하면 404였음).
+      // 포토는 /social?tab=photos 의 컴포넌트라 갤러리 탭으로 보낸다.
+      return '/social?tab=photos';
     case 'activity_comment':
       return item.source_id ? `/activity?id=${item.source_id}` : '/dashboard';
     case 'follow':

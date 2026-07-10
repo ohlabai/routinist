@@ -18,10 +18,16 @@ import { useI18n } from '@/lib/i18n';
 // 카테고리 추가 (friend_pb / course_progress / course_complete / world_chase / idle_reminder /
 // month_end_recap). club_course 는 producer 가 'club_course_start'/'club_course_complete' 로
 // 분리 체크해서 (enqueue_club_course_pushes: 'club_course_' || p_event) 죽은 키 → 2개로 교체.
+// build 297 (알림 종단 리뷰): 끌 수 없던 카테고리 7종 추가 — weekly_recap (build 291 에서 죽은
+// 토글로 제거 → 293 producer 부활 때 미복구 회귀) / streak_risk / referral / first_place_month /
+// pb_distance / weekly_best_quote / review_request. low_stock_wishlist 은 마케팅 성격이라
+// 별도 토글 없이 서버에서 marketing (기본 OFF) 게이트로 묶음. welcome_d1 은 가입 다음날 1회성이라 토글 제외.
 type CategoryKey = 'chat_message' | 'mileage_gift' | 'feedback_reply' | 'likes' | 'friend_overtake' | 'contest' | 'marketing'
   | 'social_cheer' | 'social_comment' | 'social_follow' | 'social_friend' | 'social_rival'
   | 'friend_pb' | 'course_progress' | 'course_complete' | 'club_course_start' | 'club_course_complete'
-  | 'world_chase' | 'idle_reminder' | 'month_end_recap';
+  | 'world_chase' | 'idle_reminder' | 'month_end_recap'
+  | 'weekly_recap' | 'streak_risk' | 'referral' | 'first_place_month' | 'pb_distance'
+  | 'weekly_best_quote' | 'review_request';
 
 // build 175 #5: 핵심 알림 4종을 상단에 노출 — 채팅·선물·답글·좋아요. 기본 ON.
 // 친선런(contest) 은 메뉴 숨김 (build 144) 과 동일하게 알림 설정에서도 표시 안 함.
@@ -47,8 +53,15 @@ function getCategories(tt: (ko: string) => string, locale: 'ko' | 'en'): Categor
     { key: 'club_course_start', label: tt('클럽 마라톤 시작'), description: locale === 'en' ? 'When your club starts a new course together' : '우리 클럽이 새 코스를 함께 시작했을 때', Icon: Flag },
     { key: 'club_course_complete', label: tt('클럽 마라톤 완주'), description: locale === 'en' ? 'When your club finishes a course together' : '우리 클럽이 코스를 함께 완주했을 때', Icon: Award },
     { key: 'idle_reminder', label: tt('러닝 리마인더'), description: locale === 'en' ? 'A gentle nudge when you have been away for a while' : '한동안 달리지 않았을 때 살짝 보내는 안부', Icon: AlarmClock },
+    { key: 'streak_risk', label: locale === 'en' ? 'Streak at risk' : '연속 기록 알림', description: locale === 'en' ? 'An evening heads-up when your streak is about to break' : '연속 달리기가 끊기기 전날 저녁에 알려드려요', Icon: AlarmClock },
+    { key: 'weekly_recap', label: locale === 'en' ? 'Weekly recap' : '주간 리포트', description: locale === 'en' ? 'Your last week in numbers, every Monday' : '월요일마다 받아보는 지난주 러닝 요약', Icon: CalendarDays },
     { key: 'month_end_recap', label: tt('월말 결산'), description: locale === 'en' ? 'Your monthly running recap at month-end' : '월말에 받아보는 이달의 내 러닝 요약', Icon: CalendarDays },
-    { key: 'marketing', label: locale === 'en' ? 'Events & marketing' : '이벤트·마케팅', description: locale === 'en' ? 'New features, shop discounts, etc. (default OFF)' : '신기능, 쇼핑 할인 등 (기본 OFF)', Icon: Megaphone },
+    { key: 'first_place_month', label: locale === 'en' ? 'Monthly 1st place' : '월간 1위 달성', description: locale === 'en' ? 'When you reach #1 in your ranking scope this month' : '이번 달 내 랭킹 범위에서 1위에 올랐을 때', Icon: Trophy },
+    { key: 'pb_distance', label: locale === 'en' ? 'New longest run' : '최장 거리 신기록', description: locale === 'en' ? 'When you set a new personal longest distance' : '내 최장 거리 기록을 갱신했을 때', Icon: Trophy },
+    { key: 'weekly_best_quote', label: locale === 'en' ? 'Weekly best note' : '주간 베스트 한 줄', description: locale === 'en' ? 'When your note becomes a weekly favorite' : '내 러너 한 줄이 이번 주 베스트로 뽑혔을 때', Icon: Heart },
+    { key: 'referral', label: locale === 'en' ? 'Invite updates' : '초대 소식', description: locale === 'en' ? 'When an invitee joins or earns you a reward' : '초대한 친구가 가입하거나 보상이 도착했을 때', Icon: UserPlus },
+    { key: 'review_request', label: locale === 'en' ? 'Review requests' : '리뷰 요청', description: locale === 'en' ? 'A one-time review nudge after delivery' : '쇼핑 상품 배송 후 리뷰 요청 (주문당 1회)', Icon: MessageSquare },
+    { key: 'marketing', label: locale === 'en' ? 'Events & marketing' : '이벤트·마케팅', description: locale === 'en' ? 'New features, shop discounts, wishlist stock alerts, etc. (default OFF)' : '신기능, 쇼핑 할인, 찜 재고 알림 등 (기본 OFF)', Icon: Megaphone },
   ];
 }
 
@@ -75,6 +88,14 @@ const DEFAULTS: Record<CategoryKey, boolean> = {
   world_chase: true,
   idle_reminder: true,
   month_end_recap: true,
+  // build 297: 알림 종단 리뷰 — 끌 수 없던 카테고리. 기본 ON (should_send_push 기본 TRUE 와 일치).
+  weekly_recap: true,
+  streak_risk: true,
+  referral: true,
+  first_place_month: true,
+  pb_distance: true,
+  weekly_best_quote: true,
+  review_request: true,
 };
 
 export default function PushSettingsPage() {

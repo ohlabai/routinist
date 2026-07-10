@@ -54,6 +54,9 @@ export interface SyncResult {
   synced: number;
   // 권한이 거부됐을 때만 true. UI 가 "설정에서 허용해주세요" 안내를 띄울 수 있도록.
   authDenied?: boolean;
+  // Android 전용 — Health Connect 앱이 미설치/업데이트 필요일 때 true.
+  // UI 가 "Play 스토어에서 설치" 안내를 띄울 수 있도록.
+  needsHealthConnect?: boolean;
   // 누락 detection / UI 토스트용 메타. Apple Health 에서 받은 총 건수, 중복으로 스킵된 건수 등.
   meta?: {
     totalFromHealth: number;
@@ -74,6 +77,14 @@ export interface SyncOptions {
 }
 
 const HEALTH_READ_TYPES: HealthDataType[] = ['workouts', 'distance', 'heartRate', 'calories', 'exerciseTime'];
+// Android(Health Connect) 는 exerciseTime 미지원 — plugin 의 HealthDataType.kt 에 없어서
+// requestAuthorization/checkAuthorization 자체가 "Unsupported data type: exerciseTime" 으로 reject 됨.
+// 반드시 exerciseTime 을 뺀 별도 리스트를 사용해야 함.
+const HEALTH_READ_TYPES_ANDROID: HealthDataType[] = ['workouts', 'distance', 'heartRate', 'calories'];
+
+// Health Connect 미설치 기기 안내용 Play 스토어 링크 (Android 13 이하는 별도 설치 필요).
+export const HEALTH_CONNECT_PLAY_STORE_URL =
+  'https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata';
 
 // 걷기 동기화 opt-in — 달리기 앱 취지에 맞게 기본은 러닝만 가져온다.
 // 걷기로 유지/관리하는 사용자만 연동 페이지에서 켤 수 있음 (기기별 설정).
@@ -108,34 +119,52 @@ export function getPlatform(): 'android' | 'ios' | 'web' {
 // 권한 요청 + 상태 확인을 한 번에. capgo Health 와 커스텀 WorkoutRoute 권한을 함께 요청해
 // 다이얼로그가 두 번 분산되는 UX 를 막음. iOS 는 한 번 결정된 권한은 다이얼로그를 다시 안 띄우므로
 // 자동 sync 진입부에서 매번 호출해도 안전.
-async function ensureAuthorization(): Promise<{ authorized: boolean; denied: HealthDataType[] }> {
+//
+// Android(Health Connect) 차이:
+// - requestAuthorization 은 이미 granted 면 즉시 resolve 하지만, 미허용 상태면 매번
+//   전체 화면 권한 Activity 를 띄움 (iOS 처럼 "한 번 결정되면 조용" 이 아님).
+//   → 자동 sync (interactive=false) 에선 requestAuthorization 을 건너뛰고 checkAuthorization 만.
+//   연결 버튼 (interactive=true) 에서만 권한 UI 를 띄운다.
+// - 권한 화면이 풀스크린이라 사용자가 읽고 선택하는 데 20s 를 넘길 수 있음 → 120s timeout.
+// - checkAuthorization 은 iOS 와 달리 granted/denied 를 정확히 보고함.
+async function ensureAuthorization(
+  opts?: { interactive?: boolean },
+): Promise<{ authorized: boolean; denied: HealthDataType[] }> {
   const { Health } = await import('@capgo/capacitor-health');
-  // 권한 요청은 한 번 결정되면 즉시 resolve, 미결정 상태면 다이얼로그 후 응답.
-  // 사용자가 다이얼로그를 dismiss 하지 않고 멍하니 두는 경우 hang → 20s timeout.
-  try {
-    await withTimeout(
-      Health.requestAuthorization({ read: HEALTH_READ_TYPES, write: [] }),
-      20000,
-      'Health.requestAuthorization',
-    );
-  } catch (e) {
-    logClientWarn('health-sync', 'requestAuthorization timeout/실패 (계속 진행)', { err: String(e) });
+  const isAndroid = getPlatform() === 'android';
+  const readTypes = isAndroid ? HEALTH_READ_TYPES_ANDROID : HEALTH_READ_TYPES;
+  const interactive = opts?.interactive ?? true;
+
+  if (!isAndroid || interactive) {
+    // 권한 요청은 한 번 결정되면 즉시 resolve, 미결정 상태면 다이얼로그 후 응답.
+    // 사용자가 다이얼로그를 dismiss 하지 않고 멍하니 두는 경우 hang → 20s timeout (iOS).
+    try {
+      await withTimeout(
+        Health.requestAuthorization({ read: readTypes, write: [] }),
+        isAndroid ? 120000 : 20000,
+        'Health.requestAuthorization',
+      );
+    } catch (e) {
+      logClientWarn('health-sync', 'requestAuthorization timeout/실패 (계속 진행)', { err: String(e) });
+    }
   }
 
-  // GPS 경로 권한 — capgo 가 workoutRoute 타입을 모르므로 별도 호출.
-  try {
-    const { WorkoutRoute } = await import('./workout-route');
-    await withTimeout(WorkoutRoute.requestAuthorization(), 20000, 'WorkoutRoute.requestAuthorization');
-  } catch (e) {
-    // 커스텀 플러그인 미빌드 또는 옛 버전이면 무시 — 코어 동기화는 계속 진행.
-    console.warn('[health-sync] WorkoutRoute auth 실패 (플러그인 미빌드 가능):', e);
+  // GPS 경로 권한 — iOS 커스텀 플러그인 전용 (Android 경로 sync 는 Phase B).
+  if (!isAndroid) {
+    try {
+      const { WorkoutRoute } = await import('./workout-route');
+      await withTimeout(WorkoutRoute.requestAuthorization(), 20000, 'WorkoutRoute.requestAuthorization');
+    } catch (e) {
+      // 커스텀 플러그인 미빌드 또는 옛 버전이면 무시 — 코어 동기화는 계속 진행.
+      console.warn('[health-sync] WorkoutRoute auth 실패 (플러그인 미빌드 가능):', e);
+    }
   }
 
   // iOS 는 보안상 readDenied 도 readAuthorized 처럼 보고하지 않을 수 있어 (앱이 미허용을 알 수 없게)
   // 완벽한 detection 은 불가능. 다만 plugin 의 checkAuthorization 가 가능한 정보를 뽑아줌.
   try {
     const status = await withTimeout(
-      Health.checkAuthorization({ read: HEALTH_READ_TYPES, write: [] }),
+      Health.checkAuthorization({ read: readTypes, write: [] }),
       5000,
       'Health.checkAuthorization',
     );
@@ -147,9 +176,14 @@ async function ensureAuthorization(): Promise<{ authorized: boolean; denied: Hea
   }
 }
 
-// Apple Health 권한 요청만 수행 (사용자가 "연결하기" 버튼 누를 때).
+// 건강 앱 권한 요청만 수행 (사용자가 "연결하기" 버튼 누를 때).
+// iOS = Apple Health(HealthKit), Android = Health Connect. 함수명은 호출부 호환을 위해 유지.
 export async function connectHealthKit(): Promise<SyncResult> {
-  if (getPlatform() !== 'ios') {
+  const platform = getPlatform();
+  if (platform === 'android') {
+    return connectHealthConnect();
+  }
+  if (platform !== 'ios') {
     return { success: false, message: ttl('iOS가 아닙니다'), synced: 0 };
   }
 
@@ -183,6 +217,88 @@ export async function connectHealthKit(): Promise<SyncResult> {
   }
 }
 
+// Android — Health Connect 권한 요청 (connectHealthKit 의 Android 분기).
+async function connectHealthConnect(): Promise<SyncResult> {
+  try {
+    const { Health } = await import('@capgo/capacitor-health');
+
+    // Android 14+ 는 Health Connect 내장, 13 이하는 Play 스토어 설치 필요.
+    // reason: "Health Connect needs an update." | "Health Connect is unavailable on this device."
+    const availability = await Health.isAvailable();
+    if (!availability.available) {
+      const needsUpdate = (availability.reason ?? '').toLowerCase().includes('update');
+      return {
+        success: false,
+        message: needsUpdate
+          ? ttl('Health Connect 업데이트가 필요해요. Play 스토어에서 업데이트해주세요.')
+          : ttl('Health Connect 앱이 필요해요. Play 스토어에서 설치해주세요.'),
+        synced: 0,
+        needsHealthConnect: true,
+      };
+    }
+
+    const { authorized, denied } = await ensureAuthorization({ interactive: true });
+    if (!authorized) {
+      return {
+        success: false,
+        message: ttl('Health Connect 앱에서 Routinist 권한을 허용해주세요.'),
+        synced: 0,
+        authDenied: true,
+      };
+    }
+
+    const message = denied.length > 0
+      ? (getCurrentLocale() === 'en'
+          ? `Health Connect connected. Some items not allowed (${denied.join(', ')}) — accuracy may be reduced.`
+          : `Health Connect 연결됨. 일부 항목 미허용 (${denied.join(', ')}) — 정확도가 떨어질 수 있어요.`)
+      : ttl('Health Connect 연결 완료! 러닝 기록을 가져오는 중...');
+    return { success: true, message, synced: 0 };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : ttl('알 수 없는 오류');
+    return { success: false, message: `${ttl('연결 실패')}: ${message}`, synced: 0 };
+  }
+}
+
+// Android 전용 — connect 페이지 mount 시 상태 조회 (권한 다이얼로그를 절대 띄우지 않음).
+export interface HealthConnectState {
+  available: boolean;
+  // 미설치 또는 업데이트 필요 → Play 스토어 안내 필요
+  needsInstall: boolean;
+  authorized: boolean;
+}
+export async function checkHealthConnectState(): Promise<HealthConnectState> {
+  if (getPlatform() !== 'android') {
+    return { available: false, needsInstall: false, authorized: false };
+  }
+  try {
+    const { Health } = await import('@capgo/capacitor-health');
+    const availability = await withTimeout(Health.isAvailable(), 5000, 'Health.isAvailable');
+    if (!availability.available) {
+      return { available: false, needsInstall: true, authorized: false };
+    }
+    const status = await withTimeout(
+      Health.checkAuthorization({ read: HEALTH_READ_TYPES_ANDROID, write: [] }),
+      5000,
+      'Health.checkAuthorization',
+    );
+    return { available: true, needsInstall: false, authorized: (status.readAuthorized?.length ?? 0) > 0 };
+  } catch (e) {
+    logClientWarn('health-sync', 'checkHealthConnectState 실패', { err: String(e) });
+    return { available: true, needsInstall: false, authorized: false };
+  }
+}
+
+// Android 전용 — Health Connect 권한/데이터 관리 화면 열기 (iOS/web 은 no-op).
+export async function openHealthConnectSettings(): Promise<void> {
+  if (getPlatform() !== 'android') return;
+  try {
+    const { Health } = await import('@capgo/capacitor-health');
+    await Health.openHealthConnectSettings();
+  } catch (e) {
+    logClientWarn('health-sync', 'openHealthConnectSettings 실패', { err: String(e) });
+  }
+}
+
 // 데이터 동기화 — activities 테이블에 저장.
 // 성능 최적화: 90일 범위, workout 자체 집계값만 사용 (심박/칼로리 별도 루프 없음).
 // build 255: mutex 25s timeout 의 원인을 식별하기 위한 stage tracker.
@@ -199,15 +315,37 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     const st = syncStageState.get(userId);
     if (st) { st.stage = s; st.enteredAt = Date.now(); }
   };
+  const isAndroid = getPlatform() === 'android';
   try {
+    // Android: Health Connect 미설치 기기에서 매 sync 마다 query 실패를 반복하지 않도록 선제 확인.
+    if (isAndroid) {
+      try {
+        const { Health } = await import('@capgo/capacitor-health');
+        const availability = await withTimeout(Health.isAvailable(), 5000, 'Health.isAvailable');
+        if (!availability.available) {
+          return {
+            success: false,
+            message: ttl('Health Connect 앱이 필요해요. Play 스토어에서 설치해주세요.'),
+            synced: 0,
+            needsHealthConnect: true,
+          };
+        }
+      } catch {
+        // isAvailable 자체 실패는 무시 — 아래 query 가 실제로 검증.
+      }
+    }
+
     // 자동 sync 진입부에서도 권한을 보장 — connect 페이지를 거치지 않은 사용자도 정상 동작.
-    const auth = await ensureAuthorization();
+    // Android 는 non-interactive: 여기서 권한 Activity 를 띄우지 않음 (연결 버튼에서만).
+    const auth = await ensureAuthorization({ interactive: !isAndroid });
     setStage('after-auth');
     if (!auth.authorized) {
       logClientWarn('health-sync', 'authorization denied', { denied: auth.denied });
       return {
         success: false,
-        message: ttl('설정 > 개인정보 보호 > 건강 > Routinist 에서 권한을 허용해주세요.'),
+        message: isAndroid
+          ? ttl('Health Connect 앱에서 Routinist 권한을 허용해주세요.')
+          : ttl('설정 > 개인정보 보호 > 건강 > Routinist 에서 권한을 허용해주세요.'),
         synced: 0,
         authDenied: true,
       };
@@ -223,7 +361,11 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     const startDate = startDt.toISOString();
     const endDate = new Date().toISOString();
 
-    progress?.({ stage: 'query', percent: 15, label: ttl('Apple Health 러닝 기록 조회 중...') });
+    progress?.({
+      stage: 'query',
+      percent: 15,
+      label: isAndroid ? ttl('Health Connect 러닝 기록 조회 중...') : ttl('Apple Health 러닝 기록 조회 중...'),
+    });
     setStage('query-workouts');
 
     // 기본은 러닝만. 걷기는 연동 페이지 토글을 켠 사용자만 병렬 fetch (기본 OFF).
@@ -261,11 +403,12 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
       // 다음 sync 에서 실제 워크아웃이 별도 INSERT 되어 이중 카운트됨. 전 타입 조회가
       // 성공했는데도 진짜 0건일 때만 폴백. 실패면 재시도 유도.
       if (queryErrors.length > 0) {
+        const healthAppName = isAndroid ? 'Health Connect' : 'Apple Health';
         return {
           success: false,
           message: getCurrentLocale() === 'en'
-            ? `Apple Health query failed: ${queryErrors[0]}\nPlease try again in a moment`
-            : `Apple Health 조회 실패: ${queryErrors[0]}\n잠시 후 다시 시도해주세요`,
+            ? `${healthAppName} query failed: ${queryErrors[0]}\nPlease try again in a moment`
+            : `${healthAppName} 조회 실패: ${queryErrors[0]}\n잠시 후 다시 시도해주세요`,
           synced: 0,
         };
       }
@@ -425,7 +568,7 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
         pace_avg_sec_per_km: paceAvg,
         calories: workout.totalEnergyBurned ? Math.round(workout.totalEnergyBurned) : null,
         source: 'health_kit',
-        memo: `Apple Health ${activityType === 'walking' ? '걷기' : '러닝'} 동기화`,
+        memo: `${isAndroid ? 'Health Connect' : 'Apple Health'} ${activityType === 'walking' ? '걷기' : '러닝'} 동기화`,
         started_at: workout.startDate,
         ended_at: workout.endDate || null,
       };
@@ -574,9 +717,10 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
         ? `${syncedCount} new run${syncedCount === 1 ? '' : 's'} just arrived! 🎉`
         : `러닝 ${syncedCount}건 새로 도착! 🎉`;
     } else if (upgradedCount > 0) {
+      const deviceLabel = isAndroid ? 'Health Connect' : 'Apple Watch';
       message = en
-        ? `Corrected ${upgradedCount} GPS distance${upgradedCount === 1 ? '' : 's'} to Apple Watch data ✨`
-        : `${upgradedCount}건 GPS 거리를 Apple Watch 기준으로 보정했어요 ✨`;
+        ? `Corrected ${upgradedCount} GPS distance${upgradedCount === 1 ? '' : 's'} to ${deviceLabel} data ✨`
+        : `${upgradedCount}건 GPS 거리를 ${deviceLabel} 기준으로 보정했어요 ✨`;
     } else if (toInsert.length === 0) {
       message = ttl('최신 상태예요. 오늘도 가볍게 한 바퀴? 👟');
     } else {
@@ -619,7 +763,13 @@ async function syncViaDistance(
     });
 
     if (!samples || samples.length === 0) {
-      return { success: true, message: ttl('Apple Health 에 러닝 기록이 아직 없어요 👟'), synced: 0 };
+      return {
+        success: true,
+        message: getPlatform() === 'android'
+          ? ttl('Health Connect 에 러닝 기록이 아직 없어요 👟')
+          : ttl('Apple Health 에 러닝 기록이 아직 없어요 👟'),
+        synced: 0,
+      };
     }
 
     const dailyDistance: Record<string, number> = {};
@@ -662,7 +812,7 @@ async function syncViaDistance(
         activity_date: activityDate,
         distance_km: Math.round(distanceKm * 100) / 100,
         source: 'health_kit',
-        memo: 'Apple Health 자동 동기화 (일별 합산)',
+        memo: `${getPlatform() === 'android' ? 'Health Connect' : 'Apple Health'} 자동 동기화 (일별 합산)`,
       });
     }
 
@@ -913,6 +1063,12 @@ export async function syncRouteData(
   userId: string,
   daysBackOrOptions: number | { startDate: Date; endDate: Date } = 90,
 ): Promise<RouteSyncResult> {
+  // GPS 경로 sync 는 iOS 커스텀 플러그인 (HKWorkoutRoute) 전용 — Android 는 Phase B 에서.
+  // 여기서 가드해야 audit 페이지 등 외부 호출자도 안전.
+  if (getPlatform() !== 'ios') {
+    return { fetched: 0, matched: 0, updated: 0, reason: 'route_sync_ios_only' };
+  }
+
   // 명시적 range — 호출자가 chunk 분할 책임 (audit 페이지). 단일 호출.
   if (typeof daysBackOrOptions === 'object') {
     return syncRouteDataRange(userId, daysBackOrOptions.startDate, daysBackOrOptions.endDate);
@@ -1012,7 +1168,8 @@ export async function syncHealthData(userId: string, options?: SyncOptions): Pro
     };
   }
 
-  if (getPlatform() !== 'ios') {
+  const platform = getPlatform();
+  if (platform !== 'ios' && platform !== 'android') {
     return { success: false, message: ttl('지원하지 않는 플랫폼입니다.'), synced: 0 };
   }
 
@@ -1029,12 +1186,15 @@ export async function syncHealthData(userId: string, options?: SyncOptions): Pro
 
     // 권한 거부 케이스에선 후처리 의미 없음.
     if (!result.authDenied) {
-      options?.onProgress?.({ stage: 'route', percent: 95, label: ttl('GPS 경로 백그라운드 동기화...') });
       void updateProfileTotals(userId).catch((e) => console.warn('[health-sync] updateProfileTotals 백그라운드 실패', e));
-      // syncRouteData 가 끝난 후에 region 자동 등록 — route_data 가 채워진 활동이 필요.
-      void syncRouteData(userId)
-        .then(() => import('./profile-region-auto').then(m => m.autoDetectAndSetRegion(userId)).catch(() => null))
-        .catch((e) => console.warn('[health-sync] syncRouteData / region 백그라운드 실패', e));
+      // GPS 경로 sync 는 iOS 전용 (Android 는 Phase B) — Android 에선 라벨도 띄우지 않음.
+      if (platform === 'ios') {
+        options?.onProgress?.({ stage: 'route', percent: 95, label: ttl('GPS 경로 백그라운드 동기화...') });
+        // syncRouteData 가 끝난 후에 region 자동 등록 — route_data 가 채워진 활동이 필요.
+        void syncRouteData(userId)
+          .then(() => import('./profile-region-auto').then(m => m.autoDetectAndSetRegion(userId)).catch(() => null))
+          .catch((e) => console.warn('[health-sync] syncRouteData / region 백그라운드 실패', e));
+      }
     }
 
     options?.onProgress?.({ stage: 'done', percent: 100, label: ttl('완료') });

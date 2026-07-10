@@ -3,13 +3,20 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
-import { connectHealthKit, syncHealthData, isNativeApp, getPlatform, isWalkingSyncEnabled, setWalkingSyncEnabled, type SyncProgress } from '@/lib/health-sync';
-import { ArrowLeft, Heart, Smartphone, Check, RefreshCw, Footprints } from 'lucide-react';
+import {
+  connectHealthKit, syncHealthData, isNativeApp, getPlatform,
+  isWalkingSyncEnabled, setWalkingSyncEnabled,
+  checkHealthConnectState, openHealthConnectSettings, HEALTH_CONNECT_PLAY_STORE_URL,
+  type SyncProgress,
+} from '@/lib/health-sync';
+import { useI18n } from '@/lib/i18n';
+import { ArrowLeft, Heart, Smartphone, Check, RefreshCw, Footprints, Download, Settings } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ConnectPage() {
   const { user } = useAuth();
   const { refresh } = useUserData();
+  const { tt } = useI18n();
   const [isNative, setIsNative] = useState(false);
   const [platform, setPlatform] = useState<string>('web');
   const [syncing, setSyncing] = useState(false);
@@ -18,6 +25,8 @@ export default function ConnectPage() {
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [progress, setProgress] = useState<SyncProgress | null>(null);
   const [includeWalking, setIncludeWalking] = useState(false);
+  // Android 전용 — Health Connect 앱 미설치/업데이트 필요 → Play 스토어 안내 버튼 표시
+  const [needsHealthConnect, setNeedsHealthConnect] = useState(false);
 
   useEffect(() => {
     const native = isNativeApp();
@@ -47,6 +56,18 @@ export default function ConnectPage() {
         }
       })();
     }
+
+    // Android — Health Connect 설치/권한 상태 조회 (권한 다이얼로그 안 띄움).
+    if (native && plat === 'android') {
+      (async () => {
+        const state = await checkHealthConnectState();
+        if (state.needsInstall) {
+          setNeedsHealthConnect(true);
+        } else if (state.authorized) {
+          setConnected(true);
+        }
+      })();
+    }
   }, []);
 
   const handleConnect = async () => {
@@ -55,8 +76,10 @@ export default function ConnectPage() {
     setProgress(null);
     try {
       const result = await connectHealthKit();
+      if (result.needsHealthConnect) setNeedsHealthConnect(true);
       if (result.success) {
         setConnected(true);
+        setNeedsHealthConnect(false);
         setMessage('연결 성공! 데이터를 동기화합니다...');
 
         if (user) {
@@ -108,6 +131,16 @@ export default function ConnectPage() {
     } finally {
       setSyncing(false);
       setTimeout(() => setProgress(null), 1500);
+    }
+  };
+
+  // Android — Health Connect 미설치/업데이트 필요 시 Play 스토어로 안내 (Android 13 이하는 별도 설치)
+  const openPlayStoreForHealthConnect = async () => {
+    try {
+      const { Browser } = await import('@capacitor/browser');
+      await Browser.open({ url: HEALTH_CONNECT_PLAY_STORE_URL });
+    } catch {
+      window.open(HEALTH_CONNECT_PLAY_STORE_URL, '_blank');
     }
   };
 
@@ -244,20 +277,83 @@ export default function ConnectPage() {
             </svg>
           </div>
           <div className="flex-1">
-            <h3 className="text-lg font-bold text-[var(--foreground)]">Samsung Health</h3>
+            <h3 className="text-lg font-bold text-[var(--foreground)]">Health Connect</h3>
             <p className="text-sm text-[var(--muted)] mt-1">
-              Health Connect를 통해 가져오기
+              {tt('삼성 헬스·갤럭시 워치 러닝 기록 자동 가져오기')}
             </p>
 
             {isNative && platform === 'android' ? (
-              <button
-                onClick={handleConnect}
-                disabled={syncing}
-                className="mt-4 w-full py-3.5 rounded-xl bg-emerald-500 text-white font-bold text-base disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
-              >
-                {syncing ? <RefreshCw size={18} className="animate-spin" /> : null}
-                {syncing ? '연결 중…' : '연결하기'}
-              </button>
+              <div className="mt-4 space-y-3">
+                {needsHealthConnect ? (
+                  <div className="space-y-2">
+                    <p className="text-sm text-[var(--muted)] leading-relaxed">
+                      {tt('건강 데이터를 가져오려면 Health Connect 앱이 필요해요')}
+                    </p>
+                    <button
+                      onClick={openPlayStoreForHealthConnect}
+                      className="w-full py-3.5 rounded-xl bg-emerald-500 text-white font-bold text-base flex items-center justify-center gap-2 shadow-sm"
+                    >
+                      <Download size={18} />
+                      {tt('Play 스토어에서 Health Connect 받기')}
+                    </button>
+                  </div>
+                ) : !connected ? (
+                  <button
+                    onClick={handleConnect}
+                    disabled={syncing}
+                    className="w-full py-3.5 rounded-xl bg-emerald-500 text-white font-bold text-base disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
+                  >
+                    {syncing ? <RefreshCw size={18} className="animate-spin" /> : <Heart size={18} />}
+                    {syncing ? tt('연결하는 중…') : tt('연결하기')}
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <div className="flex items-center gap-1.5 text-base text-emerald-600 font-bold flex-1">
+                      <Check size={18} /> {tt('연결됨')}
+                    </div>
+                    <button
+                      onClick={handleSync}
+                      disabled={syncing}
+                      className="px-5 py-2.5 rounded-xl bg-emerald-500 text-white text-base font-bold disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
+                    >
+                      <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} />
+                      {tt('동기화')}
+                    </button>
+                  </div>
+                )}
+                {progress && (syncing || progress.percent < 100) && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-baseline justify-between gap-2 text-xs text-[var(--muted)]">
+                      <span className="font-medium text-[var(--foreground)]">{progress.label}</span>
+                      <span className="tabular-nums">{progress.percent}%</span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-emerald-100 dark:bg-emerald-950/40 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-emerald-500 transition-[width] duration-300 ease-out"
+                        style={{ width: `${Math.max(progress.percent, 4)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+                {lastSync && !progress && (
+                  <p className="text-sm text-[var(--muted)]">{tt('마지막 동기화')} {formatLastSync(lastSync)}</p>
+                )}
+                {message && !progress && (
+                  <p className={`text-sm font-medium ${message.includes('실패') ? 'text-red-500' : 'text-emerald-600'}`}>
+                    {message}
+                  </p>
+                )}
+                {/* Android 는 Health Connect 앱에서 권한을 직접 관리 — 설정 화면 바로가기 제공 */}
+                {connected && !needsHealthConnect && (
+                  <button
+                    onClick={() => openHealthConnectSettings()}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-bold text-[var(--muted)]"
+                  >
+                    <Settings size={14} />
+                    {tt('Health Connect에서 권한 관리')}
+                  </button>
+                )}
+              </div>
             ) : (
               <div className="mt-3 flex items-start gap-2 text-sm text-[var(--muted)]">
                 <Smartphone size={16} className="flex-shrink-0 mt-0.5" />

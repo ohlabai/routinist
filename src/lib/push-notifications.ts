@@ -36,6 +36,38 @@ import { APP_BUILD } from './app-build';
 
 let initialized = false;
 
+// 알림 탭 시 이동할 경로 결정 — deep_link 가 오면 그대로, 없으면 payload 의 kind 로 폴백.
+// kind/source_id/actor_id 는 push producer 가 payload 에 실어 보냄 — 키가 없을 수 있어 방어적으로.
+export function resolveDeepLink(data: Record<string, unknown> | undefined | null): string | undefined {
+  if (!data) return undefined;
+  const direct = data.deep_link;
+  if (typeof direct === 'string' && direct.length > 0) return direct;
+
+  const kind = typeof data.kind === 'string' ? data.kind : undefined;
+  if (!kind) return undefined;
+  const sourceId = typeof data.source_id === 'string' && data.source_id ? data.source_id : undefined;
+  const actorId = typeof data.actor_id === 'string' && data.actor_id ? data.actor_id : undefined;
+
+  switch (kind) {
+    case 'chat_message':
+      return '/messages';
+    case 'cheer':
+    case 'activity_comment':
+      return sourceId ? `/activity?id=${encodeURIComponent(sourceId)}` : '/notifications';
+    case 'photo_comment':
+    case 'photo_like':
+    case 'likes':
+      return '/social?tab=photos';
+    case 'follow':
+      return actorId ? `/social/user?id=${encodeURIComponent(actorId)}` : '/social?tab=friends';
+    case 'friend_request':
+    case 'friend_accepted':
+      return '/social?tab=friends';
+    default:
+      return undefined;
+  }
+}
+
 export async function initPushNotifications(opts?: {
   onTokenRegistered?: (token: string) => void;
   onNotificationTap?: (deepLink: string) => void;
@@ -60,6 +92,23 @@ export async function initPushNotifications(opts?: {
     if (perm.receive !== 'granted') {
       void logClientWarn('push-init', 'permission denied', { receive: perm.receive });
       return;
+    }
+
+    // Android: 알림 채널 생성 (Android 8+ 필수) — 서버 FCM 메시지의 channel_id 'default' 와 짝.
+    // iOS 에선 createChannel 이 지원 안 되므로 분기.
+    if (getPlatform() === 'android') {
+      try {
+        await PushNotifications.createChannel({
+          id: 'default',
+          name: '알림',
+          description: '루티니스트 기본 알림',
+          importance: 4, // high — 헤드업 배너 표시
+          visibility: 1,
+          vibration: true,
+        });
+      } catch (e) {
+        void logClientWarn('push-init', 'createChannel fail', { message: e instanceof Error ? e.message : String(e) });
+      }
     }
 
     // 토큰 등록 — register() 가 비동기로 'registration' 이벤트 발사
@@ -100,9 +149,9 @@ export async function initPushNotifications(opts?: {
       // foreground 일 땐 시스템 banner 가 안 뜨므로 in-app toast 로 보여주는 것도 가능 (선택)
     });
 
-    // 알림 탭 (사용자가 알림을 누름)
+    // 알림 탭 (사용자가 알림을 누름) — deep_link 없으면 kind 기반 폴백 라우팅
     await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-      const deepLink = action.notification.data?.deep_link as string | undefined;
+      const deepLink = resolveDeepLink(action.notification.data as Record<string, unknown> | undefined);
       if (deepLink && opts?.onNotificationTap) {
         opts.onNotificationTap(deepLink);
       } else if (deepLink && typeof window !== 'undefined') {

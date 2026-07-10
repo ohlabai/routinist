@@ -99,7 +99,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     pushInitedRef.current = true;
     const run = () => {
       import('@/lib/push-notifications').then(({ initPushNotifications }) => {
-        void initPushNotifications();
+        // 알림 탭 딥링크 — router.push 로 SPA 이동 (window.location.href full reload 는
+        // build 165 에서 금지한 검정 flash 패턴). 앱 내 경로만 처리, 외부 URL 은 무시.
+        void initPushNotifications({
+          onNotificationTap: (link) => {
+            let path = link;
+            if (path.startsWith('routinist://')) {
+              // routinist://activity?id=x → /activity?id=x
+              path = '/' + path.slice('routinist://'.length).replace(/^\/+/, '');
+            }
+            if (path.startsWith('/')) router.push(path);
+          },
+        });
       }).catch(() => {});
     };
     const w = window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout?: number }) => number };
@@ -108,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else {
       setTimeout(run, 1500);
     }
-  }, [user]);
+  }, [user, router]);
 
   useEffect(() => {
     const supabase = getSupabase();
