@@ -60,8 +60,14 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
         setGoals(goalCached.value);
         setLastUpdated(Math.min(actCached.ts, goalCached.ts));
         setLoading(false);
-        // 캐시 히트면 fetch 안 함. 사용자가 새로고침 누를 때만 fresh.
-        return;
+        // build 297: 캐시 히트여도 6시간 이상 묵었으면 백그라운드 재검증 (SWR).
+        // 웹 (app.routinist.kr) 은 PullToRefresh 가 없어 캐시가 화석화됐음 —
+        // hans 신고: 48일 전 캐시로 활동/목표 전부 0 표시. iOS 도 장기 미접속 복귀 케이스 커버.
+        const ageMs = Date.now() - Math.min(actCached.ts, goalCached.ts);
+        if (ageMs <= 6 * 60 * 60 * 1000) {
+          return; // 신선 — 신문 모델 그대로 (화면 이동 시 RPC 0건)
+        }
+        // fall through: loading 표시 없이 조용히 fresh fetch → 도착 시 화면 갱신
       }
     }
 

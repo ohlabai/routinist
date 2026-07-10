@@ -88,6 +88,7 @@ export default function HomeCalendarCard() {
   // build 288: 같은 날 활동 여러 개면 (1) route_data 있는 활동 우선, (2) 같은 그룹 내 거리 큰 것.
   // 이전엔 첫 번째(시각 늦은) 활동만 link → 사용자가 6-25 22:00 짧은 2.58km 를 link 하고 메인 운동
   // (05:36 6.26km)의 지도 진입을 못 했음. hans 2026-06-26 신고 케이스.
+  // build 297 (사용자 건의 — 윤현수): 하루 2회+ 러닝이면 대표 1개 대신 그 날 전체를 시트로.
   const dateActivityMap = useMemo(() => {
     const byDate = new Map<string, typeof monthlyActivities>();
     monthlyActivities.forEach((a) => {
@@ -95,17 +96,21 @@ export default function HomeCalendarCard() {
       arr.push(a);
       byDate.set(a.activity_date, arr);
     });
-    const out = new Map<string, string>();
+    const out = new Map<string, { pickId: string; all: typeof monthlyActivities }>();
     byDate.forEach((arr, date) => {
       const withRoute = arr.filter((a) => routeIds.has(a.id));
       const pool = withRoute.length > 0 ? withRoute : arr;
       const pick = pool.reduce((best, cur) =>
         Number(cur.distance_km) > Number(best.distance_km) ? cur : best,
       );
-      out.set(date, pick.id);
+      // 시트 목록은 시작 시각 순 (started_at 없으면 created_at)
+      const sorted = [...arr].sort((x, y) =>
+        (x.started_at ?? x.created_at ?? '').localeCompare(y.started_at ?? y.created_at ?? ''));
+      out.set(date, { pickId: pick.id, all: sorted });
     });
     return out;
   }, [monthlyActivities, routeIds]);
+  const [daySheet, setDaySheet] = useState<{ date: string; items: typeof monthlyActivities } | null>(null);
 
   const loadPhotos = useCallback(async () => {
     if (!user || monthlyActivities.length === 0) {
@@ -290,7 +295,8 @@ export default function HomeCalendarCard() {
           const photoUrl = rawPhotoUrl && !brokenUrls.has(rawPhotoUrl) ? rawPhotoUrl : undefined;
           const hasPhoto = !!photoUrl;
           const bg = distanceColor(km, dateStr);
-          const activityId = dateActivityMap.get(dateStr);
+          const dayEntry = dateActivityMap.get(dateStr);
+          const activityId = dayEntry?.pickId;
           const textWhite = km >= 7 || hasPhoto;
 
           // build 169 #12: day 숫자 + km 숫자 겹침 fix — 두 span 을 절대 위치로 분리.
@@ -330,6 +336,18 @@ export default function HomeCalendarCard() {
           );
 
           // 활동 있으면 셀 탭 시 활동 상세로 직접 이동.
+          // build 297: 하루 2회+ 면 상세 대신 그 날 활동 목록 시트 (전부 보이게 — 사용자 건의).
+          if (dayEntry && dayEntry.all.length > 1) {
+            return (
+              <button
+                key={day}
+                onClick={() => setDaySheet({ date: dateStr, items: dayEntry.all })}
+                className="active:scale-95 transition"
+              >
+                {inner}
+              </button>
+            );
+          }
           return activityId ? (
             <Link key={day} href={`/activity?id=${activityId}`} className="active:scale-95 transition">
               {inner}
@@ -339,6 +357,43 @@ export default function HomeCalendarCard() {
           );
         })}
       </div>
+
+      {/* build 297: 하루 다중 활동 시트 */}
+      {daySheet && (
+        <div className="fixed inset-0 z-[80] bg-black/50 flex items-end" onClick={() => setDaySheet(null)}>
+          <div
+            className="w-full max-w-lg mx-auto bg-white dark:bg-zinc-900 rounded-t-3xl p-5 pb-8 space-y-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-sm font-extrabold text-[var(--foreground)] mb-2">
+              {daySheet.date.slice(5).replace('-', '/')} · {daySheet.items.length}{tt('회 러닝')}
+            </p>
+            {daySheet.items.map((a, i) => (
+              <Link
+                key={a.id}
+                href={`/activity?id=${a.id}`}
+                onClick={() => setDaySheet(null)}
+                className="flex items-center gap-3 p-3 rounded-xl bg-[var(--card-border)]/25 active:bg-[var(--card-border)]/50 transition"
+              >
+                <span className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 text-xs font-extrabold flex items-center justify-center flex-shrink-0">
+                  {i + 1}
+                </span>
+                <span className="flex-1 min-w-0 text-sm font-semibold text-[var(--foreground)]">
+                  {Number(a.distance_km).toFixed(2)} km
+                  {a.activity_type === 'walking' && (
+                    <span className="ml-1.5 px-1.5 py-0.5 rounded-md bg-sky-100 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 text-[10px] font-bold align-middle">🚶 {tt('걷기')}</span>
+                  )}
+                  <span className="text-[var(--muted)] font-normal ml-2 text-xs">
+                    {(() => { const ts = a.started_at ?? a.created_at; return ts ? new Date(ts).toLocaleTimeString(locale === 'en' ? 'en-US' : 'ko-KR', { hour: '2-digit', minute: '2-digit' }) : ''; })()}
+                    {a.pace_avg_sec_per_km ? ` · ${Math.floor(a.pace_avg_sec_per_km / 60)}'${String(Math.round(a.pace_avg_sec_per_km % 60)).padStart(2, '0')}"` : ''}
+                  </span>
+                </span>
+                <ChevronRight size={14} className="text-[var(--muted)] flex-shrink-0" />
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 범례 — build 152: "사진 등록 →" 링크 제거 (사용자 피드백, 별도 페이지에서 돌아오는 메뉴 없음). */}
       <div className="flex items-center gap-1 mt-3 text-[10px] text-[var(--muted)]">

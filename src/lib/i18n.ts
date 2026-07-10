@@ -2499,6 +2499,7 @@ const EXTRAS_EN: Record<string, string> = {
   // ── build 297: 진행 중 러닝 배너 ──
   '진행 중인 러닝으로 돌아가기': 'Return to your run in progress',
   '일시정지 중': 'Paused',
+  '회 러닝': ' runs',
 };
 
 export function I18nProvider({ children }: { children: ReactNode }) {
