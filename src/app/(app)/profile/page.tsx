@@ -4,7 +4,7 @@ import { useMemo, useState, useRef } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
 import { signOut, uploadAvatar, updateProfile } from '@/lib/auth';
-import { getStreak } from '@/lib/routinist-data';
+import { getWeeklyStreak } from '@/lib/routinist-data';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -140,7 +140,8 @@ export default function ProfilePage() {
 
   const totalKm = Number(profile?.total_distance_km ?? 0);
   const totalRuns = profile?.total_runs ?? 0;
-  const streak = getStreak(activities);
+  // build 299 C5: 홈과 동일한 주 단위 스트릭 (일 단위는 유저 전원 주 2~4회 러너라 상시 0)
+  const streak = getWeeklyStreak(activities, profile?.weekly_run_goal ?? 1);
 
   // 개인 베스트 (누적) — activities 에서 클라 사이드 계산. 사용자 결정 (build 67):
   // 총km/총러닝/연속일 → 최장거리/최빠페이스/최장시간 (베스트 3종) 으로 교체.
@@ -172,8 +173,8 @@ export default function ProfilePage() {
   if (totalKm >= 1000) badges.push({ icon: '👑', label: '1000km', gradient: 'from-yellow-200 to-orange-200 dark:from-yellow-800/30 dark:to-orange-800/30' });
   if (totalRuns >= 10) badges.push({ icon: '🔥', label: `10×`, gradient: 'from-red-100 to-orange-100 dark:from-red-900/30 dark:to-orange-900/30' });
   if (totalRuns >= 50) badges.push({ icon: '⚡', label: `50×`, gradient: 'from-yellow-100 to-lime-100 dark:from-yellow-900/30 dark:to-lime-900/30' });
-  if (streak >= 7) badges.push({ icon: '💪', label: '7d 🔥', gradient: 'from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30' });
-  if (streak >= 30) badges.push({ icon: '🌟', label: '30d 🔥', gradient: 'from-indigo-100 to-violet-100 dark:from-indigo-900/30 dark:to-violet-900/30' });
+  if (streak >= 4) badges.push({ icon: '💪', label: '4주 🔥', gradient: 'from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30' });
+  if (streak >= 12) badges.push({ icon: '🌟', label: '12주 🔥', gradient: 'from-indigo-100 to-violet-100 dark:from-indigo-900/30 dark:to-violet-900/30' });
 
   // 계정 삭제 (Apple 5.1.1 v 의무) — 2단계 확인 + delete_my_account RPC
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -366,7 +367,7 @@ export default function ProfilePage() {
           <span className="mx-1.5">·</span>
           <span className="font-semibold text-[var(--foreground)]">{t('home.summaryRuns').replace('{n}', String(totalRuns))}</span>
           <span className="mx-1.5">·</span>
-          <span className="font-semibold text-[var(--foreground)]">{t('profile.streakDays').replace('🔥', `${streak} 🔥`)}</span>
+          <span className="font-semibold text-[var(--foreground)]">{locale === 'en' ? `${streak}-week streak 🔥` : `${streak}주 연속 🔥`}</span>
         </p>
 
         {/* build 278: 받은 응원 chip — 동기 부여. 받은 응원 > 0 일 때만 표시 (빈 chip 어색). */}

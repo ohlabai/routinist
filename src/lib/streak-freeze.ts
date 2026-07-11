@@ -48,7 +48,10 @@ export async function spendStreakFreeze(date: string): Promise<UseFreezeResult> 
   try {
     const { data, error } = await getSupabase().rpc('use_streak_freeze', { p_date: date });
     if (error || !data) return { ok: false, reason: 'rpc_failed' };
-    return data as UseFreezeResult;
+    // build 299 C2: RPC 는 실패 사유를 `error` 키로 반환 — `reason` 으로 매핑해야
+    // StreakWarningCard 의 already_covered/no_freezes 분기가 실제로 동작함.
+    const d = data as { ok: boolean; remaining?: number; error?: string };
+    return { ok: d.ok, remaining: d.remaining, reason: d.error as UseFreezeResult['reason'] };
   } catch {
     return { ok: false, reason: 'rpc_failed' };
   }

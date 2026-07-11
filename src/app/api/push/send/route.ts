@@ -382,8 +382,10 @@ export async function POST(req: NextRequest) {
       byAttempts.get(l.attempts)!.push(l.id);
     }
     for (const [att, ids] of byAttempts) {
+      // build 299 F3: 미시도 잔여분은 attempts 를 올리지 않음 — 429 폭풍이 연속돼도
+      // 실제 발송을 시도한 횟수만 상한에 산입 (이전엔 시도 0회로 failed 확정 가능).
       await supabase.from('push_send_log').update({
-        status: 'pending', claimed_at: null, send_after: retryAfterIso, attempts: att + 1,
+        status: 'pending', claimed_at: null, send_after: retryAfterIso, attempts: att,
       }).in('id', ids);
       requeued += ids.length;
     }

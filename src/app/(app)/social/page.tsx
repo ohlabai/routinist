@@ -1,9 +1,7 @@
 'use client';
 
-// 소셜 허브 (단순화 B, 2026-07-11) — 2탭: 친구 / 포토.
-// 클럽·명언 탭 제거 (클럽 게시글 0, 명언 작성자 3명). 클럽 상세 라우트 (/social/clubs/**) 와
-// 명언 페이지 (/quotes/**) 는 push 딥링크·기존 클럽 진입용으로 유지 — 내 클럽이 있으면
-// 친구 탭 안 "내 클럽" 카드로 진입. ?tab=clubs|quotes 딥링크는 friends 로 폴백.
+// 소셜 허브 — 3탭: 친구 / 클럽 / 포토 (2026-07-11 클럽 복원).
+// 명언 탭만 제외 (작성자 3명) — /quotes/** 는 push 딥링크용 라우트 유지, ?tab=quotes 는 friends 폴백.
 // 내 랭킹 + 마일리지 서브탭은 /ranking 페이지로 이전 (build 100).
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
@@ -146,7 +144,7 @@ function SocialPageInner() {
       </header>
 
       <div className="px-4 pt-4">
-      {/* 세그먼트 컨트롤 — 2탭 (그린 잔디블록 테마) */}
+      {/* 세그먼트 컨트롤 — 3탭 (그린 잔디블록 테마) */}
       <div className="flex bg-[var(--card)] border border-[var(--card-border)] rounded-2xl p-1 mb-5 shadow-sm">
         {SECTIONS.map((section) => (
           <button
