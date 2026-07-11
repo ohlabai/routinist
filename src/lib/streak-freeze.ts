@@ -53,3 +53,21 @@ export async function spendStreakFreeze(date: string): Promise<UseFreezeResult> 
     return { ok: false, reason: 'rpc_failed' };
   }
 }
+
+// build 299: 보호권 추가 구매 (100P). 월 1개 무료 충전은 그대로, 보유 상한 2개.
+export interface BuyFreezeResult {
+  ok: boolean;
+  count?: number;
+  balance?: number;
+  error?: 'max_held' | 'insufficient_balance' | 'not_authenticated' | 'profile_not_found' | 'rpc_failed';
+}
+
+export async function buyStreakFreeze(): Promise<BuyFreezeResult> {
+  try {
+    const { data, error } = await getSupabase().rpc('buy_streak_freeze');
+    if (error || !data) return { ok: false, error: 'rpc_failed' };
+    return data as BuyFreezeResult;
+  } catch {
+    return { ok: false, error: 'rpc_failed' };
+  }
+}

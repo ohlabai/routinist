@@ -67,13 +67,15 @@ export default function StreakWarningCard({
     : null;
 
   const rescueStreak = useMemo(() => {
-    if (weeklyStreak > 0 || thisWeekCovered || freezeCount <= 0 || !rescueDate) return 0;
+    if (weeklyStreak > 0 || thisWeekCovered || !rescueDate) return 0;
     const merged = new Set(freezeUses ?? []);
     merged.add(rescueDate);
     return getWeeklyStreak(activities, weeklyGoal, merged);
-  }, [activities, weeklyGoal, weeklyStreak, thisWeekCovered, freezeCount, freezeUses, rescueDate]);
+  }, [activities, weeklyGoal, weeklyStreak, thisWeekCovered, freezeUses, rescueDate]);
   // >=2 (보호권 주 + 그 전의 실제 달성 주 체인) 여야 지킬 가치가 있음.
-  const rescueMode = rescueStreak >= 2;
+  const rescueMode = rescueStreak >= 2 && freezeCount > 0;
+  // build 299: 보호권 0개인데 지킬 스트릭이 있으면 100P 구매 제안 (월 1개 무료 + 추가 구매)
+  const buyMode = rescueStreak >= 2 && freezeCount <= 0;
 
   const handleUseFreeze = async () => {
     if (using || !rescueDate) return;
@@ -109,7 +111,42 @@ export default function StreakWarningCard({
   if (thisWeekCovered) return null;
 
   // ---- 구출 모드 (요일 게이트 없음 — 날짜 창이 지나면 지난주를 메꿀 수 없게 됨) ----
-  if (rescueMode) {
+  // build 299: 보호권 없음 + 지킬 스트릭 있음 → 구매 후 즉시 사용 (100P)
+  const handleBuyAndUse = async () => {
+    if (using || !rescueDate) return;
+    setUsing(true);
+    try {
+      const { buyStreakFreeze, spendStreakFreeze } = await import('@/lib/streak-freeze');
+      const b = await buyStreakFreeze();
+      if (!b.ok) {
+        setToast({
+          text: b.error === 'insufficient_balance'
+            ? (locale === 'en' ? 'Not enough mileage (100P needed)' : '마일리지가 부족해요 (100P 필요)')
+            : tt('지금은 보호권을 쓸 수 없어요. 잠시 후 다시 시도해주세요'),
+          tone: 'warn',
+        });
+        return;
+      }
+      const r = await spendStreakFreeze(rescueDate);
+      if (r.ok) {
+        setToast({
+          text: locale === 'en'
+            ? 'Freeze bought (−100P) — your streak lives on! 🛡️'
+            : '보호권 구매 (−100P) — 연속 기록이 이어져요! 🛡️',
+          tone: 'ok',
+        });
+        onFreezeUsed?.();
+      } else {
+        // 구매는 됐는데 사용 실패 — 보호권은 보유 상태로 남음 (다음 시도 가능)
+        setToast({ text: tt('지금은 보호권을 쓸 수 없어요. 잠시 후 다시 시도해주세요'), tone: 'warn' });
+        onFreezeUsed?.();
+      }
+    } finally {
+      setUsing(false);
+    }
+  };
+
+  if (rescueMode || buyMode) {
     return (
       <>
         <div className="card p-4 bg-gradient-to-r from-sky-50 to-emerald-50 dark:from-sky-950/30 dark:to-emerald-950/30 border-emerald-200 dark:border-emerald-800/50">
@@ -124,17 +161,21 @@ export default function StreakWarningCard({
                   : `지난주는 쉬어갔어요 — 아직 ${rescueStreak}주 연속을 지킬 수 있어요`}
               </p>
               <p className="text-xs text-[var(--muted)] mt-0.5">
-                {locale === 'en'
-                  ? `${freezeCount} freeze${freezeCount === 1 ? '' : 's'} left · skip a week and your streak carries on`
-                  : `보호권 ${freezeCount}개 보유 · 한 주를 건너뛰어도 연속 기록이 이어져요`}
+                {buyMode
+                  ? (locale === 'en'
+                      ? 'No freezes left · buy one for 100P and your streak carries on'
+                      : '보호권이 없어요 · 100P 로 구매하면 연속 기록이 이어져요')
+                  : (locale === 'en'
+                      ? `${freezeCount} freeze${freezeCount === 1 ? '' : 's'} left · skip a week and your streak carries on`
+                      : `보호권 ${freezeCount}개 보유 · 한 주를 건너뛰어도 연속 기록이 이어져요`)}
               </p>
             </div>
             <button
-              onClick={handleUseFreeze}
+              onClick={buyMode ? handleBuyAndUse : handleUseFreeze}
               disabled={using}
               className="flex-shrink-0 px-3.5 py-2 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-sm font-extrabold shadow-md shadow-emerald-500/30 active:scale-95 transition disabled:opacity-50"
             >
-              {using ? tt('사용 중...') : tt('보호권 쓰기')}
+              {using ? tt('사용 중...') : buyMode ? (locale === 'en' ? 'Buy & use (100P)' : '구매 후 사용 (100P)') : tt('보호권 쓰기')}
             </button>
           </div>
         </div>
