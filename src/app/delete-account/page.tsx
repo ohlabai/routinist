@@ -23,6 +23,16 @@ export default function DeleteAccountPage() {
         보내주세요. 본인 확인 후 3영업일 이내 처리됩니다.
       </p>
 
+      <h2 style={{ fontSize: 18, fontWeight: 700, marginTop: 32 }}>계정을 유지한 채 일부 데이터만 삭제</h2>
+      <p>계정 탈퇴 없이도 아래 데이터를 직접 삭제할 수 있습니다.</p>
+      <ul>
+        <li><b>사진</b>: 소셜 → 포토 → 내 사진 → 삭제</li>
+        <li><b>댓글·쪽지</b>: 각 댓글/대화에서 삭제</li>
+        <li><b>러닝 기록 등 그 외 데이터</b>: 가입 이메일로{' '}
+          <a href="mailto:routinist@openhan.kr">routinist@openhan.kr</a> 에 삭제할 항목을 알려주시면
+          본인 확인 후 3영업일 이내 삭제됩니다.</li>
+      </ul>
+
       <h2 style={{ fontSize: 18, fontWeight: 700, marginTop: 32 }}>삭제되는 데이터</h2>
       <p>
         계정 정보 (이메일·닉네임·프로필), 러닝 기록·경로, 사진·댓글·쪽지, 마일리지 등
@@ -40,6 +50,8 @@ export default function DeleteAccountPage() {
         Deletion is immediate and permanent (account, runs, photos, messages, mileage).
         If you cannot access the app, email <a href="mailto:routinist@openhan.kr">routinist@openhan.kr</a>{' '}
         from your registered address — processed within 3 business days.
+        To delete specific data without deleting your account, remove photos/comments/messages
+        in-app, or email us specifying the data to delete.
         Order/payment records are retained for the legally required period (5 years) before disposal.
       </p>
     </main>
