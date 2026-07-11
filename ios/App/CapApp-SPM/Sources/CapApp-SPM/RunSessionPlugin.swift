@@ -1044,7 +1044,8 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         templates = VoiceTemplates(
             milestone: snapshot["templateMilestone"] as? String ?? "",
             autoPause: snapshot["templateAutoPause"] as? String ?? "",
-            autoResume: snapshot["templateAutoResume"] as? String ?? ""
+            autoResume: snapshot["templateAutoResume"] as? String ?? "",
+            start: ""  // 복원 세션은 이미 출발한 뒤 — 출발 발화 불필요
         )
         pedometerDistanceM = snapshot["pedometerDistanceM"] as? Double ?? 0
         sessionVoice = Self.selectVoice(locale: localeCode)
