@@ -1,26 +1,20 @@
-v1.2.7 — GPS Run Tracking · Invite Friends · Habit Features
+v1.2.8 — Weekly streaks, a simpler app, instant celebration
 
-[GPS Run Tracking is here]
-• Tap "Start Running" on Home to track distance, pace and route — no watch needed.
-• Keeps recording with your screen locked, with voice cues every kilometer.
-• Auto-pauses at stoplights, and fills weak-GPS sections using step data.
+[Weekly running streak]
+• Streaks now count by week, not by day — perfect for 2-3 runs-a-week runners.
+• Set your weekly goal with one tap on Home and watch the day dots fill up.
+• A gentle weekend nudge when your streak needs one more run, plus streak protection for busy weeks.
 
-[Invite Friends]
-• Share your invite code — you both earn 100P when a friend joins.
-• Share cards now carry a QR so friends can jump right in.
+[Celebrate right after your run]
+• New badges and mileage rewards now appear the moment you save a run.
+• See "Run #n this week" at a glance.
+• We also celebrate your imported runs right after connecting Apple Health.
 
-[Habit Features]
-• Weekly run-count goal (we recommend 3×/week) with day dots on Home
-• Streak Shield — protect your streak when you miss a day (1 free per month)
-• 5 new badges with celebrations — first 5km, first 3-run week, and more
+[A simpler app]
+• Bottom navigation trimmed to 4 tabs; Social now focuses on Friends and Photos.
+• New runners see only the cards that matter.
 
-[Global]
-• "Same country" tab in Nearby Runners, plus a worldwide runners view
-• Mile (mi) units and greatly expanded English coverage
-
-[Improvements]
-• Reminders and weekly recaps now arrive in your local evening/morning.
-• Fixed walking distance mixing into weekly challenge totals.
-• Many stability and security improvements.
-
-Run steady — Routinist runs with you.
+[Improvements and fixes]
+• Run of the Day and monthly pacemaker matching are now more reliable.
+• Tapping a notification takes you to the right screen, and you can check items one by one in the inbox.
+• More notification categories so you only get what you want.

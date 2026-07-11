@@ -1,0 +1,71 @@
+[Korean] / [English below]
+
+== 한국어 ==
+
+심사 가이드 (v1.2.8 build 298):
+
+1. 로그인
+- 데모 계정으로 이메일 로그인 (위 demo_user / demo_password)
+- 또는 Sign in with Apple 새 계정 가능 (로그인 화면 → "Apple로 로그인")
+
+2. 백그라운드 오디오 시연 (이전 심사 2.5.4 관련 — 약속드린 확인 방법)
+UIBackgroundModes 의 "audio" 는 GPS 러닝 트래킹 중 음성 코칭(TTS) 전용입니다. 확인 절차:
+- 홈 상단 "달리기 시작" 버튼 → 위치 권한 허용 → START
+- 시작 직후 홈 화면으로 나가거나 화면을 잠급니다 (러닝은 계속 기록됨)
+- 이동을 시작하면 (실기기 기준) 1km 마다 거리·페이스 음성 안내가 백그라운드에서 재생됩니다
+- 멈춰 서면 "자동 일시정지", 다시 움직이면 "재개" 음성이 백그라운드에서 재생됩니다
+- 실내 심사 환경에서는 GPS 이동이 없어 1km 안내가 어려울 수 있으나, 자동 일시정지/재개 음성은 짧은 이동만으로 확인 가능합니다
+- 앱을 실행만 한 상태(트래킹 미시작)에서는 오디오 세션을 활성화하지 않습니다
+
+3. HealthKit UI (2.5.1 해결 유지)
+- 로그인 직후 홈 최상단에 "Apple Health 연동" 칩 + "동기화" 버튼
+- 내 정보 → "건강 앱 연동" 에서 연동 카드 + 진행률
+- NSHealthShareUsageDescription 에 읽는 데이터(거리·시간·칼로리·심박·페이스)와 용도(통계·개인 최고 기록·랭킹) 명시
+
+4. 계정/UGC (유지)
+- 계정 탈퇴: 내 정보 하단 "계정 탈퇴" → 경고 → "탈퇴" 입력 → 영구 삭제
+- 사진 신고: 타인 포토 → ⋯ → "신고" (사유 선택, 24h 내 검토) / 본인 포토 삭제: ⋯ → "삭제"
+- 이용약관·개인정보처리방침: 내 정보 및 가입 화면 하단
+
+5. 마일리지 / 쇼핑
+- 마일리지는 러닝 거리에서 자동 적립. 사용처는 앱 내 쇼핑(피지컬 러닝 굿즈 전용, 내 정보 → 쇼핑)
+- 디지털 콘텐츠·구독 없음 → IAP 의무 아님 (3.1.1 피지컬 굿즈 예외, 결제는 PG 토스페이먼츠)
+
+6. 권한
+- HealthKit / 위치(GPS 트래킹·지역 랭킹) / 사진(포토 업로드·공유카드 저장) / 카메라(포토 촬영) / 알림(응원·리포트)
+
+== English ==
+
+Review guide (v1.2.8 build 298):
+
+1. Sign in
+- Use the demo account above (demo_user / demo_password)
+- Or Sign in with Apple to create a new account
+
+2. Background audio demonstration (re: prior 2.5.4 review — as promised)
+UIBackgroundModes "audio" is used solely for TTS voice coaching during an active GPS run. To verify:
+- Home → "Start Running" button → allow Location → START
+- Immediately go to the Home Screen or lock the device (the run keeps recording)
+- While moving (on a real device), distance/pace voice cues play in the background at every km
+- When you stop moving, an "auto-paused" voice cue plays in the background; moving again plays "resumed"
+- In an indoor review environment the 1km cue may be hard to trigger, but the auto-pause/resume cues can be verified with just a short walk
+- The app does NOT activate an audio session when merely launched (tracking not started)
+
+3. HealthKit UI (2.5.1 resolution, unchanged)
+- Persistent "Apple Health Connected" chip with a "Sync" button at the top of Home right after sign-in
+- My Info → "Health App Connect" for the full card with progress
+- NSHealthShareUsageDescription lists the data we read (distance, duration, calories, heart rate, pace) and purposes (statistics, personal bests, ranking)
+
+4. Account / UGC (unchanged)
+- Account deletion: My Info → "Delete account" → warning → type confirmation → permanent erase
+- Photo reporting: other user's photo → ⋯ → "Report" (reason options, reviewed within 24h) / own photo deletion via ⋯ → "Delete"
+- Terms of Service and Privacy Policy: My Info and sign-in screen footer
+
+5. Mileage / Shop
+- Mileage auto-earned from running distance. Spent only in the in-app shop (physical running goods only, My Info → Shop)
+- No digital goods or subscriptions → IAP not required (3.1.1 physical-goods exception; payments via Toss Payments PG)
+
+6. Permissions
+- HealthKit / Location (GPS tracking, regional ranking) / Photo Library (photo upload, share-card save) / Camera (photo capture) / Notifications (cheers, reports)
+
+Contact: hans@openhan.kr
