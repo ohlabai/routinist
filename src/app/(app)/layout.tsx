@@ -12,7 +12,7 @@ import { useI18n, getCurrentLocale } from '@/lib/i18n';
 import { getSupabase } from '@/lib/supabase';
 import AnalyticsAutoTracker from '@/components/AnalyticsAutoTracker';
 import ActiveRunBanner from '@/components/track/ActiveRunBanner';
-import { fetchUnreadNotificationSummary, markNotificationsRead, SOCIAL_KINDS } from '@/lib/notifications-data';
+import { fetchUnreadNotificationSummary, BADGE_REFRESH_EVENT } from '@/lib/notifications-data';
 import { setAppBadge } from '@/lib/app-badge';
 import { getUnreadCount as getUnreadMessageCount } from '@/lib/message-data';
 import AppToast from '@/components/AppToast';
@@ -129,24 +129,22 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     void refreshBadges();
     const interval = window.setInterval(() => { void refreshBadges(); }, 5 * 60 * 1000);
     const onVis = () => { if (!document.hidden) void refreshBadges(); };
+    const onBadgeEvent = () => { void refreshBadges(); };
     document.addEventListener('visibilitychange', onVis);
     window.addEventListener('focus', refreshBadges);
+    // build 298: 알림함에서 읽음 처리 직후 SPA 내 즉시 갱신 (focus/5분 주기로는 못 잡음)
+    window.addEventListener(BADGE_REFRESH_EVENT, onBadgeEvent);
     return () => {
       window.clearInterval(interval);
       document.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('focus', refreshBadges);
+      window.removeEventListener(BADGE_REFRESH_EVENT, onBadgeEvent);
     };
   }, [user, refreshBadges]);
 
-  // 소셜 탭 진입 시 자동 markRead — pathname 이 /social 또는 그 하위 경로면 한 번 호출.
-  useEffect(() => {
-    if (!user) return;
-    if (!normalizedPath.startsWith('/social')) return;
-    // 비동기 시작 — 응답 받지 않고 즉시 0 으로 optimistic update.
-    setSocialUnread(0);
-    void setAppBadge(messageUnread); // 앱 아이콘 배지에서 social 분 제거 (쪽지만 남김)
-    void markNotificationsRead(SOCIAL_KINDS);
-  }, [user, normalizedPath, messageUnread]);
+  // build 298: /social 진입 시 자동 markRead 제거 (2026-07-11 피드백 — 아이콘 배지 숫자를 보고
+  // 들어와도 어디서 알림이 떴는지 확인하기 전에 배지가 사라졌음). 이제 읽음 처리는
+  // /notifications 에서 항목 탭(개별) 또는 "모두 읽음" 버튼으로만 일어난다.
 
   // build 291: locale/timezone 을 profiles 에 동기화 — push 다국어·로컬 저녁 발송용.
   // 세션당 1회, 값이 바뀌었을 때만 UPDATE (fire-and-forget).
@@ -299,8 +297,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               pathname === tab.href ||
               pathname.startsWith(tab.href + '/') ||
               (tab.activeFor?.some(p => pathname === p || pathname.startsWith(p + '/')) ?? false);
-            // build 261: 소셜 탭에만 unread 배지. 응원·댓글·팔로우 신규.
-            const badgeCount = tab.href === '/social' ? socialUnread : 0;
+            // build 261: 소셜 탭 unread 배지 (응원·댓글·팔로우).
+            // build 298: 내정보 탭에 쪽지 unread 배지 — 앱 아이콘 숫자에는 합산되는데
+            // 하단 탭 어디에도 표시가 없어 "어디서 알림이 떴는지 모르겠다" 피드백.
+            // 쪽지 진입점 (/messages) 이 내정보 안에 있어서 그 탭에 표시.
+            const badgeCount =
+              tab.href === '/social' ? socialUnread
+              : tab.href === '/profile' ? messageUnread
+              : 0;
             return (
               <Link
                 key={tab.href}

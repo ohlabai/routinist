@@ -14,7 +14,7 @@ import PhotosTab from '@/components/photos/PhotosTab';
 import QuotesTab from '@/components/social/QuotesTab';
 import MultiUserTimeSeriesChart, { type CompareUser } from '@/components/charts/MultiUserTimeSeriesChart';
 import { User as UserIcon, Users, Search, Plus, MapPin, Camera, Trophy, MessageSquare, Bell } from 'lucide-react';
-import { fetchUnreadNotificationSummary } from '@/lib/notifications-data';
+import { fetchUnreadNotificationSummary, BADGE_REFRESH_EVENT } from '@/lib/notifications-data';
 import { startOfWeekStr, startOfMonthStr } from '@/lib/kst';
 import type { Profile, Club } from '@/types';
 import AppLogo from '@/components/AppLogo';
@@ -38,14 +38,17 @@ function startOfMonth(): string {
 
 type ComparePeriod = 'week' | 'month';
 
-// build 263: 종 아이콘 위 빨간 카운트. /social 진입 시 layout 의 markRead 가 발사돼서
-// 잠시 후 0 으로. 그래도 사용자가 새로고침 없이 다시 진입 시 fresh fetch.
+// build 263: 종 아이콘 위 빨간 카운트.
+// build 298: /social 진입 자동 읽음이 폐기됨 — 배지는 /notifications 에서 항목 탭(개별)
+// 또는 "모두 읽음" 처리 전까지 유지. 읽음 이벤트를 구독해 즉시 갱신.
 function NotificationBellBadge() {
   const [count, setCount] = useState(0);
   useEffect(() => {
     let mounted = true;
-    fetchUnreadNotificationSummary().then(s => { if (mounted) setCount(s.total); }).catch(() => {});
-    return () => { mounted = false; };
+    const load = () => fetchUnreadNotificationSummary().then(s => { if (mounted) setCount(s.total); }).catch(() => {});
+    void load();
+    window.addEventListener(BADGE_REFRESH_EVENT, load);
+    return () => { mounted = false; window.removeEventListener(BADGE_REFRESH_EVENT, load); };
   }, []);
   if (count <= 0) return null;
   return (

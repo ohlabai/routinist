@@ -1141,6 +1141,9 @@ const EXTRAS_EN: Record<string, string> = {
   '이번 주 목표 달성! 멋져요': 'Weekly goal achieved! Awesome',
   '절반 넘어왔어요. 계속!': "Halfway there. Keep going!",
   '이번 주도 한 번 달려볼까요?': "Let's run this week",
+  // 알림함 (build 298)
+  '모두 읽음': 'Mark all read',
+
   // Android Health Connect (build 297)
   'Health Connect 앱이 필요해요. Play 스토어에서 설치해주세요.': 'The Health Connect app is required. Please install it from the Play Store.',
   'Health Connect 업데이트가 필요해요. Play 스토어에서 업데이트해주세요.': 'Health Connect needs an update. Please update it in the Play Store.',

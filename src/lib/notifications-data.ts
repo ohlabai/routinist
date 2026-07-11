@@ -55,6 +55,34 @@ export async function markNotificationsRead(kinds: string[] | null = null): Prom
   }
 }
 
+/**
+ * build 298: 개별 알림 읽음 처리 — 알림 항목을 탭(확인)했을 때 그 건만.
+ * 진입-시-전체-읽음은 사용자가 내용을 보기 전에 배지를 지워버려서 폐기됨.
+ */
+export async function markNotificationReadById(id: string): Promise<boolean> {
+  try {
+    const supabase = getSupabase();
+    const { error } = await supabase.rpc('mark_notification_read_by_id', { p_id: id });
+    if (error) {
+      void logClientWarn('notifications', 'mark read by id fail', { message: error.message });
+      return false;
+    }
+    return true;
+  } catch (e) {
+    void logClientWarn('notifications', 'mark read by id fail', {
+      message: e instanceof Error ? e.message : String(e),
+    });
+    return false;
+  }
+}
+
+// 알림 읽음 상태가 바뀐 걸 layout 배지에 즉시 알리는 앱 내부 이벤트.
+// (layout 의 refreshBadges 는 focus/visibility/5분 주기라 SPA 내 이동은 못 잡음)
+export const BADGE_REFRESH_EVENT = 'routinist:badge-refresh';
+export function requestBadgeRefresh() {
+  try { window.dispatchEvent(new Event(BADGE_REFRESH_EVENT)); } catch { /* SSR */ }
+}
+
 // 소셜 탭이 다루는 알림 종류 — 응원 + 댓글 + 팔로우 + 친구 신청·수락.
 // 쪽지는 messages 시스템 (build 258) 으로 별도 추적.
 // build 264: friend_request, friend_accepted 추가.

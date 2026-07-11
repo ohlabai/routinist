@@ -2,17 +2,20 @@
 
 // build 263: 알림 리스트 페이지. user_notifications 의 응원·댓글·팔로우 누적.
 // 진입: /social 헤더 우측 종 아이콘 → /notifications
-// markRead: mount 시 자동으로 SOCIAL_KINDS 전체 read 처리.
+// build 298 markRead 정책 변경 (2026-07-11 피드백): mount 전체 읽음 폐기 →
+// 항목 탭 = 그 건만 읽음 (확인=삭제), 헤더 "모두 읽음" 버튼으로 일괄 처리.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Heart, MessageSquare, UserPlus, Bell, Check, X } from 'lucide-react';
+import { ArrowLeft, Heart, MessageSquare, UserPlus, Bell, Check, X, CheckCheck } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { useI18n } from '@/lib/i18n';
 import {
   fetchNotificationsList,
   markNotificationsRead,
+  markNotificationReadById,
+  requestBadgeRefresh,
   SOCIAL_KINDS,
   type NotificationItem,
   type NotificationKind,
@@ -130,11 +133,26 @@ export default function NotificationsPage() {
       setItems(list);
       setHasMore(list.length >= PAGE_SIZE);
       setLoading(false);
-      // mount 시 자동으로 모두 read 처리. optimistic 으로 화면은 read=now 표시 X (그대로 보임).
-      void markNotificationsRead(SOCIAL_KINDS);
+      // build 298: mount 자동 읽음 폐기 — 항목 탭(개별) / "모두 읽음" 버튼으로만 처리.
     })();
     return () => { mounted = false; };
   }, [user, authLoading, router]);
+
+  const unreadCount = useMemo(() => items.filter(i => !i.read_at).length, [items]);
+
+  // build 298: 항목 탭 = 그 알림만 확인 처리 (optimistic — 실패해도 다음 fetch 가 진실 복원).
+  const readOne = (item: NotificationItem) => {
+    if (item.read_at) return;
+    setItems(prev => prev.map(p => p.id === item.id ? { ...p, read_at: new Date().toISOString() } : p));
+    void markNotificationReadById(item.id).then(() => requestBadgeRefresh());
+  };
+
+  const readAll = () => {
+    if (unreadCount === 0) return;
+    const now = new Date().toISOString();
+    setItems(prev => prev.map(p => p.read_at ? p : { ...p, read_at: now }));
+    void markNotificationsRead(SOCIAL_KINDS).then(() => requestBadgeRefresh());
+  };
 
   const loadMore = async () => {
     if (loadingMore || !hasMore) return;
@@ -154,8 +172,9 @@ export default function NotificationsPage() {
     setRespondingId(item.id);
     try {
       await respondFriendRequest(item.source_id, accept);
-      // 응답 끝나면 화면에서 그 알림은 dim 처리 + kind 변경
+      // 응답 끝나면 화면에서 그 알림은 dim 처리 + kind 변경. build 298: DB 읽음도 함께.
       setItems(prev => prev.map(p => p.id === item.id ? { ...p, kind: accept ? 'friend_accepted' : p.kind, read_at: new Date().toISOString() } : p));
+      void markNotificationReadById(item.id).then(() => requestBadgeRefresh());
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       window.alert(msg);
@@ -175,6 +194,16 @@ export default function NotificationsPage() {
             <ArrowLeft size={20} />
           </button>
           <h1 className="text-base font-extrabold tracking-tight">{tt('알림')}</h1>
+          {/* build 298: 일괄 읽음 — 개별 탭 확인이 기본이지만 쌓였을 때 탈출구 */}
+          {unreadCount > 0 && (
+            <button
+              onClick={readAll}
+              className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 text-xs font-extrabold active:scale-95"
+            >
+              <CheckCheck size={14} strokeWidth={2.5} />
+              {tt('모두 읽음')}
+            </button>
+          )}
         </div>
       </header>
 
@@ -290,6 +319,7 @@ export default function NotificationsPage() {
                 <Link
                   key={item.id}
                   href={getHref(item)}
+                  onClick={() => readOne(item)}
                   className={`card flex items-start gap-3 p-4 transition active:scale-[0.98] ${isUnread ? 'bg-emerald-50/40 dark:bg-emerald-950/15 border-emerald-200/40 dark:border-emerald-800/30' : ''}`}
                 >
                   {inner}
