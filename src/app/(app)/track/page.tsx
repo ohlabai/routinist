@@ -99,6 +99,8 @@ function TrackPageImpl() {
   const [finished, setFinished] = useState<TrackingState | null>(null);
   // build 210 #1: 시작 카운트다운 (3 → 2 → 1 → GO!) — Apple Fitness 패턴 + 차별화 효과
   const [countdown, setCountdown] = useState<number | null>(null);
+  // build 299: 짧은 거리 완료 시 3버튼 시트 (시스템 confirm 의 Cancel/Ok 가 모호하다는 피드백)
+  const [shortFinishSheet, setShortFinishSheet] = useState(false);
   // build 219 #10: 시작 화면에 음성 cue 토글 + 간격 선택 (1km / 500m). build 214 백엔드 존재했으나 UI 미노출.
   // build 223: 음성 성별 선택 추가 (여/남) + 변경 시 짧은 인사 미리듣기.
   const [voiceOn, setVoiceOn] = useState<boolean>(() => isVoiceCueEnabled());
@@ -709,28 +711,28 @@ function TrackPageImpl() {
       distinct_ts_ratio: Math.round(dupRatio * 100) / 100,
     });
     if (state.distanceMeters < 50) {
-      const msg = locale === 'en'
-        ? 'Distance is too short. Save anyway?'
-        : '이동 거리가 너무 짧아요. 그래도 저장할까요?';
-      if (!window.confirm(msg)) {
-        logClientWarn('track-finish', 'short-distance-cancelled', {
-          distance_m: Math.round(state.distanceMeters),
-        });
-        return;
-      }
-    } else {
-      // build 222 #4: 완료 한 번 더 확인 — 손가락 미스터치로 의도치 않게 종료되는 사고 차단.
-      const km = (state.distanceMeters / 1000).toFixed(2);
-      const msg = locale === 'en'
-        ? `Finish run? (${km} km recorded)`
-        : `달리기를 완료할까요? (${km} km 기록됨)`;
-      if (!window.confirm(msg)) {
-        logClientWarn('track-finish', 'cancelled', {
-          distance_m: Math.round(state.distanceMeters),
-        });
-        return;
-      }
+      // build 299: 시스템 confirm (Cancel/Ok) 대신 저장/삭제/계속 3버튼 시트 — 테스트 러닝을
+      // 기록에 안 남기고 버리는 경로가 명확해짐.
+      setShortFinishSheet(true);
+      return;
     }
+    // build 222 #4: 완료 한 번 더 확인 — 손가락 미스터치로 의도치 않게 종료되는 사고 차단.
+    const km = (state.distanceMeters / 1000).toFixed(2);
+    const msg = locale === 'en'
+      ? `Finish run? (${km} km recorded)`
+      : `달리기를 완료할까요? (${km} km 기록됨)`;
+    if (!window.confirm(msg)) {
+      logClientWarn('track-finish', 'cancelled', {
+        distance_m: Math.round(state.distanceMeters),
+      });
+      return;
+    }
+    proceedFinish();
+  };
+
+  // 확인을 통과한 뒤의 실제 종료 — 요약 시트로 핸드오프 (짧은 거리 시트의 "저장" 도 이 경로)
+  const proceedFinish = () => {
+    if (!state) return;
     if (useNative) {
       // build 292: native stop() 이 최종 진실 (GPS+pedometer 융합 거리, 필터 통과 route).
       // route [lng,lat,tsMs] → 기존 Coord [lng,lat,alt,tsMs] 로 변환해 TrackSummarySheet
@@ -778,13 +780,10 @@ function TrackPageImpl() {
     clearState();
   };
 
-  const handleAbort = () => {
+  // 저장 없이 폐기 — 뒤로가기 (confirm 경유) 와 짧은 거리 시트의 "삭제" 가 공유
+  const discardRun = (reason: string) => {
     if (!state) return;
-    const msg = locale === 'en'
-      ? 'Stop tracking? Your run will not be saved.'
-      : '트래킹을 종료할까요? 기록은 저장되지 않습니다.';
-    if (!window.confirm(msg)) return;
-    logClientWarn('track-abort', 'user-cancel', {
+    logClientWarn('track-abort', reason, {
       distance_m: Math.round(state.distanceMeters),
       elapsed_s: Math.floor(state.elapsedSeconds),
       coords_n: state.coords.length,
@@ -798,6 +797,15 @@ function TrackPageImpl() {
     setState(null);
     clearState();
     router.back();
+  };
+
+  const handleAbort = () => {
+    if (!state) return;
+    const msg = locale === 'en'
+      ? 'Stop tracking? Your run will not be saved.'
+      : '트래킹을 종료할까요? 기록은 저장되지 않습니다.';
+    if (!window.confirm(msg)) return;
+    discardRun('user-cancel');
   };
 
   // 권한 거부 화면
@@ -1036,6 +1044,41 @@ function TrackPageImpl() {
           userId={user.id}
           onClose={() => setFinished(null)}
         />
+      )}
+
+      {/* build 299: 짧은 거리 완료 시트 — 저장 / 저장 없이 삭제 / 계속 달리기 */}
+      {shortFinishSheet && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={() => setShortFinishSheet(false)}>
+          <div
+            className="w-full max-w-lg bg-[var(--card)] rounded-t-3xl p-5 pb-[max(env(safe-area-inset-bottom),20px)] space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-base font-extrabold text-[var(--foreground)]">
+              {locale === 'en' ? 'Distance is very short' : '이동 거리가 아직 거의 없어요'}
+            </p>
+            <p className="text-sm text-[var(--muted)] -mt-1">
+              {locale === 'en' ? 'What would you like to do with this run?' : '이 기록을 어떻게 할까요?'}
+            </p>
+            <button
+              onClick={() => { setShortFinishSheet(false); proceedFinish(); }}
+              className="w-full py-3.5 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-sm active:scale-[0.98] shadow-md shadow-emerald-500/30"
+            >
+              {locale === 'en' ? 'Save anyway' : '그래도 저장하기'}
+            </button>
+            <button
+              onClick={() => { setShortFinishSheet(false); discardRun('short-distance-discarded'); }}
+              className="w-full py-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 font-extrabold text-sm active:scale-[0.98]"
+            >
+              {locale === 'en' ? 'Delete (don\u2019t save)' : '저장 없이 삭제'}
+            </button>
+            <button
+              onClick={() => setShortFinishSheet(false)}
+              className="w-full py-3.5 rounded-2xl bg-[var(--card-border)]/40 text-[var(--foreground)] font-extrabold text-sm active:scale-[0.98]"
+            >
+              {locale === 'en' ? 'Keep running' : '계속 달리기'}
+            </button>
+          </div>
+        </div>
       )}
 
       {/* build 220 #1: 카운트다운 리디자인 — 더 귀엽고 세련되게.
