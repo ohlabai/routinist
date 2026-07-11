@@ -1325,8 +1325,8 @@ const EXTRAS_EN: Record<string, string> = {
   '전국 이번 주 거리 상위 후보들이에요. 1명만 응원할 수 있고, 변경은 불가능합니다.':
     'Top runners by distance this week. Pick only one — no changes after that.',
   '아직 이번 주에 달린 사람이 없어요': 'No runs logged this week yet',
-  '일요일 자정 결과 공개 · 맞추면 +10점 + 예측왕 뱃지':
-    'Results Sunday midnight · +10 points + Prophet badge if correct',
+  '일요일 자정 결과 공개 · 맞추면 50P + 10점':
+    'Results Sunday midnight · 50P + 10 points if correct',
   '첫 번째 러닝사진가 되어보세요!': 'Be the first to post a run photo!',
   '사진 올리기': 'Upload photo',
   '이번 주 인기 러닝사진': 'Top photos this week',
