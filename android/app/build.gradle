@@ -11,7 +11,7 @@ android {
         // iOS 빌드 번호와 동기 — iOS marketing 1.2.7 / build 297 과 정렬.
         // Android 만 단독 증가 시 충돌 피하려고 의도적으로 같은 versionCode 사용.
         versionCode 298
-        versionName "1.2.7"
+        versionName "1.2.8"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
