@@ -440,7 +440,9 @@ function TrackPageImpl() {
       });
     };
     if (countdown <= 0) {
-      sayOrBeep(0);
+      // "출발!" 은 native start() 가 세션 셋업 후 발화 (JS 발화는 오디오 재구성에 잘림).
+      // 레거시/웹 경로만 beep.
+      if (!isRunSessionAvailable()) playCountdownBeep('go');
       const t = setTimeout(() => {
         setCountdown(null);
         beginTrackingAfterCountdown();

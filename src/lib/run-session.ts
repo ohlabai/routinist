@@ -25,6 +25,8 @@ export interface RunSessionVoiceTemplates {
   milestone: string;
   autoPause: string;
   autoResume: string;
+  /** build 303 후속: 세션 시작 직후 native 가 발화하는 출발 신호 ("출발!"/"Go!") */
+  start?: string;
 }
 
 export interface RunSessionStartOptions {
@@ -126,12 +128,14 @@ export function buildVoiceTemplates(locale: 'ko' | 'en'): RunSessionVoiceTemplat
       milestone: '{km} kilometers. Average pace {pace}. Looking strong.',
       autoPause: 'Auto paused. I will pick it up when you move.',
       autoResume: "Resuming. Let's go.",
+      start: 'Go!',
     };
   }
   return {
     milestone: '{km}킬로미터 통과. 평균 페이스 {pace}. 잘하고 있어요.',
     autoPause: '자동 일시정지. 다시 움직이면 이어서 잴게요.',
     autoResume: '다시 시작합니다. 같이 가요.',
+    start: '출발!',
   };
 }
 

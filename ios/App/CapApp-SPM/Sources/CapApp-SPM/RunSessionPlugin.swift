@@ -112,6 +112,9 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         var milestone: String
         var autoPause: String
         var autoResume: String
+        /// build 303 후속: 카운트다운 "셋/둘/하나" 뒤의 "출발!" — JS 발화는 세션 시작의
+        /// 오디오 재구성에 잘려서, 시작 완료 직후 native 가 말한다.
+        var start: String
     }
 
     private let stateQueue = DispatchQueue(label: "com.routinist.run-session.state")
@@ -130,7 +133,7 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
     private var localeCode = "ko"
     private var voiceEnabled = true
     private var milestoneEveryKm: Double = 1
-    private var templates = VoiceTemplates(milestone: "", autoPause: "", autoResume: "")
+    private var templates = VoiceTemplates(milestone: "", autoPause: "", autoResume: "", start: "")
     private var sessionVoice: AVSpeechSynthesisVoice?
 
     // 거리 적산 (최종 distanceM = gpsDistanceM + gapFillDistanceM — 계약 §4)
@@ -303,7 +306,9 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
             autoPause: (templatesObj["autoPause"] as? String)
                 ?? (isKo ? "자동 일시정지" : "Auto paused"),
             autoResume: (templatesObj["autoResume"] as? String)
-                ?? (isKo ? "다시 시작합니다" : "Resuming")
+                ?? (isKo ? "다시 시작합니다" : "Resuming"),
+            start: (templatesObj["start"] as? String)
+                ?? (isKo ? "출발!" : "Go!")
         )
 
         stateQueue.async { [weak self] in
@@ -331,6 +336,10 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
             self.sessionVoice = Self.selectVoice(locale: locale)
             self.startTrackingIfNeeded()
             self.persist(now: now)
+            // build 303 후속: "출발!" — 세션 셋업이 끝난 뒤라 오디오 재구성에 잘리지 않는다.
+            if self.voiceEnabled && !self.templates.start.isEmpty {
+                self.speak(self.templates.start)
+            }
             call.resolve(["ok": true, "startedAtMs": self.startedAtMs])
         }
     }
