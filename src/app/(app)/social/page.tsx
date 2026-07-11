@@ -15,15 +15,17 @@ import { getSupabase } from '@/lib/supabase';
 import UserRow from '@/components/social/UserRow';
 import PhotosTab from '@/components/photos/PhotosTab';
 import MultiUserTimeSeriesChart, { type CompareUser } from '@/components/charts/MultiUserTimeSeriesChart';
-import { User as UserIcon, Users, Search, MapPin, Camera, Trophy, Bell } from 'lucide-react';
+import { User as UserIcon, Users, Search, Plus, MapPin, Camera, Trophy, Bell } from 'lucide-react';
 import { fetchUnreadNotificationSummary, BADGE_REFRESH_EVENT } from '@/lib/notifications-data';
 import { startOfWeekStr, startOfMonthStr } from '@/lib/kst';
 import type { Profile, Club } from '@/types';
 import AppLogo from '@/components/AppLogo';
 import { useI18n } from '@/lib/i18n';
 
+// 2026-07-11: 클럽 탭 복원 (사용자 요청 — 동아리·모임 기능 필요). 명언 탭은 계속 제외.
 const SECTIONS = [
   { id: 'friends', tKey: 'social.tabFriends', Icon: UserIcon },
+  { id: 'clubs', tKey: 'social.tabClubs', Icon: Users },
   { id: 'photos', tKey: 'social.tabPhotos', Icon: Camera },
 ] as const;
 
@@ -62,10 +64,10 @@ function SocialPageInner() {
   const { user, profile } = useAuth();
   const { t, tt } = useI18n();
   const searchParams = useSearchParams();
-  // ?tab=clubs|quotes 딥링크 (옛 push 등) 는 friends 로 폴백.
+  // ?tab=quotes 딥링크 (옛 push 등) 는 friends 로 폴백.
   const initialTab = (searchParams.get('tab') as SectionId) ?? 'friends';
   const [activeSection, setActiveSection] = useState<SectionId>(
-    ['friends', 'photos'].includes(initialTab) ? initialTab : 'friends'
+    ['friends', 'clubs', 'photos'].includes(initialTab) ? initialTab : 'friends'
   );
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState<Profile[]>([]);
@@ -289,30 +291,6 @@ function SocialPageInner() {
             </Link>
           )}
 
-          {/* 내 클럽 카드 — 클럽 탭 제거 후 기존 멤버 (BIT Runners 등) 진입 유지.
-              내 클럽이 없는 유저에겐 아예 안 보임 (클럽 기능 노출 최소화). */}
-          {myClubs.length > 0 && (
-            <div className="space-y-2">
-              {myClubs.map((club) => (
-                <Link key={club.id} href={`/social/clubs/detail?id=${club.id}`} className="card p-4 flex items-center gap-3 block">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
-                    {club.logo_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={club.logo_url} alt="" className="w-full h-full rounded-xl object-cover" />
-                    ) : (
-                      <Users size={20} className="text-emerald-500" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-[var(--foreground)] truncate">{club.name}</p>
-                    <p className="text-xs text-[var(--muted)]">{t('social.memberCount').replace('{count}', String(club.member_count))}</p>
-                  </div>
-                  <span className="text-[var(--muted)]">→</span>
-                </Link>
-              ))}
-            </div>
-          )}
-
           {/* 동네 러너 진입점 (build 116 A) */}
           <Link
             href="/nearby"
@@ -379,8 +357,60 @@ function SocialPageInner() {
         </div>
       )}
 
-      {/* 클럽·명언 탭 제거 (단순화 B) — 클럽 진입은 친구 탭 안 "내 클럽" 카드,
-          명언 페이지 (/quotes/**) 는 push 딥링크용으로 라우트만 유지. */}
+      {/* 클럽 탭 — 2026-07-11 복원 (동아리·모임 기능 요청). 명언 탭만 계속 제외 (/quotes/** 라우트는 push 딥링크용 유지). */}
+      {activeSection === 'clubs' && (
+        <div className="space-y-6">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-semibold text-[var(--foreground)]">{t('social.myClubs')}</h2>
+              <Link href="/social/clubs/create" className="flex items-center gap-1 text-sm text-emerald-600 font-semibold">
+                <Plus size={14} /> {t('social.createClub')}
+              </Link>
+            </div>
+            {myClubs.length === 0 ? (
+              <div className="card p-6 text-center space-y-2">
+                <div><AppLogo size={40} /></div>
+                <p className="text-sm font-medium text-[var(--foreground)]">{t('social.noClub')}</p>
+                <Link href="/social/clubs" className="text-sm text-emerald-600 font-semibold inline-block">
+                  {t('social.browseClubs')}
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {myClubs.map((club) => (
+                  <Link key={club.id} href={`/social/clubs/detail?id=${club.id}`} className="card p-4 flex items-center gap-3 block">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+                      {club.logo_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={club.logo_url} alt="" className="w-full h-full rounded-xl object-cover" />
+                      ) : (
+                        <Users size={20} className="text-emerald-500" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-[var(--foreground)] truncate">{club.name}</p>
+                      <p className="text-xs text-[var(--muted)]">{t('social.memberCount').replace('{count}', String(club.member_count))}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <Link href="/social/clubs" className="card p-4 flex items-center justify-between block">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+                <Trophy size={18} className="text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-[var(--foreground)]">{t('social.allClubs')}</p>
+                <p className="text-xs text-[var(--muted)]">{t('social.allClubsSub')}</p>
+              </div>
+            </div>
+            <span className="text-[var(--muted)]">→</span>
+          </Link>
+        </div>
+      )}
 
       {/* 포토 탭 */}
       {activeSection === 'photos' && <PhotosTab />}

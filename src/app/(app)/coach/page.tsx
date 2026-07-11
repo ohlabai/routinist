@@ -51,11 +51,15 @@ export default function CoachPage() {
     setMaxHrInput(profile?.max_hr ? String(profile.max_hr) : '');
   }, [user, profile?.weight_kg, profile?.max_hr]);
 
+  // 2026-07-11 피드백: RPC 실패 시 화면이 그냥 비어 보였음 — 에러 상태 + 재시도 제공.
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setLoadError(false);
       try {
         const supabase = getSupabase();
         const [todayRes, trendRes] = await Promise.all([
@@ -64,15 +68,17 @@ export default function CoachPage() {
         ]);
         if (cancelled) return;
         if (todayRes.data && !todayRes.data.error) setToday(todayRes.data as CoachingPayload);
+        else if (todayRes.error) setLoadError(true);
         if (Array.isArray(trendRes.data)) setTrend(trendRes.data as TrendRow[]);
       } catch (e) {
         console.warn('[coach] load fail', e);
+        if (!cancelled) setLoadError(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [user]);
+  }, [user, reloadKey]);
 
   const handleSaveSettings = async () => {
     if (!user) return;
@@ -139,73 +145,8 @@ export default function CoachPage() {
       </header>
 
       <div className="px-4 pt-4 space-y-4">
-        {/* 오늘 컨디션 hero */}
-        {today ? (
-          <div className={`card p-6 bg-gradient-to-br ${scoreColor} text-white shadow-lg`}>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[10px] font-extrabold uppercase tracking-widest text-white/80">Today&apos;s Condition</span>
-              <Sparkles size={16} className="text-white/90" />
-            </div>
-            <div className="flex items-baseline gap-2 mb-2">
-              <p className="text-6xl font-extrabold tracking-tight tabular-nums">{today.score}</p>
-              <p className="text-xl font-extrabold text-white/85">/ 100</p>
-            </div>
-            <p className="text-xl font-extrabold mb-1.5">{today.message}</p>
-            <p className="text-sm text-white/90 leading-relaxed">{today.advice}</p>
-
-            <div className="mt-4 pt-4 border-t border-white/20 grid grid-cols-3 gap-2 text-center">
-              <div>
-                <p className="text-[10px] font-bold text-white/70 uppercase">{tt('장기 피트니스')}</p>
-                <p className="text-lg font-extrabold tabular-nums">{today.ctl}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-white/70 uppercase">{tt('최근 부하')}</p>
-                <p className="text-lg font-extrabold tabular-nums">{today.atl}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-white/70 uppercase">{tt('컨디션')}</p>
-                <p className={`text-lg font-extrabold tabular-nums ${today.tsb > 0 ? 'text-white' : 'text-white/85'}`}>
-                  {today.tsb > 0 ? '+' : ''}{today.tsb}
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="card p-6 text-center text-sm text-[var(--muted)]">
-            {tt('아직 분석할 활동이 부족해요. 2~3km 가볍게 달려보세요.')}
-          </div>
-        )}
-
-        {/* 타겟 레이스 카운트다운 (build 199) */}
-        <TargetRaceCard />
-
-        {/* 14일 차트 */}
-        {trend.length > 0 && (
-          <div className="card p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Activity size={14} className="text-violet-500" />
-              <h3 className="text-sm font-extrabold">{tt('최근 14일 부하 흐름')}</h3>
-            </div>
-            <MiniChart data={trend.slice(-14)} />
-            <p className="text-[11px] text-[var(--muted)] mt-3 leading-relaxed">
-              <span className="inline-block w-2 h-2 rounded-full bg-violet-400 mr-1" /> {tt('장기 피트니스 (꾸준함)')}
-              {'  '}<span className="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1" /> {tt('최근 부하 (피로)')}
-            </p>
-          </div>
-        )}
-
-        {/* 안내 카드 */}
-        <div className="card p-4 bg-violet-50/40 dark:bg-violet-950/15 border-violet-200/40 dark:border-violet-900/30 flex items-start gap-2.5">
-          <Info size={14} className="text-violet-500 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-xs font-extrabold text-violet-700 dark:text-violet-300">{tt('코칭은 어떻게 계산되나요?')}</p>
-            <p className="text-[11px] text-[var(--muted)] mt-1 leading-relaxed">
-              {tt('거리 · 시간 기반으로 매일 부하 점수를 매기고, 장기 평균(42일)과 단기 평균(7일)의 차이로 오늘 컨디션을 산출해요. 체중·최대 심박수 입력 시 더 정확해져요.')}
-            </p>
-          </div>
-        </div>
-
-        {/* 설정 (펼침) */}
+        {/* 설정 (펼침) — 2026-07-11 피드백: 이전엔 페이지 맨 아래에 열려서 "클릭이 안 된다"고
+            느껴졌음. 기어 탭 즉시 보이도록 최상단으로 이동. */}
         {showSettings && (
           <div className="card p-5 space-y-3 border-violet-200 dark:border-violet-900/40">
             <div className="flex items-center gap-2">
@@ -249,6 +190,86 @@ export default function CoachPage() {
             </button>
           </div>
         )}
+
+        {/* 로드 실패 — 재시도 */}
+        {loadError && !today && (
+          <div className="card p-6 text-center space-y-3">
+            <p className="text-sm font-bold text-[var(--foreground)]">{tt('코칭 데이터를 불러오지 못했어요')}</p>
+            <button
+              onClick={() => setReloadKey(k => k + 1)}
+              className="px-5 py-2.5 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white text-sm font-extrabold active:scale-95"
+            >
+              {tt('다시 시도')}
+            </button>
+          </div>
+        )}
+
+        {/* 오늘 컨디션 hero — loadError 시엔 위의 재시도 카드가 대신 표시 */}
+        {today ? (
+          <div className={`card p-6 bg-gradient-to-br ${scoreColor} text-white shadow-lg`}>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[10px] font-extrabold uppercase tracking-widest text-white/80">Today&apos;s Condition</span>
+              <Sparkles size={16} className="text-white/90" />
+            </div>
+            <div className="flex items-baseline gap-2 mb-2">
+              <p className="text-6xl font-extrabold tracking-tight tabular-nums">{today.score}</p>
+              <p className="text-xl font-extrabold text-white/85">/ 100</p>
+            </div>
+            <p className="text-xl font-extrabold mb-1.5">{today.message}</p>
+            <p className="text-sm text-white/90 leading-relaxed">{today.advice}</p>
+
+            <div className="mt-4 pt-4 border-t border-white/20 grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p className="text-[10px] font-bold text-white/70 uppercase">{tt('장기 피트니스')}</p>
+                <p className="text-lg font-extrabold tabular-nums">{today.ctl}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-white/70 uppercase">{tt('최근 부하')}</p>
+                <p className="text-lg font-extrabold tabular-nums">{today.atl}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-white/70 uppercase">{tt('컨디션')}</p>
+                <p className={`text-lg font-extrabold tabular-nums ${today.tsb > 0 ? 'text-white' : 'text-white/85'}`}>
+                  {today.tsb > 0 ? '+' : ''}{today.tsb}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : !loadError ? (
+          <div className="card p-6 text-center text-sm text-[var(--muted)]">
+            {tt('아직 분석할 활동이 부족해요. 2~3km 가볍게 달려보세요.')}
+          </div>
+        ) : null}
+
+        {/* 타겟 레이스 카운트다운 (build 199) */}
+        <TargetRaceCard />
+
+        {/* 14일 차트 */}
+        {trend.length > 0 && (
+          <div className="card p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Activity size={14} className="text-violet-500" />
+              <h3 className="text-sm font-extrabold">{tt('최근 14일 부하 흐름')}</h3>
+            </div>
+            <MiniChart data={trend.slice(-14)} />
+            <p className="text-[11px] text-[var(--muted)] mt-3 leading-relaxed">
+              <span className="inline-block w-2 h-2 rounded-full bg-violet-400 mr-1" /> {tt('장기 피트니스 (꾸준함)')}
+              {'  '}<span className="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1" /> {tt('최근 부하 (피로)')}
+            </p>
+          </div>
+        )}
+
+        {/* 안내 카드 */}
+        <div className="card p-4 bg-violet-50/40 dark:bg-violet-950/15 border-violet-200/40 dark:border-violet-900/30 flex items-start gap-2.5">
+          <Info size={14} className="text-violet-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-xs font-extrabold text-violet-700 dark:text-violet-300">{tt('코칭은 어떻게 계산되나요?')}</p>
+            <p className="text-[11px] text-[var(--muted)] mt-1 leading-relaxed">
+              {tt('거리 · 시간 기반으로 매일 부하 점수를 매기고, 장기 평균(42일)과 단기 평균(7일)의 차이로 오늘 컨디션을 산출해요. 체중·최대 심박수 입력 시 더 정확해져요.')}
+            </p>
+          </div>
+        </div>
+
       </div>
 
       {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2500} />}

@@ -146,9 +146,10 @@ export default function WeeklyGoalCard({ weeklyStreak = 0 }: Props) {
               <h3 className="text-sm font-extrabold text-[var(--foreground)]">{tt('주간 목표')}</h3>
             </div>
             <div className="flex items-center gap-2">
+              {/* 2026-07-11 피드백: 글씨가 너무 작다 → 11px → 15px + 아이콘 확대 */}
               {weeklyStreak >= 1 && (
-                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-orange-500/10 text-[11px] font-extrabold text-orange-600">
-                  <Flame size={11} />
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-500/10 text-[15px] font-extrabold text-orange-600">
+                  <Flame size={15} />
                   {locale === 'en' ? `${weeklyStreak}-week streak` : `${weeklyStreak}주 연속`}
                 </span>
               )}

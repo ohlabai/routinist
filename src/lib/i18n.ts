@@ -1143,6 +1143,7 @@ const EXTRAS_EN: Record<string, string> = {
   '이번 주도 한 번 달려볼까요?': "Let's run this week",
   // 알림함 (build 298)
   '모두 읽음': 'Mark all read',
+  '코칭 데이터를 불러오지 못했어요': "Couldn't load your coaching data",
 
   // 주간 스트릭 + 주간 목표 원탭 (build 299 C1+C2)
   '주간 목표': 'Weekly goal',

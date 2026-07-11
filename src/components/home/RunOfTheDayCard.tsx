@@ -9,6 +9,8 @@ import Link from 'next/link';
 import { Crown, MapPin, Zap } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
+import { useAuth } from '@/components/AuthProvider';
+import CheerButton from '@/components/social/CheerButton';
 
 interface RunOfTheDay {
   pick_date: string;
@@ -30,6 +32,7 @@ function paceLabel(sec: number | null): string {
 
 export default function RunOfTheDayCard() {
   const { tt } = useI18n();
+  const { user } = useAuth();
   const [pick, setPick] = useState<RunOfTheDay | null>(null);
 
   useEffect(() => {
@@ -86,6 +89,12 @@ export default function RunOfTheDayCard() {
             )}
           </div>
         </div>
+        {/* 2026-07-11 피드백: 어제의 주인공에게 바로 응원 — 카드 Link 와 분리 (propagation 차단) */}
+        {user && pick.user_id !== user.id && (
+          <div className="flex-shrink-0" onClick={(e) => e.preventDefault()}>
+            <CheerButton toUserId={pick.user_id} context="profile" size="sm" />
+          </div>
+        )}
       </div>
     </Link>
   );
