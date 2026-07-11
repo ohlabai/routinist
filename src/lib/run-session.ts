@@ -93,6 +93,8 @@ export interface RunSessionPlugin {
   getSnapshot(): Promise<RunSessionSnapshot>;
   /** build 299: 카운트다운 beep 용 오디오 세션 선점 (무음 스위치 무시). 구버전 빌드엔 없음. */
   prepareAudio?(): Promise<{ ok: boolean }>;
+  /** build 300 후속: 네이티브 TTS 발화 (카운트다운 등). 구버전 빌드엔 없음. */
+  speakText?(opts: { text: string }): Promise<{ ok: boolean }>;
   addListener(eventName: 'update', listenerFunc: (data: RunSessionUpdateEvent) => void): Promise<PluginListenerHandle>;
   addListener(eventName: 'milestone', listenerFunc: (data: RunSessionMilestoneEvent) => void): Promise<PluginListenerHandle>;
   removeAllListeners(): Promise<void>;
@@ -166,6 +168,16 @@ export async function stopRunSession(): Promise<RunSessionSummary> {
 
 // build 299: 시작 직전 호출 — WebAudio beep 이 무음 스위치에 먹히지 않게 .playback 선점.
 // 플러그인 미탑재 (구버전 빌드) 면 조용히 무시.
+// build 300 후속: 카운트다운 음성 — WebAudio 비프가 iOS 실기기에서 신뢰 불가 (무음 지속),
+// 무음 스위치 무시가 실증된 네이티브 TTS 로. 미탑재 빌드면 false (호출측이 beep 폴백).
+export async function speakNative(text: string): Promise<boolean> {
+  if (!isRunSessionAvailable()) return false;
+  try {
+    const r = await RunSession.speakText?.({ text });
+    return r?.ok === true;
+  } catch { return false; }
+}
+
 export async function prepareRunAudio(): Promise<void> {
   if (!isRunSessionAvailable()) return;
   try { await RunSession.prepareAudio?.(); } catch { /* beep 은 ambient 로 재생 */ }

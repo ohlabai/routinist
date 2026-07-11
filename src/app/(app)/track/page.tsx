@@ -31,7 +31,7 @@ import {
 // build 292 Phase 1: 네이티브 RunSession 엔진. 두뇌 (거리/자동정지/음성) 를 native 로 이관,
 // JS 는 'update' 이벤트 렌더러. 플러그인 미탑재 빌드는 위 레거시 JS 엔진 폴백 (동작 무변경).
 import {
-  isRunSessionAvailable, requestRunPermissions, prepareRunAudio, startRunSession,
+  isRunSessionAvailable, requestRunPermissions, prepareRunAudio, speakNative, startRunSession,
   pauseRunSession, resumeRunSession, stopRunSession, getRunSnapshot,
   attachRunSessionListeners,
   type RunGpsSignal, type RunSessionSnapshot,
@@ -427,20 +427,30 @@ function TrackPageImpl() {
 
   // 카운트다운 tick (3 → 2 → 1 → GO!)
   // build 220 #1: 각 tick 마다 짧은 beep (3,2,1: 660Hz, GO: 880Hz 길게).
+  // build 300 후속: 네이티브면 TTS 카운트다운 ("셋/둘/하나/출발") — WebAudio 비프가 iOS
+  // 실기기에서 무음 (hans 실측, prepareAudio 이후에도). 웹/레거시만 비프 유지.
   useEffect(() => {
     if (countdown === null) return;
+    const sayOrBeep = (n: number) => {
+      const ko = ['출발!', '하나', '둘', '셋'];
+      const en = ['Go!', 'one', 'two', 'three'];
+      const text = (locale === 'en' ? en : ko)[n] ?? String(n);
+      void speakNative(text).then(ok => {
+        if (!ok) playCountdownBeep(n === 0 ? 'go' : 'tick');
+      });
+    };
     if (countdown <= 0) {
-      playCountdownBeep('go');
+      sayOrBeep(0);
       const t = setTimeout(() => {
         setCountdown(null);
         beginTrackingAfterCountdown();
       }, GO_HOLD_MS);
       return () => clearTimeout(t);
     }
-    playCountdownBeep('tick');
+    sayOrBeep(countdown);
     const t = setTimeout(() => setCountdown(c => (c !== null ? c - 1 : null)), COUNTDOWN_TICK_MS);
     return () => clearTimeout(t);
-  }, [countdown, beginTrackingAfterCountdown]);
+  }, [countdown, beginTrackingAfterCountdown, locale]);
 
   // build 283 (hans 2026-06-11 회귀 fix):
   // 이전 deps 가 `[state?.status]` 라서 active ↔ paused 전환마다 watcher cleanup + re-create.

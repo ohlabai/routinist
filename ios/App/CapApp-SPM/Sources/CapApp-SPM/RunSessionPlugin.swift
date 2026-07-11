@@ -35,6 +35,7 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         CAPPluginMethod(name: "stop", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getSnapshot", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "prepareAudio", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "speakText", returnType: CAPPluginReturnPromise),
     ]
 
     // MARK: - 튜닝 상수 (계약의 임계값 — 필드 튜닝 반복 대비 한곳에 모음)
@@ -443,6 +444,17 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
             NSLog("[RunSession] prepareAudio failed: \(error)")
             call.resolve(["ok": false])
         }
+    }
+
+    // build 300 후속: 카운트다운을 네이티브 TTS 로 — WKWebView WebAudio 비프가 prepareAudio
+    // (build 299) 이후에도 실기기에서 무음이라 (hans 실측), 무음 스위치 무시가 실증된
+    // speak 경로 ("셋/둘/하나/출발") 로 대체. JS 가 tick 마다 호출.
+    @objc func speakText(_ call: CAPPluginCall) {
+        guard let text = call.getString("text"), !text.isEmpty else {
+            call.resolve(["ok": false]); return
+        }
+        speak(text)
+        call.resolve(["ok": true])
     }
 
     // MARK: - 트래킹 시작/종료
