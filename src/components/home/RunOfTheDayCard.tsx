@@ -6,11 +6,11 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Crown, MapPin, Zap } from 'lucide-react';
+import { Crown, MapPin, Zap, Heart } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import { useAuth } from '@/components/AuthProvider';
-import CheerButton from '@/components/social/CheerButton';
+import { sendCheer } from '@/lib/cheer-data';
 
 interface RunOfTheDay {
   pick_date: string;
@@ -34,6 +34,20 @@ export default function RunOfTheDayCard() {
   const { tt } = useI18n();
   const { user } = useAuth();
   const [pick, setPick] = useState<RunOfTheDay | null>(null);
+  // 2026-07-11 v2: 이모지 선택창 (CheerButton) 이 Link 안에서 내비게이션과 충돌해 화면이
+  // 흔들리던 버그 → 원탭 하트로 교체. 탭 즉시 채워진 하트 + 팝 애니메이션 (optimistic).
+  const [cheered, setCheered] = useState(false);
+  const [popping, setPopping] = useState(false);
+
+  const handleHeart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (cheered || !pick) return;
+    setCheered(true);
+    setPopping(true);
+    setTimeout(() => setPopping(false), 450);
+    void sendCheer(pick.user_id, '❤️', 'run_of_the_day');
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -89,11 +103,19 @@ export default function RunOfTheDayCard() {
             )}
           </div>
         </div>
-        {/* 2026-07-11 피드백: 어제의 주인공에게 바로 응원 — 카드 Link 와 분리 (propagation 차단) */}
         {user && pick.user_id !== user.id && (
-          <div className="flex-shrink-0" onClick={(e) => e.preventDefault()}>
-            <CheerButton toUserId={pick.user_id} context="profile" size="sm" />
-          </div>
+          <button
+            onClick={handleHeart}
+            aria-label={tt('응원 보내기')}
+            className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center bg-white/70 dark:bg-white/10 active:scale-90 transition"
+          >
+            <Heart
+              size={22}
+              className={`transition-transform duration-300 ${popping ? 'scale-150' : 'scale-100'} ${
+                cheered ? 'text-rose-500 fill-rose-500' : 'text-rose-400'
+              }`}
+            />
+          </button>
         )}
       </div>
     </Link>
