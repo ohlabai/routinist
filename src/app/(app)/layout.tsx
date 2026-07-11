@@ -16,6 +16,7 @@ import { fetchUnreadNotificationSummary, BADGE_REFRESH_EVENT } from '@/lib/notif
 import { setAppBadge } from '@/lib/app-badge';
 import { getUnreadCount as getUnreadMessageCount } from '@/lib/message-data';
 import AppToast from '@/components/AppToast';
+import WelcomeSyncSheet from '@/components/WelcomeSyncSheet';
 
 // 4탭 구조 (단순화 B 트랙, 2026-07-11): 홈 / 랭킹 / 소셜 / 내정보.
 // 쇼핑 탭 강등 — /shop/** 라우트는 전부 유지, 진입점은 /profile 액션 그리드로 이동.
@@ -182,6 +183,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       .catch(() => {});
   }, [user]);
 
+  // build 299: 환영 sync 보상 순간 — 첫 sync 가 러닝을 가져왔으면 (synced > 0) 축하 시트 1회.
+  // 신규 유저 대부분이 import 경로인데 지금까진 무음이었음 (완주→축하 루프 부재).
+  const [welcomeSyncCount, setWelcomeSyncCount] = useState<number | null>(null);
+
   // 신문 모델 (build 57): 자동 sync 제거.
   // 첫 로그인 직후 1회만 환영 sync (localStorage flag), 이후엔 사용자가 직접 동기화 버튼을 눌러야 sync.
   // 이전엔 layout mount 마다 (=화면 이동마다) sync 가 발사 → SDK lock + 60s timeout 회귀의 근원.
@@ -210,6 +215,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           ]);
           if (r.success) {
             window.localStorage.setItem(flagKey, String(Date.now()));
+            // build 299: 가져온 활동이 있으면 환영 축하 시트 — user 당 1회 (localStorage).
+            const celebratedKey = `welcome_sync_celebrated:${user.id}`;
+            if (r.synced > 0 && !window.localStorage.getItem(celebratedKey)) {
+              window.localStorage.setItem(celebratedKey, '1');
+              setWelcomeSyncCount(r.synced);
+            }
           }
         } catch (e) {
           console.warn('[layout] 첫 sync 예외 (재시도 가능):', e);
@@ -276,6 +287,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* build 292: 초대 코드 자동 claim 성공 토스트 */}
       {referralToast && (
         <AppToast text={referralToast} tone="ok" onClose={() => setReferralToast(null)} durationMs={3500} />
+      )}
+
+      {/* build 299: Apple Health 환영 sync 완료 축하 시트 (user 당 1회) */}
+      {welcomeSyncCount !== null && welcomeSyncCount > 0 && (
+        <WelcomeSyncSheet count={welcomeSyncCount} onClose={() => setWelcomeSyncCount(null)} />
       )}
 
       {/* 메인 컨텐츠 — 유일한 스크롤 영역 */}

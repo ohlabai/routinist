@@ -1,6 +1,6 @@
 import { getSupabase } from './supabase';
 import type { Activity, UserMonthlyGoal } from '@/types';
-import { todayStr, daysAgoStr, startOfWeekStr } from './kst';
+import { todayStr, daysAgoStr, startOfWeekStr, toLocalDateStr } from './kst';
 
 // ===== Activities =====
 
@@ -262,6 +262,104 @@ export function getStreak(activities: Activity[], freezeDates?: Set<string>): nu
     }
   }
   return streak;
+}
+
+// ===== 주간 스트릭 (습관 코어 C1, 2026-07-11) =====
+// 배경: 유저 전원이 주 2~4회 러너 (매일 러너 0명) — 일 단위 스트릭 보유자 62명 중 2명뿐이라
+// 스트릭 장치 (경고 카드·보호권·streak_risk push) 가 전부 공회전. 주 단위로 전환.
+//
+// 정의:
+//  - 주 = 사용자 timezone 월요일~일요일 (startOfWeekStr 과 동일 기준). 주 키 = 그 주 월요일 'YYYY-MM-DD'.
+//  - 달성 주 = 그 주의 러닝 일수 (같은 날 2회 러닝 = 1회, 걷기 제외) ≥ max(1, weeklyGoal ?? 1).
+//  - 스트릭 = 이번 주 또는 지난주에 끝나는 연속 달성 주 수.
+//    이번 주가 아직 미달성이어도 지난주까지 이어져 있으면 유지 — 이번 주가 끝나기 전까진 안 끊김.
+//  - 보호권 재해석: 사용일 (freezeDates, 'YYYY-MM-DD') 이 포함된 주는 통째로 달성 취급
+//    (빈 주 1개 = 보호권 1개. 기존 get_my_streak_freezes/use_streak_freeze RPC 계약 그대로 재사용).
+// DB 대응물: enqueue_streak_risk_pushes (20260711130000_weekly_streak_push.sql) — 반드시 동일 정의 유지.
+
+// 주어진 'YYYY-MM-DD' 가 속한 주의 월요일. 로컬 자정 Date 생성 — UTC 파싱 밀림 없음.
+export function weekStartOf(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  const offset = (dt.getDay() + 6) % 7; // 월=0 … 일=6
+  return toLocalDateStr(new Date(y, m - 1, d - offset));
+}
+
+// 'YYYY-MM-DD' + n일. setDate 오버플로 처리로 월/년 경계 자동.
+export function addDaysStr(dateStr: string, n: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return toLocalDateStr(new Date(y, m - 1, d + n));
+}
+
+// 달성 주 집합 (주 키 = 월요일 'YYYY-MM-DD').
+function achievedWeekSet(
+  activities: Activity[],
+  weeklyGoal: number | null | undefined,
+  freezeDates?: Set<string>,
+): Set<string> {
+  const goal = Math.max(1, weeklyGoal ?? 1);
+  const daysByWeek = new Map<string, Set<string>>();
+  runningOnly(activities).forEach(a => {
+    const wk = weekStartOf(a.activity_date);
+    let days = daysByWeek.get(wk);
+    if (!days) { days = new Set(); daysByWeek.set(wk, days); }
+    days.add(a.activity_date);
+  });
+  const achieved = new Set<string>();
+  daysByWeek.forEach((days, wk) => { if (days.size >= goal) achieved.add(wk); });
+  // 보호권 사용일이 있는 주는 목표와 무관하게 달성 취급 (빈 주 메꿈)
+  freezeDates?.forEach(d => achieved.add(weekStartOf(d)));
+  return achieved;
+}
+
+// 현재 주간 스트릭. 이번 주 달성 시 이번 주 포함, 미달성이면 지난주 앵커로 계산 (끊김 유예).
+export function getWeeklyStreak(
+  activities: Activity[],
+  weeklyGoal: number | null | undefined,
+  freezeDates?: Set<string>,
+): number {
+  const achieved = achievedWeekSet(activities, weeklyGoal, freezeDates);
+  if (achieved.size === 0) return 0;
+  const thisWeek = startOfWeekStr();
+  let anchor = achieved.has(thisWeek) ? thisWeek : addDaysStr(thisWeek, -7);
+  let streak = 0;
+  while (achieved.has(anchor)) {
+    streak++;
+    anchor = addDaysStr(anchor, -7);
+  }
+  return streak;
+}
+
+// 역대 최장 주간 스트릭 (달성 주 목록에서 7일 간격 연속 run 최대 길이).
+export function getMaxWeeklyStreak(
+  activities: Activity[],
+  weeklyGoal: number | null | undefined,
+  freezeDates?: Set<string>,
+): number {
+  const achieved = achievedWeekSet(activities, weeklyGoal, freezeDates);
+  if (achieved.size === 0) return 0;
+  const weeks = [...achieved].sort();
+  let max = 1;
+  let cur = 1;
+  for (let i = 1; i < weeks.length; i++) {
+    if (addDaysStr(weeks[i - 1], 7) === weeks[i]) {
+      cur++;
+      if (cur > max) max = cur;
+    } else {
+      cur = 1;
+    }
+  }
+  return max;
+}
+
+// 이번 주 러닝 일수 (m/goal 진행 표시용 — 같은 날 2회 러닝 = 1회, 걷기 제외).
+export function getThisWeekRunDays(activities: Activity[]): number {
+  const monday = startOfWeekStr();
+  return new Set(
+    runningOnly(activities)
+      .filter(a => a.activity_date >= monday)
+      .map(a => a.activity_date)
+  ).size;
 }
 
 export function getTotalDistance(activities: Activity[]): number {

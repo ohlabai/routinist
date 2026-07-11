@@ -53,7 +53,7 @@ function getCategories(tt: (ko: string) => string, locale: 'ko' | 'en'): Categor
     { key: 'club_course_start', label: tt('클럽 마라톤 시작'), description: locale === 'en' ? 'When your club starts a new course together' : '우리 클럽이 새 코스를 함께 시작했을 때', Icon: Flag },
     { key: 'club_course_complete', label: tt('클럽 마라톤 완주'), description: locale === 'en' ? 'When your club finishes a course together' : '우리 클럽이 코스를 함께 완주했을 때', Icon: Award },
     { key: 'idle_reminder', label: tt('러닝 리마인더'), description: locale === 'en' ? 'A gentle nudge when you have been away for a while' : '한동안 달리지 않았을 때 살짝 보내는 안부', Icon: AlarmClock },
-    { key: 'streak_risk', label: locale === 'en' ? 'Streak at risk' : '연속 기록 알림', description: locale === 'en' ? 'An evening heads-up when your streak is about to break' : '연속 달리기가 끊기기 전날 저녁에 알려드려요', Icon: AlarmClock },
+    { key: 'streak_risk', label: locale === 'en' ? 'Streak at risk' : '연속 기록 알림', description: locale === 'en' ? 'A weekend heads-up when your weekly streak needs one more run' : '주간 연속 기록이 끊기기 전 주말에 살짝 알려드려요', Icon: AlarmClock },
     { key: 'weekly_recap', label: locale === 'en' ? 'Weekly recap' : '주간 리포트', description: locale === 'en' ? 'Your last week in numbers, every Monday' : '월요일마다 받아보는 지난주 러닝 요약', Icon: CalendarDays },
     { key: 'month_end_recap', label: tt('월말 결산'), description: locale === 'en' ? 'Your monthly running recap at month-end' : '월말에 받아보는 이달의 내 러닝 요약', Icon: CalendarDays },
     { key: 'first_place_month', label: locale === 'en' ? 'Monthly 1st place' : '월간 1위 달성', description: locale === 'en' ? 'When you reach #1 in your ranking scope this month' : '이번 달 내 랭킹 범위에서 1위에 올랐을 때', Icon: Trophy },

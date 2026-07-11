@@ -1,10 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
 import { formatDuration, fetchActivityRoute, fetchActivityById } from '@/lib/routinist-data';
+import { getSupabase } from '@/lib/supabase';
+import { startOfWeekStr, todayStr } from '@/lib/kst';
+import { ttl } from '@/lib/i18n';
+import { ACHIEVEMENTS } from '@/lib/achievements-data';
+import BadgeCelebration from '@/components/home/BadgeCelebration';
+import AppToast from '@/components/AppToast';
 import { useDistanceUnit, toDisplayDistance, unitLabel, paceUnitLabel, formatPaceForUnit } from '@/lib/units';
 import type { Activity } from '@/types';
 import CommentSection from '@/components/social/CommentSection';
@@ -79,6 +85,82 @@ function ActivityDetail() {
     [baseActivity, route]
   );
 
+  // ── build 299: 러닝 직후 보상 순간 (TrackSummarySheet 저장 → just_saved=1 로 진입) ──
+
+  // 신규 배지 축하 — TrackSummarySheet 가 저장 직후 체크한 배지 코드를 query 로 전달받아
+  // 그 자리에서 BadgeCelebration 모달. dashboard 와 같은 localStorage
+  // `badge_celebrated:{code}` 계약 → 홈 복귀 시 이중 축하 없음.
+  const justSaved = searchParams.get('just_saved') === '1';
+  const newBadgesRaw = searchParams.get('new_badges');
+  const [badgeQueue, setBadgeQueue] = useState<string[]>(() => {
+    // lazy initializer — mount 시 1회만 평가 (query param 은 저장 직후 진입에서만 옴)
+    if (!newBadgesRaw || typeof window === 'undefined') return [];
+    try {
+      return newBadgesRaw
+        .split(',')
+        .filter(code => ACHIEVEMENTS[code] && !localStorage.getItem(`badge_celebrated:${code}`));
+    } catch { return []; /* localStorage 불가 환경 — 축하 생략 */ }
+  });
+
+  // 마일리지 적립 피드백 — 서버 트리거 (km당 1P + 보너스) 가 심은 mileage_transactions 를
+  // activity_id (metadata) 로 1회 조회해서 "+NP 적립" 토스트. 트리거 지연 대비 1.5s 재시도 1번.
+  const [mileageToast, setMileageToast] = useState<string | null>(null);
+  const mileageCheckedRef = useRef(false);
+  useEffect(() => {
+    if (!justSaved || !id || !user || mileageCheckedRef.current) return;
+    mileageCheckedRef.current = true;
+    let cancelled = false;
+    const fetchEarned = async (): Promise<number> => {
+      const { data } = await getSupabase()
+        .from('mileage_transactions')
+        .select('amount')
+        .eq('user_id', user.id)
+        .eq('metadata->>activity_id', id);
+      return ((data ?? []) as { amount: number | null }[])
+        .reduce((sum, r) => sum + (r.amount ?? 0), 0);
+    };
+    (async () => {
+      try {
+        let total = await fetchEarned();
+        if (total <= 0) {
+          await new Promise(r => setTimeout(r, 1500));
+          if (cancelled) return;
+          total = await fetchEarned();
+        }
+        if (!cancelled && total > 0) {
+          setMileageToast(ttl('마일리지 +{n}P 적립!').replace('{n}', String(total)));
+        }
+      } catch { /* 적립 조회 실패 — 토스트 생략 (저장 자체는 정상) */ }
+    })();
+    return () => { cancelled = true; };
+  }, [justSaved, id, user]);
+
+  // 이번 주 n번째 러닝 — KST(사용자 timezone) 월~일 기준 러닝 수 (걷기 제외).
+  // 본인 활동 + 이번 주 활동일 때만 표시. (주간 스트릭 연동은 다음 빌드 — 여기선 이 한 줄만)
+  const [weekRunCount, setWeekRunCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (!user || !baseActivity) return;
+    if (baseActivity.user_id !== user.id) return;
+    if (baseActivity.activity_type === 'walking') return;
+    const weekStart = startOfWeekStr();
+    const today = todayStr();
+    if (baseActivity.activity_date < weekStart || baseActivity.activity_date > today) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { count } = await getSupabase()
+          .from('activities')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('activity_type', 'running')
+          .gte('activity_date', weekStart)
+          .lte('activity_date', today);
+        if (!cancelled && count != null && count > 0) setWeekRunCount(count);
+      } catch { /* 조회 실패 — 라인 생략 */ }
+    })();
+    return () => { cancelled = true; };
+  }, [user, baseActivity]);
+
   if (!activity) {
     // 폴백 fetch 시도 중에는 로딩, 끝나도 못 찾으면 not found.
     if (id && !fallbackTried) {
@@ -124,6 +206,21 @@ function ActivityDetail() {
 
   return (
     <div className="p-4 max-w-lg mx-auto space-y-4 pb-8">
+      {/* build 299: 저장 직후 보상 순간 — 적립 토스트 + 신규 배지 축하 모달 */}
+      {mileageToast && (
+        <AppToast text={mileageToast} tone="ok" onClose={() => setMileageToast(null)} durationMs={3500} />
+      )}
+      {badgeQueue.length > 0 && (
+        <BadgeCelebration
+          key={badgeQueue[0]}
+          code={badgeQueue[0]}
+          onClose={() => {
+            try { localStorage.setItem(`badge_celebrated:${badgeQueue[0]}`, '1'); } catch {}
+            setBadgeQueue(q => q.slice(1));
+          }}
+        />
+      )}
+
       {/* 헤더 */}
       <div className="flex items-center gap-3">
         <button onClick={() => router.back()} className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-[var(--card-border)]">
@@ -138,6 +235,15 @@ function ActivityDetail() {
           </button>
         )}
       </div>
+
+      {/* build 299: 이번 주 n번째 러닝 — 완주 직후 "쌓이고 있다" 는 감각 한 줄 */}
+      {weekRunCount !== null && (
+        <div className="flex justify-center">
+          <span className="inline-flex items-center px-3.5 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/40 text-xs font-extrabold text-emerald-700 dark:text-emerald-300">
+            {ttl('이번 주 {n}번째 러닝 🔥').replace('{n}', String(weekRunCount))}
+          </span>
+        </div>
+      )}
 
       {/* 공유 카드 모달 */}
       {showShare && !isGuest && (

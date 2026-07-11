@@ -202,8 +202,8 @@ export default function GoalsPage() {
         <p className="text-xs text-[var(--muted)]">
           {weeklyGoal !== null
             ? (locale === 'en'
-                ? `Goal: ${weeklyGoal} run${weeklyGoal === 1 ? '' : 's'} a week — the home card tracks your week day by day. Tap again to clear.`
-                : `주 ${weeklyGoal}회 목표 — 홈 '이번 주 도전' 카드에서 요일별로 채워져요. 다시 누르면 해제돼요`)
+                ? `Goal: ${weeklyGoal} run${weeklyGoal === 1 ? '' : 's'} a week — the Weekly Goal card on Home tracks your week, and hitting it grows your weekly streak. Tap again to clear.`
+                : `주 ${weeklyGoal}회 목표 — 홈 '주간 목표' 카드에서 요일별로 채워지고, 채운 주가 이어지면 주간 연속 기록이 쌓여요. 다시 누르면 해제돼요`)
             : tt('처음이라면 주 3회부터 — 습관이 되는 가장 부담 없는 횟수예요')}
         </p>
       </div>

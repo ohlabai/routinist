@@ -5,8 +5,9 @@ import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
 import PullToRefresh from '@/components/PullToRefresh';
 import {
-  getStreak,
-  getMaxStreak,
+  getWeeklyStreak,
+  getMaxWeeklyStreak,
+  getThisWeekRunDays,
   getMonthlyDistance,
   getWeeklyActivities,
   runningOnly,
@@ -47,6 +48,7 @@ import LiveRunningIndicator from '@/components/home/LiveRunningIndicator';
 import RankNeighbors from '@/components/home/RankNeighbors';
 import HomeMapPreview from '@/components/home/HomeMapPreview';
 import HomeChallengeCard from '@/components/home/HomeChallengeCard';
+import WeeklyGoalCard from '@/components/home/WeeklyGoalCard';
 import HomeWorldMarathonCard from '@/components/home/HomeWorldMarathonCard';
 import CourseCompletionModal from '@/components/world/CourseCompletionModal';
 import HomeOnboardingCard from '@/components/home/HomeOnboardingCard';
@@ -364,18 +366,24 @@ export default function DashboardPage() {
 
   const totalKm = Number(profile?.total_distance_km ?? 0);
   const totalRuns = profile?.total_runs ?? 0;
+  // 습관 코어 C1 (2026-07-11): 일 단위 → 주 단위 스트릭 전환.
+  // 유저 전원이 주 2~4회 러너라 일 스트릭은 62명 중 2명만 보유 — 주 단위가 실제 습관 단위.
+  // 보호권 사용일이 포함된 주는 달성 취급 (freezes.uses 빈 Set 이면 순수 러닝 기준).
+  const weeklyRunGoal = profile?.weekly_run_goal ?? null;
   const streakState = useMemo(() => {
-    // 보호권 사용일은 달린 날로 간주 (freezes.uses 빈 Set 이면 기존과 동일)
-    const streak = getStreak(activities, freezes.uses);
-    const maxStreak = getMaxStreak(activities, freezes.uses);
+    const streak = getWeeklyStreak(activities, weeklyRunGoal, freezes.uses);
+    const maxStreak = getMaxWeeklyStreak(activities, weeklyRunGoal, freezes.uses);
+    const thisWeekRunDays = getThisWeekRunDays(activities);
     return {
       streak,
       maxStreak,
+      thisWeekRunDays,
       isRecordBreaking: streak > 0 && streak === maxStreak,
-      daysToRecord: streak > 0 && streak < maxStreak ? maxStreak - streak : 0,
+      weeksToRecord: streak > 0 && streak < maxStreak ? maxStreak - streak : 0,
     };
-  }, [activities, freezes.uses]);
-  const { streak, maxStreak, isRecordBreaking, daysToRecord } = streakState;
+  }, [activities, weeklyRunGoal, freezes.uses]);
+  const { streak, maxStreak, thisWeekRunDays, isRecordBreaking, weeksToRecord } = streakState;
+  const weeklyGoalEff = Math.max(1, weeklyRunGoal ?? 1);
 
   const ytdMonth = new Date().getMonth();
   const yearlyTotal = monthlyData.slice(0, ytdMonth + 1).reduce((s, d) => s + d.distance, 0);
@@ -693,7 +701,9 @@ export default function DashboardPage() {
           <WeeklyRecapCard activities={activities} />
           <StreakWarningCard
             activities={activities}
-            streak={streak}
+            weeklyStreak={streak}
+            weeklyGoal={weeklyRunGoal}
+            thisWeekRunDays={thisWeekRunDays}
             freezeCount={freezes.count}
             freezeUses={freezes.uses}
             onFreezeUsed={loadFreezes}
@@ -853,6 +863,10 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* 6.3 주간 목표 원탭 카드 (습관 코어 C2, 2026-07-11) — 신규 러너 모드에서도 렌더
+            (시작 가이드·이달 목표 아래). 미설정이면 [주 2회][주 3회][주 4회] 원탭, 설정자는 진행 도트. */}
+        <WeeklyGoalCard weeklyStreak={streak} />
+
         {/* 신규 러너 모드에선 6.5~8 (도전·월드런·스토리·시즌·랭킹Hero·실시간) 스킵 */}
         {!isNewRunner && (<>
         {/* 6.5 이번 주 도전 (build 100) — build 143: 300ms defer (secondary) */}
@@ -914,25 +928,32 @@ export default function DashboardPage() {
 
       {/* 신규 러너 모드에선 16~24 (스트릭·PB·차트류·요약칩) 스킵 — 25 최근 활동만 렌더 */}
       {!isNewRunner && (<>
-      {/* 16 연속 달리기 스트릭 */}
+      {/* 16 주간 러닝 스트릭 (습관 코어 C1 — 일 단위에서 전환).
+          "🔥 N주 연속" + 이번 주 진행 (m/goal회) + 최장 연속 주. */}
       <LazyMount minHeight={160}>
       <div className="card p-5">
         <div className="flex items-center gap-2 mb-3">
           <Flame size={16} className="text-orange-500" />
-          <h3 className="text-base font-semibold text-[var(--foreground)]">{tt('연속 달리기 스트릭')}</h3>
+          <h3 className="text-base font-semibold text-[var(--foreground)]">{tt('주간 러닝 스트릭')}</h3>
         </div>
         <div className="grid grid-cols-3 gap-2 text-center">
           <div>
-            <p className="text-3xl font-extrabold text-orange-500">{streak}</p>
-            <p className="text-xs text-[var(--muted)] mt-0.5">{tt('현재 연속일')}</p>
+            <p className="text-3xl font-extrabold text-orange-500">
+              {streak}<span className="text-base align-baseline">{locale === 'en' ? 'w' : '주'}</span>
+            </p>
+            <p className="text-xs text-[var(--muted)] mt-0.5">{tt('연속 달성 주')}</p>
           </div>
           <div className="border-x border-[var(--card-border)]">
-            <p className="text-3xl font-extrabold text-purple-500">{maxStreak}</p>
-            <p className="text-xs text-[var(--muted)] mt-0.5">{tt('최장 연속일')}</p>
+            <p className="text-3xl font-extrabold text-emerald-600 tabular-nums">
+              {thisWeekRunDays}<span className="text-base text-[var(--muted)]">/{weeklyGoalEff}</span>
+            </p>
+            <p className="text-xs text-[var(--muted)] mt-0.5">{tt('이번 주 러닝')}</p>
           </div>
           <div>
-            <p className="text-3xl font-extrabold text-[var(--foreground)]">{totalRuns}</p>
-            <p className="text-xs text-[var(--muted)] mt-0.5">{tt('총 러닝')}</p>
+            <p className="text-3xl font-extrabold text-purple-500">
+              {maxStreak}<span className="text-base align-baseline">{locale === 'en' ? 'w' : '주'}</span>
+            </p>
+            <p className="text-xs text-[var(--muted)] mt-0.5">{tt('최장 연속 주')}</p>
           </div>
         </div>
         {isRecordBreaking && maxStreak >= 2 && (
@@ -940,9 +961,9 @@ export default function DashboardPage() {
             {tt('🔥 최장 기록 갱신 중!')}
           </p>
         )}
-        {daysToRecord > 0 && daysToRecord <= 3 && (
+        {weeksToRecord > 0 && weeksToRecord <= 3 && (
           <p className="text-center text-xs font-semibold text-[var(--accent)] mt-3">
-            {locale === 'en' ? `${daysToRecord} day${daysToRecord === 1 ? '' : 's'} to your all-time record!` : `역대 최장 기록까지 ${daysToRecord}일!`}
+            {locale === 'en' ? `${weeksToRecord} week${weeksToRecord === 1 ? '' : 's'} to your all-time record!` : `역대 최장 기록까지 ${weeksToRecord}주!`}
           </p>
         )}
       </div>

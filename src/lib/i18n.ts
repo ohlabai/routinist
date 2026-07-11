@@ -1144,6 +1144,27 @@ const EXTRAS_EN: Record<string, string> = {
   // 알림함 (build 298)
   '모두 읽음': 'Mark all read',
 
+  // 주간 스트릭 + 주간 목표 원탭 (build 299 C1+C2)
+  '주간 목표': 'Weekly goal',
+  '이번 주 몇 번 달릴까요?': 'How many runs this week?',
+  '거리보다 꾸준함! 횟수 목표를 채우면 주간 연속 기록이 쌓여요': 'Consistency beats distance! Hit your weekly count and your weekly streak grows',
+  '다른 횟수로 정하기': 'Pick a different count',
+  '수정': 'Edit',
+  '좋아요! 이번 주부터 하나씩 채워봐요': 'Nice! Let’s fill them in one by one this week',
+  '지난주는 이미 지켜져 있어요': 'Last week is already covered',
+  '주간 러닝 스트릭': 'Weekly running streak',
+  '연속 달성 주': 'Weeks in a row',
+  '이번 주 러닝': 'Runs this week',
+  '최장 연속 주': 'Longest streak',
+
+  // 러닝 직후 보상 순간 (build 299 C3)
+  '마일리지 +{n}P 적립!': 'Earned +{n}P mileage!',
+  '이번 주 {n}번째 러닝 🔥': 'Run #{n} this week 🔥',
+  '러닝 {n}개를 가져왔어요!': 'We imported {n} runs!',
+  '지금까지의 기록이 모두 준비됐어요.': 'All your past records are ready.',
+  '이번 주 첫 러닝, 가볍게 달려볼까요? 👟': 'How about an easy first run this week? 👟',
+  '좋아요, 시작할게요!': "Great, let's go!",
+
   // Android Health Connect (build 297)
   'Health Connect 앱이 필요해요. Play 스토어에서 설치해주세요.': 'The Health Connect app is required. Please install it from the Play Store.',
   'Health Connect 업데이트가 필요해요. Play 스토어에서 업데이트해주세요.': 'Health Connect needs an update. Please update it in the Play Store.',

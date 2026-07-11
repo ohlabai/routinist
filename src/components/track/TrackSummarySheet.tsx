@@ -177,24 +177,46 @@ export default function TrackSummarySheet({ finalState, userId, onClose }: Props
       // 이미 허용/거부한 유저는 no-op. fire-and-forget — 네비게이션 안 막음.
       import('@/lib/push-notifications').then(m => m.promptPushPermission()).catch(() => {});
 
+      // build 299: 완주 직후 보상 순간 — PB·신규 배지·적립을 홈 복귀까지 미루지 않고
+      // 활동 페이지에서 바로 축하. query param 으로 전달 (기존 new_pb 패턴 확장).
+      const params = new URLSearchParams({ id: activityId, just_saved: '1' });
+
       // build 197: PB 갱신 확인. 실패해도 저장은 성공으로 처리.
       try {
         const newPBs = await syncPBsFromActivity(activityId, routeData.coordinates, endedAt);
         if (newPBs.length > 0) {
           // 신규 PB 가 있으면 활동 상세에 query string 으로 전달 → 거기서 축하 toast 표시.
-          const pbParam = encodeURIComponent(JSON.stringify(newPBs.map(p => p.distanceMeters)));
-          onClose();
-          router.push(`/activity?id=${activityId}&new_pb=${pbParam}`);
-          return;
+          params.set('new_pb', JSON.stringify(newPBs.map(p => p.distanceMeters)));
         }
       } catch (e) {
         console.warn('[track/summary] PB sync 실패 (저장은 정상)', e);
       }
 
+      // build 299: 배지 체크를 저장 직후 즉석 호출 — 이전엔 dashboard mount 에서만 체크해서
+      // 축하 모달이 홈에 돌아와야 떴음. RPC 는 newly_awarded 를 1회만 true 로 반환하므로
+      // 여기서 소비하면 dashboard 재진입 시 이중 축하 없음. localStorage `badge_celebrated:{code}`
+      // 계약 (dashboard 와 동일) 은 활동 페이지의 모달 close 에서 기록.
+      try {
+        const m = await import('@/lib/achievements-data');
+        const results = await Promise.race([
+          m.checkAndAwardAchievements(),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('achievements check timeout 5s')), 5000)
+          ),
+        ]);
+        const fresh = results
+          .filter(r => r.newly_awarded && m.ACHIEVEMENTS[r.code])
+          .map(r => r.code)
+          .filter(code => !localStorage.getItem(`badge_celebrated:${code}`));
+        if (fresh.length > 0) params.set('new_badges', fresh.join(','));
+      } catch (e) {
+        console.warn('[track/summary] 배지 체크 실패 (저장은 정상)', e);
+      }
+
       logClientInfo('track-save', 'success', { activity_id: activityId, distance_m: Math.round(distanceMeters) });
       // 활동 상세로 이동 (sheet 닫고 navigate)
       onClose();
-      router.push(`/activity?id=${activityId}`);
+      router.push(`/activity?${params.toString()}`);
     } catch (e) {
       const reason = e instanceof Error ? e.message : String(e);
       console.warn('[track/summary] save fail', e);
