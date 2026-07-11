@@ -5,7 +5,7 @@ import { UserDataProvider } from '@/components/UserDataProvider';
 import { useRouter, usePathname } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Home, Trophy, User, ShoppingBag, Users } from 'lucide-react';
+import { Home, Trophy, User, Users } from 'lucide-react';
 import { syncHealthData, isNativeApp } from '@/lib/health-sync';
 import AppLogo from '@/components/AppLogo';
 import { useI18n, getCurrentLocale } from '@/lib/i18n';
@@ -17,23 +17,23 @@ import { setAppBadge } from '@/lib/app-badge';
 import { getUnreadCount as getUnreadMessageCount } from '@/lib/message-data';
 import AppToast from '@/components/AppToast';
 
-// 5탭 구조 (build 100 재편): 홈 / 랭킹 / 소셜 / 쇼핑 / 내정보.
-// 지도는 홈 캘린더 아래 미니맵으로 흡수. 랭킹 ↔ 소셜 분리 (이전 /social 의 me, mileage 서브탭이 랭킹으로 이전).
+// 4탭 구조 (단순화 B 트랙, 2026-07-11): 홈 / 랭킹 / 소셜 / 내정보.
+// 쇼핑 탭 강등 — /shop/** 라우트는 전부 유지, 진입점은 /profile 액션 그리드로 이동.
+// 쇼핑 안에 있을 때는 내정보 탭 활성 (activeFor '/shop').
 const TABS_BASE: {
   href: string;
-  labelKey: 'nav.home' | 'nav.ranking' | 'nav.social' | 'nav.shop' | 'nav.profile';
+  labelKey: 'nav.home' | 'nav.ranking' | 'nav.social' | 'nav.profile';
   Icon: typeof Home;
   activeFor?: string[];
 }[] = [
   { href: '/dashboard', labelKey: 'nav.home', Icon: Home, activeFor: ['/map'] },
   { href: '/ranking', labelKey: 'nav.ranking', Icon: Trophy },
   { href: '/social', labelKey: 'nav.social', Icon: Users },
-  { href: '/shop', labelKey: 'nav.shop', Icon: ShoppingBag },
   {
     href: '/profile',
     labelKey: 'nav.profile',
     Icon: User,
-    activeFor: ['/messages', '/mileage', '/goals', '/connect', '/awards', '/support', '/privacy'],
+    activeFor: ['/shop', '/messages', '/mileage', '/goals', '/connect', '/awards', '/support', '/privacy'],
   },
 ];
 
@@ -59,7 +59,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     normalizedPath === '/terms' ||
     normalizedPath === '/activity';
   const isChat = normalizedPath === '/messages/chat' || normalizedPath.startsWith('/messages/chat/');
-  // 메인 탭 5개 중 자체 sticky header 를 가진 페이지들 — layout 공통 헤더 중복 회피 (사용자 신고).
+  // 메인 탭 4개 중 자체 sticky header 를 가진 페이지들 — layout 공통 헤더 중복 회피 (사용자 신고).
   // map 은 자체 헤더가 없어 layout 헤더 유지. dashboard/social/profile 은 본인 페이지의 sticky header 만 사용.
   const isHome = normalizedPath === '/dashboard';
   const isSocial = normalizedPath === '/social';
@@ -82,7 +82,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     '/goals': '목표 설정',
     '/history': '히스토리',
     '/connect': '건강 앱 연동',
-    '/calendar': '캘린더',
     '/shop': 'Routinist Store',
     '/messages': '쪽지함',
     '/mileage': '마일리지',
@@ -288,7 +287,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <UserDataProvider>{children}</UserDataProvider>
       </main>
 
-      {/* 하단 5탭 네비게이션 — flex-shrink-0 로 고정, sticky 제거.
+      {/* 하단 4탭 네비게이션 — flex-shrink-0 로 고정, sticky 제거.
           채팅 페이지에선 입력창이 가리는 문제로 nav 숨김 (사용자 신고 build 67). */}
       <nav className={`flex-shrink-0 z-40 border-t border-[var(--card-border)] bg-[var(--header-bg)] backdrop-blur-xl pb-[max(env(safe-area-inset-bottom),4px)] ${isChat || isTrack ? 'hidden' : ''}`}>
         <div className="flex justify-around items-center h-14">

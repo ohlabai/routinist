@@ -518,7 +518,7 @@ function ClubDetail() {
     try {
       await deleteClub(clubId);
       alert(tt('클럽이 삭제되었습니다.'));
-      router.replace('/social?tab=clubs');
+      router.replace('/social'); // 클럽 탭 제거 (단순화 B) — 친구 탭으로
     } catch (e) {
       alert(e instanceof Error ? e.message : tt('삭제 실패'));
     } finally {

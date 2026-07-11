@@ -38,10 +38,6 @@
       "schedule": "0 11 * * *"
     },
     {
-      "path": "/api/cron/world-chase",
-      "schedule": "0 */4 * * *"
-    },
-    {
       "path": "/api/cron/assign-rivals",
       "schedule": "30 15 * * *"
     },

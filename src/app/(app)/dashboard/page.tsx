@@ -37,7 +37,6 @@ import SeasonRecapCard from '@/components/home/SeasonRecapCard';
 import StreakWarningCard from '@/components/home/StreakWarningCard';
 import WeeklyRecapCard from '@/components/home/WeeklyRecapCard';
 import HomeCalendarCard from '@/components/home/HomeCalendarCard';
-import HealthConnectCard from '@/components/home/HealthConnectCard';
 import { syncHealthData, isNativeApp } from '@/lib/health-sync';
 import WinnerPredictionWidget from '@/components/home/WinnerPredictionWidget';
 import TodayLocalTop from '@/components/home/TodayLocalTop';
@@ -537,6 +536,20 @@ export default function DashboardPage() {
 
   const recentActivities = activities.slice(0, 5);
 
+  // 단순화 B (2026-07-11): 신규 러너 모드 — 러닝 5회 미만 + 가입 14일 이내.
+  // 첫인상 인지 부하 절반: [시작 가이드 / 이달 목표 / 달력 / START 칩(헤더) / 최근 활동] 만 렌더,
+  // 나머지 카드 (페이스메이커·월드런·우승예측·친구스토리·리더보드·차트 등) 는 스킵.
+  // 러닝 수는 profile.total_runs 와 activities.length 중 큰 값 — activities 지연 도착으로
+  // 기존 유저가 순간 신규 모드로 보이는 깜빡임 방지 (profile 은 auth 와 함께 먼저 도착).
+  const isNewRunner = useMemo(() => {
+    if (!profile) return false;
+    const runs = Math.max(profile.total_runs ?? 0, activities.length);
+    if (runs >= 5) return false;
+    const created = new Date(profile.created_at).getTime();
+    if (!Number.isFinite(created)) return false;
+    return Date.now() - created <= 14 * 24 * 60 * 60 * 1000;
+  }, [profile, activities.length]);
+
   // build 291 i18n Phase D: 이전엔 syncToast.startsWith('동기화 실패') 로 tone 판정했지만
   // 실제 메시지가 '동기화 중에 문제가...' 라 조건이 항상 false (dead) + 번역 시 매칭 불가.
   // → tone 을 메시지와 함께 구조적으로 저장.
@@ -673,6 +686,8 @@ export default function DashboardPage() {
             App Store 2.5.1 요건 충족: 안에 "Apple Health 연동" 진입 항목 포함. */}
         <HomeOnboardingCard />
 
+        {/* 신규 러너 모드에선 2~5 (리캡·스트릭·페이스메이커·이름헤더·4칩) 스킵 */}
+        {!isNewRunner && (<>
         {/* 2 주간 리캡 + 3 스트릭 경고 (둘 다 조건부, 자체 padding 없어 wrap) */}
         <div className="mx-4 space-y-3">
           <WeeklyRecapCard activities={activities} />
@@ -772,6 +787,7 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+        </>)}
 
         {/* 6 달리기 시작 — build 208 #6-2: sticky header 우상단 START 칩으로 이동. 기존 큰 카드 제거. */}
 
@@ -837,6 +853,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* 신규 러너 모드에선 6.5~8 (도전·월드런·스토리·시즌·랭킹Hero·실시간) 스킵 */}
+        {!isNewRunner && (<>
         {/* 6.5 이번 주 도전 (build 100) — build 143: 300ms defer (secondary) */}
         {secondaryMounted && <HomeChallengeCard />}
         {secondaryMounted && <HomeWorldMarathonCard />}
@@ -855,10 +873,13 @@ export default function DashboardPage() {
 
         {/* 8 실시간 러닝 — build 143: 300ms defer (secondary) */}
         {secondaryMounted && <LiveRunningIndicator />}
+        </>)}
 
         {/* 9 월 캘린더 */}
         <div className="mx-4"><HomeCalendarCard /></div>
 
+        {/* 신규 러너 모드에선 9.5~15 (미니맵·지역배너·소셜 묶음) 스킵 */}
+        {!isNewRunner && (<>
         {/* 9.5 미니맵 — build 137: LazyMount 제거 (사용자 피드백: "지도 안 보임"). 즉시 마운트.
             SVG polyline 자체는 가볍고 fetchRoutesForUser 는 LIMIT 7 로 빠름. */}
         <HomeMapPreview />
@@ -883,6 +904,7 @@ export default function DashboardPage() {
         <LazyMount minHeight={160} rootMargin="300px"><TodayLocalTop /></LazyMount>
         <LazyMount minHeight={120} rootMargin="300px"><RankNeighbors /></LazyMount>
         <LazyMount minHeight={140} rootMargin="300px"><OnThisDayCard /></LazyMount>
+        </>)}
       </div>
 
       {/* ========== ② 통계 차트 묶음 ==========
@@ -890,6 +912,8 @@ export default function DashboardPage() {
           → 23 기간별 상세 (+히스토리 링크) → 24 요약 4칩 → 25 최근 활동 */}
       <div className="p-4 space-y-4">
 
+      {/* 신규 러너 모드에선 16~24 (스트릭·PB·차트류·요약칩) 스킵 — 25 최근 활동만 렌더 */}
+      {!isNewRunner && (<>
       {/* 16 연속 달리기 스트릭 */}
       <LazyMount minHeight={160}>
       <div className="card p-5">
@@ -1404,6 +1428,7 @@ export default function DashboardPage() {
         </div>
       </div>
       </LazyMount>
+      </>)}
 
       {/* 25 최근 활동 */}
       <LazyMount minHeight={300}>

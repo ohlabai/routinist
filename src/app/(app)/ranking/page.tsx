@@ -12,15 +12,16 @@ import MileageRankingTab from '@/components/social/MileageRankingTab';
 import RankingBreakdown from '@/components/ranking/RankingBreakdown';
 import RankingTimeline from '@/components/ranking/RankingTimeline';
 import { Trophy, Coins, Globe } from 'lucide-react';
-import ContestTab from '@/components/contest/ContestTab';
 import WorldTab from '@/components/world/WorldTab';
+import { fetchMyCourses } from '@/lib/world-data';
 import { useI18n, type TranslationKey } from '@/lib/i18n';
 import { readRankingAxis, writeRankingAxis, onRankingAxisChanged } from '@/lib/ranking-filters';
 
 // build 207 — 영문화 누락 fix (#2): "내 조건 입력하고 랭킹 보기" / "지역·출생년도·성별..." 안내 카드 tt 처리.
 
-// build 143: 친선런 메뉴 숨김 (사용량 0건, 사용자 결정). 코드/ContestTab/DB 는 유지 — 필요 시 복원.
-type SubTab = 'me' | 'mileage' | 'contest' | 'world';
+// 단순화 B (2026-07-11): 친선런 (contest) 탭·코드 삭제 (build 143 부터 숨김 상태였음. DB 는 유지).
+// 월드런 (world) 탭은 참가 이력 (user_course_progress) 있는 사용자에게만 노출 — 참가 2명.
+type SubTab = 'me' | 'mileage' | 'world';
 // build 169 #11: '오늘' 제거 (의미 작음·미달리기 사용자가 0km 동률 → 혼란). week/month/year 3축으로 축소.
 type TimeAxis = 'week' | 'month' | 'year';
 
@@ -48,10 +49,22 @@ function RankingInner() {
 
   const hasDemographics = !!(profile?.region_gu || profile?.birth_year || profile?.gender);
 
+  // 월드런 탭 조건부 노출 — 진행 중/완주 코스가 있을 때만.
+  // ?tab=world 딥링크 (진행 push 는 참가자에게만 감) 로 직접 오면 fetch 결과와 무관하게 노출.
+  const [hasWorldCourses, setHasWorldCourses] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetchMyCourses()
+      .then(list => { if (!cancelled) setHasWorldCourses(list.length > 0); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+  const showWorldTab = hasWorldCourses || initialTab === 'world';
+
   const SUB_TABS: { id: SubTab; tKey: TranslationKey; Icon: typeof Trophy }[] = [
     { id: 'me', tKey: 'ranking.mine', Icon: Trophy },
     { id: 'mileage', tKey: 'ranking.mileage', Icon: Coins },
-    { id: 'world', tKey: 'ranking.world', Icon: Globe },
+    ...(showWorldTab ? [{ id: 'world' as const, tKey: 'ranking.world' as TranslationKey, Icon: Globe }] : []),
   ];
 
   return (
@@ -64,7 +77,7 @@ function RankingInner() {
       </header>
 
       <div className="px-4 pt-4">
-      {/* 4탭 — 가로 스크롤 (build 106 하루 대회·세계를 달려 추가). 화면 좁아서 등분 안 함. */}
+      {/* 서브탭 — 내 랭킹 / 마일리지 (+ 월드런 참가자만). 가로 스크롤, 등분 안 함. */}
       <div className="flex bg-[var(--card)] border border-[var(--card-border)] rounded-2xl p-1 mb-5 shadow-sm overflow-x-auto scrollbar-hide gap-1">
         {SUB_TABS.map(s => (
           <button
@@ -117,8 +130,7 @@ function RankingInner() {
       )}
 
       {activeSub === 'mileage' && <MileageRankingTab />}
-      {activeSub === 'contest' && <ContestTab />}
-      {activeSub === 'world' && <WorldTab />}
+      {activeSub === 'world' && showWorldTab && <WorldTab />}
       </div>
     </div>
   );

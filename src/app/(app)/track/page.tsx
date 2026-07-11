@@ -7,7 +7,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Pause, Play, Check, MapPin, AlertCircle, Volume2, VolumeX, Sparkles } from 'lucide-react';
+import { ArrowLeft, Pause, Play, Check, MapPin, AlertCircle, Volume2, VolumeX } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { useI18n } from '@/lib/i18n';
 import { loadGoogleMaps, API_KEY as MAPS_KEY } from '@/lib/google-maps';
@@ -74,90 +74,13 @@ import TrackSummarySheet from '@/components/track/TrackSummarySheet';
 
 type PermState = 'unknown' | 'prompt' | 'granted' | 'denied';
 
-// build 285: GPS 트래킹 기능 임시 비활성.
-// 자동 일시정지 회귀가 짧은 시간 내 2회 (build 283, 284) 발생 — 정확도 안정화될 때까지
-// 사용자 노출 차단. Apple Health 동기화는 그대로 작동하므로 외부 GPS 앱 사용자는 영향 없음.
-// 복원 시: TRACKING_ENABLED = true 만 바꾸면 됨. TrackPageImpl 은 전부 보존.
-const TRACKING_ENABLED = true; // build 292: 네이티브 RunSession 엔진으로 공개 (회원 소수·전원 지인 — 실주행 튜닝 병행 결정)
-
-// build 292: 개발자 게이트 — 실사용자 노출은 계속 차단하되, `/track?dev=1` 진입 시
-// localStorage 플래그를 심고 이후엔 쿼리 없이도 게이트 통과 (실기기 테스트용).
-const TRACKING_DEV_KEY = 'routinist_tracking_dev';
-function checkTrackingDevGate(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('dev') === '1') {
-      window.localStorage.setItem(TRACKING_DEV_KEY, '1');
-      return true;
-    }
-    return window.localStorage.getItem(TRACKING_DEV_KEY) === '1';
-  } catch { return false; }
-}
-
+// 단순화 B (2026-07-11): build 285 임시 비활성 게이트 (TRACKING_ENABLED)·dev 게이트 (?dev=1 / 7-tap)·
+// TrackComingSoon 화면 삭제 — build 292 부터 전원 공개라 전부 도달 불가 죽은 코드였음.
 export default function TrackPage() {
-  // dev 게이트는 client 전용 (localStorage/query) — hydration mismatch 방지 위해
-  // 판정 전엔 아무것도 렌더하지 않음 (1 frame). TrackComingSoon 의 clearState() 가
-  // dev 테스터의 진행 중 세션을 지우는 사고도 함께 차단됨.
-  const [devGate, setDevGate] = useState<boolean | null>(null);
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { setDevGate(checkTrackingDevGate()); }, []);
-  if (TRACKING_ENABLED) return <TrackPageImpl />;
-  if (devGate === null) return null;
-  if (devGate) return <TrackPageImpl devMode />;
-  return <TrackComingSoon />;
+  return <TrackPageImpl />;
 }
 
-function TrackComingSoon() {
-  const router = useRouter();
-  const { locale } = useI18n();
-  // 비활성 동안 stale in-progress 상태 자동 정리 — 복원 후 옛 좌표가 polyline 으로 살아나는 사고 방지.
-  useEffect(() => {
-    clearState();
-  }, []);
-  // build 292: 앱 안에서는 URL 에 ?dev=1 을 칠 수 없으므로 숨은 입구 —
-  // 아이콘을 3초 안에 7번 탭하면 dev 게이트 활성화 + 리로드 (실기기 테스트용).
-  const tapRef = useRef<{ count: number; firstAt: number }>({ count: 0, firstAt: 0 });
-  const handleSecretTap = () => {
-    const now = Date.now();
-    if (now - tapRef.current.firstAt > 3000) tapRef.current = { count: 0, firstAt: now };
-    tapRef.current.count++;
-    if (tapRef.current.count >= 7) {
-      try { window.localStorage.setItem(TRACKING_DEV_KEY, '1'); } catch {}
-      window.location.reload();
-    }
-  };
-  return (
-    <div className="max-w-lg mx-auto px-6 py-16 text-center bg-[var(--background)] min-h-screen flex flex-col justify-center">
-      <div
-        className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/30"
-        onClick={handleSecretTap}
-      >
-        <Sparkles size={44} className="text-white" />
-      </div>
-      <h1 className="text-2xl font-extrabold mb-3 text-[var(--foreground)]">
-        {locale === 'en' ? 'GPS Tracking Coming Soon' : '달리기 트래킹 곧 오픈 예정'}
-      </h1>
-      <p className="text-sm text-[var(--muted)] max-w-xs mx-auto break-keep mb-2 leading-relaxed">
-        {locale === 'en'
-          ? 'We are polishing the tracking accuracy for night and urban runs.'
-          : '야간·도심 러닝 정확도를 다듬고 있어요. 다음 업데이트에서 만나요.'}
-      </p>
-      <p className="text-xs text-[var(--muted)]/80 max-w-xs mx-auto break-keep mb-8 leading-relaxed">
-        {locale === 'en'
-          ? 'Apple Health runs sync automatically — keep running with your favorite app!'
-          : '그동안 Apple Health 동기화로 자동 기록되니까 편하게 달려주세요.'}
-      </p>
-      <button onClick={() => router.back()}
-        className="px-6 py-3 rounded-2xl bg-emerald-500 text-white text-sm font-extrabold active:scale-95 self-center inline-flex items-center gap-2 shadow-md shadow-emerald-500/30">
-        <ArrowLeft size={16} />
-        {locale === 'en' ? 'Go back' : '돌아가기'}
-      </button>
-    </div>
-  );
-}
-
-function TrackPageImpl({ devMode = false }: { devMode?: boolean }) {
+function TrackPageImpl() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const { tt, locale } = useI18n();
@@ -963,15 +886,6 @@ function TrackPageImpl({ devMode = false }: { devMode?: boolean }) {
           </div>
         )}
       </header>
-
-      {/* build 292: 개발자 게이트 통과 배너 — 일반 사용자는 TrackComingSoon 에서 차단됨 */}
-      {devMode && (
-        <div className="px-3 py-1.5 bg-amber-500/15 border-b border-amber-500/30 text-center z-10">
-          <p className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400">
-            {tt('개발자 테스트 모드')} · {useNative ? tt('네이티브 엔진') : tt('레거시 엔진')}
-          </p>
-        </div>
-      )}
 
       {/* 지도 영역 */}
       <div ref={mapEl} className="flex-1 relative">

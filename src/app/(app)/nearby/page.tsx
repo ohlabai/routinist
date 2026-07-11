@@ -7,7 +7,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, MapPin, Users, Activity, MessageCircle, Search, UserPlus, Calendar, Zap, Globe, Share2 } from 'lucide-react';
+import { ArrowLeft, MapPin, Users, Activity, MessageCircle, Search, UserPlus, Zap, Globe, Share2 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import {
   fetchNearbyRunners,
@@ -349,18 +349,13 @@ function RunnerCard({ r, following, busy, onFollow }: {
           <UserPlus size={16} />
         </button>
       </div>
+      {/* 친선런 초대 버튼 제거 (단순화 B) — contest 기능 삭제. 쪽지만 유지. */}
       <div className="mt-3 flex items-center gap-2">
         <Link
           href={`/messages?to=${r.user_id}`}
           className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-xl bg-[var(--card-border)]/30 text-sm font-bold active:scale-95"
         >
           <MessageCircle size={13} /> {tt('쪽지')}
-        </Link>
-        <Link
-          href={`/ranking?tab=contest&invite=${r.user_id}`}
-          className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-xl bg-[var(--card-border)]/30 text-sm font-bold active:scale-95"
-        >
-          <Calendar size={13} /> {tt('친선런 초대')}
         </Link>
       </div>
     </article>
@@ -457,19 +452,7 @@ function PaceMatchedSection({ runners, loading, followingIds, busy, onFollow }: 
         </p>
       </div>
 
-      {/* 페이스 그룹 진입점 */}
-      <Link href="/pace-groups" className="block rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 p-4 shadow-md shadow-emerald-500/30 active:scale-[0.99]">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center flex-shrink-0">
-            <Users size={20} className="text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-extrabold text-white">{tt('페이스 그룹 둘러보기')}</p>
-            <p className="text-xs text-white/85 mt-0.5">{tt('6단계 페이스대 가상 클럽 — 같은 속도의 친구들')}</p>
-          </div>
-          <span className="text-white text-base font-bold">→</span>
-        </div>
-      </Link>
+      {/* 페이스 그룹 진입점 제거 (단순화 B) — 멤버 0명, /pace-groups 라우트 삭제. */}
 
       {runners.map(r => {
         const following = followingIds.has(r.user_id);

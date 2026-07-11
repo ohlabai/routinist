@@ -10,7 +10,7 @@ import Link from 'next/link';
 import {
   ChevronRight, HelpCircle, Shield, Heart, Award, LogOut, MapPin,
   MessageCircle, Coins, Gift, Sun, Moon, Monitor, Settings, Activity as ActivityIcon,
-  AlertTriangle, X, FileText, Bell, BellOff, PenLine, Camera,
+  AlertTriangle, X, FileText, Bell, BellOff, PenLine, Camera, ShoppingBag,
 } from 'lucide-react';
 import { useEffect } from 'react';
 import { checkPushPermission, requestPushPermissionAgain, type PushPermissionState } from '@/lib/push-notifications';
@@ -225,12 +225,13 @@ export default function ProfilePage() {
     router.replace('/login');
   };
 
-  // 액션 그리드 2×2 — 자주 쓰는 기능만
+  // 액션 그리드 — 자주 쓰는 기능만. 쇼핑은 하단 탭에서 강등되어 여기로 이동 (단순화 B, 2026-07-11).
   const actions: { href: string; label: string; Icon: typeof Heart; color: string }[] = [
     { href: '/connect', label: t('profile.actionConnect'), Icon: Heart, color: 'text-red-500' },
     { href: '/messages', label: t('profile.actionMessages'), Icon: MessageCircle, color: 'text-blue-500' },
     { href: '/mileage', label: t('profile.actionMileage'), Icon: Coins, color: 'text-amber-500' },
     { href: '/mileage/gift', label: t('profile.actionMileageGift'), Icon: Gift, color: 'text-pink-500' },
+    { href: '/shop', label: t('nav.shop'), Icon: ShoppingBag, color: 'text-emerald-500' },
   ];
 
   // build 136 메뉴 IA 정리 — 데이터 점검(audit) 은 일반 메뉴에서 제거 (어드민 대시보드 안에만 노출).
@@ -431,7 +432,7 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* 액션 그리드 2×2 */}
+      {/* 액션 그리드 (2열) — 쪽지/마일리지/쇼핑 등 */}
       <div className="grid grid-cols-2 gap-3">
         {actions.map(a => {
           // build 175 #5: 쪽지함 카드에 미읽음 배지
