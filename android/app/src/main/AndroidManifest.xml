@@ -59,11 +59,10 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!-- GPS 트래킹 (러닝 기록) -->
+    <!-- 사용 중 위치만 (화면 켠 상태 트래킹 + 지역 랭킹). 백그라운드 위치/FGS 는
+         사용하는 서비스가 없어 제거 — Play 위치 선언·FGS 선언 부담 회피 (build 306) -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
 
     <!-- FCM 푸시 (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
