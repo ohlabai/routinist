@@ -102,6 +102,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // 알림 탭 딥링크 — router.push 로 SPA 이동 (window.location.href full reload 는
         // build 165 에서 금지한 검정 flash 패턴). 앱 내 경로만 처리, 외부 URL 은 무시.
         void initPushNotifications({
+          // build 298: 로그인 직후엔 이미 허용한 유저만 조용히 등록 (promptIfNeeded: false).
+          // 무맥락 프롬프트가 거부율을 키워 토큰 보유 21%에 그쳤음 — 프롬프트는
+          // promptPushPermission() 으로 첫 기록 저장/건강 연동 성공 순간에 띄운다.
+          promptIfNeeded: false,
           onNotificationTap: (link) => {
             let path = link;
             if (path.startsWith('routinist://')) {

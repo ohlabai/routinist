@@ -173,6 +173,10 @@ export default function TrackSummarySheet({ finalState, userId, onClose }: Props
         })();
       }
 
+      // build 298: 첫 기록 저장 = push 권한을 물을 최적 순간 ("친구 응원·리포트 받기").
+      // 이미 허용/거부한 유저는 no-op. fire-and-forget — 네비게이션 안 막음.
+      import('@/lib/push-notifications').then(m => m.promptPushPermission()).catch(() => {});
+
       // build 197: PB 갱신 확인. 실패해도 저장은 성공으로 처리.
       try {
         const newPBs = await syncPBsFromActivity(activityId, routeData.coordinates, endedAt);

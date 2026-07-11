@@ -68,10 +68,21 @@ export function resolveDeepLink(data: Record<string, unknown> | undefined | null
   }
 }
 
-export async function initPushNotifications(opts?: {
+type InitPushOpts = {
   onTokenRegistered?: (token: string) => void;
   onNotificationTap?: (deepLink: string) => void;
-}): Promise<void> {
+  /**
+   * build 298: false 면 시스템 권한 프롬프트를 띄우지 않음 — 이미 허용된 유저만 조용히 등록.
+   * 로그인 직후 무맥락 프롬프트가 거부율을 키워 push 토큰 보유가 21%에 그쳤음.
+   * 프롬프트는 promptPushPermission() 으로 가치 순간 (첫 기록 저장·건강 연동 성공) 에 띄운다.
+   */
+  promptIfNeeded?: boolean;
+};
+
+// 조용한 init 이 프롬프트를 미룬 경우, 나중에 promptPushPermission() 이 재사용할 opts (탭 딥링크 핸들러 포함).
+let pendingOpts: InitPushOpts | null = null;
+
+export async function initPushNotifications(opts?: InitPushOpts): Promise<void> {
   if (initialized) return;
   if (!isNative()) {
     void logClientInfo('push-init', 'skip non-native', {});
@@ -86,6 +97,13 @@ export async function initPushNotifications(opts?: {
     let perm = await PushNotifications.checkPermissions();
     void logClientInfo('push-init', 'permission check', { initial: perm.receive });
     if (perm.receive === 'prompt' || perm.receive === 'prompt-with-rationale') {
+      if (opts?.promptIfNeeded === false) {
+        // 아직 안 물어본 유저 — 지금은 조용히 물러나고, 가치 순간에 promptPushPermission() 으로 재진입.
+        pendingOpts = opts ?? null;
+        initialized = false;
+        void logClientInfo('push-init', 'prompt deferred', {});
+        return;
+      }
       perm = await PushNotifications.requestPermissions();
       void logClientInfo('push-init', 'permission requested', { after: perm.receive });
     }
@@ -175,6 +193,16 @@ export async function initPushNotifications(opts?: {
   } catch (e) {
     console.warn('[push] init fail', e);
   }
+}
+
+/**
+ * build 298: 가치 순간 (첫 기록 저장·건강 연동 성공) 에 권한 프롬프트 + 토큰 등록.
+ * 이미 등록됐거나 (initialized) 네이티브가 아니면 no-op. 조용한 init 이 보관해 둔
+ * opts (탭 딥링크 핸들러) 를 그대로 이어받는다.
+ */
+export async function promptPushPermission(): Promise<void> {
+  if (initialized || !isNative()) return;
+  await initPushNotifications({ ...(pendingOpts ?? {}), promptIfNeeded: true });
 }
 
 // build 224: 앱 포어그라운드 진입 시 호출 — 누적된 푸시를 정리해서 앱 아이콘 뱃지를 0 으로.

@@ -18,14 +18,36 @@ export async function POST(req: NextRequest) {
   const tomorrow = new Date(kst.getTime() + 24 * 60 * 60 * 1000);
   const todayMonth = `${kst.getUTCFullYear()}-${String(kst.getUTCMonth() + 1).padStart(2, '0')}`;
   const tomorrowMonth = `${tomorrow.getUTCFullYear()}-${String(tomorrow.getUTCMonth() + 1).padStart(2, '0')}`;
-  if (todayMonth === tomorrowMonth) {
-    return NextResponse.json({ ok: true, skipped: true, reason: 'not_month_end', month: todayMonth });
-  }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return NextResponse.json({ error: 'backend misconfigured' }, { status: 500 });
   const supabase = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+
+  if (todayMonth === tomorrowMonth) {
+    // build 298 self-heal: 말일 발사가 죽으면 정산이 영구 누락됐음 (6월 500P 미지급 사고).
+    // 말일이 아니어도 "지난달 매칭은 있는데 승자 지급 이력이 0건" 이면 지난달 정산을 소급 실행.
+    // 전원 동률인 달은 매일 0건 재시도가 돌지만 무해 (동률은 지급 skip).
+    const prev = new Date(Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth() - 1, 1));
+    const prevMonth = `${prev.getUTCFullYear()}-${String(prev.getUTCMonth() + 1).padStart(2, '0')}`;
+    const { count: pairCount } = await supabase
+      .from('monthly_rivals')
+      .select('user_id', { count: 'exact', head: true })
+      .eq('month', prevMonth);
+    if ((pairCount ?? 0) > 0) {
+      const { count: paidCount } = await supabase
+        .from('mileage_transactions')
+        .select('id', { count: 'exact', head: true })
+        .eq('event_type', 'monthly_rival_win')
+        .eq('metadata->>month', prevMonth);
+      if ((paidCount ?? 0) === 0) {
+        const { data, error } = await supabase.rpc('finalize_monthly_rival_winner', { p_month: prevMonth });
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ ok: true, awarded: data ?? 0, month: prevMonth, selfHeal: true });
+      }
+    }
+    return NextResponse.json({ ok: true, skipped: true, reason: 'not_month_end', month: todayMonth });
+  }
 
   const { data, error } = await supabase.rpc('finalize_monthly_rival_winner', { p_month: todayMonth });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

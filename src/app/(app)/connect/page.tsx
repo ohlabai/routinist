@@ -90,6 +90,8 @@ export default function ConnectPage() {
             const now = new Date().toISOString();
             localStorage.setItem('last_health_sync', now);
             setLastSync(now);
+            // build 298: 건강 연동 성공 = push 권한을 물을 가치 순간 (이미 허용/거부면 no-op)
+            import('@/lib/push-notifications').then(m => m.promptPushPermission()).catch(() => {});
           }
         }
       } else {

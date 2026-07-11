@@ -43,7 +43,7 @@
     },
     {
       "path": "/api/cron/assign-rivals",
-      "schedule": "30 15 28,29,30,31 * *"
+      "schedule": "30 15 * * *"
     },
     {
       "path": "/api/cron/rival-callouts",

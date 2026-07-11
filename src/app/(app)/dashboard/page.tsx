@@ -126,11 +126,15 @@ export default function DashboardPage() {
   })();
 
   useEffect(() => {
-    const dismissed = typeof window !== 'undefined' && localStorage.getItem('onboarding_done');
+    // build 298: 키에 user.id 포함 — 기기 전역 플래그면 지인 폰에서 써 본 뒤 가입하는
+    // 신규 유저가 온보딩(닉네임·목표·지역)을 통째로 스킵함 (PullDownOnboardingHint 와 동일 패턴).
+    // 기존 유저는 display_name/total_runs 게이트에서 걸러지므로 키 마이그레이션 불필요.
+    const dismissed = typeof window !== 'undefined' && user
+      && localStorage.getItem(`onboarding_done:${user.id}`);
     if (!dismissed && profile && profile.display_name === '러너' && profile.total_runs === 0) {
       setShowOnboarding(true);
     }
-  }, [profile]);
+  }, [profile, user]);
 
   // build 155: 지역 자동 등록 알림 — health-sync 가 자동으로 채운 직후 1회 표시.
   const [regionAutoNotice, setRegionAutoNotice] = useState<{ display: string; country_code: string } | null>(null);
@@ -618,7 +622,7 @@ export default function DashboardPage() {
   }, [user, loadStats, refresh]);
 
   if (showOnboarding) {
-    return <Onboarding onComplete={() => { setShowOnboarding(false); localStorage.setItem('onboarding_done', '1'); }} />;
+    return <Onboarding onComplete={() => { setShowOnboarding(false); if (user) localStorage.setItem(`onboarding_done:${user.id}`, '1'); }} />;
   }
 
   return (
