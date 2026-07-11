@@ -34,6 +34,7 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         CAPPluginMethod(name: "resume", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "stop", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getSnapshot", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "prepareAudio", returnType: CAPPluginReturnPromise),
     ]
 
     // MARK: - 튜닝 상수 (계약의 임계값 — 필드 튜닝 반복 대비 한곳에 모음)
@@ -425,6 +426,22 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
             self.lastEmittedRouteIndex = self.route.count
             data["newCoords"] = [[Double]]()
             call.resolve(data)
+        }
+    }
+
+    // build 299: 카운트다운 beep (WKWebView WebAudio) 무음 회귀 fix — WebAudio 는 앱의
+    // AVAudioSession 을 그대로 타는데 기본 카테고리 (ambient 계열) 는 무음 스위치에 먹힌다.
+    // 시작 버튼 직후 JS 가 호출해 .playback 을 선점 (speak 의 계약과 동일, launch 시점 활성화
+    // 금지 계약 (build 241) 도 준수 — 사용자 제스처 이후에만 호출됨).
+    @objc func prepareAudio(_ call: CAPPluginCall) {
+        do {
+            try AVAudioSession.sharedInstance().setCategory(
+                .playback, mode: .default, options: [.duckOthers, .mixWithOthers])
+            try AVAudioSession.sharedInstance().setActive(true)
+            call.resolve(["ok": true])
+        } catch {
+            NSLog("[RunSession] prepareAudio failed: \(error)")
+            call.resolve(["ok": false])
         }
     }
 

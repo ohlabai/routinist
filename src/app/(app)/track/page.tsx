@@ -31,7 +31,7 @@ import {
 // build 292 Phase 1: 네이티브 RunSession 엔진. 두뇌 (거리/자동정지/음성) 를 native 로 이관,
 // JS 는 'update' 이벤트 렌더러. 플러그인 미탑재 빌드는 위 레거시 JS 엔진 폴백 (동작 무변경).
 import {
-  isRunSessionAvailable, requestRunPermissions, startRunSession,
+  isRunSessionAvailable, requestRunPermissions, prepareRunAudio, startRunSession,
   pauseRunSession, resumeRunSession, stopRunSession, getRunSnapshot,
   attachRunSessionListeners,
   type RunGpsSignal, type RunSessionSnapshot,
@@ -352,6 +352,8 @@ function TrackPageImpl() {
   const startTracking = useCallback(async () => {
     if (startingRef.current || countdown !== null || state !== null) return;
     startingRef.current = true;
+    // build 299: 카운트다운 beep 무음 fix — 시작 제스처 직후 오디오 세션 선점 (fire-and-forget)
+    void prepareRunAudio();
     try {
       // build 292: 네이티브 경로는 RunSession.requestPermissions (위치 Always 승격 + motion).
       // motion 거부여도 진행 (pedometer 융합만 빠짐) — location 만 gate.

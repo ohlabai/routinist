@@ -91,6 +91,8 @@ export interface RunSessionPlugin {
   stop(): Promise<RunSessionSummary>;
   /** JS 리로드/재진입 시 재부착용. active=false 면 나머지 필드는 무의미. */
   getSnapshot(): Promise<RunSessionSnapshot>;
+  /** build 299: 카운트다운 beep 용 오디오 세션 선점 (무음 스위치 무시). 구버전 빌드엔 없음. */
+  prepareAudio?(): Promise<{ ok: boolean }>;
   addListener(eventName: 'update', listenerFunc: (data: RunSessionUpdateEvent) => void): Promise<PluginListenerHandle>;
   addListener(eventName: 'milestone', listenerFunc: (data: RunSessionMilestoneEvent) => void): Promise<PluginListenerHandle>;
   removeAllListeners(): Promise<void>;
@@ -160,6 +162,13 @@ export async function resumeRunSession(): Promise<{ ok: boolean }> {
 
 export async function stopRunSession(): Promise<RunSessionSummary> {
   return RunSession.stop();
+}
+
+// build 299: 시작 직전 호출 — WebAudio beep 이 무음 스위치에 먹히지 않게 .playback 선점.
+// 플러그인 미탑재 (구버전 빌드) 면 조용히 무시.
+export async function prepareRunAudio(): Promise<void> {
+  if (!isRunSessionAvailable()) return;
+  try { await RunSession.prepareAudio?.(); } catch { /* beep 은 ambient 로 재생 */ }
 }
 
 export async function getRunSnapshot(): Promise<RunSessionSnapshot> {
