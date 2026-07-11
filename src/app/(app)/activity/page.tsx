@@ -239,7 +239,7 @@ function ActivityDetail() {
       {/* build 299: 이번 주 n번째 러닝 — 완주 직후 "쌓이고 있다" 는 감각 한 줄 */}
       {weekRunCount !== null && (
         <div className="flex justify-center">
-          <span className="inline-flex items-center px-3.5 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/40 text-xs font-extrabold text-emerald-700 dark:text-emerald-300">
+          <span className="inline-flex items-center px-5 py-2.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/40 text-base font-extrabold text-emerald-700 dark:text-emerald-300">
             {ttl('이번 주 {n}번째 러닝 🔥').replace('{n}', String(weekRunCount))}
           </span>
         </div>

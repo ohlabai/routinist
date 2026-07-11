@@ -204,9 +204,10 @@ export default function CoachPage() {
           </div>
         )}
 
-        {/* 오늘 컨디션 hero — loadError 시엔 위의 재시도 카드가 대신 표시 */}
+        {/* 오늘 컨디션 hero — loadError 시엔 위의 재시도 카드가 대신 표시.
+            build 302: `card` 의 background 쇼트핸드가 gradient 를 덮어써 흰 카드+흰 글씨였음 — 단독 클래스로 */}
         {today ? (
-          <div className={`card p-6 bg-gradient-to-br ${scoreColor} text-white shadow-lg`}>
+          <div className={`rounded-[20px] p-6 bg-gradient-to-br ${scoreColor} text-white shadow-lg`}>
             <div className="flex items-center justify-between mb-3">
               <span className="text-[10px] font-extrabold uppercase tracking-widest text-white/80">Today&apos;s Condition</span>
               <Sparkles size={16} className="text-white/90" />

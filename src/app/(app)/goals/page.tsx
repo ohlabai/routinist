@@ -159,13 +159,6 @@ export default function GoalsPage() {
           className="w-full px-4 py-3 rounded-xl border border-[var(--card-border)] bg-[var(--background)] text-[var(--foreground)] text-base focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
         />
 
-        <button
-          onClick={handleSave}
-          disabled={saving || !goalKm}
-          className="w-full bg-[var(--accent)] hover:opacity-90 text-white font-semibold py-3.5 rounded-xl transition-all disabled:opacity-50"
-        >
-          {saved ? tt('저장됨!') : saving ? tt('저장 중...') : tt('목표 저장')}
-        </button>
       </div>
 
       {/* 주간 러닝 횟수 (습관 형성) — 거리 목표와 별개. 탭 즉시 저장, 재탭 해제. */}
@@ -207,6 +200,16 @@ export default function GoalsPage() {
             : tt('처음이라면 주 3회부터 — 습관이 되는 가장 부담 없는 횟수예요')}
         </p>
       </div>
+
+      {/* 2026-07-11 피드백: 저장 버튼을 맨 아래로 — 두 카드 다 보고 마지막에 저장하는 흐름.
+          (주간 횟수는 탭 즉시 저장이라 이 버튼은 거리 목표만 저장) */}
+      <button
+        onClick={handleSave}
+        disabled={saving || !goalKm}
+        className="w-full bg-[var(--accent)] hover:opacity-90 text-white font-semibold py-3.5 rounded-xl transition-all disabled:opacity-50"
+      >
+        {saved ? tt('저장됨!') : saving ? tt('저장 중...') : tt('목표 저장')}
+      </button>
 
       {weeklyToast && (
         <AppToast

@@ -361,14 +361,22 @@ export default function ProfilePage() {
           </div>
         </Link>
 
-        {/* 통산 km 라인 — 베스트 3칩 위에 작은 라벨로 유지 */}
-        <p className="text-xs text-[var(--muted)] mt-3 text-center">
-          {t('profile.totalLine')} <span className="font-semibold text-[var(--foreground)]">{totalKm.toFixed(0)}km</span>
-          <span className="mx-1.5">·</span>
-          <span className="font-semibold text-[var(--foreground)]">{t('home.summaryRuns').replace('{n}', String(totalRuns))}</span>
-          <span className="mx-1.5">·</span>
-          <span className="font-semibold text-[var(--foreground)]">{locale === 'en' ? `${streak}-week streak 🔥` : `${streak}주 연속 🔥`}</span>
-        </p>
+        {/* 2026-07-11 피드백: 텍스트 한 줄이 아래 베스트 3칩과 톤이 안 맞음 —
+            동일한 3열 스탯 그리드로 통일 (통산 / 러닝 횟수 / 주간 연속) */}
+        <div className="grid grid-cols-3 gap-2 text-center mt-4 pt-4 border-t border-[var(--card-border)]">
+          <div>
+            <p className="text-lg font-extrabold text-emerald-600">{totalKm.toFixed(0)}km</p>
+            <p className="text-xs text-[var(--muted)] mt-0.5">{locale === 'en' ? 'Total' : '통산 거리'}</p>
+          </div>
+          <div>
+            <p className="text-lg font-extrabold text-[var(--foreground)] tabular-nums">{totalRuns}{locale === 'en' ? '' : '회'}</p>
+            <p className="text-xs text-[var(--muted)] mt-0.5">{locale === 'en' ? 'Runs' : '러닝 횟수'}</p>
+          </div>
+          <div>
+            <p className="text-lg font-extrabold text-orange-500 tabular-nums">{streak}{locale === 'en' ? 'w' : '주'} 🔥</p>
+            <p className="text-xs text-[var(--muted)] mt-0.5">{locale === 'en' ? 'Weekly streak' : '주간 연속'}</p>
+          </div>
+        </div>
 
         {/* build 278: 받은 응원 chip — 동기 부여. 받은 응원 > 0 일 때만 표시 (빈 chip 어색). */}
         {cheerCounts.total > 0 && (
