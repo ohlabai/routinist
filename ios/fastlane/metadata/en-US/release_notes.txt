@@ -1,20 +1,22 @@
-v1.2.8 — Weekly streaks, a simpler app, instant celebration
+v1.2.9 — World Run on real maps, epic long courses, a livelier Home
 
-[Weekly running streak]
-• Streaks now count by week, not by day — perfect for 2-3 runs-a-week runners.
-• Set your weekly goal with one tap on Home and watch the day dots fill up.
-• A gentle weekend nudge when your streak needs one more run, plus streak protection for busy weeks.
+[World Run on real maps]
+• Every course card now sits on a real map, with your route and position drawn on top.
+• "On pace to finish Aug 3" — see your estimated finish date based on your last 2 weeks.
+• "2.4km to the half" — the next milestone shows up before you reach it.
+• A redesigned completion certificate: portrait layout with your map, route, and journey dates.
 
-[Celebrate right after your run]
-• New badges and mileage rewards now appear the moment you save a run.
-• See "Run #n this week" at a glance.
-• We also celebrate your imported runs right after connecting Apple Health.
+[3 epic long courses]
+• Korea Grand Crossing 633km — from Ttangkkeut to Imjingak, the length of Korea.
+• Camino de Santiago 800km — over the Pyrenees to the cathedral of Santiago.
+• Jeju Island Loop 234km — the full coastal circle past Seongsan and Hyeopjae.
 
-[A simpler app]
-• Bottom navigation trimmed to 4 tabs; Social now focuses on Friends and Photos.
-• New runners see only the cards that matter.
+[A livelier Home]
+• Today's best runner now appears live on Home (TODAY'S BEST RUN).
+• Local records widened from district to city level — see more runners near you.
+• Send a heart to today's runner and they get a cheer notification instantly.
 
 [Improvements and fixes]
-• Run of the Day and monthly pacemaker matching are now more reliable.
-• Tapping a notification takes you to the right screen, and you can check items one by one in the inbox.
-• More notification categories so you only get what you want.
+• Fixed "Activity not found" when opening another runner's record.
+• The club share button now opens the share sheet right away.
+• Share cards now default to image; video is still one tap away.
