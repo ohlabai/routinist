@@ -1,7 +1,8 @@
 'use client';
 
 // 오늘의 우리 동네 TOP 10 — 가로 스크롤 카드.
-// 유저 region_gu 없으면 노출 안 함. (프로필 유도는 MatchedRankBanner 에서 맡음)
+// 2026-07-12 CCSS #2: 구 단위 → 시/도 단위 (회원 수 적어 구 단위는 거의 항상 빈 카드).
+// 유저 region_si 없으면 노출 안 함. (프로필 유도는 MatchedRankBanner 에서 맡음)
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -9,6 +10,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import { dataCache, CACHE_KEYS, onCacheInvalidated } from '@/lib/data-cache';
 import { useI18n } from '@/lib/i18n';
+import { normalizeSidoLabel } from '@/lib/regions';
 
 interface LocalRunner {
   user_id: string;
@@ -35,12 +37,14 @@ export default function TodayLocalTop() {
     return off;
   }, []);
 
+  const sidoLabel = normalizeSidoLabel(profile?.region_si);
+
   useEffect(() => {
-    if (!profile?.region_gu) {
+    if (!profile?.region_si) {
       setLoading(false);
       return;
     }
-    const cacheKey = `home:localtop:${profile.region_gu}`;
+    const cacheKey = `home:localtop:${normalizeSidoLabel(profile.region_si)}`;
     // stale-while-revalidate: 캐시 있으면 즉시 set, retryKey === 0 면 거기서 끝.
     const cached = dataCache.get<LocalRunner[]>(cacheKey);
     if (cached) {
@@ -53,8 +57,8 @@ export default function TodayLocalTop() {
     (async () => {
       try {
         const supabase = getSupabase();
-        const { data, error } = await supabase.rpc('today_local_top', {
-          target_gu: profile.region_gu,
+        const { data, error } = await supabase.rpc('today_region_top', {
+          target_si: profile.region_si,
           top_n: 10,
         });
         if (error) throw error;
@@ -68,15 +72,15 @@ export default function TodayLocalTop() {
       }
     })();
     void CACHE_KEYS;
-  }, [profile?.region_gu, retryKey]);
+  }, [profile?.region_si, retryKey]);
 
-  if (!profile?.region_gu) return null;
+  if (!profile?.region_si || !sidoLabel) return null;
   if (loading) return null;
   if (runners.length === 0) {
     return (
       <div className="mx-4 mt-3 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4">
         <p className="text-sm font-bold text-[var(--foreground)]">
-          {locale === 'en' ? `Today's ${profile.region_gu} runs` : `오늘 ${profile.region_gu} 러닝 기록`}
+          {locale === 'en' ? `Today's ${sidoLabel} runs` : `오늘 ${sidoLabel} 러닝 기록`}
         </p>
         <p className="text-xs text-[var(--muted)] mt-1">
           {locale === 'en'
@@ -92,8 +96,8 @@ export default function TodayLocalTop() {
       <div className="flex items-center justify-between px-4 mb-2">
         <h3 className="text-sm font-bold text-[var(--foreground)]">
           {locale === 'en'
-            ? `Today's ${profile.region_gu} TOP ${Math.min(runners.length, 10)}`
-            : `오늘 ${profile.region_gu} TOP ${Math.min(runners.length, 10)}`}
+            ? `Today's ${sidoLabel} TOP ${Math.min(runners.length, 10)}`
+            : `오늘 ${sidoLabel} TOP ${Math.min(runners.length, 10)}`}
         </h3>
         <Link href="/social/rankings" className="text-xs text-[var(--accent)] font-medium">
           {locale === 'en' ? 'Full ranking' : '전체 랭킹'}

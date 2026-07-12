@@ -399,7 +399,7 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'profile.menuSupport': '고객 지원',
     'profile.menuPrivacy': '개인정보처리방침',
     'profile.menuTerms': '이용약관',
-    'profile.deleteAccount': '계정 탈퇴',
+    'profile.deleteAccount': '회원 탈퇴',
     'profile.title': '내 정보',
     'profile.menuFeedback': '앱 기능 제안 게시판',
     'profile.menuPushSettings': '알림 설정',

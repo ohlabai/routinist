@@ -51,3 +51,25 @@ export const KR_REGIONS: Record<string, string[]> = {
 };
 
 export const KR_SIDO_LIST = Object.keys(KR_REGIONS);
+
+// region_si 자유 입력 표기('서울특별시'/'서울', '경기도 수원시'…)를 짧은 표준 라벨로 수렴.
+// DB 의 region_sido_norm() 과 동일 규칙 — 한쪽만 바꾸면 코호트/라벨이 어긋남.
+const SIDO_PREFIX_LABELS: [string, string][] = [
+  ['서울', '서울'], ['부산', '부산'], ['대구', '대구'], ['인천', '인천'],
+  ['광주', '광주'], ['대전', '대전'], ['울산', '울산'], ['세종', '세종'],
+  ['경기', '경기'], ['강원', '강원'],
+  ['충청북', '충북'], ['충북', '충북'], ['충청남', '충남'], ['충남', '충남'],
+  ['전라북', '전북'], ['전북', '전북'], ['전라남', '전남'], ['전남', '전남'],
+  ['경상북', '경북'], ['경북', '경북'], ['경상남', '경남'], ['경남', '경남'],
+  ['제주', '제주'],
+];
+
+export function normalizeSidoLabel(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const s = raw.trim();
+  if (!s) return null;
+  for (const [prefix, label] of SIDO_PREFIX_LABELS) {
+    if (s.startsWith(prefix)) return label;
+  }
+  return s; // 해외 등 미매칭은 원문 그대로
+}

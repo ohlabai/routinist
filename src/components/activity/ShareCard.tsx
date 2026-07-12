@@ -1181,7 +1181,8 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
   const registerToastToneRef = useRef<'ok' | 'warn'>('ok');
   const [quote, setQuote] = useState<DailyQuote | null>(null);
   // build 136: 동영상 공유 기본 + 정적 이미지 선택 옵션. MediaRecorder 미지원 기기는 자동으로 이미지.
-  const [shareAsVideo, setShareAsVideo] = useState(true);
+  // 2026-07-12 CCSS #6: 이미지가 디폴트 (사용자 결정 — 동영상은 선택 옵션).
+  const [shareAsVideo, setShareAsVideo] = useState(false);
   const [renderingVideo, setRenderingVideo] = useState(false);
 
   // GPS 첫 좌표 + profile region → 지역 라벨 (한국이면 "서울 강남", 해외면 "중국 항저우")
@@ -1754,19 +1755,9 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
           {/* 동영상 / 이미지 토글 (build 136) — GPS 경로 있을 때만 표시.
               build 150: 라벨 간명화 ("동영상 (경로 그리기)" → "동영상", "정적 이미지" → "이미지").
               동영상: 출발→도착 라인 그리기 + 정지. 카톡/인스타에서 단일 파일로 자동 재생. */}
+          {/* 2026-07-12 CCSS #6: 이미지가 디폴트 — 좌측 첫 자리도 이미지로 스왑 */}
           {!!activity.route_data?.coordinates?.length && typeof MediaRecorder !== 'undefined' && (
             <div className="grid grid-cols-2 gap-1.5 px-1">
-              <button
-                onClick={() => setShareAsVideo(true)}
-                className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition active:scale-95 ${
-                  shareAsVideo
-                    ? 'bg-emerald-500 text-white shadow-sm'
-                    : 'bg-[var(--card)] text-[var(--muted)] border border-[var(--card-border)]'
-                }`}
-              >
-                <Video size={14} />
-                {tt('동영상')}
-              </button>
               <button
                 onClick={() => setShareAsVideo(false)}
                 className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition active:scale-95 ${
@@ -1777,6 +1768,17 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
               >
                 <ImageIcon size={14} />
                 {tt('이미지')}
+              </button>
+              <button
+                onClick={() => setShareAsVideo(true)}
+                className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition active:scale-95 ${
+                  shareAsVideo
+                    ? 'bg-emerald-500 text-white shadow-sm'
+                    : 'bg-[var(--card)] text-[var(--muted)] border border-[var(--card-border)]'
+                }`}
+              >
+                <Video size={14} />
+                {tt('동영상')}
               </button>
             </div>
           )}

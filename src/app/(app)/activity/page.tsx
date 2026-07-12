@@ -48,8 +48,12 @@ function ActivityDetail() {
   // 활동 상세 진입 시 단건 route_data 만 lazy fetch → 메인 fetch 부담은 그대로 둠.
   const [route, setRoute] = useState<import('@/types').GeoJSONLineString | null>(null);
   // build 222 #3: 캐시 miss (저장 직후 router.push) 폴백 — 단건 DB fetch.
+  // 2026-07-12: fetch 시작과 동시에 tried=true 가 되어 응답 도착 전에 "찾을 수 없습니다" 가
+  // 먼저 렌더되던 버그 fix (본인 활동은 캐시 hit 라 안 걸리고, Run of the Day 등 남의 활동만
+  // 걸렸음) — done 은 fetch 완료 시점에만 세움.
   const [fallbackActivity, setFallbackActivity] = useState<Activity | null>(null);
-  const [fallbackTried, setFallbackTried] = useState(false);
+  const [fallbackDone, setFallbackDone] = useState(false);
+  const fallbackStartedRef = useRef(false);
   const cachedActivity = useMemo(() => activities.find(a => a.id === id), [activities, id]);
   const baseActivity = cachedActivity ?? fallbackActivity;
 
@@ -57,17 +61,16 @@ function ActivityDetail() {
   useEffect(() => {
     if (!id) return;
     if (cachedActivity) return;
-    if (fallbackTried) return;
-    let cancelled = false;
-    setFallbackTried(true);
+    if (fallbackStartedRef.current) return;
+    fallbackStartedRef.current = true;
     (async () => {
       const a = await fetchActivityById(id);
-      if (!cancelled && a) setFallbackActivity(a);
+      if (a) setFallbackActivity(a);
+      setFallbackDone(true);
       // 캐시 동기화 (다음 진입 빠르게)
       refresh().catch(() => {});
     })();
-    return () => { cancelled = true; };
-  }, [id, cachedActivity, fallbackTried, refresh]);
+  }, [id, cachedActivity, refresh]);
 
   useEffect(() => {
     if (!id || !baseActivity) return;
@@ -163,7 +166,7 @@ function ActivityDetail() {
 
   if (!activity) {
     // 폴백 fetch 시도 중에는 로딩, 끝나도 못 찾으면 not found.
-    if (id && !fallbackTried) {
+    if (id && !fallbackDone) {
       return (
         <div className="p-4 max-w-lg mx-auto text-center py-20">
           <p className="text-[var(--muted)]">{t('common.loading')}</p>

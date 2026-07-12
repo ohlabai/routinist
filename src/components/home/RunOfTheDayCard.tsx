@@ -1,8 +1,9 @@
 'use client';
 
-// build 167 #11: Run of the Day — 어제 활동 중 종합 점수 상위 1건 자동 선정.
-// SQL pick_run_of_the_day() 가 매일 cron 으로 채워짐. latest_run_of_the_day RPC 로 조회.
-// 비경쟁자도 영감 받게 — "어제는 누가 가장 잘 달렸나" 호기심 트리거.
+// build 167 #11: Run of the Day — 종합 점수 (거리 50% + 속도 50%) 상위 1건.
+// 2026-07-12 CCSS: latest_run_of_the_day RPC 가 cron 테이블 대신 라이브 계산으로 전환 —
+// 최근 7일 중 가장 최근 날짜(오늘 포함)의 최고 스코어 러닝. 매일 (오늘 달린 사람이
+// 생기면 하루 중에도) 갱신됨. 비경쟁자도 영감 받게 — "누가 가장 잘 달렸나" 호기심 트리거.
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';

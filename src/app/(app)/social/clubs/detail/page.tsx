@@ -200,6 +200,30 @@ function ClubDetail() {
     });
   };
 
+  // 2026-07-12 CCSS #4: 상단 공유 아이콘이 조용히 복사만 해서 "눌러도 반응 없음" 으로
+  // 보였음 → 네이티브 공유 시트 (InviteFriendCard 와 같은 패턴). 아래 '초대 링크' 버튼은
+  // 복사 전용으로 유지.
+  const handleShareInvite = async () => {
+    const text = locale === 'en'
+      ? `Join my running club "${club?.name ?? ''}" on Routinist! 🏃`
+      : `Routinist 러닝 클럽 "${club?.name ?? ''}" 에 초대할게요! 🏃`;
+    const title = locale === 'en' ? 'Routinist club invite' : 'Routinist 클럽 초대';
+    const url = getInviteUrl();
+    try {
+      const { isNativeApp } = await import('@/lib/health-sync');
+      if (isNativeApp()) {
+        const { Share } = await import('@capacitor/share');
+        await Share.share({ title, text, url });
+      } else if (navigator.share) {
+        await navigator.share({ title, text, url });
+      } else {
+        await navigator.clipboard.writeText(`${text}\n${url}`);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } catch { /* 사용자가 공유 시트 닫음 등 — 조용히 */ }
+  };
+
   const handleRoleChange = async (userId: string, newRole: 'admin' | 'member') => {
     if (!clubId) return;
     try {
@@ -546,8 +570,8 @@ function ClubDetail() {
         <Link href="/social" className="text-[var(--muted)]"><ArrowLeft size={24} /></Link>
         <h1 className="text-2xl font-bold text-[var(--foreground)] flex-1 truncate">{club.name}</h1>
         {isMember && (
-          <button onClick={handleCopyInvite} className="text-[var(--accent)] p-2">
-            {copied ? <Check size={20} /> : <Share2 size={20} />}
+          <button onClick={handleShareInvite} aria-label={tt('클럽 초대 공유')} className="text-[var(--accent)] p-2">
+            <Share2 size={20} />
           </button>
         )}
       </div>

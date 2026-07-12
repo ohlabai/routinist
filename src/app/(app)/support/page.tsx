@@ -85,7 +85,7 @@ export default function SupportPage() {
               {locale === 'en' ? (
                 <>Tap the <span className="font-semibold text-[var(--foreground)]">Delete account</span> button at the bottom of your Profile screen. All data is permanently deleted immediately and cannot be recovered.</>
               ) : (
-                <>내 정보 화면 하단의 <span className="font-semibold text-[var(--foreground)]">계정 탈퇴</span> 버튼을 눌러주세요.
+                <>내 정보 화면 하단의 <span className="font-semibold text-[var(--foreground)]">회원 탈퇴</span> 버튼을 눌러주세요.
                 탈퇴 즉시 모든 데이터가 영구 삭제되며 복구할 수 없습니다.</>
               )}
             </p>

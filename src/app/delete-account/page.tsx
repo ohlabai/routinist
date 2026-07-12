@@ -11,7 +11,7 @@ export default function DeleteAccountPage() {
       <h2 style={{ fontSize: 18, fontWeight: 700, marginTop: 32 }}>앱에서 직접 삭제 (즉시)</h2>
       <ol>
         <li>앱 실행 → 하단 <b>내 정보</b> 탭</li>
-        <li>화면 맨 아래 <b>계정 탈퇴</b> 선택</li>
+        <li>화면 맨 아래 <b>회원 탈퇴</b> 선택</li>
         <li>안내 확인 후 &quot;탈퇴&quot; 입력 → 확인</li>
       </ol>
       <p>탈퇴 즉시 계정과 모든 데이터가 영구 삭제됩니다.</p>
@@ -24,7 +24,7 @@ export default function DeleteAccountPage() {
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, marginTop: 32 }}>계정을 유지한 채 일부 데이터만 삭제</h2>
-      <p>계정 탈퇴 없이도 아래 데이터를 직접 삭제할 수 있습니다.</p>
+      <p>회원 탈퇴 없이도 아래 데이터를 직접 삭제할 수 있습니다.</p>
       <ul>
         <li><b>사진</b>: 소셜 → 포토 → 내 사진 → 삭제</li>
         <li><b>댓글·쪽지</b>: 각 댓글/대화에서 삭제</li>

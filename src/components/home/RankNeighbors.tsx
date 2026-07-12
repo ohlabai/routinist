@@ -40,7 +40,8 @@ export default function RankNeighbors() {
 
   useEffect(() => {
     if (!user) return;
-    if (!profile?.region_gu) { setLoading(false); return; }
+    // 2026-07-12 CCSS #2: 코호트가 구 → 시/도 단위로 바뀜 (weekly_rank_neighbors) — 게이트도 region_si 로
+    if (!profile?.region_si) { setLoading(false); return; }
     let cancelled = false;
 
     const cacheKey = CACHE_KEYS.rankNeighbors(user.id);
@@ -79,7 +80,7 @@ export default function RankNeighbors() {
       }
     })();
     return () => { cancelled = true; };
-  }, [user, profile?.region_gu, retryKey]);
+  }, [user, profile?.region_si, retryKey]);
 
   // 로딩/빈 상태에선 자리 차지 없이 사라짐 — 신규 사용자 첫 인상 개선
   if (loading || rows.length <= 1) return null;
