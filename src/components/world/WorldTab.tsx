@@ -3,7 +3,7 @@
 // 세계를 달려! (Virtual Course) — 랭킹 탭 서브탭 (build 106).
 // 유명 마라톤 / 트레일 코스를 가상으로 누적. 완주 시 메달 (수기 발급).
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Globe, Trophy, Sparkles, Flag, MapPin } from 'lucide-react';
 import {
   fetchAvailableCourses,
@@ -28,6 +28,9 @@ import { Coins } from 'lucide-react';
 import { track } from '@/lib/analytics';
 import NextLink from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
+import { useUserData } from '@/components/UserDataProvider';
+import { daysAgoStr } from '@/lib/kst';
+import { nextGenericMilestone } from '@/lib/world-milestones';
 
 // build 166 #1: 사용자가 마일리지로 코스 참가했는데 "도전하기" 가 그대로 보이는 회귀.
 // fetchMyCourses RPC 가 silent fail 하거나 client cache 회귀 시 mine=[] → joined=false 가 됨.
@@ -607,12 +610,37 @@ function Section({ title, icon, children }: { title: string; icon: React.ReactNo
 
 function ProgressCard({ course, path }: { course: MyCourse; path: PreviewPoint[] | null }) {
   // build 207: locale-aware 라벨. tt 는 useI18n hook 안에서만 — 직접 useI18n 사용.
-  const { tt } = useI18n();
+  const { tt, locale } = useI18n();
+  const { activities } = useUserData();
   const pct = Math.min(100, (course.progress_km / course.distance_km) * 100);
   const remain = Math.max(0, course.distance_km - course.progress_km);
   const ratio = Math.min(1, course.progress_km / course.distance_km);
   // build 167 #5: 100% 도달 시 성취감 디자인 — 큰 그라데이션 카드 + ✨ 메달 받기 CTA.
   const isCompleted = pct >= 100;
+
+  // 2026-07-12 Conqueror 차용 1: 예상 완주일 — 최근 14일 러닝 페이스 기반.
+  // 데이터가 너무 적거나 (일 0.2km 미만) 400일 넘게 걸리면 표시 안 함.
+  const etaLabel = useMemo(() => {
+    if (isCompleted) return null;
+    const cutoff = daysAgoStr(13); // 오늘 포함 14일
+    const km14 = activities.reduce((sum, a) =>
+      a.activity_date >= cutoff && (a.activity_type ?? 'running') === 'running'
+        ? sum + a.distance_km : sum, 0);
+    const daily = km14 / 14;
+    if (daily < 0.2) return null;
+    const days = Math.ceil(remain / daily);
+    if (days < 1 || days > 400) return null;
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    const dateLabel = d.toLocaleDateString(locale === 'en' ? 'en-US' : 'ko-KR', { month: 'short', day: 'numeric' });
+    return locale === 'en' ? `On pace to finish ${dateLabel}` : `이 페이스면 ${dateLabel} 완주`;
+  }, [activities, isCompleted, remain, locale]);
+
+  // Conqueror 차용 2: 다음 마일스톤 예고 — 도달 전에 당기는 힘.
+  const next = isCompleted ? null : nextGenericMilestone(course.distance_km, course.progress_km);
+  const nextName = next
+    ? (locale === 'en' ? ({ '하프': 'the half', '완주': 'the finish' } as Record<string, string>)[next.name] ?? next.name : next.name)
+    : null;
   return (
     <div className={`rounded-2xl overflow-hidden border ${isCompleted
       ? 'bg-gradient-to-br from-amber-50 via-orange-50 to-amber-50 dark:from-amber-950/30 dark:via-orange-950/30 dark:to-amber-950/30 border-amber-300 dark:border-amber-700 shadow-lg shadow-amber-500/20'
@@ -646,6 +674,21 @@ function ProgressCard({ course, path }: { course: MyCourse; path: PreviewPoint[]
               <span className="text-emerald-600 font-extrabold">{pct.toFixed(0)}%</span>
               <span className="text-[var(--muted)] font-semibold">{tt('남은 거리 ')}{remain.toFixed(1)}km</span>
             </div>
+            {(next || etaLabel) && (
+              <div className="mt-2 flex flex-col gap-1">
+                {next && (
+                  <p className="text-xs font-semibold text-[var(--foreground)]">
+                    {next.emoji}{' '}
+                    {locale === 'en'
+                      ? `${Math.max(0.1, next.km - course.progress_km).toFixed(1)}km to ${nextName}`
+                      : `${Math.max(0.1, next.km - course.progress_km).toFixed(1)}km 더 달리면 ${nextName}`}
+                  </p>
+                )}
+                {etaLabel && (
+                  <p className="text-xs font-semibold text-emerald-600">🏁 {etaLabel}</p>
+                )}
+              </div>
+            )}
           </div>
         )}
         {/* build 252: 같이 달리는 친구 진행률 */}

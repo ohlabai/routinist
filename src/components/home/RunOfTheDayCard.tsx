@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Crown, MapPin, Zap, Heart } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
+import { todayStr } from '@/lib/kst';
 import { useI18n } from '@/lib/i18n';
 import { useAuth } from '@/components/AuthProvider';
 import { sendCheer } from '@/lib/cheer-data';
@@ -76,7 +77,10 @@ export default function RunOfTheDayCard() {
     >
       <div className="flex items-center gap-2 mb-2">
         <Crown size={16} className="text-amber-500" />
-        <h3 className="text-xs font-extrabold text-amber-700 dark:text-amber-300 tracking-wide">RUN OF THE DAY</h3>
+        {/* 동적 라벨 — 오늘 기록이면 TODAY'S, 이전 날짜면 RUN OF THE DAY (라벨-데이터 일치) */}
+        <h3 className="text-xs font-extrabold text-amber-700 dark:text-amber-300 tracking-wide">
+          {pick.pick_date === todayStr() ? "TODAY'S BEST RUN" : 'RUN OF THE DAY'}
+        </h3>
         <span className="ml-auto text-[10px] text-[var(--muted)] font-semibold">{pick.pick_date}</span>
       </div>
       <div className="flex items-center gap-3">

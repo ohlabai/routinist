@@ -22,7 +22,15 @@ export interface Milestone {
 }
 
 // 코스 distance_km 기반 generic milestones — 5/10/15/20/하프/25/30/35/40/풀.
+// 2026-07-12: 장거리 코스 (>60km — 국토대장정 633km 등) 는 40km 이후 완주까지 공백이
+// 생기던 문제 → 초반 5~20km 촘촘 + 이후 25km 간격.
 function genericMilestoneKms(distanceKm: number): number[] {
+  if (distanceKm > 60) {
+    const ms: number[] = [5, 10, 15, 20];
+    for (let km = 25; km < distanceKm - 0.5; km += 25) ms.push(km);
+    ms.push(distanceKm);
+    return Array.from(new Set(ms.map(k => Math.round(k * 1000) / 1000)));
+  }
   const ms: number[] = [];
   if (distanceKm >= 5) ms.push(5);
   if (distanceKm >= 10) ms.push(10);
@@ -92,6 +100,18 @@ function genericLabel(km: number, isFinish: boolean): { label: string; name: str
     emoji: rounded >= 30 ? '🔥' : rounded >= 20 ? '💪' : rounded >= 10 ? '⭐' : '🟢',
     funFact: GENERIC_FUN_FACTS[rounded],
   };
+}
+
+/** 진행 카드 예고용 — 아직 도달 못 한 가장 가까운 generic 마일스톤. 완주면 null. */
+export function nextGenericMilestone(distanceKm: number, progressKm: number): { km: number; name: string; emoji: string } | null {
+  if (!distanceKm || distanceKm <= 0) return null;
+  for (const km of genericMilestoneKms(distanceKm)) {
+    if (progressKm < km - 0.05) {
+      const meta = genericLabel(km, Math.abs(km - distanceKm) < 0.05);
+      return { km, name: meta.name, emoji: meta.emoji };
+    }
+  }
+  return null;
 }
 
 /** 코스 + 사용자 progress 로 통합 마일스톤 list 생성. unlock 상태 + 보간 lat/lng. */

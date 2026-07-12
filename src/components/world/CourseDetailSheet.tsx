@@ -1053,15 +1053,30 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-// ── 인증서 PDF 다운로드 (canvas → png blob → 다운로드) ──────────
-function downloadCertificate(course: VirtualCourse, displayName: string, runner: CourseRunner) {
-  const W = 1600;
-  const H = 1131;  // A4 가로 비율 1.414
+// ── 인증서 다운로드 (canvas → png blob → 다운로드) ──────────
+// 2026-07-12 Conqueror 차용 5: 가로 A4 텍스트-only → 세로형 (1080×1528, 인스타 공유 친화)
+// + 실제 지도 밴드 (hero_image_url) 위 경로 오버레이 + 도전 기간 (시작~완주 · N일간).
+// 지도 로드 실패 (오프라인 등) 시 밴드만 단색 폴백 — 인증서 자체는 항상 생성.
+async function downloadCertificate(course: VirtualCourse, displayName: string, runner: CourseRunner) {
+  const W = 1080;
+  const H = 1528;
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
+
+  // 지도 이미지 선로드 — Supabase Storage public 은 CORS * 라 crossOrigin 으로 canvas 오염 없음
+  let heroImg: HTMLImageElement | null = null;
+  if (course.hero_image_url) {
+    heroImg = await new Promise<HTMLImageElement | null>((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = course.hero_image_url as string;
+    });
+  }
 
   // 배경 — 크림 + 에메랄드 액센트
   const bg = ctx.createLinearGradient(0, 0, 0, H);
@@ -1070,67 +1085,115 @@ function downloadCertificate(course: VirtualCourse, displayName: string, runner:
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
-  // 테두리 — 에메랄드 두꺼운 + 안쪽 얇은
+  // 테두리 — 에메랄드 두꺼운 + 안쪽 골드 얇은
   ctx.strokeStyle = '#10b981';
-  ctx.lineWidth = 20;
-  ctx.strokeRect(40, 40, W - 80, H - 80);
+  ctx.lineWidth = 16;
+  ctx.strokeRect(30, 30, W - 60, H - 60);
   ctx.strokeStyle = '#fbbf24';
-  ctx.lineWidth = 4;
-  ctx.strokeRect(70, 70, W - 140, H - 140);
+  ctx.lineWidth = 3;
+  ctx.strokeRect(54, 54, W - 108, H - 108);
 
   ctx.textAlign = 'center';
 
   // 헤더 — Routinist
   ctx.fillStyle = '#10b981';
-  ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText('ROUTINIST · WORLD RUN', W / 2, 160);
+  ctx.font = 'bold 30px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('ROUTINIST · WORLD RUN', W / 2, 140);
 
-  // 타이틀 — CERTIFICATE OF COMPLETION
+  // 타이틀
   ctx.fillStyle = '#1f2937';
-  ctx.font = 'bold 92px Georgia, serif';
-  ctx.fillText(ttl('완주 인증서'), W / 2, 300);
-
-  // 부제
+  ctx.font = 'bold 78px Georgia, serif';
+  ctx.fillText(ttl('완주 인증서'), W / 2, 240);
   ctx.fillStyle = '#6b7280';
-  ctx.font = '32px Georgia, serif';
-  ctx.fillText('CERTIFICATE OF COMPLETION', W / 2, 350);
+  ctx.font = '26px Georgia, serif';
+  ctx.fillText('CERTIFICATE OF COMPLETION', W / 2, 288);
+
+  // 지도 밴드 (5:3 — hero 이미지 비율 그대로) + 경로 오버레이
+  const mapX = 90, mapY = 340, mapW = 900, mapH = 540;
+  ctx.save();
+  ctx.beginPath();
+  // roundRect 폴리필 불필요한 사각 클립 (iOS 15 호환)
+  ctx.rect(mapX, mapY, mapW, mapH);
+  ctx.clip();
+  if (heroImg) {
+    ctx.drawImage(heroImg, mapX, mapY, mapW, mapH);
+  } else {
+    ctx.fillStyle = '#d1fae5';
+    ctx.fillRect(mapX, mapY, mapW, mapH);
+  }
+  // 경로 — preview_path 는 hero 이미지와 같은 crop 좌표계 (x 0~100 / y 0~60)
+  const pp = course.preview_path;
+  if (pp && pp.length > 1) {
+    const px = (p: { x: number; y: number }) => ({ x: mapX + (p.x / 100) * mapW, y: mapY + (p.y / 60) * mapH });
+    const drawPath = () => {
+      ctx.beginPath();
+      pp.forEach((p, i) => {
+        const q = px(p);
+        if (i === 0) ctx.moveTo(q.x, q.y); else ctx.lineTo(q.x, q.y);
+      });
+    };
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    drawPath();
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.lineWidth = 16;
+    ctx.stroke();
+    drawPath();
+    ctx.strokeStyle = '#059669';
+    ctx.lineWidth = 9;
+    ctx.stroke();
+    const s = px(pp[0]);
+    const e = px(pp[pp.length - 1]);
+    ctx.fillStyle = '#10b981';
+    ctx.beginPath(); ctx.arc(s.x, s.y, 12, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#f97316';
+    ctx.beginPath(); ctx.arc(e.x, e.y, 12, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+  // 밴드 테두리
+  ctx.strokeStyle = '#10b981';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(mapX, mapY, mapW, mapH);
 
   // 이름
   ctx.fillStyle = '#10b981';
-  ctx.font = 'bold 110px Georgia, serif';
-  ctx.fillText(displayName, W / 2, 540);
+  ctx.font = 'bold 84px Georgia, serif';
+  ctx.fillText(displayName, W / 2, 1000);
 
   // "은(는) 다음 코스를 완주하였습니다"
   ctx.fillStyle = '#374151';
-  ctx.font = '36px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText(ttl('님은 다음 가상 코스를 완주하였습니다.'), W / 2, 610);
-
-  // 코스명
-  ctx.fillStyle = '#1f2937';
-  ctx.font = 'bold 72px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText(course.name, W / 2, 730);
-
-  // 거리 + 국가
-  ctx.fillStyle = '#10b981';
-  ctx.font = 'bold 56px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText(`${course.distance_km.toFixed(1)} km · ${ttl(course.country ?? '세계')}`, W / 2, 820);
-
-  // 완주일
-  const certLocale = getCurrentLocale() === 'en' ? 'en-US' : 'ko-KR';
-  const dateStr = runner.completed_at
-    ? new Date(runner.completed_at).toLocaleDateString(certLocale, { year: 'numeric', month: 'long', day: 'numeric' })
-    : new Date().toLocaleDateString(certLocale, { year: 'numeric', month: 'long', day: 'numeric' });
-  ctx.fillStyle = '#6b7280';
   ctx.font = '32px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText(`${ttl('완주일:')} ${dateStr}`, W / 2, 920);
+  ctx.fillText(ttl('님은 다음 가상 코스를 완주하였습니다.'), W / 2, 1060);
+
+  // 코스명 + 거리·국가
+  ctx.fillStyle = '#1f2937';
+  ctx.font = 'bold 58px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText(course.name, W / 2, 1150);
+  ctx.fillStyle = '#10b981';
+  ctx.font = 'bold 44px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText(`${course.distance_km.toFixed(1)} km · ${ttl(course.country ?? '세계')}`, W / 2, 1215);
+
+  // 도전 기간 — 시작 ~ 완주 · N일간
+  const certLocale = getCurrentLocale() === 'en' ? 'en-US' : 'ko-KR';
+  const fmt = (iso: string) => new Date(iso).toLocaleDateString(certLocale, { year: 'numeric', month: 'long', day: 'numeric' });
+  const completedIso = runner.completed_at ?? new Date().toISOString();
+  const days = Math.max(1, Math.ceil((new Date(completedIso).getTime() - new Date(runner.started_at).getTime()) / 86400000));
+  ctx.fillStyle = '#6b7280';
+  ctx.font = '30px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText(
+    getCurrentLocale() === 'en'
+      ? `${fmt(runner.started_at)} – ${fmt(completedIso)} · ${days} day${days > 1 ? 's' : ''}`
+      : `${fmt(runner.started_at)} ~ ${fmt(completedIso)} · ${days}일간의 여정`,
+    W / 2, 1290
+  );
 
   // 푸터 — 사인
   ctx.fillStyle = '#9ca3af';
   ctx.font = '24px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText('Run Your Routine.', W / 2, 1020);
+  ctx.fillText('Run Your Routine.', W / 2, 1400);
   ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, sans-serif';
   ctx.fillStyle = '#10b981';
-  ctx.fillText('routinist.kr', W / 2, 1060);
+  ctx.fillText('routinist.kr', W / 2, 1440);
 
   // build 237: iOS WKWebView 가 <a download> 잘 못 다룸 → Capacitor Filesystem + Share 로 native
   // share sheet 띄움. 사용자가 "사진에 저장" / "파일에 저장" / "공유" 선택 가능.
