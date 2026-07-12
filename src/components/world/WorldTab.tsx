@@ -51,7 +51,10 @@ function addKnownJoined(uid: string | undefined, courseId: string): void {
 
 // 코스 카드용 미리보기 SVG — preview_path (0~100) 정규화 폴리라인.
 // 시작점=에메랄드 원, 끝점=주황 원. 배경 그리드 + 폴리라인 그림자.
-function CoursePreview({ path, progress }: { path: PreviewPoint[] | null; progress?: number }) {
+// 2026-07-12 CCSS #3 A안: heroUrl (서버에서 1회 합성한 실제 OSM 지도, 5:3) 있으면 지도
+// 배경 + 라인 흰 casing. preview_path 가 이미지 crop 과 같은 좌표계로 재투영돼 있어
+// (scripts/generate-course-heroes.mjs) 둘 다 컨테이너를 5:3 stretch 로 채우면 정렬 보장.
+function CoursePreview({ path, progress, heroUrl }: { path: PreviewPoint[] | null; progress?: number; heroUrl?: string | null }) {
   if (!path || path.length === 0) {
     return (
       <div className="w-full h-28 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 flex items-center justify-center">
@@ -86,15 +89,29 @@ function CoursePreview({ path, progress }: { path: PreviewPoint[] | null; progre
   }
 
   return (
-    <div className="relative w-full h-28 rounded-xl bg-gradient-to-br from-emerald-50/70 via-white to-teal-50/40 dark:from-emerald-950/30 dark:via-zinc-900 dark:to-teal-950/20 overflow-hidden border border-emerald-100 dark:border-emerald-900/40">
-      <svg viewBox="0 0 100 60" preserveAspectRatio="none" className="w-full h-full">
-        {/* 가벼운 그리드 */}
-        <defs>
-          <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
-            <path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(16,185,129,0.08)" strokeWidth="0.3" />
-          </pattern>
-        </defs>
-        <rect width="100" height="60" fill="url(#grid)" />
+    <div className={`relative w-full rounded-xl bg-gradient-to-br from-emerald-50/70 via-white to-teal-50/40 dark:from-emerald-950/30 dark:via-zinc-900 dark:to-teal-950/20 overflow-hidden border border-emerald-100 dark:border-emerald-900/40 ${
+      heroUrl ? 'aspect-[5/3]' : 'h-28'
+    }`}>
+      {heroUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={heroUrl} alt="" className="absolute inset-0 w-full h-full dark:brightness-[0.85]" loading="lazy" />
+      )}
+      <svg viewBox="0 0 100 60" preserveAspectRatio="none" className="relative w-full h-full">
+        {/* 가벼운 그리드 (지도 배경일 땐 생략) */}
+        {!heroUrl && (
+          <>
+            <defs>
+              <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
+                <path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(16,185,129,0.08)" strokeWidth="0.3" />
+              </pattern>
+            </defs>
+            <rect width="100" height="60" fill="url(#grid)" />
+          </>
+        )}
+        {/* 지도 위 가독성 — 흰 casing */}
+        {heroUrl && (
+          <path d={d} fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="3.6" strokeLinecap="round" strokeLinejoin="round" />
+        )}
         {/* 폴리라인 그림자 */}
         <path d={d} fill="none" stroke="rgba(0,0,0,0.12)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" transform="translate(0,0.4)" />
         {/* 본체 — 에메랄드 그라데이션 */}
@@ -437,7 +454,7 @@ export default function WorldTab() {
               <div key={c.id} className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] overflow-hidden">
                 {/* 지도 미리보기 + 클릭 시 상세 */}
                 <button onClick={() => setDetailCourseId(c.id)} className="w-full text-left active:opacity-90">
-                  <CoursePreview path={c.preview_path} />
+                  <CoursePreview path={c.preview_path} heroUrl={c.hero_image_url} />
                 </button>
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-2 mb-1">
@@ -602,7 +619,7 @@ function ProgressCard({ course, path }: { course: MyCourse; path: PreviewPoint[]
       : 'bg-[var(--card)] border-[var(--card-border)]'
     }`}>
       {/* 지도 미리보기 + 러너 위치 마커 */}
-      <CoursePreview path={path} progress={ratio} />
+      <CoursePreview path={path} progress={ratio} heroUrl={course.hero_image_url} />
       <div className="p-4">
         <div className="flex items-baseline justify-between gap-2 mb-0.5">
           <p className="text-base font-extrabold truncate">{tt(course.name)}</p>
