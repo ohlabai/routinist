@@ -950,9 +950,11 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
             }
             let utterance = AVSpeechUtterance(string: text)
             utterance.voice = voice
+            // 2026-07-13 사용자 피드백: 최대 볼륨(기본 1.0)이 너무 큼 — Apple 운동 앱의
+            // 러닝 안내 수준으로. rate/pitch 는 기본값 유지 (계약 — 변조 금지).
+            utterance.volume = 0.65
             NSLog("[RunSession] speak: voice=%@ q=%d len=%d",
                   voice?.identifier ?? "system-default", voice?.quality.rawValue ?? -1, text.count)
-            // rate/pitch 는 기본값 유지 (계약 — 변조 금지).
             self.synthesizer.speak(utterance)
         }
     }

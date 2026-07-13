@@ -17,6 +17,10 @@
 //   'voice-cue:interval-m' (default 1000)
 //   'voice-cue:gender' ('female' | 'male', default 'female' — 친근한 여성 보이스 기본)
 
+// 2026-07-13 사용자 피드백: 최대 볼륨이 너무 큼 — Apple 운동 앱의 러닝 안내 수준 (~65%).
+// 네이티브 RunSessionPlugin.speak() 의 utterance.volume 과 동일 값으로 유지할 것.
+const VOICE_VOLUME = 0.65;
+
 const ENABLED_KEY = 'voice-cue:enabled';
 const INTERVAL_KEY = 'voice-cue:interval-m';
 const GENDER_KEY = 'voice-cue:gender';
@@ -215,22 +219,30 @@ export function speakMilestone(args: {
     // rate 도 0.92 → 0.85 로 더 낮춰 더 굵게 들리도록.
     // 한계: iOS Safari/WKWebView 가 pitch 를 voice 별로 무시할 수도 있어 완전 남성 음성은 보장 X.
     // 사용자에겐 첫 male 선택 시 토스트로 안내 (UI 측 별도 작업).
+    // 2026-07-13: pitch 변조 (1.05 / 0.85) 가 기계음처럼 들리는 주원인 — 실제 성별 voice 가
+    // 매칭됐으면 원음 그대로 (pitch 1.0). 남성 fallback (ko 남성 voice 미설치) 만 기존 보정 유지.
     if (gender === 'male' && picked.genderFallback) {
       u.rate = 0.85;
       u.pitch = 0.4;
-    } else if (gender === 'male') {
-      u.rate = 0.9;
-      u.pitch = 0.85;
     } else {
-      u.rate = 0.92;
-      u.pitch = 1.05;
+      u.rate = 0.95;
+      u.pitch = 1.0;
     }
-    u.volume = 1.0;
+    u.volume = VOICE_VOLUME;
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(u);
   } catch {
     /* unsupported, ignore */
   }
+}
+
+/** 2026-07-13: Enhanced/Premium 급 한국어 voice 설치 여부 — 미설치면 UI 에서
+ *  "설정에서 프리미엄 보이스 다운로드" 힌트 노출. 자연스러움의 가장 큰 레버. */
+export function hasEnhancedKoreanVoice(): boolean {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return false;
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices || voices.length === 0) return false;
+  return voices.some(v => v.lang.startsWith('ko') && qualityScore(v.name) >= 4);
 }
 
 /** build 233: 사용 가능한 남성 voice 가 있는지 사전 점검. UI 안내용. */
@@ -264,15 +276,13 @@ export function speakGreetingSample(locale: 'ko' | 'en') {
     } else {
       u.lang = locale === 'en' ? 'en-US' : 'ko-KR';
     }
-    // build 233: 동일한 pitch 정책 (speakMilestone 과 일치).
+    // build 233: 동일한 pitch 정책 (speakMilestone 과 일치). 2026-07-13: 원음 pitch + 볼륨 축소.
     if (gender === 'male' && picked.genderFallback) {
       u.rate = 0.85; u.pitch = 0.4;
-    } else if (gender === 'male') {
-      u.rate = 0.9; u.pitch = 0.85;
     } else {
-      u.rate = 0.92; u.pitch = 1.05;
+      u.rate = 0.95; u.pitch = 1.0;
     }
-    u.volume = 1.0;
+    u.volume = VOICE_VOLUME;
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(u);
   } catch { /* ignore */ }

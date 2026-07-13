@@ -16,7 +16,7 @@ import {
   speakMilestone, getVoiceCueIntervalMeters,
   isVoiceCueEnabled, setVoiceCueEnabled,
   setVoiceCueIntervalMeters, speakSample,
-  getVoiceGender, setVoiceGender, speakGreetingSample,
+  getVoiceGender, setVoiceGender, speakGreetingSample, hasEnhancedKoreanVoice,
   hasKoreanMaleVoice,
   type VoiceGender, type VoiceCourseContext,
 } from '@/lib/voice-cue';
@@ -110,6 +110,8 @@ function TrackPageImpl() {
   // build 237: voiceGender 를 effect dep 에 넣으면 force-female set 후 재발화로 사용자 의도 swap 위험.
   // ref 로 latest 값 추적 + effect dep 에서 제외 (locale 만 의존).
   const [malePickerVisible, setMalePickerVisible] = useState<boolean>(false);
+  // 2026-07-13: Enhanced/Premium 한국어 voice 미설치면 다운로드 힌트 노출 (자연스러움 최대 레버).
+  const [showVoiceQualityHint, setShowVoiceQualityHint] = useState<boolean>(false);
   const voiceGenderRef = useRef(voiceGender);
   useEffect(() => { voiceGenderRef.current = voiceGender; }, [voiceGender]);
   useEffect(() => {
@@ -117,6 +119,7 @@ function TrackPageImpl() {
     const recheck = () => {
       const available = locale !== 'ko' || hasKoreanMaleVoice();
       setMalePickerVisible(available);
+      setShowVoiceQualityHint(locale === 'ko' && !hasEnhancedKoreanVoice());
       // 남성 voice 없는데 male 선택 상태였다면 female 로 강제 (ref 로 latest 읽기).
       if (!available && voiceGenderRef.current === 'male') {
         setVoiceGenderState('female');
@@ -986,6 +989,12 @@ function TrackPageImpl() {
                 </>
               )}
             </div>
+            {voiceOn && showVoiceQualityHint && (
+              <p className="mb-4 -mt-2 text-[11px] text-[var(--muted)] text-center leading-relaxed">
+                💡 더 자연스러운 목소리를 원하면 아이폰 <span className="font-bold">설정 → 손쉬운 사용 → 음성 콘텐츠 → 음성 → 한국어</span>에서
+                프리미엄 보이스를 다운로드하세요. 받는 즉시 자동 적용돼요.
+              </p>
+            )}
             <button onClick={startTracking}
               className="w-full py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-lg active:scale-[0.98] shadow-md shadow-emerald-500/30 inline-flex items-center justify-center gap-2">
               <MapPin size={20} />
