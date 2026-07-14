@@ -5,7 +5,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Bell, Trophy, Users, Award, MessageSquare, TrendingUp, Megaphone, Flag, Save, Heart, UserPlus, Globe, AlarmClock, CalendarDays } from 'lucide-react';
+import { ArrowLeft, Bell, Trophy, Users, Award, MessageSquare, TrendingUp, Megaphone, Flag, Save, Heart, UserPlus, Globe, AlarmClock, CalendarDays, MapPin } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import AppToast from '@/components/AppToast';
@@ -23,7 +23,7 @@ import { useI18n } from '@/lib/i18n';
 // pb_distance / weekly_best_quote / review_request. low_stock_wishlist 은 마케팅 성격이라
 // 별도 토글 없이 서버에서 marketing (기본 OFF) 게이트로 묶음. welcome_d1 은 가입 다음날 1회성이라 토글 제외.
 type CategoryKey = 'chat_message' | 'mileage_gift' | 'feedback_reply' | 'likes' | 'friend_overtake' | 'contest' | 'marketing'
-  | 'social_cheer' | 'social_comment' | 'social_follow' | 'social_friend' | 'social_rival'
+  | 'social_cheer' | 'social_comment' | 'social_follow' | 'social_friend' | 'social_rival' | 'friend_live_run'
   | 'friend_pb' | 'course_progress' | 'course_complete' | 'club_course_start' | 'club_course_complete'
   | 'world_chase' | 'idle_reminder' | 'month_end_recap'
   | 'weekly_recap' | 'streak_risk' | 'referral' | 'first_place_month' | 'pb_distance'
@@ -46,6 +46,7 @@ function getCategories(tt: (ko: string) => string, locale: 'ko' | 'en'): Categor
     { key: 'feedback_reply', label: tt('운영자 답글'), description: tt('내 제안에 운영자가 답글을 달았을 때'), Icon: MessageSquare },
     { key: 'likes', label: tt('좋아요'), description: locale === 'en' ? 'When someone likes your photo or note' : '내 사진·한 줄에 좋아요가 도착했을 때', Icon: Heart },
     { key: 'friend_overtake', label: locale === 'en' ? 'Friend overtake' : '친구 추월', description: locale === 'en' ? 'When a friend passes your km, or you pass theirs' : '친구가 내 km 를 추월하거나 내가 추월했을 때', Icon: Users },
+    { key: 'friend_live_run', label: locale === 'en' ? 'Friend running now' : '친구 라이브 러닝', description: locale === 'en' ? 'When a friend starts a live run (once a day per friend)' : '친구가 지금 달리기를 시작했을 때 (친구당 하루 1회)', Icon: MapPin },
     { key: 'friend_pb', label: tt('친구 신기록'), description: locale === 'en' ? 'When a friend sets a new personal best' : '친구가 개인 최고 기록을 세웠을 때', Icon: Trophy },
     { key: 'course_progress', label: tt('월드런 진행'), description: locale === 'en' ? 'Halfway and 90% milestones on your world run course' : '진행 중인 월드런 코스 절반·90% 도달 소식', Icon: TrendingUp },
     { key: 'course_complete', label: tt('월드런 완주'), description: locale === 'en' ? 'When you finish a world run course' : '월드런 코스를 완주했을 때', Icon: Flag },
@@ -80,6 +81,7 @@ const DEFAULTS: Record<CategoryKey, boolean> = {
   social_friend: true,
   social_rival: true,
   // build 291: producer 존재하는데 토글이 없던 카테고리 — 기본 ON (should_send_push 기본 TRUE 와 일치).
+  friend_live_run: true,
   friend_pb: true,
   course_progress: true,
   course_complete: true,

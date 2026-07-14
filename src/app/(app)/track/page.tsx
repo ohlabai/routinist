@@ -12,6 +12,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { useI18n } from '@/lib/i18n';
 import { loadGoogleMaps, API_KEY as MAPS_KEY } from '@/lib/google-maps';
 import { logClientInfo, logClientWarn } from '@/lib/error-logger';
+import { getSupabase } from '@/lib/supabase';
 import {
   speakMilestone, getVoiceCueIntervalMeters,
   isVoiceCueEnabled, setVoiceCueEnabled,
@@ -313,6 +314,12 @@ function TrackPageImpl() {
   }, []);
 
   const beginTrackingAfterCountdown = useCallback(() => {
+    // 2026-07-14: 친구 라이브 러닝 push — "지금 달리는 중 🏃". 서버 RPC 가 노이즈 가드
+    // (러너당 하루 1회 KST · 수신자 설정 · 비공개 프로필 제외) 전부 처리. fire-and-forget.
+    void getSupabase().rpc('notify_friends_run_started').then(
+      ({ data }) => { if (typeof data === 'number' && data > 0) logClientInfo('track-start', 'live-run push', { recipients: data }); },
+      () => {} // 실패해도 트래킹엔 영향 없음
+    );
     if (useNative) {
       // 네이티브 엔진: start 가 세션 소유. JS state 는 렌더 미러만.
       void (async () => {
