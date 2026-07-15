@@ -159,11 +159,14 @@ export function buildMilestones(course: VirtualCourse, myProgressKm: number): Mi
     });
   }
 
-  // course landmarks (별도 카드로 추가). generic 과 km 가까우면 (0.5km 이내) landmark 우선 표시.
+  // course landmarks (별도 카드로 추가). generic 과 km 가까우면 landmark 우선 표시.
+  // 2026-07-15: 임계값을 간격 비례로 — 장거리 (25km 간격) 에서 함덕 19km 옆에 "20 km"
+  // generic 이 나란히 남던 근접 중복 방지. 마라톤 스케일 (5km 간격) 은 기존 0.5km 유지.
+  const dedupThresholdKm = course.distance_km > 60 ? 2.5 : 0.5;
   const landmarks: Landmark[] = course.landmarks ?? [];
   for (const lm of landmarks) {
     // 같은 km 의 generic 카드 제거 (landmark 가 더 풍부함)
-    const dupIdx = items.findIndex(it => Math.abs(it.km - lm.km) < 0.5 && it.kind === 'generic');
+    const dupIdx = items.findIndex(it => Math.abs(it.km - lm.km) < dedupThresholdKm && it.kind === 'generic');
     if (dupIdx >= 0) items.splice(dupIdx, 1);
     const ll = getLatLngAtKm(course.real_path, lm.km, course.distance_km);
     items.push({

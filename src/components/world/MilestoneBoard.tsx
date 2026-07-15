@@ -17,12 +17,20 @@ interface Props {
 }
 
 export default function MilestoneBoard({ course, myProgressKm, userName }: Props) {
-  const { tt } = useI18n();
+  const { tt, locale } = useI18n();
   const milestones = buildMilestones(course, myProgressKm);
   const [selected, setSelected] = useState<Milestone | null>(null);
+  const [showAllLocked, setShowAllLocked] = useState(false);
   const unlockedCount = milestones.filter(m => m.unlocked).length;
 
   if (milestones.length === 0) return null;
+
+  // 2026-07-15: 장거리 코스 (마일스톤 40+개) 가 sheet 를 끝없이 늘리던 문제 —
+  // 잠긴 카드는 다음 3개까지만 보여주고 나머지는 "더 보기" 로 접기.
+  const firstLockedIdx = milestones.findIndex(m => !m.unlocked);
+  const visibleLimit = firstLockedIdx < 0 ? milestones.length : firstLockedIdx + 3;
+  const visible = showAllLocked ? milestones : milestones.slice(0, visibleLimit);
+  const hiddenCount = milestones.length - visible.length;
 
   return (
     <div className="rounded-2xl bg-[var(--card)] border border-[var(--card-border)] p-4">
@@ -35,7 +43,7 @@ export default function MilestoneBoard({ course, myProgressKm, userName }: Props
         </span>
       </div>
       <div className="grid grid-cols-2 gap-2">
-        {milestones.map(m => {
+        {visible.map(m => {
           const isLandmark = m.kind === 'landmark';
           const isFinish = m.kind === 'finish';
           const isHalf = m.kind === 'half';
@@ -74,6 +82,15 @@ export default function MilestoneBoard({ course, myProgressKm, userName }: Props
           );
         })}
       </div>
+
+      {hiddenCount > 0 && (
+        <button
+          onClick={() => setShowAllLocked(true)}
+          className="mt-2 w-full py-2 rounded-xl bg-[var(--card-border)]/15 text-xs font-bold text-[var(--muted)] active:scale-[0.99]"
+        >
+          {locale === 'en' ? `Show ${hiddenCount} more milestones` : `잠긴 마일스톤 ${hiddenCount}개 더 보기`}
+        </button>
+      )}
 
       {selected && (
         <MilestoneDialog

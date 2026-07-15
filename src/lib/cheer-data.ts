@@ -31,22 +31,7 @@ export async function sendCheer(toUserId: string, emoji: CheerEmoji, context: st
   return { success: true };
 }
 
-export async function unsendCheer(toUserId: string, emoji: CheerEmoji): Promise<boolean> {
-  const supabase = getSupabase();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return false;
-  // 이번 주 행만 삭제
-  const weekOf = startOfWeekStr();
-
-  const { error } = await supabase.from('user_cheers')
-    .delete()
-    .eq('from_user', user.id)
-    .eq('to_user', toUserId)
-    .eq('emoji', emoji)
-    .eq('week_of', weekOf);
-  if (!error) touchSentCheersCache(user.id, set => set.delete(`${toUserId}:${emoji}`));
-  return !error;
-}
+// unsendCheer 는 호출처 없음 + week 경계 타임존 버그가 있어 2026-07-15 제거 (필요 시 서버 RPC 로 재구현)
 
 export async function getCheerSummary(userId: string): Promise<CheerSummary[]> {
   const supabase = getSupabase();

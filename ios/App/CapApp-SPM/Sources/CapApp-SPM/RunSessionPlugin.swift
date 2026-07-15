@@ -297,6 +297,7 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
     @objc func start(_ call: CAPPluginCall) {
         let locale = call.getString("locale") ?? "ko"
         let voice = call.getBool("voiceEnabled") ?? true
+        let voiceGender = call.getString("voiceGender")
         let everyKm = call.getDouble("milestoneEveryKm") ?? 1
         let templatesObj = call.getObject("voiceTemplates") ?? [:]
         let isKo = locale.lowercased().hasPrefix("ko")
@@ -333,7 +334,7 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
             // 첫 fix 전에도 'lost' 판정이 시작 시각 기준으로 동작하도록 초기화.
             self.lastFixAt = now
             self.lastStepChangeAt = now
-            self.sessionVoice = Self.selectVoice(locale: locale)
+            self.sessionVoice = Self.selectVoice(locale: locale, gender: voiceGender)
             self.startTrackingIfNeeded()
             self.persist(now: now)
             // build 303 후속: "출발!" — 세션 셋업이 끝난 뒤라 오디오 재구성에 잘리지 않는다.
@@ -945,10 +946,26 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
 
     /// locale prefix 매칭 voice 중 quality 최고(premium > enhanced > default) 선택.
     /// rawValue 비교로 정렬 — .premium 심볼은 iOS 16+ 라 직접 참조하지 않는다 (min target iOS 15).
-    private static func selectVoice(locale: String) -> AVSpeechSynthesisVoice? {
+    /// 2026-07-15: gender 힌트 — 프리뷰 (Web Speech, 성별 선택) 와 같은 성별 voice 를
+    /// 우선 선택해 프리뷰/실주행 목소리 불일치 해소. 매칭 없으면 기존 quality-only.
+    private static let koFemaleNames = ["Yuna", "Sora", "Heami", "Narae", "Ji-Min", "Suhyun", "Seoyeon"]
+    private static let koMaleNames = ["Jian", "Minsu", "Gyeong-Min", "Sung-Ho", "Junwoo"]
+    private static let enFemaleNames = ["Allison", "Ava", "Samantha", "Susan", "Karen", "Tessa", "Moira", "Serena", "Zoe"]
+    private static let enMaleNames = ["Aaron", "Daniel", "Fred", "Tom", "Alex", "Oliver", "Lee", "Evan"]
+
+    private static func selectVoice(locale: String, gender: String? = nil) -> AVSpeechSynthesisVoice? {
         let prefix = locale.lowercased().hasPrefix("ko") ? "ko" : "en"
         let candidates = AVSpeechSynthesisVoice.speechVoices()
             .filter { $0.language.lowercased().hasPrefix(prefix) }
+        if let g = gender {
+            let names = prefix == "ko"
+                ? (g == "male" ? koMaleNames : koFemaleNames)
+                : (g == "male" ? enMaleNames : enFemaleNames)
+            let genderMatched = candidates.filter { v in names.contains { v.name.hasPrefix($0) } }
+            if let best = genderMatched.max(by: { $0.quality.rawValue < $1.quality.rawValue }) {
+                return best
+            }
+        }
         if let best = candidates.max(by: { $0.quality.rawValue < $1.quality.rawValue }) {
             return best
         }

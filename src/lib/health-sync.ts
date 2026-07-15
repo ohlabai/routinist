@@ -753,6 +753,17 @@ async function syncViaDistance(
   endDate: string,
 ): Promise<SyncResult> {
   try {
+    // 2026-07-15 리뷰 fix: distance 샘플은 걷기+러닝 합산이라 걷기 동기화 opt-out (기본)
+    // 사용자에겐 걷기 거리가 러닝처럼 적재됨 — 걷기 포함을 명시 허용한 사용자만 폴백.
+    if (!isWalkingSyncEnabled()) {
+      return {
+        success: true,
+        message: getPlatform() === 'android'
+          ? ttl('Health Connect 에 러닝 기록이 아직 없어요 👟')
+          : ttl('Apple Health 에 러닝 기록이 아직 없어요 👟'),
+        synced: 0,
+      };
+    }
     const { Health } = await import('@capgo/capacitor-health');
 
     const { samples } = await Health.readSamples({

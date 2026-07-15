@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
+import { ttl } from '@/lib/i18n';
 import { fetchRegionalRankings } from '@/lib/social-data';
 import { ArrowLeft, Trophy, MapPin, Globe, Sparkles } from 'lucide-react';
 import Link from 'next/link';
@@ -79,7 +80,7 @@ export default function RankingsPage() {
           <button onClick={() => router.back()} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90 transition">
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-xl font-extrabold tracking-tight">지역 랭킹</h1>
+          <h1 className="text-xl font-extrabold tracking-tight">{ttl('지역 랭킹')}</h1>
         </div>
       </header>
 
@@ -90,14 +91,14 @@ export default function RankingsPage() {
           <div className="relative">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm mb-2">
               <Trophy size={11} className="text-white" />
-              <span className="text-[10px] font-extrabold text-white tracking-widest">{year}년 {month}월 랭킹</span>
+              <span className="text-[10px] font-extrabold text-white tracking-widest">{`${year}.${String(month).padStart(2,'0')} ${ttl('랭킹')}`}</span>
             </div>
             <p className="text-3xl font-extrabold text-white leading-tight inline-flex items-center gap-2">
               <MapPin size={22} className="text-white/80" />
-              {regionDisplay || '지역 선택'}
+              {regionDisplay || ttl('지역 선택')}
             </p>
             <p className="text-xs text-white/85 mt-1.5">
-              {rankings.length > 0 ? `${rankings.length}명의 러너가 경쟁 중` : '랭킹을 확인해보세요'}
+              {rankings.length > 0 ? ttl('{n}명의 러너가 경쟁 중').replace('{n}', String(rankings.length)) : ttl('랭킹을 확인해보세요')}
             </p>
           </div>
         </div>
@@ -105,7 +106,7 @@ export default function RankingsPage() {
 
       {/* 지역 셀렉터 */}
       <section className="px-4 mt-4 space-y-2.5">
-        <SelectField icon={<Globe size={14} className="text-emerald-500" />} label="국가">
+        <SelectField icon={<Globe size={14} className="text-emerald-500" />} label={ttl('국가')}>
           <select
             value={selectedCountry}
             onChange={(e) => handleCountryChange(e.target.value)}
@@ -116,7 +117,7 @@ export default function RankingsPage() {
         </SelectField>
 
         {selectedCountry === 'KR' && provinces.length > 0 && (
-          <SelectField icon={<MapPin size={14} className="text-emerald-500" />} label="시/도">
+          <SelectField icon={<MapPin size={14} className="text-emerald-500" />} label={ttl('시/도')}>
             <select
               value={rankLevel === 'country' ? '__all__' : selectedProvince}
               onChange={(e) => {
@@ -126,14 +127,14 @@ export default function RankingsPage() {
               }}
               className="w-full px-4 py-3 rounded-2xl bg-[var(--card)] border-2 border-[var(--card-border)] text-sm font-bold focus:outline-none focus:border-emerald-500 transition"
             >
-              <option value="__all__">🇰🇷 전체 (국가 단위)</option>
+              <option value="__all__">🇰🇷 {ttl('전체 (국가 단위)')}</option>
               {provinces.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </SelectField>
         )}
 
         {selectedCountry === 'KR' && rankLevel !== 'country' && districts.length > 0 && (
-          <SelectField icon={<MapPin size={14} className="text-emerald-500" />} label="구/군">
+          <SelectField icon={<MapPin size={14} className="text-emerald-500" />} label={ttl('구/군')}>
             <select
               value={rankLevel === 'province' ? '__all__' : selectedDistrict}
               onChange={(e) => {
@@ -143,19 +144,20 @@ export default function RankingsPage() {
               }}
               className="w-full px-4 py-3 rounded-2xl bg-[var(--card)] border-2 border-[var(--card-border)] text-sm font-bold focus:outline-none focus:border-emerald-500 transition"
             >
-              <option value="__all__">{selectedProvince.replace('특별시','').replace('광역시','').replace('특별자치시','').replace('특별자치도','')} 전체 (시/도 단위)</option>
+              <option value="__all__">{selectedProvince.replace('특별시','').replace('광역시','').replace('특별자치시','').replace('특별자치도','')} {ttl(' 전체 (시/도 단위)')}</option>
               {districts.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           </SelectField>
         )}
       </section>
 
-      {!profile?.region_gu && (
+      {/* 2026-07-15: 시/도 코호트 전환 — si 만 설정한 유저에겐 안내 불필요 */}
+      {!profile?.region_si && !profile?.region_gu && (
         <div className="px-4 mt-3">
           <div className="card p-3 inline-flex items-start gap-2 text-[11px]">
             <Sparkles size={12} className="text-emerald-500 flex-shrink-0 mt-0.5" />
             <p className="text-[var(--muted)]">
-              <Link href="/profile/edit" className="text-emerald-600 font-bold underline">프로필</Link> 에서 지역을 설정하면 랭킹에 참여할 수 있어요
+              <Link href="/profile/edit" className="text-emerald-600 font-bold underline">프로필</Link> {ttl(' 에서 지역을 설정하면 랭킹에 참여할 수 있어요')}
             </p>
           </div>
         </div>
@@ -183,12 +185,12 @@ export default function RankingsPage() {
               <Trophy size={36} className="text-emerald-500" />
             </div>
             <p className="text-base font-extrabold mb-1">
-              {rankLevel === 'country' ? '국가 단위 통합 랭킹은 곧 출시' :
-               rankLevel === 'province' ? `${selectedProvince} 통합 랭킹은 곧 출시` :
-               `${selectedDistrict || selectedProvince}에 아직 기록이 없어요`}
+              {rankLevel === 'country' ? ttl('국가 단위 통합 랭킹은 곧 출시') :
+               rankLevel === 'province' ? `${selectedProvince} ${ttl('통합 랭킹은 곧 출시')}` :
+               `${selectedDistrict || selectedProvince}${ttl('에 아직 기록이 없어요')}`}
             </p>
             <p className="text-xs text-[var(--muted)]">
-              {rankLevel === 'district' ? '첫 번째 러너가 되어보세요!' : '구/군별 랭킹부터 확인하세요'}
+              {rankLevel === 'district' ? ttl('첫 번째 러너가 되어보세요!') : ttl('구/군별 랭킹부터 확인하세요')}
             </p>
           </div>
         ) : (

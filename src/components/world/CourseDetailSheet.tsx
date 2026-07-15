@@ -37,6 +37,7 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
   const { tt, locale } = useI18n();
   const { user, profile } = useAuth();
   const [course, setCourse] = useState<VirtualCourse | null>(null);
+  const certBusyRef = useRef(false);
   const [runners, setRunners] = useState<CourseRunner[]>([]);
   const [medal, setMedal] = useState<MedalStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -475,7 +476,14 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
 
                   <div className="grid grid-cols-2 gap-2">
                     <button
-                      onClick={() => downloadCertificate(course, profile?.display_name ?? tt('러너'), myRunner!)}
+                      onClick={() => {
+                        // 2026-07-15: async 미대기 연타 → 중복 생성/공유 시트 겹침 방지
+                        if (certBusyRef.current) return;
+                        certBusyRef.current = true;
+                        void downloadCertificate(course, profile?.display_name ?? tt('러너'), myRunner!)
+                          .catch(() => {})
+                          .finally(() => { certBusyRef.current = false; });
+                      }}
                       className="py-3 rounded-xl bg-white dark:bg-zinc-900 border-2 border-amber-300/60 dark:border-amber-800/40 text-amber-700 dark:text-amber-300 font-extrabold text-sm active:scale-[0.98] inline-flex items-center justify-center gap-1.5"
                     >
                       <Download size={14} /> {tt('인증서')}
@@ -1059,9 +1067,12 @@ async function downloadCertificate(course: VirtualCourse, displayName: string, r
   if (course.hero_image_url) {
     heroImg = await new Promise<HTMLImageElement | null>((resolve) => {
       const img = new Image();
+      // 2026-07-15: 네트워크 stall 시 onload/onerror 둘 다 안 와 버튼이 영구 무반응이던
+      // 문제 — 5초 지나면 지도 밴드 없이 진행 (buildAvatarPngDataUrl 과 동일 패턴).
+      const timer = setTimeout(() => resolve(null), 5000);
       img.crossOrigin = 'anonymous';
-      img.onload = () => resolve(img);
-      img.onerror = () => resolve(null);
+      img.onload = () => { clearTimeout(timer); resolve(img); };
+      img.onerror = () => { clearTimeout(timer); resolve(null); };
       img.src = course.hero_image_url as string;
     });
   }

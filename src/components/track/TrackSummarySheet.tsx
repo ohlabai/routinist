@@ -62,15 +62,17 @@ function computeKmSplits(coords: TrackingState['coords']): Array<{ km: number; s
 }
 
 // 사용자 timezone 기준 YYYY-MM-DD (KST 룰 — reference_timezone_handling)
-function todayLocal(): string {
+// 2026-07-15 리뷰 fix: 저장 시각이 아닌 "시작 시각" 기준 — 23:50 출발 00:20 저장 런이
+// 다음 날짜로 찍히고, 이후 Apple Health 동기화 (startDate 기준) 와 어긋나던 문제.
+function todayLocal(atMs?: number): string {
+  const base = atMs ? new Date(atMs) : new Date();
   try {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul';
     return new Intl.DateTimeFormat('en-CA', {
       timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
-    }).format(new Date());
+    }).format(base);
   } catch {
-    const d = new Date();
-    const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+    const kst = new Date(base.getTime() + 9 * 60 * 60 * 1000);
     return kst.toISOString().slice(0, 10);
   }
 }
@@ -114,7 +116,7 @@ export default function TrackSummarySheet({ finalState, userId, onClose }: Props
         .from('activities')
         .insert({
           user_id: userId,
-          activity_date: todayLocal(),
+          activity_date: todayLocal(finalState.startedAt),
           distance_km: Number((distanceMeters / 1000).toFixed(3)),
           duration_seconds: elapsedSeconds,
           pace_avg_sec_per_km: avgPaceSec,

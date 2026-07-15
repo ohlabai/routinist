@@ -40,17 +40,21 @@ export default function CheerButton({ toUserId, context = 'profile', size = 'md'
     sendCheer(toUserId, emoji, context).then((result) => {
       setSending(null);
       if (!result.success) {
-        // 실패 시 rollback — 같은 emoji 다시 보낼 수 있게
+        // 2026-07-15 리뷰 fix: already_sent (23505) 는 서버에 이미 기록된 상태 — 롤백하면
+        // 다시 보낼 수 있는 것처럼 보여 재탭→재실패 루프. sent 유지 + 안내만.
+        if (result.reason === 'already_sent_this_week') {
+          setToast(tt('이번 주 같은 이모지로 이미 보냈어요'));
+          setTimeout(() => setToast(null), 2000);
+          return;
+        }
+        // 그 외 실패만 rollback — 같은 emoji 다시 보낼 수 있게
         setSentSet(prev => {
           const next = new Set(prev);
           next.delete(cheerKey);
           return next;
         });
-        if (result.reason === 'already_sent_this_week') {
-          setToast(tt('이번 주 같은 이모지로 이미 보냈어요'));
-        } else {
-          setToast(tt('응원 실패 — 다시 시도해주세요'));
-        }
+        setToast(tt('응원 실패 — 다시 시도해주세요'));
+        setTimeout(() => setToast(null), 2000);
       }
     }).catch(() => {
       setSending(null);

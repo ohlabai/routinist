@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { Users } from 'lucide-react';
 import { fetchCourseFriends, type CourseFriend } from '@/lib/world-data';
+import { useI18n } from '@/lib/i18n';
 
 interface Props {
   courseId: string;
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export default function CourseFriendsRow({ courseId, courseDistanceKm, myProgressKm }: Props) {
+  const { tt, locale } = useI18n();
   const [friends, setFriends] = useState<CourseFriend[] | null>(null);
 
   useEffect(() => {
@@ -37,11 +39,11 @@ export default function CourseFriendsRow({ courseId, courseDistanceKm, myProgres
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-bold text-[var(--text-muted)] inline-flex items-center gap-1">
           <Users size={12} className="text-emerald-500" />
-          같이 달리는 친구 {friends.length}
+          {tt('같이 달리는 친구')} {friends.length}
         </span>
         {ahead > 0 && (
           <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400">
-            {ahead}명이 앞서고 있어요
+            {locale === 'en' ? `${ahead} ahead of you` : `${ahead}명이 앞서고 있어요`}
           </span>
         )}
       </div>
@@ -64,7 +66,7 @@ export default function CourseFriendsRow({ courseId, courseDistanceKm, myProgres
                 <div className="flex items-baseline justify-between mb-0.5">
                   <span className="text-[11px] font-semibold truncate">{f.display_name}</span>
                   <span className={`text-[10px] tabular-nums font-bold ml-1 ${completed ? 'text-amber-600 dark:text-amber-400' : 'text-[var(--text-muted)]'}`}>
-                    {completed ? '🏆 완주' : `${f.progress_km.toFixed(1)}km`}
+                    {completed ? `🏆 ${tt('완주')}` : `${f.progress_km.toFixed(1)}km`}
                   </span>
                 </div>
                 <div className="h-1 rounded-full bg-[var(--card-border)]/30 overflow-hidden">
@@ -82,7 +84,7 @@ export default function CourseFriendsRow({ courseId, courseDistanceKm, myProgres
       {/* 내 위치 표시 (mini) */}
       <div className="flex items-center gap-2 mt-2 pt-2 border-t border-[var(--card-border)]/30">
         <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0">
-          <span className="text-[9px] font-extrabold text-white">나</span>
+          <span className="text-[9px] font-extrabold text-white">{locale === 'en' ? 'Me' : '나'}</span>
         </div>
         <div className="flex-1">
           <div className="h-1 rounded-full bg-[var(--card-border)]/30 overflow-hidden">

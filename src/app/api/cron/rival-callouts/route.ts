@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
       user_id: r.user_id,
       category: 'social_rival',
       title, body,
-      payload: { kind: 'rival_callout', rival_id: r.opponent_id, days_left: daysLeft, diff_km: diff },
+      payload: { kind: 'rival_callout', rival_id: r.opponent_id, days_left: daysLeft, diff_km: diff, deep_link: '/dashboard' },
       status: 'pending',
     });
     if (!error) queued++;

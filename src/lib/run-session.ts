@@ -35,6 +35,8 @@ export interface RunSessionStartOptions {
   /** 마일스톤 간격 (km). 기본 1. 500m 안내는 0.5. */
   milestoneEveryKm: number;
   voiceTemplates: RunSessionVoiceTemplates;
+  /** 2026-07-15: 프리뷰(성별 선택)와 동일한 성별 voice 를 native 가 우선 선택하도록 힌트 */
+  voiceGender?: 'female' | 'male';
 }
 
 export interface RunSessionUpdateEvent {
@@ -149,12 +151,16 @@ export async function startRunSession(opts: {
   locale: 'ko' | 'en';
   voiceEnabled: boolean;
   milestoneEveryKm?: number;
+  // 2026-07-15: 프리뷰 (Web Speech, 성별 선택) 와 실주행 (native, quality-only) 보이스가
+  // 달라지던 문제 — 성별 힌트를 native 로 전달해 selectVoice 가 우선 필터.
+  voiceGender?: 'female' | 'male';
 }): Promise<{ ok: true; startedAtMs: number }> {
   return RunSession.start({
     locale: opts.locale,
     voiceEnabled: opts.voiceEnabled,
     milestoneEveryKm: opts.milestoneEveryKm ?? 1,
     voiceTemplates: buildVoiceTemplates(opts.locale),
+    voiceGender: opts.voiceGender ?? 'female',
   });
 }
 

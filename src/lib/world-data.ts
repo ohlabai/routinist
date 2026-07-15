@@ -221,7 +221,12 @@ export async function fetchCourseFriends(courseId: string): Promise<CourseFriend
     console.warn('[world-data] fetchCourseFriends fail', error);
     return [];
   }
-  return (data ?? []) as CourseFriend[];
+  // build 234 numeric→string 회귀 방지 — fetchCourseRunners 와 동일하게 명시 변환
+  return ((data ?? []) as CourseFriend[]).map(f => ({
+    ...f,
+    progress_km: Number(f.progress_km),
+    ratio: Number(f.ratio),
+  }));
 }
 
 // admin

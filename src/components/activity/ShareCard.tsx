@@ -1108,6 +1108,9 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
   const activity = useMemo<Activity>(() => ({ ...baseActivity, route_data: routeData }), [baseActivity, routeData]);
   useEffect(() => {
     if (routeData) return;
+    // 2026-07-15 리뷰 fix: 주간/월간 카드의 합성 id ('period-week-…') 가 uuid 컬럼에 발사돼
+    // 매번 22P02 에러 요청을 만들었음 — uuid 형식일 때만 fetch.
+    if (!/^[0-9a-f-]{36}$/i.test(baseActivity.id)) return;
     let cancelled = false;
     fetchActivityRoute(baseActivity.id).then(r => {
       if (!cancelled && r?.route_data) setRouteData(r.route_data);

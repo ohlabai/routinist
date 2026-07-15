@@ -2,7 +2,7 @@
 
 // 오늘의 우리 동네 TOP 10 — 가로 스크롤 카드.
 // 2026-07-12 CCSS #2: 구 단위 → 시/도 단위 (회원 수 적어 구 단위는 거의 항상 빈 카드).
-// 유저 region_si 없으면 노출 안 함. (프로필 유도는 MatchedRankBanner 에서 맡음)
+// 유저 region_si 없으면 노출 안 함. (프로필 유도는 홈 온보딩 카드가 맡음)
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';

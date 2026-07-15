@@ -6,6 +6,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Share2, X, Download } from 'lucide-react';
+// 2026-07-15 리뷰: 전체 한국어 하드코딩 → ttl (canvas/공유 문구) + locale 분기
+import { ttl, getCurrentLocale } from '@/lib/i18n';
 
 interface Props {
   courseName: string;
@@ -62,7 +64,7 @@ export default function MedalShareCard({
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
     ctx.font = '600 28px -apple-system, BlinkMacSystemFont, system-ui';
     ctx.textAlign = 'center';
-    ctx.fillText('Routinist · 월드런 완주', W / 2, 100);
+    ctx.fillText(getCurrentLocale() === 'en' ? 'Routinist · World Run Finisher' : 'Routinist · 월드런 완주', W / 2, 100);
 
     // 메달 원형 (트로피 자리)
     const cx = W / 2;
@@ -108,7 +110,7 @@ export default function MedalShareCard({
     // 거리
     ctx.fillStyle = '#a7f3d0';
     ctx.font = '900 64px -apple-system, system-ui';
-    ctx.fillText(`${distanceKm.toFixed(3)} km 완주`, cx, 920);
+    ctx.fillText(getCurrentLocale() === 'en' ? `${distanceKm.toFixed(3)} km finished` : `${distanceKm.toFixed(3)} km 완주`, cx, 920);
 
     // 완주일
     const dateStr = formatDate(completedAt);
@@ -120,13 +122,13 @@ export default function MedalShareCard({
     if (refundAmount && refundAmount > 0) {
       ctx.fillStyle = '#fef3c7';
       ctx.font = '700 40px -apple-system, system-ui';
-      ctx.fillText(`✨ 마일리지 ${refundAmount.toLocaleString()}P 환급`, cx, 1060);
+      ctx.fillText(getCurrentLocale() === 'en' ? `✨ ${refundAmount.toLocaleString()}P mileage refunded` : `✨ 마일리지 ${refundAmount.toLocaleString()}P 환급`, cx, 1060);
     }
 
     // 하단 — 러너 닉네임 + 브랜드
     ctx.fillStyle = 'rgba(255,255,255,0.85)';
     ctx.font = '700 36px -apple-system, system-ui';
-    ctx.fillText(displayName + ' 님', cx, 1200);
+    ctx.fillText(getCurrentLocale() === 'en' ? displayName : displayName + ' 님', cx, 1200);
 
     ctx.fillStyle = 'rgba(255,255,255,0.5)';
     ctx.font = '500 26px -apple-system, system-ui';
@@ -159,10 +161,10 @@ export default function MedalShareCard({
           });
           const { Share } = await import('@capacitor/share');
           await Share.share({
-            title: `${courseName} 완주!`,
-            text: `🏆 ${courseName} ${distanceKm.toFixed(3)}km 완주! #Routinist`,
+            title: ttl('완주!') && getCurrentLocale() === 'en' ? `Finished ${courseName}!` : `${courseName} 완주!`,
+            text: getCurrentLocale() === 'en' ? `🏆 Finished ${courseName} — ${distanceKm.toFixed(3)}km! #Routinist` : `🏆 ${courseName} ${distanceKm.toFixed(3)}km 완주! #Routinist`,
             url: written.uri,
-            dialogTitle: '메달 공유',
+            dialogTitle: ttl('메달 공유'),
           });
         } catch (e) {
           console.warn('[MedalShareCard] native share fail', e);
@@ -172,8 +174,8 @@ export default function MedalShareCard({
           const file = new File([blob], fileName, { type: 'image/png' });
           await (navigator as Navigator & { share: (data: { files: File[]; title?: string; text?: string }) => Promise<void> }).share({
             files: [file],
-            title: `${courseName} 완주!`,
-            text: `🏆 ${courseName} ${distanceKm.toFixed(3)}km 완주! #Routinist`,
+            title: getCurrentLocale() === 'en' ? `Finished ${courseName}!` : `${courseName} 완주!`,
+            text: getCurrentLocale() === 'en' ? `🏆 Finished ${courseName} — ${distanceKm.toFixed(3)}km! #Routinist` : `🏆 ${courseName} ${distanceKm.toFixed(3)}km 완주! #Routinist`,
           });
         } catch (e) {
           console.warn('[MedalShareCard] web share fail', e);
@@ -198,10 +200,10 @@ export default function MedalShareCard({
   return (
     <div className="fixed inset-0 z-[95] bg-black/80 backdrop-blur-sm flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 text-white">
-        <button type="button" onClick={onClose} aria-label="닫기" className="p-2 rounded-full hover:bg-white/10">
+        <button type="button" onClick={onClose} aria-label={ttl('닫기')} className="p-2 rounded-full hover:bg-white/10">
           <X className="w-6 h-6" />
         </button>
-        <div className="text-sm font-bold">메달 공유</div>
+        <div className="text-sm font-bold">{ttl('메달 공유')}</div>
         <div className="w-10" />
       </div>
 
@@ -221,7 +223,7 @@ export default function MedalShareCard({
           className="py-3 rounded-2xl bg-white/10 backdrop-blur text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
         >
           <Download className="w-4 h-4" />
-          저장
+          {ttl('저장')}
         </button>
         <button
           type="button"
@@ -230,7 +232,7 @@ export default function MedalShareCard({
           className="py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
         >
           <Share2 className="w-4 h-4" />
-          {busy ? '준비중...' : '친구에게 공유'}
+          {busy ? ttl('준비중...') : ttl('친구에게 공유')}
         </button>
       </div>
     </div>

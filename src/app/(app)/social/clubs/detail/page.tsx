@@ -217,11 +217,15 @@ function ClubDetail() {
       } else if (navigator.share) {
         await navigator.share({ title, text, url });
       } else {
+        // 2026-07-15 리뷰 fix: 복사 피드백이 아래 '초대 링크' 카드에만 떠서 상단 아이콘이
+        // 무반응처럼 보였음 — 토스트로 명시.
         await navigator.clipboard.writeText(`${text}\n${url}`);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        alert(tt('초대 링크를 복사했어요'));
       }
-    } catch { /* 사용자가 공유 시트 닫음 등 — 조용히 */ }
+    } catch (e) {
+      // 사용자가 공유 시트를 닫은 건 조용히, 클립보드 거부 등 실제 실패만 안내
+      if (e instanceof Error && e.name !== 'AbortError') alert(tt('공유에 실패했어요. 다시 시도해주세요'));
+    }
   };
 
   const handleRoleChange = async (userId: string, newRole: 'admin' | 'member') => {

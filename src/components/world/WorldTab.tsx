@@ -623,10 +623,21 @@ function ProgressCard({ course, path }: { course: MyCourse; path: PreviewPoint[]
   const etaLabel = useMemo(() => {
     if (isCompleted) return null;
     const cutoff = daysAgoStr(13); // 오늘 포함 14일
-    const km14 = activities.reduce((sum, a) =>
-      a.activity_date >= cutoff && (a.activity_type ?? 'running') === 'running'
-        ? sum + a.distance_km : sum, 0);
-    const daily = km14 / 14;
+    let km14 = 0;
+    let earliest: string | null = null;
+    for (const a of activities) {
+      if ((a.activity_type ?? 'running') !== 'running') continue;
+      if (earliest === null || a.activity_date < earliest) earliest = a.activity_date;
+      if (a.activity_date >= cutoff) km14 += a.distance_km;
+    }
+    // 2026-07-15: 고정 /14 는 가입 직후 유저의 ETA 를 과대 (느리게) 추정 — 첫 활동일부터의
+    // 일수로 분모 하한.
+    let denomDays = 14;
+    if (earliest && earliest > cutoff) {
+      const [y, m, d] = earliest.split('-').map(Number);
+      denomDays = Math.max(1, Math.min(14, Math.ceil((Date.now() - new Date(y, m - 1, d).getTime()) / 86400000)));
+    }
+    const daily = km14 / denomDays;
     if (daily < 0.2) return null;
     const days = Math.ceil(remain / daily);
     if (days < 1 || days > 400) return null;

@@ -273,7 +273,9 @@ export default function HomeRankingHero() {
     ? Math.min(95, Math.max(15, (myKm / (myKm + kmToNext)) * 100))
     : 100;
 
-  const goDetail = () => router.push(`/social?scope=${rank.scope_type}&axis=${axis}`);
+  // 2026-07-15 리뷰 fix: /social 은 tab 파라미터만 해석해 scope/axis 가 무시되고 친구 탭에
+  // 착지했음 — 랭킹 상세는 /ranking (RankingBreakdown) 이 목적지.
+  const goDetail = () => router.push('/ranking');
 
   return (
     <div className={`mx-4 mt-3 rounded-3xl ${style.cardBg} border ${style.cardBorder} shadow-sm overflow-hidden relative`}>

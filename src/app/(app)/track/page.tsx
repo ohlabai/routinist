@@ -118,9 +118,16 @@ function TrackPageImpl() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const recheck = () => {
+      // 2026-07-15 리뷰 fix: WKWebView 의 getVoices() 는 초기에 [] 를 자주 반환 —
+      // 그 상태로 판단하면 사용자의 male 설정을 파괴하고 프리미엄 힌트를 오노출.
+      // voices 가 비어 있으면 판단 보류 (voiceschanged 가 다시 부름).
+      const voices = window.speechSynthesis?.getVoices?.() ?? [];
+      if (locale === 'ko' && voices.length === 0) return;
       const available = locale !== 'ko' || hasKoreanMaleVoice();
       setMalePickerVisible(available);
-      setShowVoiceQualityHint(locale === 'ko' && !hasEnhancedKoreanVoice());
+      // 프리미엄 보이스 힌트는 iOS 전용 안내 (Android 는 경로가 다름 — 오안내 방지)
+      const platform = (window as { Capacitor?: { getPlatform?: () => string } }).Capacitor?.getPlatform?.();
+      setShowVoiceQualityHint(locale === 'ko' && platform === 'ios' && !hasEnhancedKoreanVoice());
       // 남성 voice 없는데 male 선택 상태였다면 female 로 강제 (ref 로 latest 읽기).
       if (!available && voiceGenderRef.current === 'male') {
         setVoiceGenderState('female');
@@ -129,7 +136,11 @@ function TrackPageImpl() {
     };
     recheck();
     const t = setTimeout(recheck, 500);
-    return () => clearTimeout(t);
+    try { window.speechSynthesis?.addEventListener?.('voiceschanged', recheck); } catch {}
+    return () => {
+      clearTimeout(t);
+      try { window.speechSynthesis?.removeEventListener?.('voiceschanged', recheck); } catch {}
+    };
   }, [locale]);
   const toggleVoice = () => {
     const next = !voiceOn;
@@ -313,18 +324,22 @@ function TrackPageImpl() {
     });
   }, []);
 
-  const beginTrackingAfterCountdown = useCallback(() => {
-    // 2026-07-14: 친구 라이브 러닝 push — "지금 달리는 중 🏃". 서버 RPC 가 노이즈 가드
-    // (러너당 하루 1회 KST · 수신자 설정 · 비공개 프로필 제외) 전부 처리. fire-and-forget.
+  // 2026-07-14: 친구 라이브 러닝 push — "지금 달리는 중 🏃". 서버 RPC 가 노이즈 가드
+  // (러너당 하루 1회 KST · 수신자 설정 · 비공개 프로필 제외) 전부 처리. fire-and-forget.
+  // 2026-07-15 리뷰: 세션 시작이 "확정" 된 뒤에만 발사 — 이전엔 native start 가
+  // session-already-active 로 거절돼 재부착만 한 경우에도 하루 1회 쿼터를 소모했음.
+  const fireLiveRunPush = useCallback(() => {
     void getSupabase().rpc('notify_friends_run_started').then(
       ({ data, error }) => {
-        // 2026-07-15 리뷰: 에러를 삼키지 않고 기록 — push_devices 오타 (42P01) 로 기능이
-        // 무음 사망했는데 아무 로그도 없었음 (fix + 진단 페어링 룰).
+        // 에러를 삼키지 않고 기록 — push_devices 오타 (42P01) 무음 사망 재발 방지 (진단 페어링 룰)
         if (error) { void logClientWarn('track-start', 'live-run push RPC fail', { message: error.message, code: error.code }); return; }
         if (typeof data === 'number' && data > 0) logClientInfo('track-start', 'live-run push', { recipients: data });
       },
       (e) => { void logClientWarn('track-start', 'live-run push reject', { message: e instanceof Error ? e.message : String(e) }); }
     );
+  }, []);
+
+  const beginTrackingAfterCountdown = useCallback(() => {
     if (useNative) {
       // 네이티브 엔진: start 가 세션 소유. JS state 는 렌더 미러만.
       void (async () => {
@@ -333,11 +348,13 @@ function TrackPageImpl() {
             locale,
             voiceEnabled: isVoiceCueEnabled(),
             milestoneEveryKm: getVoiceCueIntervalMeters() === 500 ? 0.5 : 1,
+            voiceGender: getVoiceGender(),
           });
           const fresh = createInitialState();
           fresh.startedAt = res.startedAtMs;
           activeBaseRef.current = { activeSec: 0, at: Date.now(), running: true };
           setState(fresh);
+          fireLiveRunPush();
           logClientInfo('track-start', 'native-begin', { startedAt: res.startedAtMs });
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
@@ -354,6 +371,7 @@ function TrackPageImpl() {
           const fresh = createInitialState();
           setState(fresh);
           saveState(fresh);
+          fireLiveRunPush();
           logClientInfo('track-start', 'begin (native-fail fallback)', { startedAt: fresh.startedAt });
         }
       })();
@@ -362,8 +380,9 @@ function TrackPageImpl() {
     const fresh = createInitialState();
     setState(fresh);
     saveState(fresh);
+    fireLiveRunPush();
     logClientInfo('track-start', 'begin', { startedAt: fresh.startedAt });
-  }, [useNative, locale, applyRunSnapshot]);
+  }, [useNative, locale, applyRunSnapshot, fireLiveRunPush]);
   // build 213 #1: countdown 진행 중이거나 이미 active 면 더블탭 무시 (race condition guard).
   const startingRef = useRef(false);
   const startTracking = useCallback(async () => {

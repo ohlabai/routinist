@@ -176,7 +176,7 @@ export default function RankNeighbors() {
       )}
 
       <Link
-        href="/social?tab=friends"
+        href="/ranking"
         className="mt-3 flex items-center justify-center gap-0.5 text-xs font-semibold text-emerald-600"
       >
         {tt('전체 랭킹 보기')} <ChevronRight size={14} />

@@ -1074,6 +1074,29 @@ const I18nContext = createContext<I18nState>({
 // 자주 노출되는 잔존 한글 → 영어 매핑. 정식 키는 DICT 에 추가하고 t() 사용 권장.
 // 임시 alias 로 사용 — 점진적 마이그레이션 안전망.
 const EXTRAS_EN: Record<string, string> = {
+  // 2026-07-15 리뷰: /social/rankings + 월드런 카드 en 키
+  '지역 랭킹': 'Regional ranking',
+  '랭킹': 'Ranking',
+  '지역 선택': 'Select region',
+  '{n}명의 러너가 경쟁 중': '{n} runners competing',
+  '랭킹을 확인해보세요': 'Check the rankings',
+  '국가': 'Country',
+  '시/도': 'Province',
+  '구/군': 'District',
+  '전체 (국가 단위)': 'All (country level)',
+  ' 전체 (시/도 단위)': ' All (province level)',
+  ' 에서 지역을 설정하면 랭킹에 참여할 수 있어요': ' — set your region to join the rankings',
+  '국가 단위 통합 랭킹은 곧 출시': 'Country-level rankings coming soon',
+  '통합 랭킹은 곧 출시': 'combined ranking coming soon',
+  '에 아직 기록이 없어요': ' has no records yet',
+  '첫 번째 러너가 되어보세요!': 'Be the first runner!',
+  '구/군별 랭킹부터 확인하세요': 'Check district rankings first',
+  '같이 달리는 친구': 'Friends on this course',
+  '메달 공유': 'Share medal',
+  '준비중...': 'Preparing...',
+  '친구에게 공유': 'Share with friends',
+  '공유에 실패했어요. 다시 시도해주세요': 'Share failed. Please try again',
+  '이 러너에게 응원 보내기': 'Send this runner a cheer',
   // 셀러 (build 205)
   '판매자 신청': 'Seller application',
   '판매자 신청 제출': 'Submit application',
