@@ -1,4 +1,4 @@
-v1.2.9 — World Run on real maps, epic long courses, a livelier Home
+v1.2.10 — World Run on real maps, epic long courses, a livelier Home
 
 [World Run on real maps]
 • Every course card now sits on a real map, with your route and position drawn on top.
