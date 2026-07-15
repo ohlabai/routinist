@@ -24,6 +24,10 @@ import { logClientInfo, logClientWarn } from '@/lib/error-logger';
 interface Props {
   finalState: TrackingState;
   userId: string;
+  /** 2026-07-16: 네이티브 RunSession 세션 여부. true 면 HealthKit 후행 보정 skip —
+   *  네이티브 거리는 이미 GPS 필터 파이프라인 + pedometer 융합이라, HK 가 뒤늦게
+   *  덮어쓰면 공유카드(보정 전)와 홈(보정 후)이 어긋난다 (hans 7/15: 11.43→9.97 회귀). */
+  nativeEngine?: boolean;
   onClose: () => void;
 }
 
@@ -77,7 +81,7 @@ function todayLocal(atMs?: number): string {
   }
 }
 
-export default function TrackSummarySheet({ finalState, userId, onClose }: Props) {
+export default function TrackSummarySheet({ finalState, userId, nativeEngine, onClose }: Props) {
   const router = useRouter();
   const { tt } = useI18n();
   const [saving, setSaving] = useState(false);
@@ -141,7 +145,17 @@ export default function TrackSummarySheet({ finalState, userId, onClose }: Props
       // 결과로 distance/pace 를 UPDATE 한다. GPS 자체 누적은 jitter / multipath 로 부풀려질 수
       // 있는데, Apple Watch / iPhone 자이로+보폭 보정값이 신뢰도 더 높음. 5% 이상 차이날 때만.
       // 사용자는 activity 페이지로 즉시 이동, 보정은 백그라운드에서 진행됨.
-      if (isLiveDistanceAvailable() && distanceMeters > 0) {
+      //
+      // 2026-07-16 fix: 레거시 JS 엔진 저장에만 적용. 네이티브 RunSession (build 292+) 은
+      // 거리 자체가 GPS 필터 + pedometer 융합 결과라 HK 후행 덮어쓰기가 오히려 회귀를 만든다
+      // — hans 7/15 실주행에서 GPS 11,418m·pedometer 11,021m 로 두 센서가 합의했는데
+      // HK 9,970m 가 15초 뒤 DB 만 덮어써 공유카드(11.43)와 홈(9.97)이 어긋났음.
+      if (nativeEngine) {
+        logClientInfo('live-distance', 'skipped-native-engine', {
+          activity_id: activityId, distance_m: Math.round(distanceMeters),
+        });
+      }
+      if (!nativeEngine && isLiveDistanceAvailable() && distanceMeters > 0) {
         void (async () => {
           try {
             const result = await correctDistanceWithHealthKit({

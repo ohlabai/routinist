@@ -1207,6 +1207,7 @@ function TrackPageImpl() {
         <TrackSummarySheet
           finalState={finished}
           userId={user.id}
+          nativeEngine={useNative}
           onClose={() => setFinished(null)}
         />
       )}
