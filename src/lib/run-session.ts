@@ -110,14 +110,16 @@ export const RunSession = registerPlugin<RunSessionPlugin>('RunSession');
 
 /**
  * 네이티브 플랫폼 + RunSession 플러그인 실탑재 여부.
- * Swift 구현이 아직 없는 빌드 (구버전 / 시뮬레이터 web) 에선 false → 레거시 JS 엔진 폴백.
+ * 네이티브 구현이 아직 없는 빌드 (구버전 / 시뮬레이터 web) 에선 false → 레거시 JS 엔진 폴백.
+ * Android Phase 2 (versionCode 307+): RunSessionEngine.kt + FGS — iOS 와 동일 계약.
  */
 export function isRunSessionAvailable(): boolean {
   if (typeof window === 'undefined') return false;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const cap = (window as any).Capacitor;
   if (!cap?.isNativePlatform?.()) return false;
-  if (cap.getPlatform?.() !== 'ios') return false;   // Android native 는 Phase 2 이후
+  const platform = cap.getPlatform?.();
+  if (platform !== 'ios' && platform !== 'android') return false;
   return cap.isPluginAvailable?.('RunSession') === true;
 }
 

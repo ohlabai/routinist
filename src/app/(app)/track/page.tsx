@@ -157,7 +157,17 @@ function TrackPageImpl() {
     const next = !voiceOn;
     setVoiceOn(next);
     setVoiceCueEnabled(next);
-    if (next) speakSample(locale);
+    if (next) {
+      // Android WebView 는 speechSynthesis 가 없어 speakSample 이 무음 — 네이티브 TTS 로 미리듣기.
+      // iOS 는 기존 Web Speech 미리듣기 유지 (성별 선택 프리뷰와 일관).
+      if (!speechAvailable && useNative) {
+        void speakNative(locale === 'en'
+          ? '1 kilometer. Average pace 5 minutes 30 seconds. Looking strong.'
+          : '1킬로미터 통과. 평균 페이스 5분 30초. 잘하고 있어요.');
+      } else {
+        speakSample(locale);
+      }
+    }
   };
   const changeInterval = (m: 500 | 1000) => {
     setVoiceInterval(m);
@@ -1036,9 +1046,10 @@ function TrackPageImpl() {
               {locale === 'en' ? 'Ready? Tap to auto-record your route.' : '준비됐어요? 시작하면 자동으로 경로를 기록해요'}
             </p>
             <p className="text-[11px] text-[var(--muted)]/80 mb-3 break-keep">
-              {/* 2026-07-15 Android 리뷰 P0-1: Android 는 백그라운드 트래킹 미지원 (FGS 는 Phase 2) —
-                  "잠금 화면에서도 측정" 카피가 허위라 화면 유지 안내로 분기. wake lock 이 꺼짐을 막아줌. */}
-              {isAndroid
+              {/* 2026-07-15 Android 리뷰 P0-1: 레거시 JS 엔진 (구버전 Android 빌드) 은 백그라운드
+                  트래킹이 안 돼 "잠금 화면에서도 측정" 카피가 허위 — 화면 유지 안내로 분기.
+                  네이티브 RunSession (Phase 2, FGS) 이 있으면 iOS 와 동일하게 잠금 측정 가능. */}
+              {isAndroid && !useNative
                 ? (locale === 'en'
                   ? 'Keep the screen on while running — we’ll hold it awake for you. Tracking stops as soon as you finish.'
                   : '달리는 동안 화면을 켠 채로 유지해 주세요. 화면이 저절로 꺼지지 않게 잡아드려요.')
