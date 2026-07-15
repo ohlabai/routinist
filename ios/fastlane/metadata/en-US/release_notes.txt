@@ -20,3 +20,4 @@ v1.2.9 — World Run on real maps, epic long courses, a livelier Home
 • Fixed "Activity not found" when opening another runner's record.
 • The club share button now opens the share sheet right away.
 • Share cards now default to image; video is still one tap away.
+• Fixed the share card and Home showing different distances after a GPS run.
