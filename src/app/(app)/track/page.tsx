@@ -317,8 +317,13 @@ function TrackPageImpl() {
     // 2026-07-14: 친구 라이브 러닝 push — "지금 달리는 중 🏃". 서버 RPC 가 노이즈 가드
     // (러너당 하루 1회 KST · 수신자 설정 · 비공개 프로필 제외) 전부 처리. fire-and-forget.
     void getSupabase().rpc('notify_friends_run_started').then(
-      ({ data }) => { if (typeof data === 'number' && data > 0) logClientInfo('track-start', 'live-run push', { recipients: data }); },
-      () => {} // 실패해도 트래킹엔 영향 없음
+      ({ data, error }) => {
+        // 2026-07-15 리뷰: 에러를 삼키지 않고 기록 — push_devices 오타 (42P01) 로 기능이
+        // 무음 사망했는데 아무 로그도 없었음 (fix + 진단 페어링 룰).
+        if (error) { void logClientWarn('track-start', 'live-run push RPC fail', { message: error.message, code: error.code }); return; }
+        if (typeof data === 'number' && data > 0) logClientInfo('track-start', 'live-run push', { recipients: data });
+      },
+      (e) => { void logClientWarn('track-start', 'live-run push reject', { message: e instanceof Error ? e.message : String(e) }); }
     );
     if (useNative) {
       // 네이티브 엔진: start 가 세션 소유. JS state 는 렌더 미러만.

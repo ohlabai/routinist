@@ -19,20 +19,10 @@ export async function POST(req: NextRequest) {
 
   const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
   const month = `${kstNow.getUTCFullYear()}-${String(kstNow.getUTCMonth() + 1).padStart(2, '0')}`;
-  let selfHeal = false;
-  if (kstNow.getUTCDate() !== 1) {
-    // KST 1일이 아니면: 이번 달 매칭이 하나라도 있으면 정상 → skip.
-    // 0건이면 1일 발사가 죽었던 것 — 즉시 매칭 (self-heal).
-    const { count, error: cntErr } = await supabase
-      .from('monthly_rivals')
-      .select('user_id', { count: 'exact', head: true })
-      .eq('month', month);
-    if (cntErr) return NextResponse.json({ error: cntErr.message }, { status: 500 });
-    if ((count ?? 0) > 0) {
-      return NextResponse.json({ ok: true, skipped: true, reason: 'already assigned', month });
-    }
-    selfHeal = true;
-  }
+  // 2026-07-15 리뷰 fix: "이번 달 매칭 있으면 skip" early-return 이 월중 가입/재활성 유저를
+  // 한 달 내내 페이스메이커 없이 방치했음. RPC 가 이미 매칭된 유저를 제외하고 ON CONFLICT
+  // DO NOTHING 이라 매일 실행해도 멱등 — 게이트 제거하고 매일 신규 활성 유저를 매칭.
+  const selfHeal = kstNow.getUTCDate() !== 1;
 
   const { data, error } = await supabase.rpc('assign_monthly_rivals');
   if (error) {

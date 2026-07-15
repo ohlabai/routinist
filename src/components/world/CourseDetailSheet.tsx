@@ -22,6 +22,7 @@ import {
 import AppToast from '@/components/AppToast';
 import MilestoneBoard from './MilestoneBoard';
 import { useI18n, ttl, getCurrentLocale } from '@/lib/i18n';
+import { nextGenericMilestone } from '@/lib/world-milestones';
 
 interface Props {
   courseId: string;
@@ -91,28 +92,15 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
     (course && course.distance_km > 0 && myRunner.progress_km >= course.distance_km)
   );
 
-  // build 228: 다음 마일스톤 계산. distance_km 에 따라 5/10/15/20/하프/25/30/35/40/풀
-  // 시퀀스 자동 생성. 사용자 progress 보다 큰 첫 마일스톤 + 남은 거리.
+  // build 228 → 2026-07-15 리뷰 fix: 하드코딩 5~40km 시퀀스가 장거리 코스 (633km 등) 에서
+  // 40km 이후 "완주까지 588km" 로 붕괴 — MilestoneBoard/ProgressCard 와 같은
+  // nextGenericMilestone (장거리는 25km 간격) 을 재사용해 일관화.
   const nextMilestone = (() => {
     if (!course || !myRunner || completed) return null;
-    const dist = course.distance_km;
-    const ms: number[] = [];
-    if (dist >= 5) ms.push(5);
-    if (dist >= 10) ms.push(10);
-    if (dist >= 15) ms.push(15);
-    if (dist >= 20) ms.push(20);
-    if (dist >= 21.0975) ms.push(21.0975);
-    if (dist >= 25) ms.push(25);
-    if (dist >= 30) ms.push(30);
-    if (dist >= 35) ms.push(35);
-    if (dist >= 40) ms.push(40);
-    ms.push(dist); // 최종 완주
-    const next = ms.find(m => m > myRunner.progress_km + 0.05);
-    if (next == null) return null;
-    const label = Math.abs(next - 21.0975) < 0.01 ? '하프 마라톤'
-      : Math.abs(next - dist) < 0.01 ? '완주'
-      : `${next.toFixed(next % 1 === 0 ? 0 : 1)}km`;
-    return { km: next, label, remaining: Math.max(0, next - myRunner.progress_km) };
+    const next = nextGenericMilestone(course.distance_km, myRunner.progress_km);
+    if (!next) return null;
+    const label = next.name === '하프' ? '하프 마라톤' : next.name === '완주' ? '완주' : next.name;
+    return { km: next.km, label, remaining: Math.max(0, next.km - myRunner.progress_km) };
   })();
 
   return (

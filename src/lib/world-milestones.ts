@@ -48,9 +48,18 @@ function genericMilestoneKms(distanceKm: number): number[] {
 
 // real_path 의 점들 사이 누적 거리 → target km 위치 보간.
 // real_path 가 없거나 너무 짧으면 null 반환 (Street View 비활성).
-export function getLatLngAtKm(realPath: RealLatLng[] | null, targetKm: number): RealLatLng | null {
+// 2026-07-15 리뷰 fix: real_path 는 waypoint 직선 연결이라 haversine 합이 공식 거리보다
+// 짧다 (국토대장정 443km vs 633km). officialTotalKm 을 주면 target 을 path 길이 비율로
+// 스케일해 마일스톤/랜드마크가 실제 위치에 찍히게 한다 (없으면 기존 raw 동작).
+export function getLatLngAtKm(realPath: RealLatLng[] | null, targetKm: number, officialTotalKm?: number): RealLatLng | null {
   if (!realPath || realPath.length < 2) return null;
-  const targetMeters = targetKm * 1000;
+  let scaledKm = targetKm;
+  if (officialTotalKm && officialTotalKm > 0) {
+    let pathMeters = 0;
+    for (let i = 1; i < realPath.length; i++) pathMeters += haversineMeters(realPath[i - 1], realPath[i]);
+    scaledKm = targetKm * (pathMeters / 1000 / officialTotalKm);
+  }
+  const targetMeters = scaledKm * 1000;
   let cumMeters = 0;
   for (let i = 1; i < realPath.length; i++) {
     const prev = realPath[i - 1];
@@ -139,7 +148,7 @@ export function buildMilestones(course: VirtualCourse, myProgressKm: number): Mi
   for (const km of genericKms) {
     const isFinish = Math.abs(km - course.distance_km) < 0.05;
     const meta = genericLabel(km, isFinish);
-    const ll = getLatLngAtKm(course.real_path, km);
+    const ll = getLatLngAtKm(course.real_path, km, course.distance_km);
     items.push({
       id: `g-${km}`,
       km,
@@ -156,7 +165,7 @@ export function buildMilestones(course: VirtualCourse, myProgressKm: number): Mi
     // 같은 km 의 generic 카드 제거 (landmark 가 더 풍부함)
     const dupIdx = items.findIndex(it => Math.abs(it.km - lm.km) < 0.5 && it.kind === 'generic');
     if (dupIdx >= 0) items.splice(dupIdx, 1);
-    const ll = getLatLngAtKm(course.real_path, lm.km);
+    const ll = getLatLngAtKm(course.real_path, lm.km, course.distance_km);
     items.push({
       id: `lm-${lm.km}-${lm.name}`,
       km: lm.km,

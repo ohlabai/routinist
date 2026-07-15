@@ -83,10 +83,14 @@ export async function POST(req: NextRequest) {
   // build 291: 같은 날 재실행 (Vercel 재시도/수동 호출) 중복 발사 방지 — 오늘 이미 큐잉된 대상 제외
   // KST 오늘 00:00 의 UTC 시각 = UTC 자정 - 9h
   const kstDayStart = new Date(Date.UTC(yyyy, kst.getUTCMonth(), today) - 9 * 60 * 60 * 1000).toISOString();
+  // 2026-07-15 리뷰 fix: notify_rival_on_activity 도 같은 category('social_rival') 를 쓰므로
+  // 상대가 오늘 달렸으면 (rival_activity push 발사) 월말 콜아웃이 통째로 skip 되던 충돌 —
+  // 콜아웃 자체 발송분만 dedup 대상으로.
   const { data: alreadyQueued } = await supabase
     .from('push_send_log')
     .select('user_id')
     .eq('category', 'social_rival')
+    .eq('payload->>kind', 'rival_callout')
     .gte('created_at', kstDayStart)
     .limit(10000);
   const sentToday = new Set((alreadyQueued ?? []).map((r: { user_id: string }) => r.user_id));

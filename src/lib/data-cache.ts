@@ -159,7 +159,9 @@ export const dataCache = {
       for (let i = 0; i < window.localStorage.length; i++) {
         const k = window.localStorage.key(i);
         if (!k) continue;
-        if (k.startsWith('routinist_cache_v1_') || k.startsWith('routinist_cache_ts_v1_')) {
+        // 2026-07-15 리뷰 fix: v1 레거시만 지우고 현재 v2 키를 안 지워 로그아웃해도 이전
+        // 계정 캐시가 디스크에 남았음 (공용 기기 개인정보 + 누적). 모든 버전 일괄 삭제.
+        if (k.startsWith('routinist_cache_')) {
           toRemove.push(k);
         }
       }

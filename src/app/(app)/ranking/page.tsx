@@ -47,7 +47,8 @@ function RankingInner() {
     return off;
   }, []);
 
-  const hasDemographics = !!(profile?.region_gu || profile?.birth_year || profile?.gender);
+  // 2026-07-15 리뷰 fix: 시/도 코호트 전환 후 si-only (해외 포함) 유저가 랭킹에서 영구 차단되던 게이트 — region_si 포함
+  const hasDemographics = !!(profile?.region_si || profile?.region_gu || profile?.birth_year || profile?.gender);
 
   // 월드런 탭 조건부 노출 — 진행 중/완주 코스가 있을 때만.
   // ?tab=world 딥링크 (진행 push 는 참가자에게만 감) 로 직접 오면 fetch 결과와 무관하게 노출.

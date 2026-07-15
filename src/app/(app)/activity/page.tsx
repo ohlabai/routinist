@@ -51,9 +51,12 @@ function ActivityDetail() {
   // 2026-07-12: fetch 시작과 동시에 tried=true 가 되어 응답 도착 전에 "찾을 수 없습니다" 가
   // 먼저 렌더되던 버그 fix (본인 활동은 캐시 hit 라 안 걸리고, Run of the Day 등 남의 활동만
   // 걸렸음) — done 은 fetch 완료 시점에만 세움.
-  const [fallbackActivity, setFallbackActivity] = useState<Activity | null>(null);
-  const [fallbackDone, setFallbackDone] = useState(false);
-  const fallbackStartedRef = useRef(false);
+  // 2026-07-15 리뷰 fix: boolean ref/state 는 마운트 중 ?id= 가 바뀌면 새 id 를 영원히
+  // fetch 안 하고 이전 활동을 계속 보여줌 — 결과를 id 에 묶어 파생 (id 바뀌면 자동 리셋).
+  const [fallbackResult, setFallbackResult] = useState<{ id: string; activity: Activity | null } | null>(null);
+  const fallbackStartedForIdRef = useRef<string | null>(null);
+  const fallbackActivity = fallbackResult && fallbackResult.id === id ? fallbackResult.activity : null;
+  const fallbackDone = fallbackResult?.id === id;
   const cachedActivity = useMemo(() => activities.find(a => a.id === id), [activities, id]);
   const baseActivity = cachedActivity ?? fallbackActivity;
 
@@ -61,12 +64,13 @@ function ActivityDetail() {
   useEffect(() => {
     if (!id) return;
     if (cachedActivity) return;
-    if (fallbackStartedRef.current) return;
-    fallbackStartedRef.current = true;
+    if (fallbackStartedForIdRef.current === id) return;
+    fallbackStartedForIdRef.current = id;
     (async () => {
       const a = await fetchActivityById(id);
-      if (a) setFallbackActivity(a);
-      setFallbackDone(true);
+      // id 가 그 사이 또 바뀌었으면 낡은 결과 폐기
+      if (fallbackStartedForIdRef.current !== id) return;
+      setFallbackResult({ id, activity: a });
       // 캐시 동기화 (다음 진입 빠르게)
       refresh().catch(() => {});
     })();
@@ -326,7 +330,12 @@ function ActivityDetail() {
         <div className="flex justify-between">
           <span className="text-xs text-[var(--muted)]">{t('activity.date')}</span>
           <span className="text-sm text-[var(--foreground)]">
-            {new Date(activity.activity_date).toLocaleDateString(locale === 'en' ? 'en-US' : 'ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
+            {(() => {
+              // 2026-07-15 리뷰 fix: 'YYYY-MM-DD' 를 Date() 에 직접 넣으면 UTC 자정 파싱 —
+              // 미국 등 음수 offset 에서 하루 전으로 표시됨. 로컬 파싱 (dashboard 와 동일 패턴).
+              const [y, m, d] = activity.activity_date.split('-').map(Number);
+              return new Date(y, m - 1, d).toLocaleDateString(locale === 'en' ? 'en-US' : 'ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+            })()}
           </span>
         </div>
         <div className="flex justify-between">

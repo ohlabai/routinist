@@ -71,7 +71,8 @@ export default function HomeRankingHero() {
   // build 208 #3: /ranking 탭과 필터 공유. 변경되면 즉시 재호출.
   const [filters, setFilters] = useState<RankingFilters>(() => readRankingFilters());
 
-  const hasDemographics = !!(profile?.region_gu || profile?.birth_year || profile?.gender);
+  // 2026-07-15 리뷰 fix: 시/도 코호트 전환 후 si-only (해외 포함) 유저가 랭킹에서 영구 차단되던 게이트 — region_si 포함
+  const hasDemographics = !!(profile?.region_si || profile?.region_gu || profile?.birth_year || profile?.gender);
 
   useEffect(() => {
     const off = onRankingFiltersChanged((f) => setFilters(f));

@@ -151,7 +151,9 @@ export default function NotificationsPage() {
     if (unreadCount === 0) return;
     const now = new Date().toISOString();
     setItems(prev => prev.map(p => p.read_at ? p : { ...p, read_at: now }));
-    void markNotificationsRead(SOCIAL_KINDS).then(() => requestBadgeRefresh());
+    // 2026-07-15 리뷰 fix: SOCIAL_KINDS 만 읽음 처리하면 미래의 새 kind 가 배지를
+    // 영구 고착시킴 (요약 카운트는 전체 kind 기준) — null = 전체 읽음.
+    void markNotificationsRead(null).then(() => requestBadgeRefresh());
   };
 
   const loadMore = async () => {

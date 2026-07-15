@@ -1315,6 +1315,9 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
       const durMs = Math.min(PRELUDE_MAX_MS, Math.round(probe.duration * 1000));
       setAttachedVideoUrl(url);
       setAttachedVideoDurMs(durMs);
+      // 2026-07-15 리뷰 fix: 이미지 디폴트 전환 후 영상 배경을 첨부해도 정적 PNG 로
+      // 공유되던 회귀 — 영상 첨부 = 동영상 모드 의도로 보고 자동 전환.
+      setShareAsVideo(true);
     };
     probe.onerror = () => {
       URL.revokeObjectURL(url);
