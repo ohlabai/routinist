@@ -87,20 +87,24 @@ object RunSessionEngine {
 
     /** 플러그인이 구현 — update/milestone 을 WebView 로 릴레이 (foreground 필터는 플러그인 몫). */
     interface EventSink {
-        fun onUpdate(data: JSObject)
+        /** 반환값 = 실제 전달 여부. false (백그라운드 등) 면 엔진이 newCoords 커서를 유지해
+         *  다음 전달 때 밀린 좌표를 한꺼번에 보낸다 — 잠금 구간 폴리라인 공백 방지 (리뷰 P1). */
+        fun onUpdate(data: JSObject): Boolean
         fun onMilestone(data: JSObject)
     }
 
     private val stateThread = HandlerThread("run-session-state").apply { start() }
     val handler = Handler(stateThread.looper)
 
-    private var appContext: Context? = null
+    @Volatile private var appContext: Context? = null
 
     @Volatile var eventSink: EventSink? = null
-    /** RunSessionService 가 등록 — tick 마다 알림 본문 텍스트 갱신. */
-    @Volatile var notificationSink: ((String) -> Unit)? = null
+    /** RunSessionService 가 등록 — tick 마다 알림 (제목, 본문) 갱신. */
+    @Volatile var notificationSink: ((String, String) -> Unit)? = null
     /** 서비스가 stale-restore 자가 종료 판단에 읽음 (informational read — 상태 소유는 handler). */
     @Volatile private var stateForReaders: State = State.IDLE
+    /** 트래킹 (GPS+tick) 실가동 여부 — 서비스 자가 종료 판단용. stale 복원은 세션만 있고 이건 false. */
+    @Volatile private var trackingForReaders: Boolean = false
 
     // ── 세션 상태 (handler 스레드 전용) ──────────────────────────────────────
     private var state = State.IDLE
@@ -157,6 +161,9 @@ object RunSessionEngine {
 
     fun isSessionActive(): Boolean = stateForReaders != State.IDLE
 
+    /** stale 복원 (>30분) 은 세션 데이터만 보존하고 트래킹은 안 돈다 — 그때 FGS 는 자가 종료. */
+    fun isTrackingRunning(): Boolean = trackingForReaders
+
     // ── start / pause / resume / stop / getSnapshot (플러그인 진입점) ───────
 
     fun startSession(
@@ -191,6 +198,9 @@ object RunSessionEngine {
             inWarmup = true
             warmupStartedAtMs = nowMs
             lastFixAtMs = nowMs   // 첫 fix 전에도 'lost' 판정이 시작 시각 기준으로 동작
+            // 리뷰 P2: JS 가 prepareAudio 를 안 불렀어도 (복원·직행 시작) 마일스톤 발화가
+            // 통째로 무음이 되지 않게 세션 시작 시 TTS 를 직접 예열.
+            if (voiceEnabled) ensureTts()
             applyTtsLocale()
             startTrackingIfNeeded()
             persist(nowMs)
@@ -222,7 +232,13 @@ object RunSessionEngine {
                 state = State.RUNNING
                 activeSegmentStartMs = nowMs
                 resetAutoPauseWindows()
-                startTrackingIfNeeded()   // stale 복원 세션 이어가기 — 이미 가동 중이면 no-op
+                // 리뷰 P2: pause 중 설정에서 위치 권한을 회수한 경우 — 권한 없이 FGS(location)
+                // startForeground 는 Android 14+ 에서 SecurityException. 권한 있을 때만 재가동
+                // (시간 적산은 재개 — JS 화면에는 GPS lost 배지로 드러남).
+                val ctx = appContext
+                if (ctx != null && hasLocationPermission(ctx)) {
+                    startTrackingIfNeeded()   // stale 복원 세션 이어가기 — 이미 가동 중이면 no-op
+                }
                 persist(nowMs)
             }
             onDone(true)
@@ -292,6 +308,7 @@ object RunSessionEngine {
         if (trackingStarted) return
         val ctx = appContext ?: return
         trackingStarted = true
+        trackingForReaders = true
         try {
             val client = fusedClient ?: LocationServices.getFusedLocationProviderClient(ctx).also { fusedClient = it }
             // distanceFilter 없이 1s 간격 전체 수신 — 정지 시에도 도플러 speed 샘플이 계속
@@ -303,12 +320,21 @@ object RunSessionEngine {
         } catch (e: Exception) {
             Log.e(TAG, "requestLocationUpdates failed", e)
         }
-        RunSessionService.start(ctx)
+        try {
+            // 리뷰 P1: 서비스 START_STICKY 재기동 복원 경로에선 onStartCommand 의
+            // startForeground 와 이 호출이 경합 — 백그라운드 상태로 판정되면
+            // ForegroundServiceStartNotAllowedException 이 HandlerThread 를 죽인다.
+            // 실패해도 트래킹 자체는 동작하고, 진행 중인 시스템 재기동이 FGS 를 제공.
+            RunSessionService.start(ctx)
+        } catch (e: Exception) {
+            Log.w(TAG, "FGS start rejected (background?) — tracking continues", e)
+        }
         startTick()
     }
 
     private fun stopTracking() {
         trackingStarted = false
+        trackingForReaders = false
         handler.removeCallbacks(tickRunnable)
         try { fusedClient?.removeLocationUpdates(locationCallback) } catch (_: Exception) {}
         appContext?.let { RunSessionService.stop(it) }
@@ -335,7 +361,7 @@ object RunSessionEngine {
         evaluateAutoPause(nowMs)
         if (tickCount % PERSIST_EVERY_TICKS == 0) persist(nowMs)
         emitUpdate(nowMs)
-        notificationSink?.invoke(notificationText(nowMs))
+        notificationSink?.invoke(notificationTitle(), notificationText(nowMs))
     }
 
     private fun emitUpdate(nowMs: Long) {
@@ -345,9 +371,12 @@ object RunSessionEngine {
         if (lastEmittedRouteIndex < route.size) {
             for (i in lastEmittedRouteIndex until route.size) newCoords.put(coordToJson(route[i]))
         }
-        lastEmittedRouteIndex = route.size
         data.put("newCoords", newCoords)
-        sink.onUpdate(data)
+        // 리뷰 P1: 백그라운드 (플러그인이 미전달) 면 커서를 되감아 둔다 — 잠금 해제 후
+        // 첫 전달에 밀린 좌표가 한꺼번에 나가 폴리라인 공백이 생기지 않는다 (iOS 동작 동일).
+        if (sink.onUpdate(data)) {
+            lastEmittedRouteIndex = route.size
+        }
     }
 
     /** update 이벤트/getSnapshot 공통 필드 (newCoords 제외). */
@@ -591,26 +620,31 @@ object RunSessionEngine {
 
     // ── TTS (android.speech.tts — AVSpeechSynthesizer 대응) ─────────────────
 
-    private var tts: TextToSpeech? = null
+    // 리뷰 P2 (스레딩): tts/ttsReady 는 플러그인 스레드·handler·TTS 콜백 스레드에서 접근 —
+    // @Volatile + 발화/포커스 조작은 전부 handler 로 confine. ensureTts 는 이중 init 차단.
+    @Volatile private var tts: TextToSpeech? = null
     @Volatile private var ttsReady = false
 
     /** 시작 제스처 직후 (prepareAudio) 미리 초기화 — 카운트다운 첫 발화 전 준비 완료 목적. */
+    @Synchronized
     fun ensureTts() {
         val ctx = appContext ?: return
         if (tts != null) return
         tts = TextToSpeech(ctx) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                ttsReady = true
                 tts?.setAudioAttributes(speechAudioAttributes)
                 tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                     override fun onStart(utteranceId: String?) {}
                     override fun onDone(utteranceId: String?) {
-                        if (tts?.isSpeaking != true) abandonAudioFocus()
+                        handler.post { if (tts?.isSpeaking != true) abandonAudioFocus() }
                     }
                     @Suppress("OVERRIDE_DEPRECATION")
-                    override fun onError(utteranceId: String?) { abandonAudioFocus() }
+                    override fun onError(utteranceId: String?) {
+                        handler.post { abandonAudioFocus() }
+                    }
                 })
-                applyTtsLocale()
+                ttsReady = true
+                handler.post { applyTtsLocale() }   // sessionLocale 은 handler 소유
             } else {
                 Log.e(TAG, "TTS init failed: $status")
                 tts = null
@@ -618,26 +652,33 @@ object RunSessionEngine {
         }
     }
 
-    private fun applyTtsLocale() {
+    /** handler 스레드에서만 호출. */
+    private fun applyTtsLocale() = applyTtsLocaleFor(sessionLocale)
+
+    private fun applyTtsLocaleFor(locale: String) {
         val t = tts ?: return
         if (!ttsReady) return
-        val target = if (sessionLocale.lowercase(Locale.US).startsWith("ko")) Locale.KOREAN else Locale.US
+        val target = if (locale.lowercase(Locale.US).startsWith("ko")) Locale.KOREAN else Locale.US
         try { t.setLanguage(target) } catch (e: Exception) { Log.w(TAG, "TTS setLanguage failed", e) }
     }
 
-    /** 카운트다운 전용 — voiceEnabled 가드 없음 (iOS speakText 계약과 동일). */
-    fun speakTextNow(text: String): Boolean {
+    /** 카운트다운 전용 — voiceEnabled 가드 없음 (iOS speakText 계약과 동일).
+     *  localeOverride: 세션 시작 전 발화의 TTS 언어 (카운트다운 en/ko 불일치 fix). */
+    fun speakTextNow(text: String, localeOverride: String? = null): Boolean {
         if (text.isEmpty()) return false
         ensureTts()
         val t = tts ?: return false
         if (!ttsReady) return false   // 미준비면 false → JS 가 beep 폴백
-        requestAudioFocus()
-        val params = Bundle().apply { putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 0.65f) }
-        t.speak(text, TextToSpeech.QUEUE_ADD, params, "run-session-${System.nanoTime()}")
+        handler.post {
+            if (localeOverride != null) applyTtsLocaleFor(localeOverride)
+            requestAudioFocus()
+            val params = Bundle().apply { putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 0.65f) }
+            t.speak(text, TextToSpeech.QUEUE_ADD, params, "run-session-${System.nanoTime()}")
+        }
         return true
     }
 
-    /** 세션 발화 (마일스톤/자동정지) — voiceEnabled 가드. */
+    /** 세션 발화 (마일스톤/자동정지) — voiceEnabled 가드. handler 스레드에서 호출됨. */
     private fun speak(text: String) {
         if (!voiceEnabled || text.isEmpty()) return
         speakTextNow(text)
@@ -675,7 +716,10 @@ object RunSessionEngine {
         }
     }
 
-    // ── 알림 본문 (RunSessionService) ────────────────────────────────────────
+    // ── 알림 제목/본문 (RunSessionService) ───────────────────────────────────
+
+    private fun notificationTitle(): String =
+        if (sessionLocale.lowercase(Locale.US).startsWith("ko")) "달리기 기록 중" else "Recording your run"
 
     private fun notificationText(nowMs: Long): String {
         val kmText = String.format(Locale.US, "%.2f", gpsDistanceM / 1000.0)
@@ -800,6 +844,9 @@ object RunSessionEngine {
                 lastFixAtMs = nowMs
                 anchor = null
                 hasMovedThisSession = true   // 복원 세션 = 이미 달리던 세션 — 자동정지 즉시 무장
+                // 리뷰 P2: 복원 프로세스에선 JS 의 prepareAudio 가 없다 — 여기서 예열해야
+                // 복원 후 첫 마일스톤/자동정지 발화가 무음으로 사라지지 않음.
+                if (voiceEnabled) ensureTts()
                 applyTtsLocale()
                 startTrackingIfNeeded()
             } else {

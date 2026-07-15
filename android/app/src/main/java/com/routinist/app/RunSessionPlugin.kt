@@ -7,6 +7,7 @@ import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import com.getcapacitor.annotation.Permission
+import com.getcapacitor.annotation.PermissionCallback
 
 /**
  * RunSession Capacitor 브리지 — iOS RunSessionPlugin.swift 와 동일 계약 (run-session.ts).
@@ -15,10 +16,11 @@ import com.getcapacitor.annotation.Permission
  * update/milestone 이벤트 릴레이만 담당한다. WebView 재생성/앱 재시작 시에도 엔진은
  * FGS(RunSessionService) 와 함께 살아 있고, JS 는 getSnapshot() 으로 재부착한다.
  *
- * requestPermissions 는 Capacitor 기본 구현 사용 — @Permission alias "location" 을
- * 프롬프트하고 { location: 'granted'|'denied'|'prompt' } 형태로 resolve (계약의 location
- * 필드와 일치). motion 은 Android 에선 pedometer 융합이 없어 프롬프트하지 않는다
- * (JS 는 location 만 gate — track/page.tsx).
+ * requestPermissions 는 커스텀 구현 — Capacitor 기본 alias 집계는 "alias 의 모든 권한이
+ * granted 여야 granted" 라서, Android 12+ 에서 사용자가 "대략적인 위치" 를 고르면
+ * (COARSE 만 granted) 영원히 granted 가 안 되어 시작 버튼이 죽는다 (2026-07-15 리뷰 P1).
+ * 엔진은 FINE 또는 COARSE 하나면 동작하므로 둘 중 하나 granted = granted 로 보고한다.
+ * motion 은 Android 에선 pedometer 융합이 없어 프롬프트하지 않는다 (JS 는 location 만 gate).
  */
 @CapacitorPlugin(
     name = "RunSession",
@@ -56,8 +58,11 @@ class RunSessionPlugin : Plugin(), RunSessionEngine.EventSink {
 
     // ── EventSink (엔진 handler 스레드에서 호출 — notifyListeners 는 스레드 안전) ──
 
-    override fun onUpdate(data: JSObject) {
-        if (isForeground) notifyListeners("update", data)
+    /** 반환값 = 실제 전달 여부. false 면 엔진이 newCoords 커서를 되감아 다음 tick 에 재전송. */
+    override fun onUpdate(data: JSObject): Boolean {
+        if (!isForeground) return false
+        notifyListeners("update", data)
+        return true
     }
 
     override fun onMilestone(data: JSObject) {
@@ -65,6 +70,23 @@ class RunSessionPlugin : Plugin(), RunSessionEngine.EventSink {
     }
 
     // ── 계약 메서드 ──────────────────────────────────────────────────────────
+
+    @PluginMethod
+    override fun requestPermissions(call: PluginCall) {
+        if (RunSessionEngine.hasLocationPermission(context)) {
+            call.resolve(JSObject().put("location", "granted").put("motion", "undetermined"))
+            return
+        }
+        requestPermissionForAlias("location", call, "locationPermissionCallback")
+    }
+
+    @PermissionCallback
+    private fun locationPermissionCallback(call: PluginCall) {
+        // FINE 또는 COARSE 하나라도 granted 면 granted (대략적인 위치 선택 허용).
+        val state = if (RunSessionEngine.hasLocationPermission(context)) "granted"
+                    else getPermissionState("location").toString()
+        call.resolve(JSObject().put("location", state).put("motion", "undetermined"))
+    }
 
     @PluginMethod
     fun start(call: PluginCall) {
@@ -123,7 +145,8 @@ class RunSessionPlugin : Plugin(), RunSessionEngine.EventSink {
         call.resolve(JSObject().put("ok", true))
     }
 
-    /** 카운트다운 TTS ("셋/둘/하나/출발"). 미준비면 ok:false → JS 가 beep 폴백. */
+    /** 카운트다운 TTS ("셋/둘/하나/출발"). 미준비면 ok:false → JS 가 beep 폴백.
+     *  locale (옵션): 세션 시작 전 발화 (카운트다운) 의 TTS 언어 지정 — 없으면 기존 설정. */
     @PluginMethod
     fun speakText(call: PluginCall) {
         val text = call.getString("text")
@@ -131,7 +154,7 @@ class RunSessionPlugin : Plugin(), RunSessionEngine.EventSink {
             call.resolve(JSObject().put("ok", false))
             return
         }
-        val ok = RunSessionEngine.speakTextNow(text)
+        val ok = RunSessionEngine.speakTextNow(text, call.getString("locale"))
         call.resolve(JSObject().put("ok", ok))
     }
 }

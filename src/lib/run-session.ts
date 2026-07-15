@@ -97,8 +97,9 @@ export interface RunSessionPlugin {
   getSnapshot(): Promise<RunSessionSnapshot>;
   /** build 299: 카운트다운 beep 용 오디오 세션 선점 (무음 스위치 무시). 구버전 빌드엔 없음. */
   prepareAudio?(): Promise<{ ok: boolean }>;
-  /** build 300 후속: 네이티브 TTS 발화 (카운트다운 등). 구버전 빌드엔 없음. */
-  speakText?(opts: { text: string }): Promise<{ ok: boolean }>;
+  /** build 300 후속: 네이티브 TTS 발화 (카운트다운 등). 구버전 빌드엔 없음.
+   *  locale (옵션, Android): 세션 시작 전 발화의 TTS 언어. iOS 는 무시 (시스템 locale voice). */
+  speakText?(opts: { text: string; locale?: string }): Promise<{ ok: boolean }>;
   addListener(eventName: 'update', listenerFunc: (data: RunSessionUpdateEvent) => void): Promise<PluginListenerHandle>;
   addListener(eventName: 'milestone', listenerFunc: (data: RunSessionMilestoneEvent) => void): Promise<PluginListenerHandle>;
   removeAllListeners(): Promise<void>;
@@ -182,10 +183,12 @@ export async function stopRunSession(): Promise<RunSessionSummary> {
 // 플러그인 미탑재 (구버전 빌드) 면 조용히 무시.
 // build 300 후속: 카운트다운 음성 — WebAudio 비프가 iOS 실기기에서 신뢰 불가 (무음 지속),
 // 무음 스위치 무시가 실증된 네이티브 TTS 로. 미탑재 빌드면 false (호출측이 beep 폴백).
-export async function speakNative(text: string): Promise<boolean> {
+export async function speakNative(text: string, locale?: 'ko' | 'en'): Promise<boolean> {
   if (!isRunSessionAvailable()) return false;
   try {
-    const r = await RunSession.speakText?.({ text });
+    // locale: Android 는 세션 시작 전 (카운트다운) TTS 언어를 이걸로 맞춘다 —
+    // 없으면 직전 세션 locale 로 발화돼 en 카운트다운이 ko voice 로 읽히는 버그.
+    const r = await RunSession.speakText?.({ text, locale });
     return r?.ok === true;
   } catch { return false; }
 }

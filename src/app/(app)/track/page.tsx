@@ -122,6 +122,12 @@ function TrackPageImpl() {
     const platform = (window as { Capacitor?: { getPlatform?: () => string } }).Capacitor?.getPlatform?.();
     setIsAndroid(platform === 'android');
   }, []);
+  // 리뷰 P2: Android 네이티브 TTS 는 init 이 비동기 — 미리 예열하지 않으면 첫 음성
+  // 미리듣기가 무음. Android 에서만 (iOS 의 prepareAudio 는 오디오 세션 duck 을 걸어
+  // build 241 launch 활성화 금지 계약에 저촉 — 거기선 시작 제스처 때만 호출).
+  useEffect(() => {
+    if (!speechAvailable && useNative) void prepareRunAudio();
+  }, [speechAvailable, useNative]);
   // 2026-07-13: Enhanced/Premium 한국어 voice 미설치면 다운로드 힌트 노출 (자연스러움 최대 레버).
   const [showVoiceQualityHint, setShowVoiceQualityHint] = useState<boolean>(false);
   const voiceGenderRef = useRef(voiceGender);
@@ -163,7 +169,7 @@ function TrackPageImpl() {
       if (!speechAvailable && useNative) {
         void speakNative(locale === 'en'
           ? '1 kilometer. Average pace 5 minutes 30 seconds. Looking strong.'
-          : '1킬로미터 통과. 평균 페이스 5분 30초. 잘하고 있어요.');
+          : '1킬로미터 통과. 평균 페이스 5분 30초. 잘하고 있어요.', locale);
       } else {
         speakSample(locale);
       }
@@ -419,7 +425,16 @@ function TrackPageImpl() {
           const p = await requestRunPermissions();
           const mapped: PermState = p.location === 'granted' ? 'granted' : (p.location === 'denied' ? 'denied' : 'prompt');
           setPerm(mapped);
-          if (mapped !== 'granted') return;
+          if (mapped !== 'granted') {
+            // 리뷰 P2 (Android): 한 번 거부하면 'prompt-with-rationale' → 조용한 무반응 탭이
+            // 됐었음. denied 는 아래 전용 화면이 뜨지만 prompt 는 안내가 없어 명시.
+            if (mapped === 'prompt') {
+              window.alert(locale === 'en'
+                ? 'Location permission is required to record your run. Tap Start again to allow.'
+                : '달리기를 기록하려면 위치 권한이 필요해요. 시작을 다시 누르고 허용해 주세요.');
+            }
+            return;
+          }
         } catch (err) {
           // 플러그인 미탑재/오류 — 레거시 엔진으로 폴백 후 기존 권한 흐름.
           void logClientWarn('run-session', 'permission-fail → legacy fallback', {
@@ -444,7 +459,7 @@ function TrackPageImpl() {
     } finally {
       startingRef.current = false;
     }
-  }, [countdown, state, useNative]);
+  }, [countdown, state, useNative, locale]);
 
   // build 292: 마운트 시 native 진행 중 세션 재부착 (앱 재시작 / 화면 이탈 복귀).
   useEffect(() => {
@@ -490,7 +505,7 @@ function TrackPageImpl() {
       const ko = ['출발!', '하나', '둘', '셋'];
       const en = ['Go!', 'one', 'two', 'three'];
       const text = (locale === 'en' ? en : ko)[n] ?? String(n);
-      void speakNative(text).then(ok => {
+      void speakNative(text, locale).then(ok => {
         if (!ok) playCountdownBeep(n === 0 ? 'go' : 'tick');
       });
     };
@@ -912,12 +927,22 @@ function TrackPageImpl() {
   useEffect(() => { hasStateRef.current = state !== null; }, [state]);
   const handleAbortRef = useRef(handleAbort);
   useEffect(() => { handleAbortRef.current = handleAbort; });
+  // 리뷰 P1: 완료 요약 시트가 열린 상태 (state 는 이미 null) 에서 뒤로가기가 router.back()
+  // 을 타면 저장 전 기록이 통째로 유실 — 시트 열림 동안 뒤로가기는 소비만 한다.
+  // 리뷰 P2: 카운트다운~native start 확정 사이 (state 아직 null) 뒤로가기도 소비 —
+  // 화면만 떠나고 native 세션이 유령으로 도는 race 차단.
+  const finishedRef = useRef(false);
+  useEffect(() => { finishedRef.current = finished !== null; }, [finished]);
+  const countdownRef = useRef<number | null>(null);
+  useEffect(() => { countdownRef.current = countdown; }, [countdown]);
   useEffect(() => {
     if (!isAndroid) return;
     let mounted = true;
     let handle: PluginListenerHandle | null = null;
     import('@capacitor/app').then(({ App }) => {
       void App.addListener('backButton', () => {
+        if (finishedRef.current) return;
+        if (countdownRef.current !== null || startingRef.current) return;
         if (hasStateRef.current) handleAbortRef.current();
         else router.back();
       }).then(h => {

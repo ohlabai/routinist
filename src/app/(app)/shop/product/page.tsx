@@ -137,9 +137,16 @@ function ProductDetailContent() {
   const handleShare = async () => {
     if (!product) return;
     const url = `https://app.routinist.kr/shop/product?id=${product.id}`;
+    const text = `${product.name} - ${formatKrw(product.price_krw, locale)}`;
     try {
-      if (navigator.share) {
-        await navigator.share({ title: product.name, text: `${product.name} - ${formatKrw(product.price_krw, locale)}`, url });
+      // 2026-07-15 리뷰: Android WebView 엔 navigator.share 가 없어 항상 클립보드로
+      // 강등됐음 — 다른 공유 지점과 동일하게 네이티브 공유시트 우선.
+      const cap = (window as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
+      if (cap?.isNativePlatform?.()) {
+        const { Share } = await import('@capacitor/share');
+        await Share.share({ title: product.name, text, url });
+      } else if (navigator.share) {
+        await navigator.share({ title: product.name, text, url });
       } else {
         await navigator.clipboard.writeText(url);
         showToast(tt('링크를 복사했어요 📋'));
