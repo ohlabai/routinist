@@ -300,10 +300,15 @@ export function appendCoord(state: TrackingState, c: { lat: number; lng: number;
   return true;
 }
 
+// 2026-07-15 Android 리뷰 P0: 화면 잠금 중 WebView JS suspend → 복귀 시 delta 가 잠금 구간
+// 전체 (수 분~수십 분) 로 들어와 거리 0 인 시간이 통째로 가산 → 페이스 파탄 (1h42m/97s 사례 계열).
+// tick 은 100ms 간격이라 정상 delta ≪ 1s — 상한 clamp 로 suspend 구간은 시간 미가산.
+const MAX_TICK_DELTA_SECONDS = 5;
+
 export function tickElapsed(state: TrackingState, now: number): void {
   if (state.status !== 'active') { state.lastTickAt = now; return; }
   const delta = (now - state.lastTickAt) / 1000;
-  if (delta > 0) state.elapsedSeconds += delta;
+  if (delta > 0) state.elapsedSeconds += Math.min(delta, MAX_TICK_DELTA_SECONDS);
   state.lastTickAt = now;
 }
 

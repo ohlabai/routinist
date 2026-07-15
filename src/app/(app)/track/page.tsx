@@ -7,6 +7,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import type { PluginListenerHandle } from '@capacitor/core';
 import { ArrowLeft, Pause, Play, Check, MapPin, AlertCircle, Volume2, VolumeX } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { useI18n } from '@/lib/i18n';
@@ -111,6 +112,16 @@ function TrackPageImpl() {
   // build 237: voiceGender 를 effect dep 에 넣으면 force-female set 후 재발화로 사용자 의도 swap 위험.
   // ref 로 latest 값 추적 + effect dep 에서 제외 (locale 만 의존).
   const [malePickerVisible, setMalePickerVisible] = useState<boolean>(false);
+  // 2026-07-15 Android 리뷰 P0-2: Android WebView 엔 speechSynthesis 자체가 없음 —
+  // UI 는 켜지는데 무음인 상태를 막기 위해 음성 블록 전체를 숨긴다 (카운트다운 beep 은 유지).
+  // SSR 프리렌더와의 hydration mismatch 를 피하려고 effect 에서 판정.
+  const [speechAvailable, setSpeechAvailable] = useState(true);
+  const [isAndroid, setIsAndroid] = useState(false);
+  useEffect(() => {
+    setSpeechAvailable('speechSynthesis' in window);
+    const platform = (window as { Capacitor?: { getPlatform?: () => string } }).Capacitor?.getPlatform?.();
+    setIsAndroid(platform === 'android');
+  }, []);
   // 2026-07-13: Enhanced/Premium 한국어 voice 미설치면 다운로드 힌트 노출 (자연스러움 최대 레버).
   const [showVoiceQualityHint, setShowVoiceQualityHint] = useState<boolean>(false);
   const voiceGenderRef = useRef(voiceGender);
@@ -494,6 +505,35 @@ function TrackPageImpl() {
   // 8번 재호출 사고. deps 를 운동 시작 (idle → active) 과 종료 (status='idle') 만 트리거하도록 변경.
   // paused 상태에서도 watcher 살려두고 좌표 수신 → callback 안의 detectAutoResume 으로 정상 resume.
   const isTrackingActive = state !== null && state.status !== 'idle';
+
+  // 2026-07-15 Android 리뷰 P0-1: 레거시 JS 엔진은 두뇌가 WebView 라 화면 잠금 = 측정 정지.
+  // 트래킹 동안 navigator.wakeLock 으로 화면 꺼짐 방지 (WebView 지원, 플러그인 의존성 0).
+  // 다른 앱 전환 후 복귀 시 OS 가 sentinel 을 회수하므로 visibilitychange 에서 재획득.
+  // 미지원/저전력 모드 등 실패는 조용히 — 근본 해결은 Android FGS RunSession Phase 2.
+  useEffect(() => {
+    if (useNative || !isTrackingActive) return;
+    type WakeLockNav = Navigator & { wakeLock?: { request: (type: 'screen') => Promise<{ release: () => Promise<void> }> } };
+    let sentinel: { release: () => Promise<void> } | null = null;
+    let released = false;
+    const acquire = async () => {
+      try {
+        const wl = (navigator as WakeLockNav).wakeLock;
+        if (!wl) return;
+        const s = await wl.request('screen');
+        if (released) { void s.release().catch(() => {}); return; }
+        sentinel = s;
+      } catch { /* 조용히 실패 */ }
+    };
+    void acquire();
+    const onVis = () => { if (!document.hidden) void acquire(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      released = true;
+      document.removeEventListener('visibilitychange', onVis);
+      try { void sentinel?.release().catch(() => {}); } catch {}
+    };
+  }, [useNative, isTrackingActive]);
+
   useEffect(() => {
     // build 292: 네이티브 경로에선 레거시 watcher / 100ms tick / JS 자동정지 / JS 음성 전부 비활성
     // (전부 native RunSession 이 담당). 아래 별도 effect 가 update 이벤트 렌더 + 1s 보간 수행.
@@ -854,6 +894,33 @@ function TrackPageImpl() {
     discardRun('user-cancel');
   };
 
+  // 2026-07-15 Android 리뷰 P1-3: 하드웨어 뒤로가기. Capacitor 기본 동작은 WebView history
+  // back — 트래킹 중엔 화면만 떠나고 watcher/tick 은 계속 도는 유령 세션이 됨.
+  // 트래킹 중이면 handleAbort (confirm 경유 폐기), 아니면 router.back(). backButton 이벤트는
+  // Android 에서만 발화하지만 명시 게이트로 의도를 못박음. 최신 state/핸들러는 ref 로 참조.
+  const hasStateRef = useRef(false);
+  useEffect(() => { hasStateRef.current = state !== null; }, [state]);
+  const handleAbortRef = useRef(handleAbort);
+  useEffect(() => { handleAbortRef.current = handleAbort; });
+  useEffect(() => {
+    if (!isAndroid) return;
+    let mounted = true;
+    let handle: PluginListenerHandle | null = null;
+    import('@capacitor/app').then(({ App }) => {
+      void App.addListener('backButton', () => {
+        if (hasStateRef.current) handleAbortRef.current();
+        else router.back();
+      }).then(h => {
+        if (!mounted) { void h.remove(); return; }
+        handle = h;
+      });
+    }).catch(() => {});
+    return () => {
+      mounted = false;
+      void handle?.remove();
+    };
+  }, [isAndroid, router]);
+
   // 권한 거부 화면
   if (perm === 'denied') {
     return (
@@ -969,12 +1036,21 @@ function TrackPageImpl() {
               {locale === 'en' ? 'Ready? Tap to auto-record your route.' : '준비됐어요? 시작하면 자동으로 경로를 기록해요'}
             </p>
             <p className="text-[11px] text-[var(--muted)]/80 mb-3 break-keep">
-              {locale === 'en'
-                ? 'GPS keeps measuring while the screen is locked. Tracking stops as soon as you finish.'
-                : '잠금 화면 상태에서도 GPS 가 계속 측정돼요. 트래킹을 종료하면 즉시 중단됩니다.'}
+              {/* 2026-07-15 Android 리뷰 P0-1: Android 는 백그라운드 트래킹 미지원 (FGS 는 Phase 2) —
+                  "잠금 화면에서도 측정" 카피가 허위라 화면 유지 안내로 분기. wake lock 이 꺼짐을 막아줌. */}
+              {isAndroid
+                ? (locale === 'en'
+                  ? 'Keep the screen on while running — we’ll hold it awake for you. Tracking stops as soon as you finish.'
+                  : '달리는 동안 화면을 켠 채로 유지해 주세요. 화면이 저절로 꺼지지 않게 잡아드려요.')
+                : (locale === 'en'
+                  ? 'GPS keeps measuring while the screen is locked. Tracking stops as soon as you finish.'
+                  : '잠금 화면 상태에서도 GPS 가 계속 측정돼요. 트래킹을 종료하면 즉시 중단됩니다.')}
             </p>
             {/* build 219 #10: 음성 안내 토글 + 간격 선택 (1km / 500m)
-                build 223: 음성 성별 선택 (여/남) — voiceOn 일 때 노출. */}
+                build 223: 음성 성별 선택 (여/남) — voiceOn 일 때 노출.
+                2026-07-15 Android 리뷰 P0-2: 발화 경로가 하나도 없으면 (native TTS 없음 +
+                speechSynthesis 없음 = Android WebView) 블록 전체 숨김 — 켜져 있는데 무음인 UI 방지. */}
+            {(useNative || speechAvailable) && (
             <div className="mb-4 flex items-center gap-2 flex-wrap justify-center">
               <button
                 onClick={toggleVoice}
@@ -1020,6 +1096,7 @@ function TrackPageImpl() {
                 </>
               )}
             </div>
+            )}
             {voiceOn && showVoiceQualityHint && (
               <p className="mb-4 -mt-2 text-[11px] text-[var(--muted)] text-center leading-relaxed">
                 💡 더 자연스러운 목소리를 원하면 아이폰 <span className="font-bold">설정 → 손쉬운 사용 → 음성 콘텐츠 → 음성 → 한국어</span>에서
