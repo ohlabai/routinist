@@ -110,18 +110,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // mount + 5분마다 + visibility 복귀 + window focus 시 갱신.
   // 소셜 탭 진입 시 자동 markRead → 배지 0 으로 즉시 사라짐.
   // build 262: 쪽지 unread 도 같이 fetch 해서 iOS 앱 아이콘 배지 합산 (소셜 + 쪽지).
-  const [socialUnread, setSocialUnread] = useState(0);
   const [messageUnread, setMessageUnread] = useState(0);
   const refreshBadges = useCallback(async () => {
-    if (!user) { setSocialUnread(0); setMessageUnread(0); void setAppBadge(0); return; }
+    if (!user) { setMessageUnread(0); void setAppBadge(0); return; }
     const [s, m] = await Promise.all([
       fetchUnreadNotificationSummary(),
       getUnreadMessageCount(user.id).catch(() => 0),
     ]);
-    const social = s.total;
-    setSocialUnread(social);
     setMessageUnread(m);
-    void setAppBadge(social + m);
+    void setAppBadge(s.total + m);
   }, [user]);
 
   useEffect(() => {
@@ -312,14 +309,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               pathname === tab.href ||
               pathname.startsWith(tab.href + '/') ||
               (tab.activeFor?.some(p => pathname === p || pathname.startsWith(p + '/')) ?? false);
-            // build 261: 소셜 탭 unread 배지 (응원·댓글·팔로우).
-            // build 298: 내정보 탭에 쪽지 unread 배지 — 앱 아이콘 숫자에는 합산되는데
-            // 하단 탭 어디에도 표시가 없어 "어디서 알림이 떴는지 모르겠다" 피드백.
-            // 쪽지 진입점 (/messages) 이 내정보 안에 있어서 그 탭에 표시.
-            const badgeCount =
-              tab.href === '/social' ? socialUnread
-              : tab.href === '/profile' ? messageUnread
-              : 0;
+            // build 261→2026-07-15: 소셜 탭 배지 제거 (사용자 결정) — 탭 배지를 보고 소셜에
+            // 들어가도 알림이 어디 있는지 안 보였음. 알림 unread 는 소셜 페이지 우상단 종
+            // 아이콘 배지 (NotificationBellBadge) + 앱 아이콘 배지가 담당.
+            // build 298: 내정보 탭 쪽지 unread 배지는 유지 (쪽지 진입점이 내정보 안).
+            const badgeCount = tab.href === '/profile' ? messageUnread : 0;
             return (
               <Link
                 key={tab.href}
