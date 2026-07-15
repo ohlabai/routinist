@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { fetchMessages, sendMessage, markAsRead, getOrCreateConversation, blockUser } from '@/lib/message-data';
+import { requestBadgeRefresh } from '@/lib/notifications-data';
 import { getSupabase } from '@/lib/supabase';
 import { PUBLIC_PROFILE_FIELDS } from '@/lib/profile-fields';
 import { ArrowLeft, Send, ShieldAlert } from 'lucide-react';
@@ -76,6 +77,8 @@ function ChatView() {
 
       // 읽음 처리
       await markAsRead(conversationId, user.id);
+      // 2026-07-15 리뷰 fix: 읽음 처리 후 앱 아이콘/내정보 탭 배지 즉시 갱신 (이전엔 다음 focus 까지 stale)
+      requestBadgeRefresh();
     } catch (e) {
       logClientWarn('chat', 'loadData 실패', { conversationId, err: String(e) });
     } finally {
@@ -103,7 +106,7 @@ function ChatView() {
         setTimeout(scrollToBottom, 100);
         // 읽음 처리
         if (user && newMsg.sender_id !== user.id) {
-          markAsRead(conversationId, user.id);
+          markAsRead(conversationId, user.id).then(() => requestBadgeRefresh()).catch(() => {});
         }
       })
       .subscribe();

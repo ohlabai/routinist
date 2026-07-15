@@ -339,6 +339,11 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
             // build 303 후속: "출발!" — 세션 셋업이 끝난 뒤라 오디오 재구성에 잘리지 않는다.
             if self.voiceEnabled && !self.templates.start.isEmpty {
                 self.speak(self.templates.start)
+            } else {
+                // 2026-07-15 리뷰 fix: 음성 OFF 세션은 발화가 없어 didFinish → deactivate 가
+                // 한 번도 안 불림 → prepareAudio 의 .duckOthers 활성 세션이 러닝 내내 남아
+                // 다른 앱 음악이 계속 작게 들렸음. 시작 확정 시점에 명시 해제.
+                self.deactivateAudioSessionIfIdle()
             }
             call.resolve(["ok": true, "startedAtMs": self.startedAtMs])
         }
@@ -416,6 +421,8 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
             self.stopTracking()
             self.clearPersisted()
             self.resetSessionState()
+            // 2026-07-15: 세션 종료 시 오디오 세션 항상 해제 — 음악 ducking 잔존 안전망.
+            self.deactivateAudioSessionIfIdle()
             call.resolve(summary)
         }
     }
@@ -458,11 +465,28 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
     // build 300 후속: 카운트다운을 네이티브 TTS 로 — WKWebView WebAudio 비프가 prepareAudio
     // (build 299) 이후에도 실기기에서 무음이라 (hans 실측), 무음 스위치 무시가 실증된
     // speak 경로 ("셋/둘/하나/출발") 로 대체. JS 가 tick 마다 호출.
+    // 2026-07-15 리뷰 fix: 이전엔 speak() 경유라 "직전 세션의" voiceEnabled 가 false 면
+    // 카운트다운이 통째 무음 + ok:true 반환이라 JS 의 beep 폴백까지 차단됐음. 카운트다운은
+    // 명시적 사용자 액션 (milestone 음성 설정과 독립) — 가드 없는 전용 발화 경로.
     @objc func speakText(_ call: CAPPluginCall) {
         guard let text = call.getString("text"), !text.isEmpty else {
             call.resolve(["ok": false]); return
         }
-        speak(text)
+        let sysLocale = Locale.preferredLanguages.first ?? "ko"
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            do {
+                try AVAudioSession.sharedInstance().setCategory(
+                    .playback, mode: .spokenAudio, options: [.duckOthers, .mixWithOthers])
+                try AVAudioSession.sharedInstance().setActive(true)
+            } catch {
+                NSLog("[RunSession] speakText AVAudioSession activate failed: \(error)")
+            }
+            let utterance = AVSpeechUtterance(string: text)
+            utterance.voice = self.sessionVoice ?? Self.selectVoice(locale: sysLocale)
+            utterance.volume = 0.65
+            self.synthesizer.speak(utterance)
+        }
         call.resolve(["ok": true])
     }
 

@@ -47,8 +47,18 @@ function NotificationBellBadge() {
     let mounted = true;
     const load = () => fetchUnreadNotificationSummary().then(s => { if (mounted) setCount(s.total); }).catch(() => {});
     void load();
+    // 2026-07-15 리뷰 fix: mount 1회 + 읽음 이벤트만으론 백그라운드 복귀/소셜에 머무는 동안
+    // 도착한 알림이 반영 안 됨 — layout 배지와 같은 focus/visibility 트리거 추가.
+    const onVis = () => { if (!document.hidden) void load(); };
     window.addEventListener(BADGE_REFRESH_EVENT, load);
-    return () => { mounted = false; window.removeEventListener(BADGE_REFRESH_EVENT, load); };
+    window.addEventListener('focus', load);
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      mounted = false;
+      window.removeEventListener(BADGE_REFRESH_EVENT, load);
+      window.removeEventListener('focus', load);
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, []);
   if (count <= 0) return null;
   return (
