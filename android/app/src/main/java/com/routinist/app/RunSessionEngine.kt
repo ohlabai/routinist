@@ -633,6 +633,8 @@ object RunSessionEngine {
         tts = TextToSpeech(ctx) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 tts?.setAudioAttributes(speechAudioAttributes)
+                // 2026-07-16: iOS/JS 프리뷰 (rate 0.95) 와 동일한 살짝 차분한 톤. pitch 불변.
+                tts?.setSpeechRate(0.95f)
                 tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                     override fun onStart(utteranceId: String?) {}
                     override fun onDone(utteranceId: String?) {
