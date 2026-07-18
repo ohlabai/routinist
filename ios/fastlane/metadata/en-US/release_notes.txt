@@ -1,23 +1,13 @@
-v1.2.10 — World Run on real maps, epic long courses, a livelier Home
+v1.2.11 — Auto-save on finish, start time on records, accuracy fixes
 
-[World Run on real maps]
-• Every course card now sits on a real map, with your route and position drawn on top.
-• "On pace to finish Aug 3" — see your estimated finish date based on your last 2 weeks.
-• "2.4km to the half" — the next milestone shows up before you reach it.
-• A redesigned completion certificate: portrait layout with your map, route, and journey dates.
+[Finish = saved]
+• Your run is saved automatically the moment you finish - no save button to forget.
+• Closed the screen by accident? Your finished run can be recovered within 24 hours.
 
-[3 epic long courses]
-• Korea Grand Crossing 633km — from Ttangkkeut to Imjingak, the length of Korea.
-• Camino de Santiago 800km — over the Pyrenees to the cathedral of Santiago.
-• Jeju Island Loop 234km — the full coastal circle past Seongsan and Hyeopjae.
+[Start time on records]
+• Records and share cards now show when you started - your 5:42 AM dawn run gets the credit it deserves.
 
-[A livelier Home]
-• Today's best runner now appears live on Home (TODAY'S BEST RUN).
-• Local records widened from district to city level — see more runners near you.
-• Send a heart to today's runner and they get a cheer notification instantly.
-
-[Improvements and fixes]
-• Fixed "Activity not found" when opening another runner's record.
-• The club share button now opens the share sheet right away.
-• Share cards now default to image; video is still one tap away.
-• Fixed the share card and Home showing different distances after a GPS run.
+[Accuracy]
+• Fixed a partial watch recording overwriting the full run when your watch died mid-run.
+• Fixed the share card and Home showing different distances right after a run.
+• Product sharing now opens the share sheet directly.
