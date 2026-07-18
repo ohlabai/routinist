@@ -80,7 +80,9 @@ const HEALTH_READ_TYPES: HealthDataType[] = ['workouts', 'distance', 'heartRate'
 // Android(Health Connect) 는 exerciseTime 미지원 — plugin 의 HealthDataType.kt 에 없어서
 // requestAuthorization/checkAuthorization 자체가 "Unsupported data type: exerciseTime" 으로 reject 됨.
 // 반드시 exerciseTime 을 뺀 별도 리스트를 사용해야 함.
-const HEALTH_READ_TYPES_ANDROID: HealthDataType[] = ['workouts', 'distance', 'heartRate', 'calories'];
+// 2026-07-18 Play 거절 (헬스 커넥트 최소 범위) 대응: heartRate 제거 — 권한만 요청하고
+// 실제 저장 코드가 없었음 (heart_rate_avg 는 iOS HealthKit 경로 전용). manifest 3종과 일치.
+const HEALTH_READ_TYPES_ANDROID: HealthDataType[] = ['workouts', 'distance', 'calories'];
 
 // Health Connect 미설치 기기 안내용 Play 스토어 링크 (Android 13 이하는 별도 설치 필요).
 export const HEALTH_CONNECT_PLAY_STORE_URL =

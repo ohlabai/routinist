@@ -83,17 +83,24 @@
     <!-- 카메라 (활동 사진 촬영) -->
     <uses-permission android:name="android.permission.CAMERA" />
 
-    <!-- Health Connect 권한 (러닝 기록 동기화 — iOS HealthKit 매핑) -->
+    <!-- Health Connect 권한 (러닝 기록 동기화 — iOS HealthKit 매핑)
+         2026-07-18 Play 거절 (헬스 커넥트 최소 범위) 대응: 실사용 3종만 유지.
+         - READ_EXERCISE: 러닝 세션 조회 (queryWorkouts)
+         - READ_DISTANCE: 세션 거리 집계 (DistanceRecord.DISTANCE_TOTAL)
+         - READ_ACTIVE_CALORIES_BURNED: 세션 칼로리 집계 (ACTIVE_CALORIES_TOTAL)
+         제거: STEPS·TOTAL_CALORIES(어떤 코드 경로도 안 읽음)·HEART_RATE(권한만 있고
+         저장 코드 없음)·EXERCISE_ROUTE(경로 동기화가 아직 iOS 전용 — Android 기능
+         출시 시 재선언 + 재심사). -->
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />
-    <uses-permission android:name="android.permission.health.READ_EXERCISE_ROUTE" />
     <uses-permission android:name="android.permission.health.READ_DISTANCE" />
-    <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
-    <uses-permission android:name="android.permission.health.READ_STEPS" />
-    <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED" />
     <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
 
     <!-- @capgo/capacitor-health 가 병합하는 미사용 권한 제거 — Health Connect 심사는
-         선언된 모든 권한의 사용 근거를 요구하므로 위 읽기 7종 외 전부 차단 -->
+         선언된 모든 권한의 사용 근거를 요구하므로 위 읽기 3종 외 전부 차단 -->
+    <uses-permission android:name="android.permission.health.READ_EXERCISE_ROUTE" tools:node="remove" />
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE" tools:node="remove" />
+    <uses-permission android:name="android.permission.health.READ_STEPS" tools:node="remove" />
+    <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED" tools:node="remove" />
     <uses-permission android:name="android.permission.health.READ_BASAL_BODY_TEMPERATURE" tools:node="remove" />
     <uses-permission android:name="android.permission.health.READ_BASAL_METABOLIC_RATE" tools:node="remove" />
     <uses-permission android:name="android.permission.health.READ_BLOOD_GLUCOSE" tools:node="remove" />
