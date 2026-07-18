@@ -72,6 +72,19 @@ const rel = await jfetch(`${base}/edits/${edit.id}/tracks/${track}`, {
 console.log('track:', JSON.stringify(rel));
 
 // 4) commit
-const done = await jfetch(`${base}/edits/${edit.id}:commit`, { method: 'POST' });
+// 2026-07-18: 정책 이슈/관리형 게시 상태의 앱은 자동 심사 전송이 막혀 있어
+// changesNotSentForReview=true 필수 — commit 후 Play Console "게시 개요" 에서
+// "변경사항 전송" 버튼으로 심사를 수동 제출해야 한다.
+let done;
+try {
+  done = await jfetch(`${base}/edits/${edit.id}:commit`, { method: 'POST' });
+} catch (e) {
+  if (String(e).includes('changesNotSentForReview')) {
+    done = await jfetch(`${base}/edits/${edit.id}:commit?changesNotSentForReview=true`, { method: 'POST' });
+    console.log('⚠️  검토 미전송 모드로 commit — Play Console 게시 개요에서 "변경사항 전송" 필요');
+  } else {
+    throw e;
+  }
+}
 console.log('committed:', done.id);
 console.log(`OK — versionCode ${up.versionCode} → ${track} track`);

@@ -122,3 +122,41 @@ Health Connect 를 연결하면 삼성 헬스·갤럭시 워치의 러닝 기록
 
 체크리스트 전부 완료 후: 프로덕션 → 새 버전 만들기 → AAB 304 (내부 테스트에서 승격 가능) → 검토 제출.
 Health Connect 선언은 별도 승인 심사가 있어 프로덕션 심사와 병행됨 (수일 소요 가능).
+
+---
+
+# 2026-07-18 거절 대응 — 재제출 가이드 (AAB 307)
+
+## 거절 사유 2건 (둘 다 헬스 커넥트 권한 정책, 버전 306)
+1. **과도한 데이터 액세스**: Steps 권한이 기능 대비 불필요 판정
+2. **근거 부족**: 요청한 데이터 유형별 사용 근거 설명 부족
+
+## 코드 대응 (완료 — AAB 307 에 반영, commit 634d5bd)
+- manifest 건강 권한 7종 → **실사용 3종** (READ_EXERCISE / READ_DISTANCE / READ_ACTIVE_CALORIES_BURNED)
+- 제거: STEPS·TOTAL_CALORIES·HEART_RATE·EXERCISE_ROUTE (전부 코드 미사용 검증됨)
+- 런타임 요청 (health-sync) 도 동일 3종으로 정합
+
+## 콘솔 작업 순서 (사용자)
+
+### 1) 앱 콘텐츠 → 건강 앱 (Health apps) 선언 갱신
+- 데이터 유형 선택을 **운동/피트니스 3종만** 남기고 나머지 (걸음수·심박수·총칼로리·운동경로) 체크 해제
+- 각 유형 근거 (아래 복붙):
+
+| 데이터 유형 | 근거 (한국어) | Rationale (EN) |
+|---|---|---|
+| 운동 세션 (Exercise) | 사용자가 삼성 헬스·갤럭시 워치로 기록한 러닝 운동을 앱의 러닝 일지·주간 스트릭·월간 목표·랭킹에 자동 반영하기 위해 러닝/걷기 세션을 읽습니다. 앱의 핵심 기능입니다. | Reads running/walking exercise sessions recorded by Samsung Health or Galaxy Watch to automatically populate the user's running log, weekly streaks, monthly goals and rankings — the app's core feature. |
+| 거리 (Distance) | 각 러닝 세션의 총 거리를 표시하고 주간/월간 누적 거리, 목표 달성률, 페이스 계산에 사용합니다. | Used to show each run's total distance and to compute weekly/monthly totals, goal progress and average pace. |
+| 활동 칼로리 (Active calories) | 각 러닝 세션에서 소모한 활동 칼로리를 기록 상세와 공유 카드에 표시합니다. | Displays active calories burned per run on the record detail screen and share cards. |
+
+### 2) 앱 콘텐츠 → 포그라운드 서비스 권한 선언 (신규 — 307 이 FGS location 추가)
+- FOREGROUND_SERVICE_LOCATION 사용: **예**
+- 사유 (복붙): "사용자가 명시적으로 시작한 GPS 러닝 트래킹을 화면 잠금 상태에서도 지속하기 위해 위치 유형 포그라운드 서비스를 사용합니다. 서비스 실행 중에는 상시 알림으로 거리·시간이 표시되며, 러닝을 종료하면 즉시 중단됩니다. / A location foreground service keeps GPS run tracking alive while the screen is locked, only during a run the user explicitly started. An ongoing notification shows distance/time, and the service stops immediately when the run ends."
+- **데모 영상** 요구 시: 트래킹 시작 → 화면 잠금 → 상단 알림 (달리기 기록 중) → 잠금 해제 → 완료, ~30초 화면 녹화 → YouTube 비공개 업로드 링크
+- 이 폼 저장 후 아래 3) 이 뚫림 (API 커밋이 이 선언 미작성으로 403)
+
+### 3) AAB 307 업로드
+- 터미널: `node scripts/play-upload.mjs play-publish-key.json android/app/build/outputs/bundle/release/app-release.aab production`
+- (스크립트가 "검토 미전송 모드로 commit" 출력하면 정상)
+
+### 4) 게시 개요 → "변경사항 전송" 클릭 (심사 제출)
+- 릴리스 노트는 fastlane/metadata/android/{ko-KR,en-US}/changelogs/307.txt 복붙
