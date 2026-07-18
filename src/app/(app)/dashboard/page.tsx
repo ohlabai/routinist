@@ -669,16 +669,9 @@ export default function DashboardPage() {
         <h1 className="text-xl font-extrabold tracking-tight">{t('home.title')}</h1>
         {/* 2026-07-18 (hans): 알림 종 — 앱 아이콘 배지를 보고 열면 홈에 떨어지므로,
             unread 카운트가 홈 우상단에서 바로 보여야 알림을 찾아 헤매지 않는다. */}
-        <div className="ml-auto flex items-center gap-1">
+        {/* 2026-07-18: "달리기 시작" 칩은 탭바 정중앙 원형 버튼으로 이동 (헤더 복잡 피드백) */}
+        <div className="ml-auto">
           <NotificationBell />
-          <Link
-            href="/track"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base shadow-md shadow-emerald-500/30 active:scale-95 transition"
-            aria-label={tt('달리기 시작하기')}
-          >
-            <MapPin size={18} />
-            <span className="leading-none">{locale === 'en' ? 'Start Run' : '달리기 시작'}</span>
-          </Link>
         </div>
       </div>
     </header>

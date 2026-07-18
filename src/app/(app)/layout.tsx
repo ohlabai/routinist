@@ -5,7 +5,7 @@ import { UserDataProvider } from '@/components/UserDataProvider';
 import { useRouter, usePathname } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Home, Trophy, User, Users } from 'lucide-react';
+import { Home, Trophy, User, Users, Play } from 'lucide-react';
 import { syncHealthData, isNativeApp } from '@/lib/health-sync';
 import AppLogo from '@/components/AppLogo';
 import { useI18n, getCurrentLocale } from '@/lib/i18n';
@@ -40,7 +40,7 @@ const TABS_BASE: {
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  const { t } = useI18n();
+  const { t, tt } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   // iOS Capacitor 환경에서 pathname 이 '/shop' / '/shop/' / '/shop/index.html' 등으로 변할 수 있어
@@ -304,40 +304,53 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           채팅 페이지에선 입력창이 가리는 문제로 nav 숨김 (사용자 신고 build 67). */}
       <nav className={`flex-shrink-0 z-40 border-t border-[var(--card-border)] bg-[var(--header-bg)] backdrop-blur-xl pb-[max(env(safe-area-inset-bottom),4px)] ${isChat || isTrack ? 'hidden' : ''}`}>
         <div className="flex justify-around items-center h-14">
-          {TABS_BASE.map((tab) => {
-            const isActive =
-              pathname === tab.href ||
-              pathname.startsWith(tab.href + '/') ||
-              (tab.activeFor?.some(p => pathname === p || pathname.startsWith(p + '/')) ?? false);
-            // build 261→2026-07-15: 소셜 탭 배지 제거 (사용자 결정) — 탭 배지를 보고 소셜에
-            // 들어가도 알림이 어디 있는지 안 보였음. 알림 unread 는 소셜 페이지 우상단 종
-            // 아이콘 배지 (NotificationBellBadge) + 앱 아이콘 배지가 담당.
-            // build 298: 내정보 탭 쪽지 unread 배지는 유지 (쪽지 진입점이 내정보 안).
-            const badgeCount = tab.href === '/profile' ? messageUnread : 0;
-            return (
-              <Link
-                key={tab.href}
-                href={tab.href}
-                className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-2xl transition-all duration-200 ${
-                  isActive
-                    ? 'text-[var(--accent)] bg-[var(--accent)]/10'
-                    : 'text-[var(--muted)]'
-                }`}
-              >
-                <div className="relative">
-                  <tab.Icon size={isActive ? 24 : 22} strokeWidth={isActive ? 2.5 : 1.75} />
-                  {badgeCount > 0 && (
-                    <span className="absolute -top-1.5 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center leading-none shadow-md shadow-rose-500/30 tabular-nums">
-                      {badgeCount > 99 ? '99+' : badgeCount}
-                    </span>
-                  )}
-                </div>
-                <span className={`text-[13px] ${isActive ? 'font-bold' : 'font-medium'}`}>{t(tab.labelKey)}</span>
-              </Link>
-            );
-          })}
+          {/* 2026-07-18 (hans): "달리기 시작"을 홈 헤더 칩 → 탭바 정중앙 원형 버튼으로.
+              헤더 (종+칩) 이 복잡해졌다는 피드백 + NRC/Strava 문법 — 어느 탭에서든
+              엄지로 바로 시작. 탭 2개 | 시작 | 탭 2개 배치. */}
+          {TABS_BASE.slice(0, 2).map(renderTab)}
+          <Link
+            href="/track"
+            aria-label={tt('달리기 시작하기')}
+            className="relative -mt-7 w-[60px] h-[60px] rounded-full bg-gradient-to-br from-emerald-400 via-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/40 border-4 border-[var(--background)] flex items-center justify-center active:scale-90 transition"
+          >
+            <Play size={26} className="text-white ml-1" fill="currentColor" strokeWidth={0} />
+          </Link>
+          {TABS_BASE.slice(2).map(renderTab)}
         </div>
       </nav>
     </div>
   );
+
+  function renderTab(tab: (typeof TABS_BASE)[number]) {
+    const isActive =
+      pathname === tab.href ||
+      pathname.startsWith(tab.href + '/') ||
+      (tab.activeFor?.some(p => pathname === p || pathname.startsWith(p + '/')) ?? false);
+    // build 261→2026-07-15: 소셜 탭 배지 제거 (사용자 결정) — 탭 배지를 보고 소셜에
+    // 들어가도 알림이 어디 있는지 안 보였음. 알림 unread 는 홈/소셜 헤더 종 배지
+    // (NotificationBell) + 앱 아이콘 배지가 담당.
+    // build 298: 내정보 탭 쪽지 unread 배지는 유지 (쪽지 진입점이 내정보 안).
+    const badgeCount = tab.href === '/profile' ? messageUnread : 0;
+    return (
+      <Link
+        key={tab.href}
+        href={tab.href}
+        className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-2xl transition-all duration-200 ${
+          isActive
+            ? 'text-[var(--accent)] bg-[var(--accent)]/10'
+            : 'text-[var(--muted)]'
+        }`}
+      >
+        <div className="relative">
+          <tab.Icon size={isActive ? 24 : 22} strokeWidth={isActive ? 2.5 : 1.75} />
+          {badgeCount > 0 && (
+            <span className="absolute -top-1.5 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center leading-none shadow-md shadow-rose-500/30 tabular-nums">
+              {badgeCount > 99 ? '99+' : badgeCount}
+            </span>
+          )}
+        </div>
+        <span className={`text-[13px] ${isActive ? 'font-bold' : 'font-medium'}`}>{t(tab.labelKey)}</span>
+      </Link>
+    );
+  }
 }
