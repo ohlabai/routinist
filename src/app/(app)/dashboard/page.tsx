@@ -33,6 +33,7 @@ import Onboarding from '@/components/Onboarding';
 import LazyMount from '@/components/LazyMount';
 import { useI18n, ttl, getCurrentLocale } from '@/lib/i18n';
 import AppLogo from '@/components/AppLogo';
+import NotificationBell from '@/components/NotificationBell';
 import HomeRankingHero from '@/components/home/HomeRankingHero';
 import SeasonRecapCard from '@/components/home/SeasonRecapCard';
 import StreakWarningCard from '@/components/home/StreakWarningCard';
@@ -666,14 +667,19 @@ export default function DashboardPage() {
       <div className="px-4 py-3 flex items-center gap-2">
         <AppLogo size={28} />
         <h1 className="text-xl font-extrabold tracking-tight">{t('home.title')}</h1>
-        <Link
-          href="/track"
-          className="ml-auto inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base shadow-md shadow-emerald-500/30 active:scale-95 transition"
-          aria-label={tt('달리기 시작하기')}
-        >
-          <MapPin size={18} />
-          <span className="leading-none">{locale === 'en' ? 'Start Run' : '달리기 시작'}</span>
-        </Link>
+        {/* 2026-07-18 (hans): 알림 종 — 앱 아이콘 배지를 보고 열면 홈에 떨어지므로,
+            unread 카운트가 홈 우상단에서 바로 보여야 알림을 찾아 헤매지 않는다. */}
+        <div className="ml-auto flex items-center gap-1">
+          <NotificationBell />
+          <Link
+            href="/track"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base shadow-md shadow-emerald-500/30 active:scale-95 transition"
+            aria-label={tt('달리기 시작하기')}
+          >
+            <MapPin size={18} />
+            <span className="leading-none">{locale === 'en' ? 'Start Run' : '달리기 시작'}</span>
+          </Link>
+        </div>
       </div>
     </header>
       {syncToast && (

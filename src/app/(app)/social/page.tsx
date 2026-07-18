@@ -13,11 +13,11 @@ import { getSupabase } from '@/lib/supabase';
 import UserRow from '@/components/social/UserRow';
 import PhotosTab from '@/components/photos/PhotosTab';
 import MultiUserTimeSeriesChart, { type CompareUser } from '@/components/charts/MultiUserTimeSeriesChart';
-import { User as UserIcon, Users, Search, Plus, MapPin, Camera, Trophy, Bell } from 'lucide-react';
-import { fetchUnreadNotificationSummary, BADGE_REFRESH_EVENT } from '@/lib/notifications-data';
+import { User as UserIcon, Users, Search, Plus, MapPin, Camera, Trophy } from 'lucide-react';
 import { startOfWeekStr, startOfMonthStr } from '@/lib/kst';
 import type { Profile, Club } from '@/types';
 import AppLogo from '@/components/AppLogo';
+import NotificationBell from '@/components/NotificationBell';
 import { useI18n } from '@/lib/i18n';
 
 // 2026-07-11: 클럽 탭 복원 (사용자 요청 — 동아리·모임 기능 필요). 명언 탭은 계속 제외.
@@ -41,33 +41,6 @@ type ComparePeriod = 'week' | 'month';
 // build 263: 종 아이콘 위 빨간 카운트.
 // build 298: /social 진입 자동 읽음이 폐기됨 — 배지는 /notifications 에서 항목 탭(개별)
 // 또는 "모두 읽음" 처리 전까지 유지. 읽음 이벤트를 구독해 즉시 갱신.
-function NotificationBellBadge() {
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    let mounted = true;
-    const load = () => fetchUnreadNotificationSummary().then(s => { if (mounted) setCount(s.total); }).catch(() => {});
-    void load();
-    // 2026-07-15 리뷰 fix: mount 1회 + 읽음 이벤트만으론 백그라운드 복귀/소셜에 머무는 동안
-    // 도착한 알림이 반영 안 됨 — layout 배지와 같은 focus/visibility 트리거 추가.
-    const onVis = () => { if (!document.hidden) void load(); };
-    window.addEventListener(BADGE_REFRESH_EVENT, load);
-    window.addEventListener('focus', load);
-    document.addEventListener('visibilitychange', onVis);
-    return () => {
-      mounted = false;
-      window.removeEventListener(BADGE_REFRESH_EVENT, load);
-      window.removeEventListener('focus', load);
-      document.removeEventListener('visibilitychange', onVis);
-    };
-  }, []);
-  if (count <= 0) return null;
-  return (
-    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center leading-none shadow-md shadow-rose-500/30 tabular-nums">
-      {count > 99 ? '99+' : count}
-    </span>
-  );
-}
-
 function SocialPageInner() {
   const { user, profile } = useAuth();
   const { t, tt } = useI18n();
@@ -142,14 +115,10 @@ function SocialPageInner() {
         <div className="px-4 py-3 flex items-center gap-2">
           <AppLogo size={28} />
           <h1 className="text-xl font-extrabold tracking-tight">{t('social.title')}</h1>
-          <Link
-            href="/notifications"
-            aria-label="Notifications"
-            className="ml-auto relative w-10 h-10 rounded-full flex items-center justify-center hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90"
-          >
-            <Bell size={20} strokeWidth={1.8} />
-            <NotificationBellBadge />
-          </Link>
+          {/* 2026-07-18: 공용 NotificationBell 로 통합 (홈 헤더와 동일 컴포넌트) */}
+          <div className="ml-auto">
+            <NotificationBell />
+          </div>
         </div>
       </header>
 
