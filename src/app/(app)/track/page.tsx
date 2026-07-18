@@ -29,6 +29,7 @@ import {
   startWatcher, type WatcherHandle,
   appendCoord, tickElapsed, formatDistanceKm,
   detectAutoPause, detectAutoResume,
+  writeFinishArchive, readPendingFinishArchive,
 } from '@/lib/gps-tracking';
 // build 292 Phase 1: 네이티브 RunSession 엔진. 두뇌 (거리/자동정지/음성) 를 native 로 이관,
 // JS 는 'update' 이벤트 렌더러. 플러그인 미탑재 빌드는 위 레거시 JS 엔진 폴백 (동작 무변경).
@@ -796,17 +797,36 @@ function TrackPageImpl() {
   };
 
   // build 214 #2: 모든 종료 흐름 관측 + clearState 직전 archive 키로 백업 (복구 가능)
+  // 2026-07-18: 완주 핸드오프는 pendingSave=true — 저장 전에 시트가 사라지면 mount 복구 대상.
   const archiveStateBeforeClear = (s: TrackingState, reason: string) => {
-    try {
-      if (typeof window === 'undefined') return;
-      const archive = {
-        archivedAt: Date.now(),
-        reason,
-        state: s,
-      };
-      window.localStorage.setItem('routinist:gps-archive-v1', JSON.stringify(archive));
-    } catch {}
+    writeFinishArchive(s, reason, reason.includes('handoff'));
   };
+
+  // 2026-07-18 (hans 창원 런 유실): 완주 후 저장 전에 앱 종료/시트 이탈로 증발한 기록 복구.
+  // 활성 세션 (네이티브 snapshot / 레거시 localStorage) 이 없을 때만 — 진행 중 러닝이 우선.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      if (isRunSessionAvailable()) {
+        try {
+          const snap = await getRunSnapshot();
+          if (snap.active) return;
+        } catch { /* 플러그인 미탑재 — 계속 */ }
+      } else if (loadState() !== null) {
+        return;
+      }
+      if (cancelled) return;
+      const archive = readPendingFinishArchive();
+      if (!archive) return;
+      setFinished(prev => prev ?? archive.state);
+      void logClientInfo('track-recover', 'unsaved-finish restored', {
+        distance_m: Math.round(archive.state.distanceMeters),
+        age_min: Math.round((Date.now() - archive.archivedAt) / 60000),
+        reason: archive.reason,
+      });
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleFinish = () => {
     if (!state) return;

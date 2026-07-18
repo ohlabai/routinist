@@ -429,7 +429,7 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     const existingResult = await withTimeout(
       supabase
         .from('activities')
-        .select('id, started_at, activity_date, distance_km, source')
+        .select('id, started_at, activity_date, distance_km, duration_seconds, source')
         .eq('user_id', userId)
         .gte('activity_date', startDate.slice(0, 10)),
       10000,
@@ -455,17 +455,18 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     // build 245 #15: 같은 started_at 윈도우에 source='gps' 행이 있을 때 Apple Health 가 더 정확한
     // 데이터라면 GPS 행을 덮어쓰기. 이전 로직은 GPS 가 먼저 박혀 있으면 Apple Health 를 무조건 dedup 으로
     // 스킵 → broken GPS (0.56km / 0.04km 같은 클립) 가 영원히 회복 안 됨.
-    type ExistingRow = { id: string; ms: number; distance_km: number; source: string };
+    type ExistingRow = { id: string; ms: number; distance_km: number; duration_seconds: number | null; source: string };
     const existingByTime: ExistingRow[] = [];
     // existingByDate 는 옛 데이터 (started_at NULL) 호환용 fallback. started_at 있는 행을
     // 여기 넣으면 같은 날 같은 거리 두 번 뛴 경우 두 번째가 false-positive 중복으로 스킵됨 (build 204 회귀).
     const existingByDateLegacy = new Map<string, number[]>();
-    (existingAll ?? []).forEach((row: { id: string; started_at: string | null; activity_date: string; distance_km: number | string; source: string | null }) => {
+    (existingAll ?? []).forEach((row: { id: string; started_at: string | null; activity_date: string; distance_km: number | string; duration_seconds: number | null; source: string | null }) => {
       if (row.started_at) {
         existingByTime.push({
           id: row.id,
           ms: new Date(row.started_at).getTime(),
           distance_km: Number(row.distance_km),
+          duration_seconds: row.duration_seconds,
           source: row.source ?? '',
         });
       } else {
@@ -523,11 +524,36 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
         // health_kit / external / manual 행은 절대 덮어쓰지 않음 — 사용자가 직접 손댄 데이터 보호.
         const absDiffKm = Math.abs(overlap.distance_km - distanceKm);
         const ratio = distanceKm > 0 ? overlap.distance_km / distanceKm : 0;
+        // 2026-07-18 (hans 7/15 워치 방전 사례): HK 워크아웃이 기존 활동 시간의 70% 미만만
+        // 커버하면 "부분 기록" (러닝 도중 워치 꺼짐 / 워크아웃 조기 종료) — 거리가 1km+ 짧아도
+        // GPS 가 broken 인 게 아니라 워치가 일찍 멈춘 것. 덮어쓰면 정상 11.4km 가 5.7km 로
+        // 반토막 나는 회귀. 시간 커버리지가 충분할 때만 upgrade 허용.
+        const workoutCoversRun =
+          !overlap.duration_seconds || !durationSeconds ||
+          durationSeconds >= overlap.duration_seconds * 0.7;
         const isBrokenGps =
           overlap.source === 'gps' &&
           distanceKm > 0.5 &&
-          (absDiffKm > 1 || ratio < 0.5 || ratio > 2);
+          (absDiffKm > 1 || ratio < 0.5 || ratio > 2) &&
+          workoutCoversRun;
+        if (!workoutCoversRun && overlap.source === 'gps' && absDiffKm > 1) {
+          // 진단 페어링: 부분 워크아웃 skip 을 관측 가능하게.
+          logClientInfo('health-sync', 'partial-workout upgrade skip', {
+            activity_id: overlap.id,
+            gps_km: overlap.distance_km,
+            hk_km: Math.round(distanceKm * 100) / 100,
+            gps_dur_s: overlap.duration_seconds,
+            hk_dur_s: durationSeconds,
+          });
+        }
         if (isBrokenGps) {
+          logClientInfo('health-sync', 'gps→hk upgrade decision', {
+            activity_id: overlap.id,
+            from_km: overlap.distance_km,
+            to_km: Math.round(distanceKm * 100) / 100,
+            from_dur_s: overlap.duration_seconds,
+            to_dur_s: durationSeconds,
+          });
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const upgradeData: Record<string, any> = {
             distance_km: Math.round(distanceKm * 100) / 100,
@@ -582,7 +608,7 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
 
       toInsert.push(insertData);
       // binary search invariant — 새 행 추가 후 정렬 유지.
-      existingByTime.push({ id: '__pending__', ms: workoutMs, distance_km: distanceKm, source: 'health_kit' });
+      existingByTime.push({ id: '__pending__', ms: workoutMs, distance_km: distanceKm, duration_seconds: durationSeconds, source: 'health_kit' });
       existingByTime.sort((a, b) => a.ms - b.ms);
     }
 

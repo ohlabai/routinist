@@ -12,7 +12,7 @@ import { getSupabase } from '@/lib/supabase';
 import {
   type TrackingState, formatDuration, formatDistanceKm,
   averagePaceSecondsPerKm, formatPace, haversineMeters,
-  smoothCoords,
+  smoothCoords, clearFinishArchive,
 } from '@/lib/gps-tracking';
 import RouteMap from '@/components/map/RouteMap';
 import type { GeoJSONLineString } from '@/types';
@@ -140,6 +140,9 @@ export default function TrackSummarySheet({ finalState, userId, nativeEngine, on
       const activityId = data?.id as string | undefined;
       if (!activityId) throw new Error(tt('저장 후 id 없음'));
 
+      // 2026-07-18: 저장 성공 — 완주 핸드오프 아카이브 소비 (mount 복구 재제안 차단).
+      clearFinishArchive();
+
       // build 254: HealthKit distanceWalkingRunning 자동 보정. fire-and-forget.
       // 운동 종료 후 15~45초 사이에 HealthKit sample 이 적재되면 Apple 의 sensor-fusion
       // 결과로 distance/pace 를 UPDATE 한다. GPS 자체 누적은 jitter / multipath 로 부풀려질 수
@@ -255,8 +258,15 @@ export default function TrackSummarySheet({ finalState, userId, nativeEngine, on
       elapsed_s: elapsedSeconds,
       coords_n: finalState.coords.length,
     });
+    clearFinishArchive();
     onClose();
     router.replace('/dashboard');
+  };
+
+  // 2026-07-18 (hans 창원 런 유실): X 닫기가 확인 없이 onClose → 완주 기록이 저장 안 된 채
+  // 조용히 증발했음 (완주 로그만 있고 save 시도 0건). 닫기 = 버리기와 동일한 확인 경유.
+  const handleCloseUnsaved = () => {
+    handleDiscard();
   };
 
   return (
@@ -268,7 +278,7 @@ export default function TrackSummarySheet({ finalState, userId, nativeEngine, on
             <CheckCircle size={18} className="text-emerald-500" />
             <h2 className="text-base font-extrabold">{tt('달리기 완료!')}</h2>
           </div>
-          <button onClick={onClose} aria-label={tt('닫기')}
+          <button onClick={handleCloseUnsaved} aria-label={tt('닫기')}
             className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90">
             <X size={18} />
           </button>

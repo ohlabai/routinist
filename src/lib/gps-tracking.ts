@@ -62,6 +62,47 @@ export function clearState(): void {
   try { window.localStorage.removeItem(STORAGE_KEY); } catch {}
 }
 
+// ── 완주 핸드오프 아카이브 (2026-07-18) ──────────────────────────────────────
+// 완료 → 요약 시트로 넘기기 직전 스냅샷. 저장 전에 앱이 죽거나 시트를 닫으면 기록이
+// 통째로 증발했음 (hans 창원 런: 완주 로그만 있고 save 시도 0건 → 기록 유실).
+// pendingSave=true 인 아카이브는 track 페이지 mount 시 복구 제안. 저장/명시 폐기 시 clear.
+const ARCHIVE_KEY = 'routinist:gps-archive-v1';
+const ARCHIVE_RECOVER_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+export interface FinishArchive {
+  archivedAt: number;
+  reason: string;
+  pendingSave?: boolean;
+  state: TrackingState;
+}
+
+export function writeFinishArchive(state: TrackingState, reason: string, pendingSave: boolean): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const archive: FinishArchive = { archivedAt: Date.now(), reason, pendingSave, state };
+    window.localStorage.setItem(ARCHIVE_KEY, JSON.stringify(archive));
+  } catch {}
+}
+
+/** 저장 안 된 완주 기록 (24h 이내, 50m+) — 없으면 null. 구버전 아카이브 (pendingSave 없음) 는 제외. */
+export function readPendingFinishArchive(): FinishArchive | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(ARCHIVE_KEY);
+    if (!raw) return null;
+    const a = JSON.parse(raw) as FinishArchive;
+    if (!a.pendingSave) return null;
+    if (Date.now() - a.archivedAt > ARCHIVE_RECOVER_MAX_AGE_MS) return null;
+    if (!a.state || a.state.distanceMeters < 50) return null;
+    return a;
+  } catch { return null; }
+}
+
+export function clearFinishArchive(): void {
+  if (typeof window === 'undefined') return;
+  try { window.localStorage.removeItem(ARCHIVE_KEY); } catch {}
+}
+
 export function createInitialState(): TrackingState {
   const now = Date.now();
   return {
