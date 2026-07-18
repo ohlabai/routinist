@@ -1,0 +1,5 @@
+• GPS run tracking now continues while the screen is locked (native tracking engine)
+• Voice cues during runs (1km/500m milestones, auto-pause announcements)
+• Auto pause & resume when you stop at lights or take a break
+• Ongoing run progress notification
+• Improved hardware back button handling and stability fixes

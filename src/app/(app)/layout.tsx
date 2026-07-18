@@ -308,12 +308,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               헤더 (종+칩) 이 복잡해졌다는 피드백 + NRC/Strava 문법 — 어느 탭에서든
               엄지로 바로 시작. 탭 2개 | 시작 | 탭 2개 배치. */}
           {TABS_BASE.slice(0, 2).map(renderTab)}
+          {/* 2026-07-19 (hans): 돌출(-mt-7)·60px 가 다른 탭과 안 맞음 — 탭바 안에 나란히,
+              탭 아이템과 비슷한 높이 (44px) 로 정렬. 그린 원형은 유지해 시작 액션 존재감만 남김. */}
           <Link
             href="/track"
             aria-label={tt('달리기 시작하기')}
-            className="relative -mt-7 w-[60px] h-[60px] rounded-full bg-gradient-to-br from-emerald-400 via-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/40 border-4 border-[var(--background)] flex items-center justify-center active:scale-90 transition"
+            className="w-11 h-11 rounded-full bg-gradient-to-br from-emerald-400 via-emerald-500 to-emerald-600 shadow-md shadow-emerald-500/30 flex items-center justify-center active:scale-90 transition"
           >
-            <Play size={26} className="text-white ml-1" fill="currentColor" strokeWidth={0} />
+            <Play size={20} className="text-white ml-0.5" fill="currentColor" strokeWidth={0} />
           </Link>
           {TABS_BASE.slice(2).map(renderTab)}
         </div>
