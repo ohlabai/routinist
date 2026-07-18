@@ -1595,6 +1595,11 @@ const EXTRAS_EN: Record<string, string> = {
   '삭제됨': 'Deleted',
   '삭제 실패': 'Delete failed',
   '내 글을 삭제할까요?': 'Delete this post?',
+  // track 자동 저장 (2026-07-18)
+  '기록 보기': 'View record',
+  '다시 저장': 'Retry save',
+  '이 기록을 삭제할까요?': 'Delete this record?',
+  '버리기': 'Discard',
   // support
   '고객 지원': 'Support',
   '제안 / 버그 게시판': 'Suggestions / Bugs board',

@@ -5,7 +5,7 @@
 // 저장 시 activities INSERT (source='gps', activity_type='running').
 // 마일리지 적립은 award_run_mileage RPC 트리거 또는 호출 (기존 마일리지 시스템 활용).
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle, Trash2, MapPin, Activity, Clock, X } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
@@ -86,6 +86,10 @@ export default function TrackSummarySheet({ finalState, userId, nativeEngine, on
   const { tt } = useI18n();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 2026-07-18 (hans 제안): 완주 = 자동 저장. 저장 성공 시 활동 id + 축하 params 보관 —
+  // 주 버튼이 "기록 보기" 로 바뀌고, X 닫기는 안전해진다.
+  const [savedNav, setSavedNav] = useState<{ id: string; params: string } | null>(null);
+  const autoSaveFired = useRef(false);
 
   const distanceMeters = finalState.distanceMeters;
   const elapsedSeconds = Math.floor(finalState.elapsedSeconds);
@@ -233,9 +237,9 @@ export default function TrackSummarySheet({ finalState, userId, nativeEngine, on
       }
 
       logClientInfo('track-save', 'success', { activity_id: activityId, distance_m: Math.round(distanceMeters) });
-      // 활동 상세로 이동 (sheet 닫고 navigate)
-      onClose();
-      router.push(`/activity?${params.toString()}`);
+      // 자동 저장 (2026-07-18): 즉시 navigate 하지 않고 시트에 "저장됨" 상태로 남는다 —
+      // 사용자가 요약을 검토한 뒤 "기록 보기" 로 이동 (축하 params 는 그때 소비).
+      setSavedNav({ id: activityId, params: params.toString() });
     } catch (e) {
       const reason = e instanceof Error ? e.message : String(e);
       console.warn('[track/summary] save fail', e);
@@ -251,7 +255,34 @@ export default function TrackSummarySheet({ finalState, userId, nativeEngine, on
     }
   };
 
-  const handleDiscard = () => {
+  // 2026-07-18 (hans 제안): 시트가 뜨는 즉시 자동 저장 — "완주했으면 저장됐다" 멘탈 모델
+  // (창원 런 유실 사례). 완료 confirm + 짧은 거리 3버튼 시트가 이미 의도를 확인한 상태.
+  // 실패 시 "다시 저장" 버튼 + pendingSave 아카이브 (track 페이지 mount 복구) 가 안전망.
+  useEffect(() => {
+    if (autoSaveFired.current) return;
+    autoSaveFired.current = true;
+    void handleSave();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleDiscard = async () => {
+    // 자동 저장 후의 버리기 = 저장된 행 삭제.
+    if (savedNav) {
+      if (!window.confirm(tt('이 기록을 삭제할까요?'))) return;
+      try {
+        const { error: delErr } = await getSupabase()
+          .from('activities').delete().eq('id', savedNav.id).eq('user_id', userId);
+        if (delErr) throw delErr;
+        logClientWarn('track-discard', 'deleted-after-autosave', {
+          activity_id: savedNav.id, distance_m: Math.round(distanceMeters),
+        });
+        onClose();
+        router.replace('/dashboard');
+      } catch (e) {
+        setError(e instanceof Error ? e.message : tt('삭제 실패'));
+      }
+      return;
+    }
     if (!window.confirm(tt('이번 기록을 저장하지 않고 버릴까요?'))) return;
     logClientWarn('track-discard', 'sheet-discard', {
       distance_m: Math.round(distanceMeters),
@@ -263,10 +294,12 @@ export default function TrackSummarySheet({ finalState, userId, nativeEngine, on
     router.replace('/dashboard');
   };
 
-  // 2026-07-18 (hans 창원 런 유실): X 닫기가 확인 없이 onClose → 완주 기록이 저장 안 된 채
-  // 조용히 증발했음 (완주 로그만 있고 save 시도 0건). 닫기 = 버리기와 동일한 확인 경유.
-  const handleCloseUnsaved = () => {
-    handleDiscard();
+  // X 닫기: 저장됨 → 그냥 닫기 (기록 안전). 저장 중 → 무시 (1~2초 대기).
+  // 실패/미저장 → confirm 경유 폐기 (2026-07-18 창원 런 유실 재발 방지).
+  const handleClose = () => {
+    if (savedNav) { onClose(); return; }
+    if (saving) return;
+    void handleDiscard();
   };
 
   return (
@@ -277,8 +310,13 @@ export default function TrackSummarySheet({ finalState, userId, nativeEngine, on
           <div className="flex items-center gap-2">
             <CheckCircle size={18} className="text-emerald-500" />
             <h2 className="text-base font-extrabold">{tt('달리기 완료!')}</h2>
+            {savedNav && (
+              <span className="text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                {tt('저장됨')} ✓
+              </span>
+            )}
           </div>
-          <button onClick={handleCloseUnsaved} aria-label={tt('닫기')}
+          <button onClick={handleClose} aria-label={tt('닫기')}
             className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90">
             <X size={18} />
           </button>
@@ -341,26 +379,36 @@ export default function TrackSummarySheet({ finalState, userId, nativeEngine, on
           </div>
         )}
 
-        {/* CTA */}
+        {/* CTA — 자동 저장 (2026-07-18): 저장됨 → 기록 보기 / 실패 → 다시 저장 */}
         <div className="px-5 pt-2 pb-7 grid grid-cols-[auto_1fr] gap-2.5">
-          <button onClick={handleDiscard} disabled={saving} aria-label={tt('버리기')}
+          <button onClick={handleDiscard} disabled={saving} aria-label={savedNav ? tt('삭제') : tt('버리기')}
             className="w-14 py-4 rounded-2xl border-2 border-[var(--card-border)] text-[var(--muted)] active:scale-95 disabled:opacity-50 inline-flex items-center justify-center">
             <Trash2 size={18} />
           </button>
-          <button onClick={handleSave} disabled={saving}
-            className="py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base active:scale-[0.98] disabled:opacity-50 shadow-md shadow-emerald-500/30 inline-flex items-center justify-center gap-2">
-            {saving ? (
-              <>
-                <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
-                {tt('저장 중…')}
-              </>
-            ) : (
-              <>
-                <CheckCircle size={18} />
-                {tt('저장하기')}
-              </>
-            )}
-          </button>
+          {savedNav ? (
+            <button
+              onClick={() => { onClose(); router.push(`/activity?${savedNav.params}`); }}
+              className="py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base active:scale-[0.98] shadow-md shadow-emerald-500/30 inline-flex items-center justify-center gap-2"
+            >
+              <CheckCircle size={18} />
+              {tt('기록 보기')}
+            </button>
+          ) : (
+            <button onClick={handleSave} disabled={saving || !error}
+              className="py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base active:scale-[0.98] disabled:opacity-70 shadow-md shadow-emerald-500/30 inline-flex items-center justify-center gap-2">
+              {error ? (
+                <>
+                  <CheckCircle size={18} />
+                  {tt('다시 저장')}
+                </>
+              ) : (
+                <>
+                  <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                  {tt('저장 중…')}
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>
