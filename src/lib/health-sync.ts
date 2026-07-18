@@ -151,15 +151,20 @@ async function ensureAuthorization(
     }
   }
 
-  // GPS 경로 권한 — iOS 커스텀 플러그인 전용 (Android 경로 sync 는 Phase B).
-  if (!isAndroid) {
-    try {
-      const { WorkoutRoute } = await import('./workout-route');
-      await withTimeout(WorkoutRoute.requestAuthorization(), 20000, 'WorkoutRoute.requestAuthorization');
-    } catch (e) {
-      // 커스텀 플러그인 미빌드 또는 옛 버전이면 무시 — 코어 동기화는 계속 진행.
-      console.warn('[health-sync] WorkoutRoute auth 실패 (플러그인 미빌드 가능):', e);
-    }
+  // GPS 경로 권한 — iOS(HKWorkoutRoute)·Android(Health Connect ExerciseRoute) 공용.
+  // 2026-07-18: Android 게이트 해제 — WorkoutRoutePlugin.kt 가 실제 HC 권한 요청 UI 를
+  // 띄우도록 수리됨 (Play 재제출에 경로 기능 포함). Android 권한 UI 는 사용자 응답이
+  // 필요해 timeout 을 여유 있게.
+  try {
+    const { WorkoutRoute } = await import('./workout-route');
+    await withTimeout(
+      WorkoutRoute.requestAuthorization(),
+      isAndroid ? 120000 : 20000,
+      'WorkoutRoute.requestAuthorization',
+    );
+  } catch (e) {
+    // 커스텀 플러그인 미빌드 또는 옛 버전이면 무시 — 코어 동기화는 계속 진행.
+    console.warn('[health-sync] WorkoutRoute auth 실패 (플러그인 미빌드 가능):', e);
   }
 
   // iOS 는 보안상 readDenied 도 readAuthorized 처럼 보고하지 않을 수 있어 (앱이 미허용을 알 수 없게)
@@ -1102,10 +1107,10 @@ export async function syncRouteData(
   userId: string,
   daysBackOrOptions: number | { startDate: Date; endDate: Date } = 90,
 ): Promise<RouteSyncResult> {
-  // GPS 경로 sync 는 iOS 커스텀 플러그인 (HKWorkoutRoute) 전용 — Android 는 Phase B 에서.
-  // 여기서 가드해야 audit 페이지 등 외부 호출자도 안전.
-  if (getPlatform() !== 'ios') {
-    return { fetched: 0, matched: 0, updated: 0, reason: 'route_sync_ios_only' };
+  // GPS 경로 sync — iOS(HKWorkoutRoute)·Android(HC ExerciseRoute) 공용. 웹만 차단.
+  // 2026-07-18: Android 게이트 해제 (Play 재제출에 경로 기능 포함 — iOS 와 동일 파이프라인).
+  if (getPlatform() === 'web') {
+    return { fetched: 0, matched: 0, updated: 0, reason: 'route_sync_native_only' };
   }
 
   // 명시적 range — 호출자가 chunk 분할 책임 (audit 페이지). 단일 호출.

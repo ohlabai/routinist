@@ -88,16 +88,17 @@
          - READ_EXERCISE: 러닝 세션 조회 (queryWorkouts)
          - READ_DISTANCE: 세션 거리 집계 (DistanceRecord.DISTANCE_TOTAL)
          - READ_ACTIVE_CALORIES_BURNED: 세션 칼로리 집계 (ACTIVE_CALORIES_TOTAL)
+         - READ_EXERCISE_ROUTE: 러닝 경로 좌표 → 기록 지도/공유카드 표시
+           (2026-07-18 Android 경로 동기화 활성화 — iOS 와 동일 파이프라인)
          제거: STEPS·TOTAL_CALORIES(어떤 코드 경로도 안 읽음)·HEART_RATE(권한만 있고
-         저장 코드 없음)·EXERCISE_ROUTE(경로 동기화가 아직 iOS 전용 — Android 기능
-         출시 시 재선언 + 재심사). -->
+         저장 코드 없음). -->
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+    <uses-permission android:name="android.permission.health.READ_EXERCISE_ROUTE" />
     <uses-permission android:name="android.permission.health.READ_DISTANCE" />
     <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
 
     <!-- @capgo/capacitor-health 가 병합하는 미사용 권한 제거 — Health Connect 심사는
          선언된 모든 권한의 사용 근거를 요구하므로 위 읽기 3종 외 전부 차단 -->
-    <uses-permission android:name="android.permission.health.READ_EXERCISE_ROUTE" tools:node="remove" />
     <uses-permission android:name="android.permission.health.READ_HEART_RATE" tools:node="remove" />
     <uses-permission android:name="android.permission.health.READ_STEPS" tools:node="remove" />
     <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED" tools:node="remove" />

@@ -1,6 +1,8 @@
 package com.routinist.app
 
+import androidx.activity.result.ActivityResult
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ExerciseRouteResult
 import androidx.health.connect.client.records.ExerciseSessionRecord
@@ -11,10 +13,12 @@ import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
+import com.getcapacitor.annotation.ActivityCallback
 import com.getcapacitor.annotation.CapacitorPlugin
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 
@@ -35,8 +39,13 @@ class WorkoutRoutePlugin : Plugin() {
 
     private val scope = CoroutineScope(Dispatchers.IO)
 
+    // 2026-07-18 (Play 재제출 — 경로 기능 활성화): READ_EXERCISE_ROUTE 추가.
+    // 세션 조회(EXERCISE)와 별개로 경로 좌표 접근엔 이 권한이 필요 — 없으면
+    // exerciseRouteResult 가 ConsentRequired/NoData 로 떨어져 지도 경로가 영영 안 채워짐
+    // (2026-07-15 Android 리뷰에서 확인된 잠복 버그 1).
     private val permissions = setOf(
         HealthPermission.getReadPermission(ExerciseSessionRecord::class),
+        "android.permission.health.READ_EXERCISE_ROUTE",
     )
 
     @PluginMethod
@@ -51,20 +60,36 @@ class WorkoutRoutePlugin : Plugin() {
                 val client = HealthConnectClient.getOrCreate(context)
                 val granted = client.permissionController.getGrantedPermissions()
                 if (granted.containsAll(permissions)) {
-                    val ret = JSObject()
-                    ret.put("success", true)
-                    call.resolve(ret)
+                    call.resolve(JSObject().put("success", true))
                     return@launch
                 }
-                // Health Connect 권한 grant 는 PermissionController.createRequestPermissionResultContract
-                // ActivityResult 흐름이 필요. Capacitor Plugin 에서는 startActivityForResult 등록 필요.
-                // MVP: 미부여 상태로 false 반환. UI 가 사용자를 Health Connect 설정으로 deeplink.
-                val ret = JSObject()
-                ret.put("success", false)
-                ret.put("missingPermissions", permissions.joinToString(","))
-                call.resolve(ret)
+                // 2026-07-18: stub(무조건 false 반환) → 실제 Health Connect 권한 요청 UI 실행
+                // (2026-07-15 Android 리뷰 잠복 버그 2). contract 로 intent 를 만들어
+                // Capacitor 의 startActivityForResult 로 띄우고 @ActivityCallback 에서 재확인.
+                val contract = PermissionController.createRequestPermissionResultContract()
+                val intent = contract.createIntent(context, permissions)
+                withContext(Dispatchers.Main) {
+                    startActivityForResult(call, intent, "hcPermissionResult")
+                }
             } catch (e: Exception) {
                 call.reject("Authorization failed: ${e.message}", e)
+            }
+        }
+    }
+
+    @ActivityCallback
+    private fun hcPermissionResult(call: PluginCall?, result: ActivityResult) {
+        if (call == null) return
+        scope.launch {
+            try {
+                val client = HealthConnectClient.getOrCreate(context)
+                val granted = client.permissionController.getGrantedPermissions()
+                val ok = granted.containsAll(permissions)
+                val ret = JSObject().put("success", ok)
+                if (!ok) ret.put("missingPermissions", (permissions - granted).joinToString(","))
+                call.resolve(ret)
+            } catch (e: Exception) {
+                call.reject("Authorization result check failed: ${e.message}", e)
             }
         }
     }

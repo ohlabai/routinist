@@ -131,15 +131,16 @@ Health Connect 선언은 별도 승인 심사가 있어 프로덕션 심사와 �
 1. **과도한 데이터 액세스**: Steps 권한이 기능 대비 불필요 판정
 2. **근거 부족**: 요청한 데이터 유형별 사용 근거 설명 부족
 
-## 코드 대응 (완료 — AAB 307 에 반영, commit 634d5bd)
-- manifest 건강 권한 7종 → **실사용 3종** (READ_EXERCISE / READ_DISTANCE / READ_ACTIVE_CALORIES_BURNED)
-- 제거: STEPS·TOTAL_CALORIES·HEART_RATE·EXERCISE_ROUTE (전부 코드 미사용 검증됨)
-- 런타임 요청 (health-sync) 도 동일 3종으로 정합
+## 코드 대응 (완료 — AAB 307 에 반영)
+- manifest 건강 권한 7종 → **실사용 4종** (READ_EXERCISE / READ_EXERCISE_ROUTE / READ_DISTANCE / READ_ACTIVE_CALORIES_BURNED)
+- 제거: STEPS·TOTAL_CALORIES·HEART_RATE (전부 코드 미사용 검증됨)
+- **경로 동기화 Android 활성화** (iOS 와 동일 기능): WorkoutRoutePlugin 실권한 요청 UI + JS 게이트 해제 — EXERCISE_ROUTE 는 실기능으로 심사받음
+- 런타임 요청 (health-sync) 도 manifest 와 정합
 
 ## 콘솔 작업 순서 (사용자)
 
 ### 1) 앱 콘텐츠 → 건강 앱 (Health apps) 선언 갱신
-- 데이터 유형 선택을 **운동/피트니스 3종만** 남기고 나머지 (걸음수·심박수·총칼로리·운동경로) 체크 해제
+- 데이터 유형 선택을 **4종만** (운동 세션·운동 경로·거리·활동 칼로리) 남기고 나머지 (걸음수·심박수·총칼로리) 체크 해제
 - 각 유형 근거 (아래 복붙):
 
 | 데이터 유형 | 근거 (한국어) | Rationale (EN) |
@@ -147,6 +148,7 @@ Health Connect 선언은 별도 승인 심사가 있어 프로덕션 심사와 �
 | 운동 세션 (Exercise) | 사용자가 삼성 헬스·갤럭시 워치로 기록한 러닝 운동을 앱의 러닝 일지·주간 스트릭·월간 목표·랭킹에 자동 반영하기 위해 러닝/걷기 세션을 읽습니다. 앱의 핵심 기능입니다. | Reads running/walking exercise sessions recorded by Samsung Health or Galaxy Watch to automatically populate the user's running log, weekly streaks, monthly goals and rankings — the app's core feature. |
 | 거리 (Distance) | 각 러닝 세션의 총 거리를 표시하고 주간/월간 누적 거리, 목표 달성률, 페이스 계산에 사용합니다. | Used to show each run's total distance and to compute weekly/monthly totals, goal progress and average pace. |
 | 활동 칼로리 (Active calories) | 각 러닝 세션에서 소모한 활동 칼로리를 기록 상세와 공유 카드에 표시합니다. | Displays active calories burned per run on the record detail screen and share cards. |
+| 운동 경로 (Exercise route) | 워치로 기록한 러닝의 GPS 경로를 기록 상세 화면과 공유 카드의 지도에 그려 사용자가 자신이 달린 코스를 확인·공유할 수 있게 합니다. | Draws the GPS route of watch-recorded runs on the record detail map and share cards so users can review and share the course they ran. |
 
 ### 2) 앱 콘텐츠 → 포그라운드 서비스 권한 선언 (신규 — 307 이 FGS location 추가)
 - FOREGROUND_SERVICE_LOCATION 사용: **예**
