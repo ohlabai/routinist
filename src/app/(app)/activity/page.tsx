@@ -273,12 +273,6 @@ function ActivityDetail() {
               {activity.duration_seconds ? formatDuration(activity.duration_seconds) : '-'}
             </p>
             <p className="text-xs text-[var(--muted)]">{t('activity.duration')}</p>
-            {/* 2026-07-18 (hans): 시작 시각 — 새벽 러너의 "몇 시에 뛰었나" 동기부여. 시간 스탯 바로 아래. */}
-            {startTimeLabel(activity.started_at, locale === 'en' ? 'en' : 'ko') && (
-              <p className="text-[11px] font-bold text-[var(--muted)]/90 mt-0.5">
-                {startTimeLabel(activity.started_at, locale === 'en' ? 'en' : 'ko')}
-              </p>
-            )}
           </div>
           <div>
             <p className="text-2xl font-extrabold text-[var(--foreground)]">
@@ -340,7 +334,10 @@ function ActivityDetail() {
               // 2026-07-15 리뷰 fix: 'YYYY-MM-DD' 를 Date() 에 직접 넣으면 UTC 자정 파싱 —
               // 미국 등 음수 offset 에서 하루 전으로 표시됨. 로컬 파싱 (dashboard 와 동일 패턴).
               const [y, m, d] = activity.activity_date.split('-').map(Number);
-              return new Date(y, m - 1, d).toLocaleDateString(locale === 'en' ? 'en-US' : 'ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+              const dateText = new Date(y, m - 1, d).toLocaleDateString(locale === 'en' ? 'en-US' : 'ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+              // 2026-07-18 (hans): 시작 시각은 날짜 행에 통합 — 스탯 그리드 비대칭 회피.
+              const st = startTimeLabel(activity.started_at, locale === 'en' ? 'en' : 'ko');
+              return st ? `${dateText} · ${st}` : dateText;
             })()}
           </span>
         </div>

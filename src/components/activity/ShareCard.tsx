@@ -475,9 +475,13 @@ function drawCard(
         ctx.closePath(); ctx.fill();
         ctx.fillStyle = '#ffffff';
         ctx.beginPath(); ctx.arc(sx, pinCenterY, 7, 0, Math.PI * 2); ctx.fill();
-        if (regionLabel) {
+        // 2026-07-18 (hans): 출발 핀 알약에 시작 시각 합성 (아래 단일 경로 블록과 동일 규칙)
+        const startTimePart2 = !periodOverrides
+          ? startTimeLabel(activity.started_at, getCurrentLocale() === 'en' ? 'en' : 'ko', true)
+          : null;
+        if (regionLabel || startTimePart2) {
           ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont, sans-serif';
-          const cityText = regionLabel.split(' · ')[0];
+          const cityText = [regionLabel ? regionLabel.split(' · ')[0] : null, startTimePart2].filter(Boolean).join(' · ');
           const cityW = ctx.measureText(cityText).width;
           const padX = 14, pillH = 38;
           const wantRight = sx + 28 + cityW + padX * 2 + padding < W;
@@ -628,10 +632,16 @@ function drawCard(
     ctx.closePath();
     ctx.stroke();
 
-    // 도시명 라벨 — 핀 우측 또는 좌측 (지도 가장자리 회피)
-    if (regionLabel) {
+    // 도시명 + 시작 시각 라벨 — 핀 우측 또는 좌측 (지도 가장자리 회피)
+    // 2026-07-18 (hans): 출발 핀 = 출발 시각. "경남 창원 · ☀️ 10:22" 한 알약으로.
+    // 주간/월간 (periodOverrides) 은 여러 런 합성이라 시각 생략.
+    const startTimePart = !periodOverrides
+      ? startTimeLabel(activity.started_at, getCurrentLocale() === 'en' ? 'en' : 'ko', true)
+      : null;
+    if (regionLabel || startTimePart) {
       ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont, sans-serif';
-      const cityText = regionLabel.split(' · ')[0];   // "서울 강남 · 1위" → "서울 강남"
+      const cityPart = regionLabel ? regionLabel.split(' · ')[0] : null;   // "서울 강남 · 1위" → "서울 강남"
+      const cityText = [cityPart, startTimePart].filter(Boolean).join(' · ');
       const cityW = ctx.measureText(cityText).width;
       const padX = 14, pillH = 38;
       // 핀 우측에 둘 공간 부족하면 왼쪽
@@ -783,18 +793,9 @@ function drawCard(
     ctx.fillText(stat.label, x, statsY + 42);
   });
 
-  // 2026-07-18 (hans): 시작 시각 — 시간 스탯 바로 아래 (새벽 러너의 "몇 시에 뛰었나" 자랑).
-  // 완료 시각이 아닌 시작 시각 (새벽 러닝의 정체성은 출발 시각). 주간/월간 카드는
-  // 여러 런 합성이라 무의미 — 일간만. 아래 chartTop(1380)까지 여유 충분.
-  if (!periodOverrides && activity.started_at) {
-    const st = startTimeLabel(activity.started_at, getCurrentLocale() === 'en' ? 'en' : 'ko', true);
-    if (st) {
-      const x = W / 2 - 1.5 * 220;   // 시간 컬럼 (i=0) 과 동일 x
-      ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillStyle = subColor;
-      ctx.fillText(st, x, statsY + 78);
-    }
-  }
+  // 2026-07-18 (hans): 시작 시각은 통계 아래가 아니라 지도 "시작 핀" 알약에 통합
+  // ("경남 창원 · ☀️ 10:22") — 스탯 4열 대칭 유지 + 출발 지점과 출발 시각이 한 덩어리로
+  // 읽힘. 아래 시작 핀 라벨 블록에서 그림 (스탯 하단 3번째 줄 방식은 비대칭이라 폐기).
 
   // 명언 (그날의 메시지) — 상단 큰 글씨 hero. author 는 별도 라인(작게)으로 분리.
   if (quote) {
