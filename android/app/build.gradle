@@ -10,7 +10,7 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         // iOS 빌드 번호와 동기 — iOS marketing 1.2.9 / build 307 과 정렬.
         // Android 만 단독 증가 시 충돌 피하려고 의도적으로 같은 versionCode 사용.
-        versionCode 307
+        versionCode 308
         versionName "1.2.9"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
