@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
-import { formatDuration, fetchActivityRoute, fetchActivityById } from '@/lib/routinist-data';
+import { formatDuration, fetchActivityRoute, fetchActivityById, startTimeLabel } from '@/lib/routinist-data';
 import { getSupabase } from '@/lib/supabase';
 import { startOfWeekStr, todayStr } from '@/lib/kst';
 import { ttl } from '@/lib/i18n';
@@ -273,6 +273,12 @@ function ActivityDetail() {
               {activity.duration_seconds ? formatDuration(activity.duration_seconds) : '-'}
             </p>
             <p className="text-xs text-[var(--muted)]">{t('activity.duration')}</p>
+            {/* 2026-07-18 (hans): 시작 시각 — 새벽 러너의 "몇 시에 뛰었나" 동기부여. 시간 스탯 바로 아래. */}
+            {startTimeLabel(activity.started_at, locale === 'en' ? 'en' : 'ko') && (
+              <p className="text-[11px] font-bold text-[var(--muted)]/90 mt-0.5">
+                {startTimeLabel(activity.started_at, locale === 'en' ? 'en' : 'ko')}
+              </p>
+            )}
           </div>
           <div>
             <p className="text-2xl font-extrabold text-[var(--foreground)]">

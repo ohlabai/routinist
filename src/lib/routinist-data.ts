@@ -379,3 +379,23 @@ export function formatDuration(seconds: number): string {
   if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   return `${m}:${String(s).padStart(2, '0')}`;
 }
+
+// 2026-07-18 (hans): 러닝 시작 시각 라벨 — "몇 시에 뛰었나" 는 새벽 러너의 자부심 포인트.
+// 완료 시각이 아니라 시작 시각인 이유: 새벽 러닝의 정체성은 출발 시각에 있고 (5:30 출발 >
+// 6:15 완료), Strava/NRC 관례도 시작 시각. 시간대 이모지로 동기부여 강화.
+export function startTimeLabel(
+  startedAt: string | null | undefined,
+  locale: 'ko' | 'en',
+  short = false,   // 공유카드용 — 이모지 + 24h HH:MM (좁은 컬럼에 맞춤)
+): string | null {
+  if (!startedAt) return null;
+  const d = new Date(startedAt);
+  if (isNaN(d.getTime())) return null;
+  const h = d.getHours();
+  const emoji = h < 4 ? '🌙' : h < 7 ? '🌅' : h < 11 ? '☀️' : h < 17 ? '🌤️' : h < 21 ? '🌆' : '🌙';
+  if (short) {
+    return `${emoji} ${String(h).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  }
+  const time = d.toLocaleTimeString(locale === 'en' ? 'en-US' : 'ko-KR', { hour: 'numeric', minute: '2-digit' });
+  return `${emoji} ${time}`;
+}

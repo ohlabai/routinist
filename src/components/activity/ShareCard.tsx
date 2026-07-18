@@ -11,7 +11,7 @@ import { getCurrentLocale, ttl, useI18n, formatRank } from '@/lib/i18n';
 import { captureCanvasAnimation } from '@/lib/canvas-to-video';
 import { getSupabase } from '@/lib/supabase';
 import { track } from '@/lib/analytics';
-import { fetchActivityRoute } from '@/lib/routinist-data';
+import { fetchActivityRoute, startTimeLabel } from '@/lib/routinist-data';
 import { createUserQuote } from '@/lib/user-quotes';
 import { getDistanceUnit, toDisplayDistance, unitLabel, formatPaceForUnit } from '@/lib/units';
 import AppToast from '@/components/AppToast';
@@ -782,6 +782,19 @@ function drawCard(
     ctx.fillStyle = subColor;
     ctx.fillText(stat.label, x, statsY + 42);
   });
+
+  // 2026-07-18 (hans): 시작 시각 — 시간 스탯 바로 아래 (새벽 러너의 "몇 시에 뛰었나" 자랑).
+  // 완료 시각이 아닌 시작 시각 (새벽 러닝의 정체성은 출발 시각). 주간/월간 카드는
+  // 여러 런 합성이라 무의미 — 일간만. 아래 chartTop(1380)까지 여유 충분.
+  if (!periodOverrides && activity.started_at) {
+    const st = startTimeLabel(activity.started_at, getCurrentLocale() === 'en' ? 'en' : 'ko', true);
+    if (st) {
+      const x = W / 2 - 1.5 * 220;   // 시간 컬럼 (i=0) 과 동일 x
+      ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillStyle = subColor;
+      ctx.fillText(st, x, statsY + 78);
+    }
+  }
 
   // 명언 (그날의 메시지) — 상단 큰 글씨 hero. author 는 별도 라인(작게)으로 분리.
   if (quote) {
