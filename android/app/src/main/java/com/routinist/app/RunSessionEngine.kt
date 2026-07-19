@@ -140,6 +140,9 @@ object RunSessionEngine {
     private var hasMovedThisSession = false
 
     private var milestonesFired = 0
+    // 구간 페이스 기준점 — 직전 마일스톤 발화 시점의 누적 거리/활동시간.
+    private var lastMilestoneDistanceM = 0.0
+    private var lastMilestoneActiveSec = 0.0
     private var trackingStarted = false
     private var tickCount = 0
 
@@ -586,13 +589,25 @@ object RunSessionEngine {
         while (gpsDistanceM >= (milestonesFired + 1) * everyM) {
             milestonesFired += 1
             val km = milestonesFired * milestoneEveryKm
-            val avgPace = paceSecPerKm(gpsDistanceM, currentActiveSec(nowMs))
+            val activeSec = currentActiveSec(nowMs)
+            val avgPace = paceSecPerKm(gpsDistanceM, activeSec)
+            // 구간 페이스 (나이키/애플식 스플릿, iOS 와 동일): 직전 마일스톤 이후 구간만.
+            // GPS 점프로 연속 발화 시 delta≈0 → 누적 평균으로 폴백.
+            val splitDistanceM = gpsDistanceM - lastMilestoneDistanceM
+            val splitSec = activeSec - lastMilestoneActiveSec
+            val splitPace: Double? = if (splitDistanceM >= everyM * 0.5 && splitSec > 0)
+                splitSec / (splitDistanceM / 1000.0)
+            else
+                avgPace
+            lastMilestoneDistanceM = gpsDistanceM
+            lastMilestoneActiveSec = activeSec
             eventSink?.onMilestone(JSObject().apply {
                 put("km", km)
                 put("avgPaceSecPerKm", avgPace ?: JSONObject.NULL)
+                put("splitPaceSecPerKm", splitPace ?: JSONObject.NULL)
             })
             val kmText = if (km == Math.floor(km)) km.toInt().toString() else String.format(Locale.US, "%.1f", km)
-            val paceText = avgPace?.let { formatPaceForSpeech(it, sessionLocale) } ?: ""
+            val paceText = splitPace?.let { formatPaceForSpeech(it, sessionLocale) } ?: ""
             speak(
                 templates.milestone
                     .replace("{km}", kmText)
@@ -766,6 +781,8 @@ object RunSessionEngine {
                 if (state == State.AUTO_PAUSED) (nowMs - (autoPausedSegmentStartMs ?: nowMs)) / 1000.0 else 0.0)
             put("milestonesFired", milestonesFired)
             put("milestoneEveryKm", milestoneEveryKm)
+            put("lastMilestoneDistanceM", lastMilestoneDistanceM)
+            put("lastMilestoneActiveSec", lastMilestoneActiveSec)
             put("locale", sessionLocale)
             put("voiceEnabled", voiceEnabled)
             put("templateMilestone", templates.milestone)
@@ -809,6 +826,9 @@ object RunSessionEngine {
             accumulatedAutoPausedSec = snap.optDouble("autoPausedSec", 0.0)
             milestonesFired = snap.optInt("milestonesFired", 0)
             milestoneEveryKm = snap.optDouble("milestoneEveryKm", 1.0)
+            // 키 부재 (구버전 snapshot) 시 현재 누적치를 기준점으로 (iOS restore 와 동일 규칙).
+            lastMilestoneDistanceM = snap.optDouble("lastMilestoneDistanceM", gpsDistanceM)
+            lastMilestoneActiveSec = snap.optDouble("lastMilestoneActiveSec", accumulatedActiveSec)
             sessionLocale = snap.optString("locale", "ko")
             voiceEnabled = snap.optBoolean("voiceEnabled", true)
             templates = VoiceTemplates(
@@ -884,6 +904,8 @@ object RunSessionEngine {
         fastSinceMs = null
         hasMovedThisSession = false
         milestonesFired = 0
+        lastMilestoneDistanceM = 0.0
+        lastMilestoneActiveSec = 0.0
         tickCount = 0
     }
 }

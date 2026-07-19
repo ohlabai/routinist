@@ -7,6 +7,9 @@ interface WorkoutRouteData {
   duration: number; // seconds
   // build 151: timestamp 4번째 슬롯 (unix seconds) — MP4 페이스 매핑용. 옛 route 는 3-tuple.
   coordinates: ([number, number, number] | [number, number, number, number])[];
+  /** 작성 앱 bundle id (iOS) / package (Android). 제3자 앱 라우트의 거리 보정 차단 근거.
+   *  구버전 네이티브 빌드엔 없음 (undefined). */
+  sourceId?: string;
 }
 
 interface GetRoutesResult {

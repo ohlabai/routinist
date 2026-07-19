@@ -97,7 +97,7 @@ class RunSessionPlugin : Plugin(), RunSessionEngine.EventSink {
         val isKo = locale.lowercase().startsWith("ko")
         val templates = RunSessionEngine.VoiceTemplates(
             milestone = templatesObj.getString("milestone")
-                ?: if (isKo) "{km}킬로미터. 평균 페이스 {pace}" else "{km} kilometers. Average pace {pace}",
+                ?: if (isKo) "{km}킬로미터. 이번 구간 {pace}" else "{km} kilometers. Last split {pace}",
             autoPause = templatesObj.getString("autoPause") ?: if (isKo) "자동 일시정지" else "Auto paused",
             autoResume = templatesObj.getString("autoResume") ?: if (isKo) "다시 시작합니다" else "Resuming",
             start = templatesObj.getString("start") ?: if (isKo) "출발!" else "Go!",

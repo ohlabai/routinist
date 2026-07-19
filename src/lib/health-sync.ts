@@ -90,6 +90,21 @@ export const HEALTH_CONNECT_PLAY_STORE_URL =
 
 // 걷기 동기화 opt-in — 달리기 앱 취지에 맞게 기본은 러닝만 가져온다.
 // 걷기로 유지/관리하는 사용자만 연동 페이지에서 켤 수 있음 (기기별 설정).
+// 2026-07-19 (성차민 사례): 나이키 런 클럽 동시 실행 → 나이키가 HealthKit 에 쓴 워크아웃이
+// ±60초 매칭으로 루티니스트 GPS 기록에 붙어 gps→hk upgrade 가 6.5km 를 5km 로 덮어씀.
+// 제3자 앱 워크아웃은 중복 판정(dedup skip)·신규 임포트에는 그대로 쓰되, **기존 기록을
+// 덮어쓰는 근거**(upgrade / route distance fix)로는 쓰지 않는다.
+// 신뢰 소스 = Apple(워치 워크아웃·건강), 삼성 헬스(갤럭시 워치 conduit), 루티니스트 자신.
+// sourceId 미제공(구버전 네이티브 플러그인)은 기존 동작 보존을 위해 신뢰로 간주.
+function isTrustedHealthSource(sourceId: unknown): boolean {
+  if (typeof sourceId !== 'string' || sourceId === '') return true;
+  const id = sourceId.toLowerCase();
+  return id.startsWith('com.apple.')
+    || id === 'com.routinist.app'
+    || id === 'com.sec.android.app.shealth'
+    || id.startsWith('com.samsung.');
+}
+
 const WALKING_SYNC_KEY = 'health_sync_include_walking';
 export function isWalkingSyncEnabled(): boolean {
   try {
@@ -436,7 +451,7 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     const existingResult = await withTimeout(
       supabase
         .from('activities')
-        .select('id, started_at, activity_date, distance_km, duration_seconds, source')
+        .select('id, started_at, activity_date, distance_km, duration_seconds, source, is_native')
         .eq('user_id', userId)
         .gte('activity_date', startDate.slice(0, 10)),
       10000,
@@ -462,12 +477,12 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     // build 245 #15: 같은 started_at 윈도우에 source='gps' 행이 있을 때 Apple Health 가 더 정확한
     // 데이터라면 GPS 행을 덮어쓰기. 이전 로직은 GPS 가 먼저 박혀 있으면 Apple Health 를 무조건 dedup 으로
     // 스킵 → broken GPS (0.56km / 0.04km 같은 클립) 가 영원히 회복 안 됨.
-    type ExistingRow = { id: string; ms: number; distance_km: number; duration_seconds: number | null; source: string };
+    type ExistingRow = { id: string; ms: number; distance_km: number; duration_seconds: number | null; source: string; is_native: boolean };
     const existingByTime: ExistingRow[] = [];
     // existingByDate 는 옛 데이터 (started_at NULL) 호환용 fallback. started_at 있는 행을
     // 여기 넣으면 같은 날 같은 거리 두 번 뛴 경우 두 번째가 false-positive 중복으로 스킵됨 (build 204 회귀).
     const existingByDateLegacy = new Map<string, number[]>();
-    (existingAll ?? []).forEach((row: { id: string; started_at: string | null; activity_date: string; distance_km: number | string; duration_seconds: number | null; source: string | null }) => {
+    (existingAll ?? []).forEach((row: { id: string; started_at: string | null; activity_date: string; distance_km: number | string; duration_seconds: number | null; source: string | null; is_native: boolean | null }) => {
       if (row.started_at) {
         existingByTime.push({
           id: row.id,
@@ -475,6 +490,7 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
           distance_km: Number(row.distance_km),
           duration_seconds: row.duration_seconds,
           source: row.source ?? '',
+          is_native: row.is_native === true,
         });
       } else {
         const arr = existingByDateLegacy.get(row.activity_date) ?? [];
@@ -538,8 +554,14 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
         const workoutCoversRun =
           !overlap.duration_seconds || !durationSeconds ||
           durationSeconds >= overlap.duration_seconds * 0.7;
+        // 2026-07-19 (성차민 사례): 두 가드 추가 —
+        // (1) is_native: 네이티브 RunSession 측정 = 진실 (4d8ca1f 룰). 어떤 HK 워크아웃도 덮어쓰기 금지.
+        // (2) trustedSource: 나이키 등 제3자 앱 워크아웃은 덮어쓰기 근거 불가 (dedup skip 은 그대로).
+        const trustedSource = isTrustedHealthSource(workout.sourceId);
         const isBrokenGps =
           overlap.source === 'gps' &&
+          !overlap.is_native &&
+          trustedSource &&
           distanceKm > 0.5 &&
           (absDiffKm > 1 || ratio < 0.5 || ratio > 2) &&
           workoutCoversRun;
@@ -551,6 +573,17 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
             hk_km: Math.round(distanceKm * 100) / 100,
             gps_dur_s: overlap.duration_seconds,
             hk_dur_s: durationSeconds,
+          });
+        }
+        if ((!trustedSource || overlap.is_native) && overlap.source === 'gps' && absDiffKm > 1) {
+          // 진단 페어링: 덮어쓰기 차단을 관측 가능하게 (이전 버전이면 upgrade 됐을 케이스).
+          logClientInfo('health-sync', 'upgrade blocked', {
+            activity_id: overlap.id,
+            reason: overlap.is_native ? 'native-engine' : 'third-party-source',
+            source_id: typeof workout.sourceId === 'string' ? workout.sourceId : null,
+            source_name: typeof workout.sourceName === 'string' ? workout.sourceName : null,
+            gps_km: overlap.distance_km,
+            hk_km: Math.round(distanceKm * 100) / 100,
           });
         }
         if (isBrokenGps) {
@@ -615,7 +648,7 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
 
       toInsert.push(insertData);
       // binary search invariant — 새 행 추가 후 정렬 유지.
-      existingByTime.push({ id: '__pending__', ms: workoutMs, distance_km: distanceKm, duration_seconds: durationSeconds, source: 'health_kit' });
+      existingByTime.push({ id: '__pending__', ms: workoutMs, distance_km: distanceKm, duration_seconds: durationSeconds, source: 'health_kit', is_native: false });
       existingByTime.sort((a, b) => a.ms - b.ms);
     }
 
@@ -978,7 +1011,7 @@ async function syncRouteDataRange(
 
       const { data: byTime } = await supabase
         .from('activities')
-        .select('id, started_at, route_data')
+        .select('id, started_at, route_data, is_native')
         .eq('user_id', userId)
         .gte('started_at', new Date(routeStartMs - 60_000).toISOString())
         .lte('started_at', new Date(routeStartMs + 60_000).toISOString());
@@ -999,7 +1032,7 @@ async function syncRouteDataRange(
         const distanceKm = route.distance / 1000;
         const { data: byDateAll } = await supabase
           .from('activities')
-          .select('id, distance_km, started_at, route_data, source')
+          .select('id, distance_km, started_at, route_data, source, is_native')
           .eq('user_id', userId)
           .eq('activity_date', activityDate);
 
@@ -1046,9 +1079,23 @@ async function syncRouteDataRange(
             coordinates: route.coordinates,
           },
         };
+        // 2026-07-19 (성차민 사례): 네이티브 측정 기록 + 제3자 앱(나이키 등) 라우트는 거리 보정 금지.
+        // 라우트 자체는 지도 채우기용으로 그대로 붙임 (같은 달리기의 경로라 시각화는 이득).
+        const routeTrusted = isTrustedHealthSource(route.sourceId);
         const shouldFixDistance =
           routeDistKm > 0.5 &&
+          match.is_native !== true &&
+          routeTrusted &&
           (routeDistKm - matchDistKm > 0.2 || routeDistKm > matchDistKm * 1.08);
+        if (!shouldFixDistance && routeDistKm > 0.5 && (match.is_native === true || !routeTrusted)
+            && (routeDistKm - matchDistKm > 0.2 || routeDistKm > matchDistKm * 1.08)) {
+          logClientInfo('health-sync-route', 'distance 보정 차단', {
+            activity_id: match.id,
+            reason: match.is_native === true ? 'native-engine' : 'third-party-source',
+            route_km: Math.round(routeDistKm * 100) / 100,
+            activity_km: matchDistKm,
+          });
+        }
         if (shouldFixDistance) {
           updates.distance_km = Math.round(routeDistKm * 100) / 100;
           // pace 재계산 — duration 이 있으면.

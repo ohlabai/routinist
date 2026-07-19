@@ -131,6 +131,8 @@ export default function TrackSummarySheet({ finalState, userId, nativeEngine, on
           calories: estCal,
           active_energy_kcal: estCal,
           source: 'gps',
+          // 네이티브 RunSession 측정 표시 — health-sync 의 gps→hk upgrade / route distance fix 제외 근거.
+          is_native: nativeEngine,
           activity_type: 'running',
           route_data: routeData,
           started_at: startedAt,

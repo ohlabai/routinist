@@ -156,6 +156,8 @@ class WorkoutRoutePlugin : Plugin() {
                     obj.put("distance", distance)
                     obj.put("duration", duration)
                     obj.put("coordinates", coords)
+                    // 작성 앱 package — JS 가 제3자 앱(나이키 등) 라우트의 거리 보정을 차단하는 근거.
+                    obj.put("sourceId", session.metadata.dataOrigin.packageName)
                     routes.put(obj)
                 }
 

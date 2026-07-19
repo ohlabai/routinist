@@ -303,7 +303,7 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         let isKo = locale.lowercased().hasPrefix("ko")
         let parsedTemplates = VoiceTemplates(
             milestone: (templatesObj["milestone"] as? String)
-                ?? (isKo ? "{km}킬로미터. 평균 페이스 {pace}" : "{km} kilometers. Average pace {pace}"),
+                ?? (isKo ? "{km}킬로미터. 이번 구간 {pace}" : "{km} kilometers. Last split {pace}"),
             autoPause: (templatesObj["autoPause"] as? String)
                 ?? (isKo ? "자동 일시정지" : "Auto paused"),
             autoResume: (templatesObj["autoResume"] as? String)
@@ -908,6 +908,9 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
     // MARK: - 마일스톤 + 음성 (stateQueue → 발화는 main)
 
     private var milestonesFired = 0
+    // 구간 페이스 기준점 — 직전 마일스톤 발화 시점의 누적 거리/활동시간.
+    private var lastMilestoneDistanceM: Double = 0
+    private var lastMilestoneActiveSec: Double = 0
 
     private func checkMilestones(now: Date) {
         let everyM = milestoneEveryKm * 1000.0
@@ -916,13 +919,24 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         while totalDistance >= Double(milestonesFired + 1) * everyM {
             milestonesFired += 1
             let km = Double(milestonesFired) * milestoneEveryKm
-            let avgPace = Self.paceSecPerKm(distanceM: totalDistance, seconds: currentActiveSec(now: now))
+            let activeSec = currentActiveSec(now: now)
+            let avgPace = Self.paceSecPerKm(distanceM: totalDistance, seconds: activeSec)
+            // 구간 페이스 (나이키/애플식 스플릿): 직전 마일스톤 이후 구간만.
+            // GPS 점프로 한 tick 에 마일스톤이 연속 발화되면 delta≈0 → 누적 평균으로 폴백.
+            let splitDistanceM = totalDistance - lastMilestoneDistanceM
+            let splitSec = activeSec - lastMilestoneActiveSec
+            let splitPace: Double? = (splitDistanceM >= everyM * 0.5 && splitSec > 0)
+                ? splitSec / (splitDistanceM / 1000.0)
+                : avgPace
+            lastMilestoneDistanceM = totalDistance
+            lastMilestoneActiveSec = activeSec
             notifyListeners("milestone", data: [
                 "km": km,
                 "avgPaceSecPerKm": avgPace.map { $0 as Any } ?? NSNull(),
+                "splitPaceSecPerKm": splitPace.map { $0 as Any } ?? NSNull(),
             ])
             let kmText = km == km.rounded() ? String(Int(km)) : String(format: "%.1f", km)
-            let paceText = avgPace.map { Self.formatPaceForSpeech($0, locale: localeCode) } ?? ""
+            let paceText = splitPace.map { Self.formatPaceForSpeech($0, locale: localeCode) } ?? ""
             let text = templates.milestone
                 .replacingOccurrences(of: "{km}", with: kmText)
                 .replacingOccurrences(of: "{pace}", with: paceText)
@@ -1048,6 +1062,8 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
                 + (state == .autoPaused ? autoPausedSegmentStart.map { now.timeIntervalSince($0) } ?? 0 : 0),
             "milestonesFired": milestonesFired,
             "milestoneEveryKm": milestoneEveryKm,
+            "lastMilestoneDistanceM": lastMilestoneDistanceM,
+            "lastMilestoneActiveSec": lastMilestoneActiveSec,
             "locale": localeCode,
             "voiceEnabled": voiceEnabled,
             "templateMilestone": templates.milestone,
@@ -1087,6 +1103,9 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         accumulatedAutoPausedSec = snapshot["autoPausedSec"] as? Double ?? 0
         milestonesFired = snapshot["milestonesFired"] as? Int ?? 0
         milestoneEveryKm = snapshot["milestoneEveryKm"] as? Double ?? 1
+        // 키 부재 (구버전 snapshot) 시 현재 누적치를 기준점으로 — 다음 발화가 평균으로 오염되지 않게.
+        lastMilestoneDistanceM = snapshot["lastMilestoneDistanceM"] as? Double ?? (gpsDistanceM + gapFillDistanceM)
+        lastMilestoneActiveSec = snapshot["lastMilestoneActiveSec"] as? Double ?? accumulatedActiveSec
         localeCode = snapshot["locale"] as? String ?? "ko"
         voiceEnabled = snapshot["voiceEnabled"] as? Bool ?? true
         templates = VoiceTemplates(
@@ -1162,6 +1181,8 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         stepIncreasingSince = nil
         pedDistAtAnchor = 0
         milestonesFired = 0
+        lastMilestoneDistanceM = 0
+        lastMilestoneActiveSec = 0
         tickCount = 0
     }
 }

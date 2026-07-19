@@ -54,6 +54,9 @@ export interface RunSessionUpdateEvent {
 export interface RunSessionMilestoneEvent {
   km: number;
   avgPaceSecPerKm: number | null;
+  /** 직전 마일스톤 이후 구간만의 페이스 (나이키/애플식 스플릿). 음성 안내는 이 값을 읽는다.
+   *  구버전 네이티브 빌드엔 없음 (undefined). */
+  splitPaceSecPerKm?: number | null;
 }
 
 export interface RunSessionSummary {
@@ -130,14 +133,14 @@ export function buildVoiceTemplates(locale: 'ko' | 'en'): RunSessionVoiceTemplat
   // Phase 1 은 km 고정 (마일 단위 사용자는 Phase 2 에서 처리).
   if (locale === 'en') {
     return {
-      milestone: '{km} kilometers. Average pace {pace}. Looking strong.',
+      milestone: '{km} kilometers. Last split {pace}. Looking strong.',
       autoPause: 'Auto paused. I will pick it up when you move.',
       autoResume: "Resuming. Let's go.",
       start: 'Go!',
     };
   }
   return {
-    milestone: '{km}킬로미터 통과. 평균 페이스 {pace}. 잘하고 있어요.',
+    milestone: '{km}킬로미터 통과. 이번 구간 {pace}. 잘하고 있어요.',
     autoPause: '자동 일시정지. 다시 움직이면 이어서 잴게요.',
     autoResume: '다시 시작합니다. 같이 가요.',
     start: '출발!',

@@ -723,7 +723,7 @@ function TrackPageImpl() {
       },
       onMilestone: (m) => {
         // 음성은 native 가 이미 발화 — JS 는 관측만.
-        void logClientInfo('run-session', 'milestone', { km: m.km, avg_pace: m.avgPaceSecPerKm });
+        void logClientInfo('run-session', 'milestone', { km: m.km, avg_pace: m.avgPaceSecPerKm, split_pace: m.splitPaceSecPerKm ?? null });
       },
     }).then(fn => {
       if (!mounted) { fn(); return; }

@@ -206,6 +206,8 @@ public class WorkoutRoutePlugin: CAPPlugin, CAPBridgedPlugin {
                         "distance": workout.totalDistance?.doubleValue(for: .meter()) ?? 0,
                         "duration": workout.duration,
                         "coordinates": allLocations,
+                        // 작성 앱 bundle id — JS 가 제3자 앱(나이키 등) 라우트의 거리 보정을 차단하는 근거.
+                        "sourceId": workout.sourceRevision.source.bundleIdentifier,
                     ]
                     completion(result)
                 }
