@@ -17,6 +17,7 @@ import CommentSection from '@/components/social/CommentSection';
 import CheerButton from '@/components/social/CheerButton';
 import ShareCard from '@/components/activity/ShareCard';
 import BestSplitsCard from '@/components/activity/BestSplitsCard';
+import KmSplitsCard from '@/components/activity/KmSplitsCard';
 import { Share2, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
@@ -254,7 +255,13 @@ function ActivityDetail() {
 
       {/* 공유 카드 모달 */}
       {showShare && !isGuest && (
-        <ShareCard activity={activity} displayName={profile?.display_name ?? t('profile.runner')} onClose={() => setShowShare(false)} />
+        <ShareCard
+          activity={activity}
+          displayName={profile?.display_name ?? t('profile.runner')}
+          onClose={() => setShowShare(false)}
+          // 2026-07-19 (hans): 공유 완료 = 러닝 세리머니의 끝 — 방금 기록이 반영된 홈으로.
+          onShared={() => { setShowShare(false); router.replace('/dashboard'); }}
+        />
       )}
 
       {/* 지도 (GPS 데이터가 있을 때) */}
@@ -306,6 +313,11 @@ function ActivityDetail() {
           </div>
         )}
       </div>
+
+      {/* 2026-07-19: 구간별 페이스 — 완주 요약 시트 직행 전환으로 시트의 km splits 를 이관. */}
+      {activity.route_data && activity.activity_type === 'running' && (
+        <KmSplitsCard routeData={activity.route_data} />
+      )}
 
       {/* build 197: Best Splits + PB. GPS route 있을 때만 노출. */}
       {activity.route_data && activity.activity_type === 'running' && activity.user_id === user?.id && (

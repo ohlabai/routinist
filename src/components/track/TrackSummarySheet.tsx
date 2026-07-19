@@ -86,9 +86,6 @@ export default function TrackSummarySheet({ finalState, userId, nativeEngine, on
   const { tt } = useI18n();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // 2026-07-18 (hans 제안): 완주 = 자동 저장. 저장 성공 시 활동 id + 축하 params 보관 —
-  // 주 버튼이 "기록 보기" 로 바뀌고, X 닫기는 안전해진다.
-  const [savedNav, setSavedNav] = useState<{ id: string; params: string } | null>(null);
   const autoSaveFired = useRef(false);
 
   const distanceMeters = finalState.distanceMeters;
@@ -239,9 +236,10 @@ export default function TrackSummarySheet({ finalState, userId, nativeEngine, on
       }
 
       logClientInfo('track-save', 'success', { activity_id: activityId, distance_m: Math.round(distanceMeters) });
-      // 자동 저장 (2026-07-18): 즉시 navigate 하지 않고 시트에 "저장됨" 상태로 남는다 —
-      // 사용자가 요약을 검토한 뒤 "기록 보기" 로 이동 (축하 params 는 그때 소비).
-      setSavedNav({ id: activityId, params: params.toString() });
+      // 2026-07-19 (hans): "요약 시트 → 기록 보기" 2단계 제거 — 저장 성공 즉시 활동 상세로.
+      // 구간별 페이스는 활동 상세의 KmSplitsCard 가 이어받음 (route_data ts 기반).
+      onClose();
+      router.replace(`/activity?${params.toString()}`);
     } catch (e) {
       const reason = e instanceof Error ? e.message : String(e);
       console.warn('[track/summary] save fail', e);
@@ -268,23 +266,6 @@ export default function TrackSummarySheet({ finalState, userId, nativeEngine, on
   }, []);
 
   const handleDiscard = async () => {
-    // 자동 저장 후의 버리기 = 저장된 행 삭제.
-    if (savedNav) {
-      if (!window.confirm(tt('이 기록을 삭제할까요?'))) return;
-      try {
-        const { error: delErr } = await getSupabase()
-          .from('activities').delete().eq('id', savedNav.id).eq('user_id', userId);
-        if (delErr) throw delErr;
-        logClientWarn('track-discard', 'deleted-after-autosave', {
-          activity_id: savedNav.id, distance_m: Math.round(distanceMeters),
-        });
-        onClose();
-        router.replace('/dashboard');
-      } catch (e) {
-        setError(e instanceof Error ? e.message : tt('삭제 실패'));
-      }
-      return;
-    }
     if (!window.confirm(tt('이번 기록을 저장하지 않고 버릴까요?'))) return;
     logClientWarn('track-discard', 'sheet-discard', {
       distance_m: Math.round(distanceMeters),
@@ -296,10 +277,9 @@ export default function TrackSummarySheet({ finalState, userId, nativeEngine, on
     router.replace('/dashboard');
   };
 
-  // X 닫기: 저장됨 → 그냥 닫기 (기록 안전). 저장 중 → 무시 (1~2초 대기).
-  // 실패/미저장 → confirm 경유 폐기 (2026-07-18 창원 런 유실 재발 방지).
+  // X 닫기: 저장 중 → 무시 (성공하면 즉시 활동 상세로 이동).
+  // 실패 → confirm 경유 폐기 (2026-07-18 창원 런 유실 재발 방지).
   const handleClose = () => {
-    if (savedNav) { onClose(); return; }
     if (saving) return;
     void handleDiscard();
   };
@@ -312,11 +292,6 @@ export default function TrackSummarySheet({ finalState, userId, nativeEngine, on
           <div className="flex items-center gap-2">
             <CheckCircle size={18} className="text-emerald-500" />
             <h2 className="text-base font-extrabold">{tt('달리기 완료!')}</h2>
-            {savedNav && (
-              <span className="text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                {tt('저장됨')} ✓
-              </span>
-            )}
           </div>
           <button onClick={handleClose} aria-label={tt('닫기')}
             className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90">
@@ -381,36 +356,26 @@ export default function TrackSummarySheet({ finalState, userId, nativeEngine, on
           </div>
         )}
 
-        {/* CTA — 자동 저장 (2026-07-18): 저장됨 → 기록 보기 / 실패 → 다시 저장 */}
+        {/* CTA — 자동 저장 (2026-07-18): 저장 중 스피너 / 실패 → 다시 저장. 성공 시 즉시 활동 상세로. */}
         <div className="px-5 pt-2 pb-7 grid grid-cols-[auto_1fr] gap-2.5">
-          <button onClick={handleDiscard} disabled={saving} aria-label={savedNav ? tt('삭제') : tt('버리기')}
+          <button onClick={handleDiscard} disabled={saving} aria-label={tt('버리기')}
             className="w-14 py-4 rounded-2xl border-2 border-[var(--card-border)] text-[var(--muted)] active:scale-95 disabled:opacity-50 inline-flex items-center justify-center">
             <Trash2 size={18} />
           </button>
-          {savedNav ? (
-            <button
-              onClick={() => { onClose(); router.push(`/activity?${savedNav.params}`); }}
-              className="py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base active:scale-[0.98] shadow-md shadow-emerald-500/30 inline-flex items-center justify-center gap-2"
-            >
-              <CheckCircle size={18} />
-              {tt('기록 보기')}
-            </button>
-          ) : (
-            <button onClick={handleSave} disabled={saving || !error}
-              className="py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base active:scale-[0.98] disabled:opacity-70 shadow-md shadow-emerald-500/30 inline-flex items-center justify-center gap-2">
-              {error ? (
-                <>
-                  <CheckCircle size={18} />
-                  {tt('다시 저장')}
-                </>
-              ) : (
-                <>
-                  <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
-                  {tt('저장 중…')}
-                </>
-              )}
-            </button>
-          )}
+          <button onClick={handleSave} disabled={saving || !error}
+            className="py-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base active:scale-[0.98] disabled:opacity-70 shadow-md shadow-emerald-500/30 inline-flex items-center justify-center gap-2">
+            {error ? (
+              <>
+                <CheckCircle size={18} />
+                {tt('다시 저장')}
+              </>
+            ) : (
+              <>
+                <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                {tt('저장 중…')}
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>

@@ -1,15 +1,17 @@
 'use client';
 
 // 홈 캘린더 아래 미니맵 (build 100 — 지도 탭 흡수).
-// 최근 7일 GPS 경로를 SVG polyline 으로 가볍게 표시 (지도 타일 없음).
-// 카드 클릭 시 /map 으로 이동 → 풀 지도. 거기서 동네 러너 찾기 emerald CTA 로 진입.
+// 2026-07-19 (hans): SVG 점선만으론 위치 맥락이 없어 "점만 보인다" — /map 처럼 실제
+// 지도 타일 위에 경로를 그린다. 상호작용은 잠그고 (gestureHandling none) 탭하면 /map 으로.
+// Google Maps 로드 실패 / API 키 부재 시엔 기존 SVG 폴백 유지.
 // build 139: build 137 의 풀폭 "이 지역 동네 러너" CTA 회수. 홈은 내 코스 표시에 집중,
 // 동네 친구 찾기는 /map 페이지에서 (사용자 결정: 흐름이 더 자연스러움).
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
 import { fetchRoutesForUser } from '@/lib/map-data';
+import { loadGoogleMaps, API_KEY } from '@/lib/google-maps';
 import { MapPin, ChevronRight } from 'lucide-react';
 import type { Activity } from '@/types';
 import { useI18n } from '@/lib/i18n';
@@ -30,11 +32,15 @@ function downsample<T>(arr: readonly T[], max: number): T[] {
   return out;
 }
 
-function buildPaths(activities: Activity[]) {
+function usableActivities(activities: Activity[]) {
   // 좌표 2개 이상인 활동만 사용 — 1점은 polyline 안 그려져 사용자에 "빈 지도" 인상.
-  const usable = activities
+  return activities
     .filter(a => (a.route_data?.coordinates?.length ?? 0) >= 2)
     .map(a => ({ ...a, sampled: downsample(a.route_data!.coordinates, 120) }));
+}
+
+function buildPaths(activities: Activity[]) {
+  const usable = usableActivities(activities);
   if (usable.length === 0) return { paths: [], hasData: false };
 
   const all: { lng: number; lat: number }[] = [];
@@ -78,6 +84,10 @@ export default function HomeMapPreview() {
   const { tt, locale } = useI18n();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mapsReady, setMapsReady] = useState(false);
+  const mapDivRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const polylinesRef = useRef<google.maps.Polyline[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -96,6 +106,60 @@ export default function HomeMapPreview() {
     })();
     return () => { cancelled = true; };
   }, [user]);
+
+  useEffect(() => {
+    if (!API_KEY) return;
+    let cancelled = false;
+    loadGoogleMaps()
+      .then(() => { if (!cancelled) setMapsReady(true); })
+      .catch(() => { /* SVG 폴백 */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  // 지도 타일 + 경로 렌더 — 상호작용 잠금 미니맵.
+  useEffect(() => {
+    if (!mapsReady || !mapDivRef.current) return;
+    const usable = usableActivities(activities);
+    if (usable.length === 0) return;
+
+    if (!mapRef.current) {
+      mapRef.current = new google.maps.Map(mapDivRef.current, {
+        disableDefaultUI: true,
+        gestureHandling: 'none',
+        keyboardShortcuts: false,
+        clickableIcons: false,
+        styles: [
+          { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+          { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+        ],
+      });
+    }
+    const map = mapRef.current;
+
+    polylinesRef.current.forEach(p => p.setMap(null));
+    polylinesRef.current = [];
+
+    const bounds = new google.maps.LatLngBounds();
+    usable.forEach((a, idx) => {
+      const path = a.sampled.map(([lng, lat]) => ({ lat, lng }));
+      path.forEach(p => bounds.extend(p));
+      const { stroke, opacity } = strokeForIdx(idx, usable.length);
+      polylinesRef.current.push(new google.maps.Polyline({
+        path,
+        geodesic: true,
+        strokeColor: stroke,
+        strokeOpacity: opacity,
+        strokeWeight: 3.5,
+        map,
+      }));
+    });
+    map.fitBounds(bounds, 16);
+
+    return () => {
+      polylinesRef.current.forEach(p => p.setMap(null));
+      polylinesRef.current = [];
+    };
+  }, [mapsReady, activities]);
 
   if (loading) {
     return (
@@ -130,6 +194,7 @@ export default function HomeMapPreview() {
   }
 
   const totalKm = activities.reduce((s, a) => s + Number(a.distance_km || 0), 0);
+  const useTileMap = mapsReady && !!API_KEY;
 
   return (
     <Link href="/map" className="mx-4 block card p-4 active:scale-[0.99] transition">
@@ -143,28 +208,40 @@ export default function HomeMapPreview() {
         </span>
       </div>
 
-      <div className="rounded-xl bg-gradient-to-br from-emerald-50/60 via-white to-emerald-50/30 dark:from-emerald-950/20 dark:via-zinc-900 dark:to-emerald-950/10 border border-emerald-200/30 dark:border-emerald-900/20 overflow-hidden">
-        <svg
-          viewBox={`0 0 ${VIEWBOX_W} ${VIEWBOX_H}`}
-          className="w-full h-[140px]"
-          preserveAspectRatio="xMidYMid meet"
-        >
-          {paths.map(({ idx, d }) => {
-            const { stroke, opacity } = strokeForIdx(idx, paths.length);
-            return (
-              <path
-                key={idx}
-                d={d}
-                fill="none"
-                stroke={stroke}
-                strokeOpacity={opacity}
-                strokeWidth={3.5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            );
-          })}
-        </svg>
+      <div className="relative rounded-xl border border-emerald-200/30 dark:border-emerald-900/20 overflow-hidden">
+        {/* 실제 지도 타일 (상호작용 잠금). 로드 전/실패엔 SVG 폴백이 아래에 보임. */}
+        <div
+          ref={mapDivRef}
+          className="w-full h-[180px]"
+          style={{ display: useTileMap ? 'block' : 'none' }}
+        />
+        {!useTileMap && (
+          <div className="bg-gradient-to-br from-emerald-50/60 via-white to-emerald-50/30 dark:from-emerald-950/20 dark:via-zinc-900 dark:to-emerald-950/10">
+            <svg
+              viewBox={`0 0 ${VIEWBOX_W} ${VIEWBOX_H}`}
+              className="w-full h-[140px]"
+              preserveAspectRatio="xMidYMid meet"
+            >
+              {paths.map(({ idx, d }) => {
+                const { stroke, opacity } = strokeForIdx(idx, paths.length);
+                return (
+                  <path
+                    key={idx}
+                    d={d}
+                    fill="none"
+                    stroke={stroke}
+                    strokeOpacity={opacity}
+                    strokeWidth={3.5}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                );
+              })}
+            </svg>
+          </div>
+        )}
+        {/* 지도가 클릭을 삼키지 않게 투명 오버레이 — 탭 = Link (/map) 로 전달 */}
+        <div className="absolute inset-0 z-10" aria-hidden />
       </div>
 
       <p className="text-xs text-[var(--muted)] mt-2">

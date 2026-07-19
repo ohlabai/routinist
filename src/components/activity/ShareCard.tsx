@@ -25,6 +25,9 @@ interface ShareCardProps {
   hideRegister?: boolean;
   /** 등록 성공 시 호출 — 리스트 새로고침용 */
   onRegistered?: () => void;
+  /** 2026-07-19 (hans): 공유 시트에서 실제 공유가 완료된 뒤 호출 — 호출부가 화면 전환 등
+   *  후속 동작을 결정. 사용자가 공유 시트를 취소하면 호출되지 않는다. */
+  onShared?: () => void;
   /** build 209~213: 주간/월간 모드 — 일간 layout 그대로 + 지도/hero KM 만 기간 누적값으로 교체. */
   periodOverrides?: {
     extraRoutes?: Array<Array<[number, number]>>;
@@ -1113,7 +1116,7 @@ function downloadBlob(blob: Blob, fileName: string) {
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
-export default function ShareCard({ activity: baseActivity, displayName, onClose, hideRegister, onRegistered, periodOverrides }: ShareCardProps) {
+export default function ShareCard({ activity: baseActivity, displayName, onClose, hideRegister, onRegistered, onShared, periodOverrides }: ShareCardProps) {
   const { tt, locale } = useI18n();
   const { user, profile } = useAuth();
   const { activities, goals } = useUserData();
@@ -1363,6 +1366,10 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
     toastTimerRef.current = setTimeout(() => setRegisterToast(null), 4500);
   };
 
+  // 네이티브 공유 시트 취소 — Capacitor Share 는 취소를 reject 로 알림. 에러 아님.
+  const isShareCancel = (err: unknown) =>
+    err instanceof Error && /cancel/i.test(err.message);
+
   // build 136: 정적 PNG 공유. 네이티브 공유 시트 (Capacitor Share) + 캡션.
   // build 167 #3: 사용자 결정 — 공유 시 태그/링크 제거. 채팅창 지저분함 회피. 동영상/이미지만 공유.
   const sharePngBlob = async (blob: Blob) => {
@@ -1382,13 +1389,15 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
           url: result.uri,
           dialogTitle: tt('러닝 기록 공유'),
         });
+        onShared?.();
       } catch (err) {
-        showShareError('네이티브 PNG 공유', err);
+        if (!isShareCancel(err)) showShareError('네이티브 PNG 공유', err);
       }
     } else if (navigator.share) {
       try {
         const file = new File([blob], `routinist-${activity.activity_date}.png`, { type: 'image/png' });
         await navigator.share({ files: [file] });
+        onShared?.();
       } catch (err) {
         // user cancelled 인지 진짜 에러인지 구분 — AbortError 는 무시.
         if (err instanceof Error && err.name !== 'AbortError') showShareError('웹 공유', err);
@@ -1424,14 +1433,16 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
           dialogTitle: tt('러닝 기록 공유'),
         });
         diag(`Share.share resolved activityType=${shareResult?.activityType ?? 'unknown'}`);
+        onShared?.();
       } catch (err) {
-        showShareError('네이티브 비디오 공유', err);
+        if (!isShareCancel(err)) showShareError('네이티브 비디오 공유', err);
       }
     } else if (navigator.share) {
       try {
         const mime = extension === 'mp4' ? 'video/mp4' : 'video/webm';
         const file = new File([blob], fileName, { type: mime });
         await navigator.share({ files: [file] });
+        onShared?.();
       } catch (err) {
         if (err instanceof Error && err.name !== 'AbortError') showShareError('웹 비디오 공유', err);
       }
