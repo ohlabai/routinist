@@ -11,6 +11,7 @@ import type { Activity, Profile } from '@/types';
 import PullToRefresh from '@/components/PullToRefresh';
 import AppLogo from '@/components/AppLogo';
 import { syncRouteData, isNativeApp } from '@/lib/health-sync';
+import { detectRegionLabel } from '@/lib/region-from-gps';
 import { useI18n } from '@/lib/i18n';
 
 // 마지막 자동 GPS 경로 sync 시간 — localStorage 에 저장 (5분 throttle)
@@ -141,8 +142,11 @@ interface RouteCluster {
   activities: Activity[];
 }
 
-// 활동들을 좌표 거리 기준으로 클러스터링. 한국+중국처럼 멀리 떨어진 두 지역을 별도 그룹으로.
-function clusterActivities(activities: Activity[], thresholdDeg: number = 5): RouteCluster[] {
+// 활동들을 좌표 거리 기준으로 클러스터링.
+// 2026-07-19 (hans: 서울-창원 동시 표시 시 경로가 안 보임): 임계값 5°(~550km) → 0.8°(~90km).
+// 이전엔 서울+창원이 "🇰🇷 한국" 한 덩어리라 도시별 줌이 불가능했음. 이제 도시 단위로
+// 갈라지고, 라벨도 국가 대신 지역명 (detectRegionLabel — "서울 강남", "경남 창원").
+function clusterActivities(activities: Activity[], locale: 'ko' | 'en', thresholdDeg: number = 0.8): RouteCluster[] {
   const clusters: RouteCluster[] = [];
   for (const a of activities) {
     const coords = a.route_data?.coordinates;
@@ -162,7 +166,7 @@ function clusterActivities(activities: Activity[], thresholdDeg: number = 5): Ro
     if (!added) {
       clusters.push({
         id: `c${clusters.length}`,
-        label: labelByCoords(lat, lng),
+        label: detectRegionLabel([lng, lat], null, locale) ?? labelByCoords(lat, lng),
         centerLat: lat,
         centerLng: lng,
         activities: [a],
@@ -233,6 +237,9 @@ function navigateToFallback(map: google.maps.Map, profile: Profile | null) {
   // geolocation 도 거부되면 서울 중심 유지 (지도 init 시 기본값)
 }
 
+// 클러스터 자동 선택 센티널 — 사용자가 아직 지역을 고르지 않은 상태 (주 활동 지역으로 줌).
+const CLUSTER_AUTO = '__auto__';
+
 // build 156: ?userId= 받으면 친구 경로 모드 (자체 sync skip, 읽기 전용)
 function MapPageInner() {
   const router = useRouter();
@@ -246,6 +253,7 @@ function MapPageInner() {
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<google.maps.Map | null>(null);
   const polylinesRef = useRef<google.maps.Polyline[]>([]);
+  const clusterMarkersRef = useRef<google.maps.Marker[]>([]);
 
   const [allActivities, setAllActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -254,13 +262,23 @@ function MapPageInner() {
   // 7일 기본에선 취지가 안 보였음.
   const [filterMode, setFilterMode] = useState<FilterMode>('30d');
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
-  // 다국가 클러스터 — null = 전체 보기 (모든 cluster fitBounds), id = 해당 cluster zoom in
-  const [activeCluster, setActiveCluster] = useState<string | null>(null);
+  // 지역 클러스터 선택. null = 전체 보기 (모든 cluster fitBounds), id = 해당 지역 zoom in.
+  // 2026-07-19 (hans): 서울-창원처럼 먼 두 지역을 한 화면에 fit 하면 경로가 픽셀 수준으로
+  // 뭉개짐 — 기본값을 "주 활동 지역 자동 줌" (AUTO 센티널) 으로. 전체는 명시적 선택.
+  const [clusterChoice, setClusterChoice] = useState<string | null>(CLUSTER_AUTO);
   // GPS 경로 자동 sync 진행 상태
   const [routeSyncing, setRouteSyncing] = useState(false);
   const [routeSyncMsg, setRouteSyncMsg] = useState<string | null>(null);
 
-  const clusters = useMemo(() => clusterActivities(allActivities), [allActivities]);
+  const clusters = useMemo(() => clusterActivities(allActivities, locale), [allActivities, locale]);
+
+  // 실제 적용되는 클러스터: 명시적 선택 > (자동) 활동 최다 지역 > 전체.
+  // 필터 변경으로 선택했던 클러스터가 사라지면 자동으로 복귀.
+  const effectiveCluster = useMemo(() => {
+    if (clusterChoice === null) return null; // 사용자가 "전체" 선택
+    if (clusterChoice !== CLUSTER_AUTO && clusters.some(c => c.id === clusterChoice)) return clusterChoice;
+    return clusters.length > 1 ? clusters[0].id : null; // clusters 는 활동 수 내림차순 정렬
+  }, [clusterChoice, clusters]);
 
   // 지도 초기화
   useEffect(() => {
@@ -361,9 +379,11 @@ function MapPageInner() {
   useEffect(() => {
     if (!mapLoaded || !googleMapRef.current) return;
 
-    // 기존 폴리라인 제거
+    // 기존 폴리라인/마커 제거
     polylinesRef.current.forEach(p => p.setMap(null));
     polylinesRef.current = [];
+    clusterMarkersRef.current.forEach(m => m.setMap(null));
+    clusterMarkersRef.current = [];
 
     const filtered = filteredActivities();
     const bounds = new google.maps.LatLngBounds();
@@ -415,9 +435,9 @@ function MapPageInner() {
     }
 
     if (hasPoints) {
-      // 클러스터 선택됐으면 그 그룹 기준으로 zoom, 아니면 전체 bounds
-      if (activeCluster && clusters.length > 1) {
-        const cluster = clusters.find(c => c.id === activeCluster || c.label === activeCluster);
+      // 클러스터 선택 (자동 = 주 활동 지역 포함) 이면 그 그룹 기준으로 zoom, 아니면 전체 bounds
+      if (effectiveCluster && clusters.length > 1) {
+        const cluster = clusters.find(c => c.id === effectiveCluster || c.label === effectiveCluster);
         if (cluster) {
           const clusterBounds = new google.maps.LatLngBounds();
           for (const a of cluster.activities) {
@@ -431,12 +451,39 @@ function MapPageInner() {
         }
       } else {
         googleMapRef.current.fitBounds(bounds, 40);
+        // 2026-07-19 (hans): 전체 보기 = 전국/대륙 축척이라 경로가 픽셀 수준 — 지역마다
+        // 횟수 배지 원을 띄워 "어디서 몇 번 달렸는지" 가 보이게. 탭하면 그 지역으로 줌.
+        if (clusters.length > 1) {
+          clusters.forEach(c => {
+            const marker = new google.maps.Marker({
+              position: { lat: c.centerLat, lng: c.centerLng },
+              map: googleMapRef.current,
+              icon: {
+                path: google.maps.SymbolPath.CIRCLE,
+                scale: 16,
+                fillColor: '#10B981',
+                fillOpacity: 0.95,
+                strokeColor: '#ffffff',
+                strokeWeight: 2.5,
+              },
+              label: {
+                text: String(c.activities.length),
+                color: '#ffffff',
+                fontSize: '12px',
+                fontWeight: '800',
+              },
+              title: c.label,
+            });
+            marker.addListener('click', () => setClusterChoice(c.id));
+            clusterMarkersRef.current.push(marker);
+          });
+        }
       }
     } else {
       // 데이터 없을 때 폴백: (1) profile.region_si → (2) geolocation → (3) 서울 중심
       navigateToFallback(googleMapRef.current, profile);
     }
-  }, [mapLoaded, allActivities, filterMode, filteredActivities, profile, activeCluster, clusters]);
+  }, [mapLoaded, allActivities, filterMode, filteredActivities, profile, effectiveCluster, clusters]);
 
   const filtered = filteredActivities();
   const totalKm = filtered.reduce((sum, a) => sum + Number(a.distance_km), 0);
@@ -513,9 +560,9 @@ function MapPageInner() {
         {clusters.length > 1 && (
           <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
             <button
-              onClick={() => setActiveCluster(null)}
+              onClick={() => setClusterChoice(null)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
-                activeCluster === null ? 'bg-emerald-500 text-white' : 'bg-[var(--card)] text-[var(--muted)] border border-[var(--card-border)]'
+                effectiveCluster === null ? 'bg-emerald-500 text-white' : 'bg-[var(--card)] text-[var(--muted)] border border-[var(--card-border)]'
               }`}
             >
               🌍 {tt('전체')}
@@ -523,9 +570,9 @@ function MapPageInner() {
             {clusters.map(c => (
               <button
                 key={c.id}
-                onClick={() => setActiveCluster(c.id)}
+                onClick={() => setClusterChoice(c.id)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
-                  activeCluster === c.id ? 'bg-emerald-500 text-white' : 'bg-[var(--card)] text-[var(--muted)] border border-[var(--card-border)]'
+                  effectiveCluster === c.id ? 'bg-emerald-500 text-white' : 'bg-[var(--card)] text-[var(--muted)] border border-[var(--card-border)]'
                 }`}
               >
                 {tt(c.label)} {locale === 'en' ? `${c.activities.length}x` : `${c.activities.length}회`}
