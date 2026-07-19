@@ -30,52 +30,80 @@ const FILTERS: { id: FilterMode; label: string }[] = [
 ];
 
 // 좌표를 그리드 키로 변환 (~11m 단위 버킷)
-function coordKey(lat: number, lng: number, precision: number = 4): string {
+const CELL_PRECISION = 4;
+const CELL_DEG = 1e-4; // 10^-CELL_PRECISION
+function coordKey(lat: number, lng: number, precision: number = CELL_PRECISION): string {
   return `${lat.toFixed(precision)},${lng.toFixed(precision)}`;
 }
 
-interface Segment {
-  count: number;
-  p1: { lat: number; lng: number };
-  p2: { lat: number; lng: number };
-}
-
-// 활동들의 경로를 세그먼트 단위로 분해 + 누적 횟수 집계
-// 동일 GPS 그리드(≈11m²)를 반복 통과하면 count 증가 → 크레파스 덧칠 효과
-function buildSegmentMap(activities: Activity[]): Map<string, Segment> {
-  const segments = new Map<string, Segment>();
-
-  activities.forEach(activity => {
-    if (!activity.route_data?.coordinates?.length) return;
-    const coords = activity.route_data.coordinates;
-
+// 셀 단위 빈도 집계 (2026-07-19 지도 리뷰): 이전의 "버킷 쌍(세그먼트) 키" 방식은
+// GPS 샘플 간격이 러닝마다 다르면 같은 길도 다른 키로 흩어져 count 가 분산됐음.
+// 경로를 셀 크기의 절반 간격으로 걸어가며 (라인 래스터라이즈) "지나간 셀"을 수집하고,
+// 러닝(activity) 단위로 +1 — 샘플 간격/격자 지터와 무관하게 같은 길 = 같은 셀.
+// 한 러닝 안에서 같은 셀을 여러 번 지나도 1회 (루프 코스 이중 카운트 방지).
+function buildCellCounts(activities: Activity[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const activity of activities) {
+    const coords = activity.route_data?.coordinates;
+    if (!coords?.length) continue;
+    const cells = new Set<string>();
     for (let i = 0; i < coords.length - 1; i++) {
       const [lng1, lat1] = coords[i];
       const [lng2, lat2] = coords[i + 1];
-      const k1 = coordKey(lat1, lng1);
-      const k2 = coordKey(lat2, lng2);
-      if (k1 === k2) continue; // 같은 버킷 내 미세 이동 스킵
-      const key = k1 < k2 ? `${k1}-${k2}` : `${k2}-${k1}`;
-
-      const existing = segments.get(key);
-      if (existing) {
-        existing.count++;
-      } else {
-        segments.set(key, {
-          count: 1,
-          p1: { lat: lat1, lng: lng1 },
-          p2: { lat: lat2, lng: lng2 },
-        });
+      const span = Math.max(Math.abs(lat2 - lat1), Math.abs(lng2 - lng1));
+      // sanitize 가 점프를 제거하지만 방어적 cap — 비정상 세그먼트가 만 단위 스텝을 만들지 않게.
+      const steps = Math.min(200, Math.max(1, Math.ceil(span / (CELL_DEG / 2))));
+      for (let s = 0; s <= steps; s++) {
+        const t = s / steps;
+        cells.add(coordKey(lat1 + (lat2 - lat1) * t, lng1 + (lng2 - lng1) * t));
       }
     }
-  });
+    cells.forEach(k => counts.set(k, (counts.get(k) ?? 0) + 1));
+  }
+  return counts;
+}
 
-  return segments;
+// 색 버킷 인덱스 — chipStyle 임계값과 동일. 병합 판정용.
+function bucketFor(visits: number): number {
+  if (visits <= 1) return 0;
+  if (visits <= 3) return 1;
+  if (visits <= 7) return 2;
+  if (visits <= 15) return 3;
+  if (visits <= 30) return 4;
+  return 5;
+}
+
+// 렌더용 병합 run (2026-07-19 지도 리뷰 성능): 세그먼트당 Polyline 1개(수만 개 → 프리즈)
+// 대신, 활동별 경로를 따라가며 색 버킷(세그먼트 중점 셀의 count)이 같은 연속 구간을
+// 하나의 Polyline 으로 병합. 객체 수 = 색 전환 횟수 수준으로 감소.
+function buildMergedRuns(activities: Activity[]): Array<{ count: number; path: google.maps.LatLngLiteral[] }> {
+  const cellCounts = buildCellCounts(activities);
+  const runs: Array<{ count: number; path: google.maps.LatLngLiteral[] }> = [];
+  for (const activity of activities) {
+    const coords = activity.route_data?.coordinates;
+    if (!coords || coords.length < 2) continue;
+    let cur: { count: number; path: google.maps.LatLngLiteral[] } | null = null;
+    for (let i = 0; i < coords.length - 1; i++) {
+      const [lng1, lat1] = coords[i];
+      const [lng2, lat2] = coords[i + 1];
+      const count = cellCounts.get(coordKey((lat1 + lat2) / 2, (lng1 + lng2) / 2)) ?? 1;
+      if (cur && bucketFor(cur.count) === bucketFor(count)) {
+        cur.path.push({ lat: lat2, lng: lng2 });
+        cur.count = Math.max(cur.count, count);
+      } else {
+        if (cur) runs.push(cur);
+        cur = { count, path: [{ lat: lat1, lng: lng1 }, { lat: lat2, lng: lng2 }] };
+      }
+    }
+    if (cur) runs.push(cur);
+  }
+  // 방문 횟수가 적은 것부터 그려서 많이 달린 구간이 위로 올라옴 (z-order)
+  return runs.sort((a, b) => a.count - b.count);
 }
 
 // 지도 크레파스 팔레트 — 사용자 요청 (2026-05-06): 노랑→연두→초록→파랑→빨강→검정 그라데이션.
 // 적은 횟수 = 밝고 눈에 띔, 많이 달린 곳 = 진한 색. 시각적 hierarchy 가 명확.
-function chipStyle(visits: number, _mode: FilterMode = '7d'): { color: string; weight: number; opacity: number } {
+function chipStyle(visits: number): { color: string; weight: number; opacity: number } {
   if (visits <= 1)  return { color: '#FBBF24', weight: 4.5, opacity: 1.0 };  // 노랑
   if (visits <= 3)  return { color: '#84CC16', weight: 5.0, opacity: 1.0 };  // 연두
   if (visits <= 7)  return { color: '#10B981', weight: 5.5, opacity: 1.0 };  // 초록
@@ -92,8 +120,6 @@ const CHIP_LEGEND = [
   { label: '~30', color: '#EF4444' },
   { label: '30+', color: '#1F2937' },
 ];
-
-const CHIP_LEGEND_ALL = CHIP_LEGEND;
 
 // 좌표 → 국가/지역 라벨 (다국가 클러스터 칩 표시용). 정밀도 낮지만 시작점.
 function labelByCoords(lat: number, lng: number): string {
@@ -224,7 +250,9 @@ function MapPageInner() {
   const [allActivities, setAllActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [filterMode, setFilterMode] = useState<FilterMode>('7d');
+  // 2026-07-19 (hans): 기본 30일 — 반복 코스가 진해지는 효과는 누적에서 나오는데
+  // 7일 기본에선 취지가 안 보였음.
+  const [filterMode, setFilterMode] = useState<FilterMode>('30d');
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   // 다국가 클러스터 — null = 전체 보기 (모든 cluster fitBounds), id = 해당 cluster zoom in
   const [activeCluster, setActiveCluster] = useState<string | null>(null);
@@ -352,7 +380,7 @@ function MapPageInner() {
           return point;
         });
 
-        const style = chipStyle(1, filterMode);
+        const style = chipStyle(1);
         const polyline = new google.maps.Polyline({
           path,
           geodesic: true,
@@ -365,19 +393,16 @@ function MapPageInner() {
         polylinesRef.current.push(polyline);
       });
     } else {
-      // 3일/7일/30일/전체: 크레파스 덧칠 방식 (세그먼트 단위)
-      // 같은 GPS 그리드(≈11m)를 반복 통과할수록 진해지고 굵어짐
-      const segments = buildSegmentMap(filtered);
+      // 3일/7일/30일/전체: 크레파스 덧칠 방식 — 셀 빈도 기반, 같은 색 구간 병합 렌더
+      // (2026-07-19: 세그먼트당 폴리라인 1개 → 색 전환 단위 병합으로 객체 수 대폭 감소)
+      const merged = buildMergedRuns(filtered);
 
-      // 방문 횟수가 적은 것부터 그려서 많이 달린 세그먼트가 위로 올라옴
-      const sorted = [...segments.values()].sort((a, b) => a.count - b.count);
-
-      sorted.forEach(seg => {
-        bounds.extend(seg.p1); bounds.extend(seg.p2);
+      merged.forEach(run => {
+        run.path.forEach(p => bounds.extend(p));
         hasPoints = true;
-        const style = chipStyle(seg.count, filterMode);
+        const style = chipStyle(run.count);
         const polyline = new google.maps.Polyline({
-          path: [seg.p1, seg.p2],
+          path: run.path,
           geodesic: true,
           strokeColor: style.color,
           strokeOpacity: style.opacity,
@@ -512,7 +537,7 @@ function MapPageInner() {
           <div className="card px-3 py-2">
             <div className="flex items-center justify-center gap-1 text-xs text-[var(--muted)]">
               <span className="mr-1">{tt('덧칠 횟수')}</span>
-              {(filterMode === 'all' ? CHIP_LEGEND_ALL : CHIP_LEGEND).map(c => (
+              {CHIP_LEGEND.map(c => (
                 <div key={c.label} className="flex items-center gap-0.5">
                   <span className="w-3.5 h-3.5 rounded-sm" style={{ background: c.color }} />
                   <span className="text-[10px]">{c.label}</span>

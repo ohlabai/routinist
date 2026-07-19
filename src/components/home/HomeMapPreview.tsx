@@ -94,7 +94,8 @@ export default function HomeMapPreview() {
     let cancelled = false;
     (async () => {
       try {
-        const data = await fetchRoutesForUser(user.id, { daysBack: 7, pageSize: 7 });
+        // 2026-07-19 (hans): 지도 기본 필터와 동일하게 30일 — 홈 미니맵 = /map 프리뷰.
+        const data = await fetchRoutesForUser(user.id, { daysBack: 30, pageSize: 30 });
         if (!cancelled) {
           setActivities(data);
           setLoading(false);
@@ -201,7 +202,7 @@ export default function HomeMapPreview() {
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <MapPin size={16} className="text-emerald-600" />
-          <h3 className="text-sm font-bold text-[var(--foreground)]">{tt('최근 7일 러닝 경로')}</h3>
+          <h3 className="text-sm font-bold text-[var(--foreground)]">{tt('최근 30일 러닝 경로')}</h3>
         </div>
         <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold inline-flex items-center gap-0.5">
           {locale === 'en' ? 'Map' : '지도'} <ChevronRight size={12} />
