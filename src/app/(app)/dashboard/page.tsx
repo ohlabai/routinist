@@ -51,6 +51,7 @@ import HomeMapPreview from '@/components/home/HomeMapPreview';
 import HomeChallengeCard from '@/components/home/HomeChallengeCard';
 import WeeklyGoalCard from '@/components/home/WeeklyGoalCard';
 import HomeWorldMarathonCard from '@/components/home/HomeWorldMarathonCard';
+import MonthlyChallengeCard from '@/components/home/MonthlyChallengeCard';
 import CourseCompletionModal from '@/components/world/CourseCompletionModal';
 import HomeOnboardingCard from '@/components/home/HomeOnboardingCard';
 import PullDownOnboardingHint from '@/components/home/PullDownOnboardingHint';
@@ -870,6 +871,8 @@ export default function DashboardPage() {
         {!isNewRunner && (<>
         {/* 6.5 이번 주 도전 (build 100) — build 143: 300ms defer (secondary) */}
         {secondaryMounted && <HomeChallengeCard />}
+        {/* 월드런 기본 챌린지 (매달 42.195km / 100P) — 월드투어 카드 위에 배치 (베이스라인 목표) */}
+        {secondaryMounted && <MonthlyChallengeCard />}
         {secondaryMounted && <HomeWorldMarathonCard />}
 
         {/* 6.7 친구 활동 스토리 — build 143: 300ms defer (secondary) */}

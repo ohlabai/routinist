@@ -21,6 +21,7 @@ import {
 import AppToast from '@/components/AppToast';
 import CourseDetailSheet from './CourseDetailSheet';
 import CourseFriendsRow from './CourseFriendsRow';
+import MonthlyChallengeCard from '@/components/home/MonthlyChallengeCard';
 import { useI18n } from '@/lib/i18n';
 import { logClientInfo, logClientWarn } from '@/lib/error-logger';
 // build 207: 영문화 — 챌린지 시리즈/자세히/달리는 중/도전하기/대륙/마라톤·국가명 등 tt wrap.
@@ -320,6 +321,9 @@ export default function WorldTab() {
 
   return (
     <div className="space-y-5">
+      {/* 월드런 기본 챌린지 — 매달 42.195km / 100P. 상단 고정 (베이스라인 목표) */}
+      <MonthlyChallengeCard embedded />
+
       {/* 진행 중 */}
       {inProgress.length > 0 && (
         <Section title={t('world.inProgress')} icon={<Flag size={14} className="text-emerald-500" />}>
