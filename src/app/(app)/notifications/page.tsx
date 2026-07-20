@@ -242,6 +242,9 @@ export default function NotificationsPage() {
               const actorName = item.actor_display_name || tt('알 수 없음');
               const isUnread = !item.read_at;
               const isFriendRequest = item.kind === 'friend_request';
+              // build 316: request_status 가 pending 일 때만 수락/거절 버튼. 이미 응답한 신청은
+              // 버튼을 지워 재탭(→'[object Object]' 다이얼로그) 자체를 차단. 처리된 건은 일반 카드처럼 탭 가능.
+              const isPendingRequest = isFriendRequest && item.request_status === 'pending';
               // build 275: cheer 알림에 inline 답례 응원 버튼. actor 가 있어야 발사 가능.
               const isCheerWithActor = item.kind === 'cheer' && !!item.actor_id;
 
@@ -281,8 +284,8 @@ export default function NotificationsPage() {
                         <CheerButton toUserId={item.actor_id} context="profile" size="sm" />
                       </div>
                     )}
-                    {/* build 264: friend_request 카드 inline accept/reject */}
-                    {isFriendRequest && (
+                    {/* build 264: friend_request 카드 inline accept/reject — build 316: pending 일 때만 */}
+                    {isPendingRequest && (
                       <div className="flex gap-2 mt-3">
                         <button
                           onClick={(e) => { e.preventDefault(); void handleRespond(item, true); }}
@@ -302,15 +305,30 @@ export default function NotificationsPage() {
                         </button>
                       </div>
                     )}
+                    {/* build 316: 이미 처리된 친구 신청 — 버튼 대신 상태 라벨 */}
+                    {isFriendRequest && !isPendingRequest && item.request_status && (
+                      <p className={`text-[12px] font-bold mt-2 ${
+                        item.request_status === 'accepted'
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-[var(--muted)]'
+                      }`}>
+                        {item.request_status === 'accepted'
+                          ? (locale === 'en' ? '✓ You are now friends' : '✓ 이제 친구가 되었어요')
+                          : item.request_status === 'rejected'
+                            ? (locale === 'en' ? 'Request declined' : '거절한 신청이에요')
+                            : (locale === 'en' ? 'Request canceled' : '취소된 신청이에요')}
+                      </p>
+                    )}
                   </div>
-                  {isUnread && !isFriendRequest && (
+                  {isUnread && !isPendingRequest && (
                     <span className="shrink-0 w-2 h-2 rounded-full bg-emerald-500 mt-2" />
                   )}
                 </>
               );
 
-              // friend_request 는 inline 버튼이라 카드 전체 Link 안 함. actor 영역만 별도 Link 가능하지만 단순화.
-              if (isFriendRequest) {
+              // pending friend_request 만 inline 버튼이라 카드 전체 Link 안 함.
+              // 이미 처리된 신청은 일반 카드처럼 프로필로 탭 이동 가능.
+              if (isPendingRequest) {
                 return (
                   <div key={item.id} className={`card flex items-start gap-3 p-4 ${isUnread ? 'bg-emerald-50/40 dark:bg-emerald-950/15 border-emerald-200/40 dark:border-emerald-800/30' : ''}`}>
                     {inner}

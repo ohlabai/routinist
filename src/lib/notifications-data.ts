@@ -100,6 +100,9 @@ export interface NotificationItem {
   preview: string | null;
   created_at: string;
   read_at: string | null;
+  // friend_request 알림의 현재 상태 (pending/accepted/rejected/canceled). 그 외 kind 는 null.
+  // pending 일 때만 수락/거절 버튼을 그려 이미 처리된 신청 재응답(→'[object Object]') 을 막는다.
+  request_status?: 'pending' | 'accepted' | 'rejected' | 'canceled' | null;
 }
 
 export async function fetchNotificationsList(limit = 100, offset = 0): Promise<NotificationItem[]> {

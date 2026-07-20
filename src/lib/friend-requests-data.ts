@@ -5,6 +5,25 @@
 import { getSupabase } from './supabase';
 import { logClientWarn } from './error-logger';
 
+// Supabase PostgrestError 는 일부 환경에서 Error 인스턴스가 아니라 plain object 로 전달돼
+// 프론트의 `e instanceof Error ? e.message : String(e)` 가 '[object Object]' 를 반환함.
+// 서버가 보낸 친절한 한글 메시지(예: '이미 응답한 신청이에요') 를 살리려면 Error 로 wrap 해서 re-throw.
+function asError(e: unknown, fallback = '요청을 처리하지 못했어요'): Error {
+  if (e instanceof Error) return e;
+  if (e && typeof e === 'object') {
+    const o = e as Record<string, unknown>;
+    const msg =
+      (typeof o.message === 'string' && o.message) ||
+      (typeof o.details === 'string' && o.details) ||
+      (typeof o.hint === 'string' && o.hint) ||
+      (typeof o.code === 'string' && o.code) ||
+      fallback;
+    return new Error(msg);
+  }
+  if (typeof e === 'string') return new Error(e);
+  return new Error(fallback);
+}
+
 export interface FriendRequest {
   id: string;
   sender_id: string;
@@ -31,7 +50,7 @@ export async function sendFriendRequest(receiverId: string, message?: string): P
     void logClientWarn('friend-requests', 'send fail', {
       receiverId, message: e instanceof Error ? e.message : String(e),
     });
-    throw e;
+    throw asError(e);
   }
 }
 
@@ -51,7 +70,7 @@ export async function respondFriendRequest(requestId: string, accept: boolean): 
     void logClientWarn('friend-requests', 'respond fail', {
       requestId, accept, message: e instanceof Error ? e.message : String(e),
     });
-    throw e;
+    throw asError(e);
   }
 }
 
@@ -93,7 +112,7 @@ export async function cancelFriendRequest(requestId: string): Promise<void> {
     void logClientWarn('friend-requests', 'cancel fail', {
       requestId, message: e instanceof Error ? e.message : String(e),
     });
-    throw e;
+    throw asError(e);
   }
 }
 
