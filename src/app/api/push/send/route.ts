@@ -136,7 +136,7 @@ async function getH2Client(host: string): Promise<import('undici').Client> {
   return undiciClientDev;
 }
 
-async function sendApn(supabase: SupabaseClient, deviceToken: string, payload: { title: string; body: string; data: Record<string, unknown>; badge: number }): Promise<{ ok: boolean; reason?: string }> {
+async function sendApn(supabase: SupabaseClient, deviceToken: string, payload: { title: string; body: string; data: Record<string, unknown>; badge?: number }): Promise<{ ok: boolean; reason?: string }> {
   const bundleId = process.env.APN_BUNDLE_ID || 'com.routinist.app';
   const useSandbox = process.env.APN_USE_SANDBOX === 'true';
   const host = useSandbox ? APN_HOST_DEV : APN_HOST_PROD;
@@ -146,7 +146,8 @@ async function sendApn(supabase: SupabaseClient, deviceToken: string, payload: {
     aps: {
       alert: { title: payload.title, body: payload.body },
       sound: 'default',
-      badge: payload.badge,
+      // badge 미지정 (RPC 실패 폴백) 이면 필드 생략 — iOS 는 현재 배지 유지
+      ...(typeof payload.badge === 'number' ? { badge: payload.badge } : {}),
       'mutable-content': 1,
     },
     // 커스텀 — deep_link 등
@@ -248,12 +249,21 @@ export async function POST(req: NextRequest) {
     tokensByUser.get(t.user_id)!.push(t);
   }
 
-  // build 224: 동적 뱃지 카운트 — 사용자별 이 배치에 들어온 push 개수를 badge 로.
-  // 모든 push 가 같은 badge 값을 받아도 iOS 는 가장 최근 도착한 값을 표시하므로 (count_in_batch)
-  // 가 사용자의 unread 수와 거의 같음. 앱 포어그라운드 진입 시 clearAppBadge 가 0 으로 리셋.
-  const pushCountByUser = new Map<string, number>();
-  for (const l of logs as PushLogRow[]) {
-    pushCountByUser.set(l.user_id, (pushCountByUser.get(l.user_id) ?? 0) + 1);
+  // build 316: badge = 실제 앱 내 미읽음 (인박스 30일 + 쪽지) — layout.refreshBadges 산식과 통일.
+  //   이전 count_in_batch (build 224) 는 friend_pb 같은 푸시 전용 카테고리 (인박스 행 없음) 도
+  //   배지를 올려서 "아이콘 배지 2 인데 알림 화면 비어있음" 혼란 (hans 2026-07-23 아침).
+  //   인박스 행을 만드는 카테고리는 트리거가 행을 먼저 insert 한 뒤 push enqueue 하므로
+  //   발송 시점 미읽음 카운트에 자연히 포함된다. RPC 실패 시 badge 생략 (iOS 현재 배지 유지).
+  const badgeByUser = new Map<string, number>();
+  {
+    const { data: badgeRows, error: badgeErr } = await supabase.rpc('push_badge_counts', {
+      p_user_ids: userIds,
+    });
+    if (!badgeErr) {
+      for (const r of (badgeRows ?? []) as Array<{ user_id: string; badge: number }>) {
+        badgeByUser.set(r.user_id, r.badge);
+      }
+    }
   }
 
   // 토큰별 연속 실패 카운터 (3회 이상 시 비활성화) — 메모리 캐시는 의미 없음 (cron 사이 휘발).
@@ -304,7 +314,7 @@ export async function POST(req: NextRequest) {
     let anyOk = false;
     let lastReason = '';
     let anyTransient = false;
-    const badge = Math.max(1, pushCountByUser.get(log.user_id) ?? 1);
+    const badge = badgeByUser.get(log.user_id);
     const sendResults = await Promise.allSettled(
       deliverable.map(t => {
         const send = t.platform === 'android'
