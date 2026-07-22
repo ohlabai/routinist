@@ -157,8 +157,13 @@ export async function fetchWeekChartData(userId: string, userName: string): Prom
   }
 
   // 랭킹 + 프로필 + 명언 — 병렬
+  // build 316: 지역 코호트 (find_hero_rank) → 전체 회원 스코프 (use_* 전부 off)
   const [{ data: heroData }, { data: profileData }, quote] = await Promise.all([
-    supabase.rpc('find_hero_rank', { target_user_id: userId, time_axis: 'week' }),
+    supabase.rpc('find_my_combined_ranking', {
+      target_user_id: userId, time_axis: 'week',
+      use_country: false, use_region_si: false, use_region_gu: false,
+      use_gender: false, use_decade: false, use_starter: false,
+    }),
     supabase.from('profiles').select('region_si,region_gu,country_code,handle,display_name').eq('id', userId).single(),
     fetchRandomQuote('ko').catch(() => null),
   ]);
@@ -258,8 +263,13 @@ export async function fetchMonthChartData(userId: string, userName: string): Pro
     }
   }
 
+  // build 316: 지역 코호트 (find_hero_rank) → 전체 회원 스코프 (use_* 전부 off)
   const [{ data: heroData }, { data: profileData }, quote] = await Promise.all([
-    supabase.rpc('find_hero_rank', { target_user_id: userId, time_axis: 'month' }),
+    supabase.rpc('find_my_combined_ranking', {
+      target_user_id: userId, time_axis: 'month',
+      use_country: false, use_region_si: false, use_region_gu: false,
+      use_gender: false, use_decade: false, use_starter: false,
+    }),
     supabase.from('profiles').select('region_si,region_gu,country_code,handle,display_name').eq('id', userId).single(),
     fetchRandomQuote('ko').catch(() => null),
   ]);

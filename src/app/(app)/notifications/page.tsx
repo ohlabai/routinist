@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Heart, MessageSquare, UserPlus, Bell, Check, X, CheckCheck } from 'lucide-react';
+import { ArrowLeft, Heart, MessageSquare, UserPlus, Bell, Check, X, CheckCheck, Trophy, Zap, Crown, Footprints } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -16,7 +16,6 @@ import {
   markNotificationsRead,
   markNotificationReadById,
   requestBadgeRefresh,
-  SOCIAL_KINDS,
   type NotificationItem,
   type NotificationKind,
 } from '@/lib/notifications-data';
@@ -47,6 +46,12 @@ const KIND_ICONS: Record<NotificationKind, typeof Heart> = {
   friend_request: UserPlus,
   friend_accepted: Check,
   referral_joined: UserPlus,
+  // build 316: 푸시 미러 kinds
+  friend_pb: Trophy,
+  friend_live_run: Zap,
+  friend_overtake: Footprints,
+  social_rival: Footprints,
+  first_place_month: Crown,
 };
 
 const KIND_COLORS: Record<NotificationKind, string> = {
@@ -57,6 +62,12 @@ const KIND_COLORS: Record<NotificationKind, string> = {
   follow: 'bg-violet-100 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400',
   friend_request: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400',
   friend_accepted: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400',
+  // build 316: 푸시 미러 kinds
+  friend_pb: 'bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400',
+  friend_live_run: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400',
+  friend_overtake: 'bg-orange-100 text-orange-600 dark:bg-orange-950/40 dark:text-orange-400',
+  social_rival: 'bg-orange-100 text-orange-600 dark:bg-orange-950/40 dark:text-orange-400',
+  first_place_month: 'bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400',
 };
 
 // 알림 클릭 시 라우팅. 각 kind 가 가리키는 컨텐츠로 이동.
@@ -78,6 +89,17 @@ function getHref(item: NotificationItem): string {
     case 'friend_accepted':
     case 'referral_joined':
       return item.actor_id ? `/social/user?id=${item.actor_id}` : '/social?tab=friends';
+    // build 316: 푸시 미러 kinds
+    case 'friend_pb':
+      // source_id = PB 를 세운 활동
+      return item.source_id ? `/activity?id=${item.source_id}`
+        : item.actor_id ? `/social/user?id=${item.actor_id}` : '/social?tab=friends';
+    case 'friend_live_run':
+    case 'social_rival':
+      return item.actor_id ? `/social/user?id=${item.actor_id}` : '/social?tab=friends';
+    case 'friend_overtake':
+    case 'first_place_month':
+      return '/ranking';
     default:
       // 서버가 새 kind 를 먼저 배포해도 페이지가 깨지지 않게 (build 294 — referral_joined 크래시 교훈)
       return '/social?tab=friends';
@@ -94,6 +116,12 @@ function describeKind(kind: NotificationKind, actorName: string, locale: 'ko' | 
       case 'friend_request': return `${actorName} sent you a friend request`;
       case 'friend_accepted': return `${actorName} accepted your friend request`;
       case 'referral_joined': return `${actorName} joined with your invite code 🎉`;
+      // build 316: 푸시 미러 kinds
+      case 'friend_pb': return `${actorName} set a new personal best 🎉`;
+      case 'friend_live_run': return `${actorName} is running right now 🏃`;
+      case 'friend_overtake': return `${actorName} pulled ahead of you ⚡`;
+      case 'social_rival': return `${actorName} just finished a run 👟`;
+      case 'first_place_month': return `${actorName} reached #1 this month 👑`;
       default: return `${actorName} sent you a notification`;
     }
   }
@@ -105,6 +133,12 @@ function describeKind(kind: NotificationKind, actorName: string, locale: 'ko' | 
     case 'friend_request': return `${actorName}님이 친구 신청을 보냈어요`;
     case 'friend_accepted': return `${actorName}님이 친구 신청을 수락했어요`;
     case 'referral_joined': return `${actorName}님이 내 초대 코드로 가입했어요 🎉`;
+    // build 316: 푸시 미러 kinds — 상세 (거리·기록) 는 preview (push body) 로 표시
+    case 'friend_pb': return `${actorName}님이 자기 기록을 깼어요 🎉`;
+    case 'friend_live_run': return `${actorName}님이 지금 달리는 중이에요 🏃`;
+    case 'friend_overtake': return `${actorName}님이 나를 앞질렀어요 ⚡`;
+    case 'social_rival': return `${actorName}님이 방금 달렸어요 👟`;
+    case 'first_place_month': return `${actorName}님이 이번 달 1위에 올랐어요 👑`;
     default: return `${actorName}님의 새 알림`;
   }
 }
@@ -265,7 +299,9 @@ export default function NotificationsPage() {
                         {describeKind(item.kind, '', locale).replace(actorName, '').replace(/^(님이?|sent|commented|started|accepted)/, ' $1')}
                       </span>
                     </p>
-                    {item.preview && (item.kind === 'photo_comment' || item.kind === 'activity_comment' || item.kind === 'friend_request') && (
+                    {item.preview && (item.kind === 'photo_comment' || item.kind === 'activity_comment' || item.kind === 'friend_request'
+                      || item.kind === 'friend_pb' || item.kind === 'friend_live_run' || item.kind === 'friend_overtake'
+                      || item.kind === 'social_rival' || item.kind === 'first_place_month') && (
                       <p className="text-[13px] text-[var(--muted)] mt-0.5 break-keep line-clamp-2">
                         &ldquo;{item.preview}&rdquo;
                       </p>

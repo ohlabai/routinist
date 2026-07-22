@@ -88,7 +88,12 @@ export function requestBadgeRefresh() {
 // build 264: friend_request, friend_accepted 추가.
 export const SOCIAL_KINDS = ['cheer', 'photo_comment', 'activity_comment', 'follow', 'friend_request', 'friend_accepted', 'referral_joined'];
 
-export type NotificationKind = 'cheer' | 'photo_comment' | 'activity_comment' | 'follow' | 'friend_request' | 'friend_accepted' | 'referral_joined';
+// build 316: 푸시 전용 카테고리 인박스 미러 (tg_push_log_to_inbox 트리거).
+// kind = push_send_log.category 그대로. preview = push body (수신자 locale 적용됨).
+export type NotificationKind =
+  | 'cheer' | 'photo_comment' | 'activity_comment' | 'follow'
+  | 'friend_request' | 'friend_accepted' | 'referral_joined'
+  | 'friend_pb' | 'friend_live_run' | 'friend_overtake' | 'social_rival' | 'first_place_month';
 
 export interface NotificationItem {
   id: string;

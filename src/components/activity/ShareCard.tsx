@@ -7,7 +7,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
 import { fetchRandomQuote, isFallbackQuote, type DailyQuote } from '@/lib/quotes-data';
 import { detectRegionLabel } from '@/lib/region-from-gps';
-import { getCurrentLocale, ttl, useI18n, formatRank } from '@/lib/i18n';
+import { getCurrentLocale, ttl, useI18n } from '@/lib/i18n';
 import { captureCanvasAnimation } from '@/lib/canvas-to-video';
 import { getSupabase } from '@/lib/supabase';
 import { track } from '@/lib/analytics';
@@ -1211,8 +1211,9 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
     return detectRegionLabel(first ?? null, profile, getCurrentLocale());
   })();
 
-  // build 196: 일간 카드에 옵션 D 랭킹 suffix 추가. find_hero_rank time_axis='today' 재활용.
-  // 모수 ≤3 친근 메시지 ("1위 ✨"), 4 이상 사실 표기 ("8위/50명"). 실패하면 region 만 표시.
+  // build 196: 일간 카드에 옵션 D 랭킹 suffix 추가.
+  // build 316 (2026-07-23 hans): 지역 코호트 (find_hero_rank 'today') → 전체 회원 · 이번 달 누적 거리
+  //   기준으로 교체. find_my_combined_ranking 의 use_* 필터를 전부 끄면 전체 스코프.
   const [rankSuffix, setRankSuffix] = useState<string | null>(null);
   useEffect(() => {
     if (!user?.id) return;
@@ -1220,18 +1221,23 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
     (async () => {
       try {
         const supabase = getSupabase();
-        const { data } = await supabase.rpc('find_hero_rank', {
-          target_user_id: user.id, time_axis: 'today',
+        const { data } = await supabase.rpc('find_my_combined_ranking', {
+          target_user_id: user.id, time_axis: 'month',
+          use_country: false, use_region_si: false, use_region_gu: false,
+          use_gender: false, use_decade: false, use_starter: false,
         });
         if (cancelled) return;
         const row = Array.isArray(data) ? data[0] : null;
         if (!row) return;
-        const total = row.total_in_scope ?? 0;
-        const rank = row.rank_position ?? 0;
+        const total = Number(row.total_in_scope ?? 0);
+        const rank = Number(row.rank_position ?? 0);
         if (rank === 0 || total === 0) return;
         const loc = getCurrentLocale();
-        if (total <= 3) setRankSuffix(rank === 1 ? `${formatRank(1, loc)} ✨` : formatRank(rank, loc));
-        else setRankSuffix(loc === 'en' ? `${formatRank(rank, loc)} of ${total}` : `${rank}위 / ${total}명`);
+        if (loc === 'en') {
+          setRankSuffix(rank === 1 ? '#1 overall this month ✨' : `#${rank} of ${total} this month`);
+        } else {
+          setRankSuffix(rank === 1 ? '이번 달 전체 1위 ✨' : `이번 달 전체 ${rank}위 / ${total}명`);
+        }
       } catch { /* 랭킹 실패해도 카드 동작에 영향 X */ }
     })();
     return () => { cancelled = true; };
@@ -1293,11 +1299,15 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
     return emailPrefix ?? displayName ?? 'runner';
   })();
 
+  // build 316: 영상 배경 + '이미지' 공유 지원 — 영상 중간 프레임에 seek 해둔 정지 스틸.
+  // generate() 가 이걸 배경으로 그리면 미리보기 = 정적 PNG 출력 모두 영상 프레임 배경이 된다.
+  const [videoStill, setVideoStill] = useState<HTMLVideoElement | null>(null);
+
   const generate = useCallback(() => {
     if (!canvasRef.current) return;
-    drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel ?? undefined, 1, undefined, periodOverrides, null);
+    drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel ?? undefined, 1, undefined, periodOverrides, videoStill);
     // locale: 캔버스 안 ttl()/getCurrentLocale() 텍스트가 언어 전환 시 다시 그려지도록 (build 291 i18n Phase D).
-  }, [activity, displayName, themeIdx, bgImage, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel, locale]);
+  }, [activity, displayName, themeIdx, bgImage, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel, locale, videoStill]);
 
   useEffect(() => { generate(); }, [generate]);
 
@@ -1330,6 +1340,8 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
     const url = URL.createObjectURL(file);
     const probe = document.createElement('video');
     probe.preload = 'metadata';
+    probe.muted = true;
+    probe.playsInline = true;
     probe.src = url;
     probe.onloadedmetadata = () => {
       const durMs = Math.min(PRELUDE_MAX_MS, Math.round(probe.duration * 1000));
@@ -1337,7 +1349,11 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
       setAttachedVideoDurMs(durMs);
       // 2026-07-15 리뷰 fix: 이미지 디폴트 전환 후 영상 배경을 첨부해도 정적 PNG 로
       // 공유되던 회귀 — 영상 첨부 = 동영상 모드 의도로 보고 자동 전환.
+      // (build 316: 아래 이미지/동영상 토글이 영상 첨부 시에도 노출되므로 이미지로 되돌리기 가능)
       setShareAsVideo(true);
+      // 중간 프레임으로 seek — 0초는 검은 프레임인 영상이 많음. seeked 후 스틸로 채택.
+      probe.onseeked = () => setVideoStill(probe);
+      try { probe.currentTime = Math.min(1, (probe.duration || 2) / 2); } catch { /* 스틸 없이 진행 */ }
     };
     probe.onerror = () => {
       URL.revokeObjectURL(url);
@@ -1349,6 +1365,7 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
     if (attachedVideoUrl) URL.revokeObjectURL(attachedVideoUrl);
     setAttachedVideoUrl(null);
     setAttachedVideoDurMs(0);
+    setVideoStill(null);
   };
   // cleanup
   useEffect(() => () => { if (attachedVideoUrl) URL.revokeObjectURL(attachedVideoUrl); }, [attachedVideoUrl]);
@@ -1787,7 +1804,8 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
               build 150: 라벨 간명화 ("동영상 (경로 그리기)" → "동영상", "정적 이미지" → "이미지").
               동영상: 출발→도착 라인 그리기 + 정지. 카톡/인스타에서 단일 파일로 자동 재생. */}
           {/* 2026-07-12 CCSS #6: 이미지가 디폴트 — 좌측 첫 자리도 이미지로 스왑 */}
-          {!!activity.route_data?.coordinates?.length && typeof MediaRecorder !== 'undefined' && (
+          {/* build 316: 영상 배경 첨부 시에도 토글 노출 — 영상을 골라도 '이미지' 로 공유 가능 (프레임 스틸 배경) */}
+          {(!!activity.route_data?.coordinates?.length || !!attachedVideoUrl) && typeof MediaRecorder !== 'undefined' && (
             <div className="grid grid-cols-2 gap-1.5 px-1">
               <button
                 onClick={() => setShareAsVideo(false)}
