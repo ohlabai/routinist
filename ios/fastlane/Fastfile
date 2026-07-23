@@ -149,6 +149,21 @@ platform :ios do
     end
   end
 
+  # ─── lane: build_train (빌드가 어느 버전 트레인에 속했는지 진단) ──
+  desc "최근 빌드의 train (CFBundleShortVersionString) 표시"
+  lane :build_train do
+    require 'spaceship'
+    asc_api_key
+    app = Spaceship::ConnectAPI::App.find("com.routinist.app")
+    builds = Spaceship::ConnectAPI::Build.all(
+      app_id: app.id, sort: "-uploadedDate", limit: 5, includes: "preReleaseVersion",
+    )
+    builds.each do |b|
+      train = b.pre_release_version ? b.pre_release_version.version : "?"
+      UI.message("build=#{b.version}  train=#{train}  state=#{b.processing_state}")
+    end
+  end
+
   # ─── lane: list_versions (ASC 의 모든 app_store_version 디버그용) ──
   desc "ASC 의 모든 버전 나열 (망가진 버전 진단)"
   lane :list_versions do

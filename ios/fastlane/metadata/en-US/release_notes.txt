@@ -1,13 +1,18 @@
-v1.2.11 — Auto-save on finish, start time on records, accuracy fixes
+v1.2.12 — Monthly challenge, smarter notifications, share card ranking
 
-[Finish = saved]
-• Your run is saved automatically the moment you finish - no save button to forget.
-• Closed the screen by accident? Your finished run can be recovered within 24 hours.
+[Monthly Basic Challenge]
+• Run a full-marathon distance (42.195km) every month. Join for just 100 mileage points.
+• Kilometers you've already run this month count too. Find it on Home and the WorldRun tab.
+• Finished every WorldRun course? A new CTA sends you straight to your next journey.
 
-[Start time on records]
-• Records and share cards now show when you started - your 5:42 AM dawn run gets the credit it deserves.
+[Smarter notifications]
+• Friend news like new PBs and "running right now" now lands in your inbox too - never miss it.
+• The app icon badge now matches exactly what's waiting in your inbox.
+• Fixed accept/decline buttons lingering on already-answered friend requests.
 
-[Accuracy]
-• Fixed a partial watch recording overwriting the full run when your watch died mid-run.
-• Fixed the share card and Home showing different distances right after a run.
-• Product sharing now opens the share sheet directly.
+[Share card]
+• The share card now shows your rank among all members by this month's total distance.
+• Picked a video background? You can still share as an image - a frame becomes the backdrop.
+
+[Tracking]
+• Fixed a false "distance is very short" prompt right after finishing a long run.
