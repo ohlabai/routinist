@@ -5,24 +5,9 @@ import SwiftUI
 
 struct StartView: View {
     @EnvironmentObject var workout: WorkoutManager
-    // v5: 탭 → 잔디가 화면 가득 자라난 뒤 카운트다운으로 전환
-    @State private var growing = false
+    // v8: 잔디 성장 트랜지션 제거 (hans: "촌스러워") — 탭 즉시 카운트다운으로
 
     var body: some View {
-        content
-            .overlay { if growing { GrassGrowView() } }
-            .onChange(of: workout.phase) { newPhase in
-                // 권한 거부 등으로 idle 복귀 시 트랜지션 해제 (watchOS 9 호환 1-param 형)
-                if newPhase == .idle { growing = false }
-            }
-            #if DEBUG
-            .onAppear {
-                if ProcessInfo.processInfo.arguments.contains("-uipreview-grow") { growing = true }
-            }
-            #endif
-    }
-
-    private var content: some View {
         VStack(spacing: 12) {
             // 브랜드 — 워드마크 에메랄드 단독 (R 중복 회피), 카피는 화이트
             VStack(spacing: 3) {
@@ -36,12 +21,7 @@ struct StartView: View {
             }
 
             Button {
-                guard !growing else { return }
-                growing = true
-                // 잔디 성장 0.65s 후 권한 → 카운트다운 (phase 전환이 이 화면을 대체)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
-                    workout.requestAuthorizationAndStart()
-                }
+                workout.requestAuthorizationAndStart()
             } label: {
                 VStack(spacing: 9) {
                     // 달리는 잔디 애니메이션 — 물결이 오른쪽으로 달림

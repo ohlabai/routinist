@@ -184,6 +184,7 @@ final class WorkoutManager: NSObject, ObservableObject {
         } else if args.contains("-uipreview-countdown") {
             phase = .countdown
         }
+        // (-uipreview-grow 는 v8 에서 성장 트랜지션과 함께 제거됨)
     }
     #endif
 
@@ -334,8 +335,15 @@ extension WorkoutManager: HKWorkoutSessionDelegate {
                                     date: Date) {
         Task { @MainActor in
             switch toState {
-            case .running: self.phase = .active
-            case .paused: self.phase = .paused
+            case .running:
+                self.phase = .active
+                // v8 fix: 재개 직후 앵커 재동기화 — 안 하면 displayElapsed 가
+                // 일시정지 시간을 벽시계로 합산해 타이머가 점프했다 돌아옴
+                if let b = self.builder { self.syncElapsed(b.elapsedTime) }
+            case .paused:
+                self.phase = .paused
+                // 정지 화면 표시값을 builder 의 정확한 경과시간으로 고정
+                if let b = self.builder { self.elapsedSeconds = b.elapsedTime }
             case .ended:
                 // 수집 종료 → HealthKit 저장 → 요약
                 self.builder?.endCollection(withEnd: date) { [weak self] _, _ in

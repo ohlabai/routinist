@@ -99,58 +99,56 @@ struct RunningGrassView: View {
     }
 }
 
-// ── 완주 잔디 컨페티 (v5) — 잔디 블록이 흩날리며 떨어지는 축하 효과 ──
+// ── 완주 잔디 컨페티 (v8 리파인 — hans: "더 자연스럽고 세련되게") ──
+// v5 문제: 큰 블록 22개가 같은 속도로 직하 + 과한 회전 → 뻣뻣하고 blocky.
+// v8: 입자 작게 (3~7pt) · 좌우로 흩날리는 드리프트 · 속도/시차 다양화 (1.8~2.7s)
+//     · 은은한 회전 (±40°) · 짧은 페이드인 — 눈꽃처럼 가볍게 내려앉는 느낌.
 
 struct GrassConfettiView: View {
     @State private var fall = false
-    private let count = 22
+    private let count = 30
 
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .topLeading) {
                 ForEach(0..<count, id: \.self) { i in
-                    let fx = CGFloat((i * 37 + 13) % 100) / 100.0
-                    let delay = Double(i % 7) * 0.13
-                    let size: CGFloat = 6 + CGFloat(i % 3) * 3
-                    let color: Color = i % 3 == 0 ? GrassPalette.light : i % 3 == 1 ? GrassPalette.mid : GrassPalette.dark
-                    RoundedRectangle(cornerRadius: size * 0.25)
-                        .fill(color)
-                        .frame(width: size, height: size)
-                        .rotationEffect(.degrees(fall ? Double((i % 5) - 2) * 160 : 0))
-                        .position(x: fx * geo.size.width,
-                                  y: fall ? geo.size.height + 24 : -24)
-                        .opacity(fall ? 0.95 : 0)
-                        .animation(.easeIn(duration: 1.7).delay(delay), value: fall)
+                    ConfettiParticle(i: i, fall: fall, canvas: geo.size)
                 }
             }
         }
         .allowsHitTesting(false)
+        .clipped()
         .onAppear { fall = true }
     }
 }
 
-// ── 시작 탭 트랜지션 (v5) — 잔디가 화면 가득 자라난 뒤 카운트다운으로 ──
-
-struct GrassGrowView: View {
-    @State private var grow = false
-    private let cols = 13
+private struct ConfettiParticle: View {
+    let i: Int
+    let fall: Bool
+    let canvas: CGSize
 
     var body: some View {
-        GeometryReader { geo in
-            HStack(alignment: .bottom, spacing: 2) {
-                ForEach(0..<cols, id: \.self) { i in
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(i % 3 == 0 ? GrassPalette.light : i % 3 == 1 ? GrassPalette.mid : GrassPalette.dark)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: grow ? geo.size.height * 1.1 : 4)
-                        .animation(.easeOut(duration: 0.45).delay(Double((i * 5) % 13) * 0.028), value: grow)
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-        }
-        .ignoresSafeArea()
-        .allowsHitTesting(false)
-        .onAppear { grow = true }
+        // 인덱스 기반 결정적 파라미터 (스크린샷 재현 가능)
+        let fx = CGFloat((i * 37 + 11) % 100) / 100.0
+        let drift = CGFloat(((i * 53 + 7) % 61) - 30)              // 좌우 -30~+30pt 흩날림
+        let s: CGFloat = 3 + CGFloat((i * 29) % 5)                 // 3~7pt (작고 가볍게)
+        let dur = 1.8 + Double((i * 17) % 90) / 100.0              // 1.8~2.7s (제각각)
+        let delay = Double((i * 41) % 130) / 100.0                 // 0~1.3s 시차
+        let rot = Double(((i * 23) % 81) - 40)                     // ±40° 은은한 회전
+        let startY = -CGFloat((i * 13) % 40) - 8                   // 시작 높이도 분산
+        let color: Color = i % 3 == 0 ? GrassPalette.light : i % 3 == 1 ? GrassPalette.mid : GrassPalette.dark
+
+        RoundedRectangle(cornerRadius: s * 0.3)
+            .fill(color)
+            .frame(width: s, height: s)
+            .rotationEffect(.degrees(fall ? rot : 0))
+            .position(x: fx * canvas.width + (fall ? drift : 0),
+                      y: fall ? canvas.height + 12 : startY)
+            // 낙하·드리프트·회전 — 부드러운 가속 커브
+            .animation(.timingCurve(0.25, 0.1, 0.6, 1.0, duration: dur).delay(delay), value: fall)
+            .opacity(fall ? 0.92 : 0)
+            // 페이드인은 짧게 별도 — 팟 하고 나타나지 않게
+            .animation(.easeIn(duration: 0.35).delay(delay), value: fall)
     }
 }
 
