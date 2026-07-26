@@ -27,6 +27,8 @@ export default function ConnectPage() {
   const [includeWalking, setIncludeWalking] = useState(false);
   // Android 전용 — Health Connect 앱 미설치/업데이트 필요 → Play 스토어 안내 버튼 표시
   const [needsHealthConnect, setNeedsHealthConnect] = useState(false);
+  // Android 전용 — 연결은 됐는데 HC 가 비어 있음 (삼성헬스 공유 OFF 가 대부분) → 가이드 카드
+  const [hcEmpty, setHcEmpty] = useState(false);
 
   useEffect(() => {
     const native = isNativeApp();
@@ -85,6 +87,7 @@ export default function ConnectPage() {
         if (user) {
           const syncResult = await syncHealthData(user.id, { onProgress: setProgress });
           setMessage(syncResult.message);
+          setHcEmpty(!!syncResult.hcEmpty);
           if (syncResult.success) {
             if (syncResult.synced > 0) refresh();
             const now = new Date().toISOString();
@@ -119,6 +122,7 @@ export default function ConnectPage() {
         ),
       ]);
       setMessage(result.message);
+      setHcEmpty(!!(result as { hcEmpty?: boolean }).hcEmpty);
       if (result.success) {
         if (result.synced > 0) refresh();
         const now = new Date().toISOString();
@@ -344,6 +348,25 @@ export default function ConnectPage() {
                   <p className={`text-sm font-medium ${message.includes('실패') ? 'text-red-500' : 'text-emerald-600'}`}>
                     {message}
                   </p>
+                )}
+                {/* 2026-07-26: 연결·권한 정상인데 HC 가 빈 경우 — 삼성헬스가 기본으로
+                    Health Connect 에 데이터를 공유하지 않아서 (손레띠·Kevin 실측 0건).
+                    유저가 삼성헬스에서 한 번 켜야 하는 설정이라 단계 가이드 노출. */}
+                {connected && hcEmpty && (
+                  <div className="mt-2 rounded-2xl bg-amber-50 dark:bg-amber-950/25 border border-amber-200/70 dark:border-amber-800/40 p-3.5 text-left">
+                    <p className="text-sm font-extrabold text-amber-800 dark:text-amber-300 mb-1.5">
+                      🌱 {tt('삼성헬스 기록이 안 보이나요?')}
+                    </p>
+                    <p className="text-xs text-amber-800/90 dark:text-amber-200/90 leading-relaxed mb-2">
+                      {tt('삼성헬스는 기본으로 Health Connect 에 데이터를 공유하지 않아요. 한 번만 켜주면 자동으로 들어와요:')}
+                    </p>
+                    <ol className="text-xs text-amber-800/90 dark:text-amber-200/90 leading-relaxed space-y-1 list-decimal list-inside">
+                      <li>{tt('삼성헬스 앱 → 우상단 ⋮ → 설정')}</li>
+                      <li>{tt("'Health Connect' → 데이터 동기화 켜기")}</li>
+                      <li>{tt("공유 항목에서 '운동' 켜기")}</li>
+                      <li>{tt('돌아와서 위의 동기화 버튼을 다시 누르기')}</li>
+                    </ol>
+                  </div>
                 )}
                 {/* Android 는 Health Connect 앱에서 권한을 직접 관리 — 설정 화면 바로가기 제공 */}
                 {connected && !needsHealthConnect && (

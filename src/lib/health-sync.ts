@@ -57,6 +57,10 @@ export interface SyncResult {
   // Android 전용 — Health Connect 앱이 미설치/업데이트 필요일 때 true.
   // UI 가 "Play 스토어에서 설치" 안내를 띄울 수 있도록.
   needsHealthConnect?: boolean;
+  // Android 전용 — 권한·조회는 정상인데 Health Connect 가 비어 있음 (90일 러닝 0건).
+  // 대부분 삼성헬스의 "Health Connect 데이터 공유" 가 기본 OFF 라서 (2026-07-26 실측:
+  // 손레띠·Kevin queryWorkouts→0건 반복). UI 가 삼성헬스 공유 켜는 가이드를 띄울 수 있도록.
+  hcEmpty?: boolean;
   // 누락 detection / UI 토스트용 메타. Apple Health 에서 받은 총 건수, 중복으로 스킵된 건수 등.
   meta?: {
     totalFromHealth: number;
@@ -311,13 +315,19 @@ export async function checkHealthConnectState(): Promise<HealthConnectState> {
 }
 
 // Android 전용 — Health Connect 권한/데이터 관리 화면 열기 (iOS/web 은 no-op).
+// 일부 기기 (Android 14+ OEM) 에서 플러그인의 설정 인텐트가 resolve 안 됨
+// (Kevin 실측: "Failed to open Health Connect settings") → Play 스토어 HC 페이지 폴백.
 export async function openHealthConnectSettings(): Promise<void> {
   if (getPlatform() !== 'android') return;
   try {
     const { Health } = await import('@capgo/capacitor-health');
     await Health.openHealthConnectSettings();
   } catch (e) {
-    logClientWarn('health-sync', 'openHealthConnectSettings 실패', { err: String(e) });
+    logClientWarn('health-sync', 'openHealthConnectSettings 실패 → Play 폴백', { err: String(e) });
+    try {
+      const { Browser } = await import('@capacitor/browser');
+      await Browser.open({ url: HEALTH_CONNECT_PLAY_STORE_URL });
+    } catch { /* 폴백도 실패 — 조용히 */ }
   }
 }
 
@@ -834,6 +844,7 @@ async function syncViaDistance(
           ? ttl('Health Connect 에 러닝 기록이 아직 없어요 👟')
           : ttl('Apple Health 에 러닝 기록이 아직 없어요 👟'),
         synced: 0,
+        hcEmpty: getPlatform() === 'android',
       };
     }
     const { Health } = await import('@capgo/capacitor-health');
@@ -852,6 +863,7 @@ async function syncViaDistance(
           ? ttl('Health Connect 에 러닝 기록이 아직 없어요 👟')
           : ttl('Apple Health 에 러닝 기록이 아직 없어요 👟'),
         synced: 0,
+        hcEmpty: getPlatform() === 'android',
       };
     }
 
