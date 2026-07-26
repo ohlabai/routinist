@@ -18,7 +18,7 @@ struct SummaryView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 Text("완주! 🎉")
-                    .font(.system(size: 26, weight: .heavy, design: .rounded))
+                    .font(.system(size: 30, weight: .heavy, design: .rounded))
 
                 if let s = workout.summary {
                     summaryRow(label: "거리", value: String(format: "%.2f", s.distanceMeters / 1000), unit: "km", color: emerald)
@@ -56,18 +56,18 @@ struct SummaryView: View {
     private func summaryRow(label: String, value: String, unit: String?, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(label)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
                 .foregroundStyle(.secondary)
-            HStack(alignment: .firstTextBaseline, spacing: 3) {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(value)
-                    .font(.system(size: 28, weight: .heavy, design: .rounded))
+                    .font(.system(size: 36, weight: .heavy, design: .rounded))
                     .monospacedDigit()
-                    .minimumScaleFactor(0.7)
+                    .minimumScaleFactor(0.6)
                     .lineLimit(1)
                     .foregroundStyle(color)
                 if let unit {
                     Text(unit)
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
                         .foregroundStyle(.secondary)
                 }
             }

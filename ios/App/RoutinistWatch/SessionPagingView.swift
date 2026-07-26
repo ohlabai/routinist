@@ -49,37 +49,47 @@ struct MetricsView: View {
     private let emerald = Color(red: 0.20, green: 0.83, blue: 0.60)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            // 시간 — hero, 0.01초 단위 (v6, Apple 운동앱 동일). TimelineView 로 부드럽게 보간.
+        // v10 (Apple 운동앱 실측 문법): 각 지표가 화면 폭을 거의 채우는 초대형 숫자,
+        // 라벨은 값 오른쪽 아주 작은 2줄. 야외 직사광에서 흘끗 봐도 읽히게.
+        VStack(alignment: .leading, spacing: 0) {
+            // 시간 — hero, 0.01초 단위
             TimelineView(.animation(minimumInterval: 0.03, paused: workout.phase != .active)) { ctx in
                 Text(formatElapsedCenti(workout.displayElapsed(at: ctx.date)))
-                    .font(.system(size: 54, weight: .heavy, design: .rounded))
+                    .font(.system(size: 64, weight: .heavy, design: .rounded))
                     .monospacedDigit()
-                    .minimumScaleFactor(0.55)
+                    .minimumScaleFactor(0.5)
                     .lineLimit(1)
                     .foregroundStyle(.yellow)
             }
 
             // 거리
-            bigMetric(String(format: "%.2f", workout.distanceMeters / 1000), unit: "km", color: emerald, size: 46)
+            bigMetric(String(format: "%.2f", workout.distanceMeters / 1000), unit: "km", color: emerald, size: 58)
 
-            // 페이스 — 직전 KM 구간이 있으면 그걸 우선 (Apple '직전 KM' 문법), 없으면 평균
-            HStack(alignment: .firstTextBaseline, spacing: 5) {
-                bigMetric(formatPace(workout.lastSplitPaceSecPerKm ?? workout.paceSecPerKm), unit: "/km", color: .white, size: 40)
-                Text(workout.lastSplitPaceSecPerKm != nil ? "직전KM" : "평균")
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundStyle(.secondary)
+            // 페이스 — 직전 KM 우선, 라벨 2줄 (Apple 문법)
+            HStack(alignment: .center, spacing: 6) {
+                Text(formatPace(workout.lastSplitPaceSecPerKm ?? workout.paceSecPerKm))
+                    .font(.system(size: 52, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(1)
+                    .foregroundStyle(.white)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(workout.lastSplitPaceSecPerKm != nil ? "직전KM" : "평균")
+                    Text("/km")
+                }
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundStyle(.secondary)
             }
 
             // 심박
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
+            HStack(alignment: .center, spacing: 7) {
+                Text(workout.heartRate > 0 ? String(format: "%.0f", workout.heartRate) : "--")
+                    .font(.system(size: 52, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(.white)
                 Image(systemName: "heart.fill")
                     .font(.system(size: 26))
                     .foregroundStyle(.red)
-                Text(workout.heartRate > 0 ? String(format: "%.0f", workout.heartRate) : "--")
-                    .font(.system(size: 40, weight: .heavy, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(.white)
             }
 
             if workout.phase == .paused {
@@ -112,20 +122,20 @@ struct MetricsView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .padding(.leading, 16)
-        .padding(.trailing, 6)
+        .padding(.leading, 10)
+        .padding(.trailing, 4)
     }
 
     private func bigMetric(_ value: String, unit: String, color: Color, size: CGFloat) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 3) {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
             Text(value)
                 .font(.system(size: size, weight: .heavy, design: .rounded))
                 .monospacedDigit()
-                .minimumScaleFactor(0.7)
+                .minimumScaleFactor(0.6)
                 .lineLimit(1)
                 .foregroundStyle(color)
             Text(unit)
-                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .font(.system(size: 18, weight: .bold, design: .rounded))
                 .foregroundStyle(.secondary)
         }
     }
@@ -144,20 +154,21 @@ struct HeartRateView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Image(systemName: "heart.fill")
-                    .font(.system(size: 26))
-                    .foregroundStyle(.red)
+            HStack(alignment: .center, spacing: 7) {
                 Text(workout.heartRate > 0 ? String(format: "%.0f", workout.heartRate) : "--")
-                    .font(.system(size: 44, weight: .heavy, design: .rounded))
+                    .font(.system(size: 56, weight: .heavy, design: .rounded))
                     .monospacedDigit()
+                    .minimumScaleFactor(0.6)
                     .foregroundStyle(.white)
+                Image(systemName: "heart.fill")
+                    .font(.system(size: 28))
+                    .foregroundStyle(.red)
                 // v7: 현재 심박 존 칩 (영역 1~5, Apple 컬러 문법)
                 if workout.currentZone > 0 {
                     Text("영역 \(workout.currentZone)")
-                        .font(.system(size: 14, weight: .heavy, design: .rounded))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
+                        .font(.system(size: 16, weight: .heavy, design: .rounded))
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4)
                         .background(Capsule().fill(Self.zoneColors[workout.currentZone - 1].opacity(0.85)))
                         .foregroundStyle(workout.currentZone >= 3 ? .black : .white)
                 }
@@ -177,17 +188,17 @@ struct HeartRateView: View {
 
             if avgHr > 0 {
                 Text(String(format: "평균 %.0f bpm · 최대 %.0f", avgHr, workout.maxHeartRate))
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .foregroundStyle(.secondary)
             } else {
                 Text("심박 측정 중…")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .foregroundStyle(.secondary)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .padding(.leading, 16)
-        .padding(.trailing, 10)
+        .padding(.leading, 10)
+        .padding(.trailing, 6)
     }
 }
 

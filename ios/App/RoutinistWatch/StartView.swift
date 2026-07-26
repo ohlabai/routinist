@@ -86,59 +86,125 @@ struct StartView: View {
     }
 }
 
-// v9: 목표 선택 시트 — 거리/시간 프리셋
+// v10: 목표 선택 시트 — ± 버튼으로 1km/5분 단위 자유 조정 (hans: "13km 목표를 못 잡네")
 struct GoalPickerView: View {
     @EnvironmentObject var workout: WorkoutManager
     @Environment(\.dismiss) private var dismiss
 
     private let emerald = Color(red: 0.20, green: 0.83, blue: 0.60)
 
+    enum Mode: String, CaseIterable { case none = "없음", distance = "거리", time = "시간" }
+    @State private var mode: Mode = .none
+    @State private var km: Double = 5
+    @State private var minutes: Int = 30
+
     var body: some View {
         ScrollView {
-            VStack(spacing: 6) {
+            VStack(spacing: 8) {
                 Text("목표 설정")
                     .font(.system(size: 16, weight: .heavy, design: .rounded))
 
-                goalRow(.open)
-                Text("거리")
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                goalRow(.distanceKm(3))
-                goalRow(.distanceKm(5))
-                goalRow(.distanceKm(10))
-                goalRow(.distanceKm(21.1))
-                Text("시간")
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                goalRow(.timeMin(15))
-                goalRow(.timeMin(30))
-                goalRow(.timeMin(60))
+                // 모드 선택
+                HStack(spacing: 4) {
+                    ForEach(Mode.allCases, id: \.self) { m in
+                        Button {
+                            mode = m
+                        } label: {
+                            Text(m.rawValue)
+                                .font(.system(size: 14, weight: .heavy, design: .rounded))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 7)
+                        }
+                        .buttonStyle(.plain)
+                        .background(Capsule().fill(mode == m ? emerald.opacity(0.85) : Color.white.opacity(0.1)))
+                        .foregroundStyle(mode == m ? .black : .white)
+                    }
+                }
+
+                if mode == .distance {
+                    stepperRow(value: String(format: km == km.rounded() ? "%.0f" : "%.1f", km), unit: "km",
+                               minus: { km = max(1, km - 1) }, plus: { km = min(60, km + 1) })
+                    // 빠른 프리셋
+                    HStack(spacing: 4) {
+                        presetChip("5") { km = 5 }
+                        presetChip("10") { km = 10 }
+                        presetChip("하프") { km = 21.1 }
+                        presetChip("풀") { km = 42.2 }
+                    }
+                } else if mode == .time {
+                    stepperRow(value: "\(minutes)", unit: "분",
+                               minus: { minutes = max(5, minutes - 5) }, plus: { minutes = min(300, minutes + 5) })
+                } else {
+                    Text("자유 러닝 — 목표 없이 달려요")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 6)
+                }
+
+                Button {
+                    switch mode {
+                    case .none: workout.goal = .open
+                    case .distance: workout.goal = .distanceKm(km)
+                    case .time: workout.goal = .timeMin(minutes)
+                    }
+                    dismiss()
+                } label: {
+                    Text("완료")
+                        .font(.system(size: 16, weight: .heavy, design: .rounded))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                }
+                .buttonStyle(.plain)
+                .background(RoundedRectangle(cornerRadius: 14).fill(emerald))
+                .foregroundStyle(.black)
             }
             .padding(.horizontal, 4)
         }
+        .onAppear {
+            // 현재 목표로 초기화
+            switch workout.goal {
+            case .open: mode = .none
+            case .distanceKm(let v): mode = .distance; km = v
+            case .timeMin(let m): mode = .time; minutes = m
+            }
+        }
     }
 
-    private func goalRow(_ g: WorkoutManager.RunGoal) -> some View {
-        Button {
-            workout.goal = g
-            dismiss()
-        } label: {
-            HStack {
-                Text(g.label)
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
-                Spacer()
-                if workout.goal == g {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 13, weight: .heavy))
-                        .foregroundStyle(emerald)
-                }
+    private func stepperRow(value: String, unit: String, minus: @escaping () -> Void, plus: @escaping () -> Void) -> some View {
+        HStack(spacing: 8) {
+            stepBtn("minus") { minus() }
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(value)
+                    .font(.system(size: 40, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(emerald)
+                Text(unit)
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundStyle(.secondary)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 9)
+            .frame(maxWidth: .infinity)
+            stepBtn("plus") { plus() }
+        }
+    }
+
+    private func stepBtn(_ symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 20, weight: .heavy))
+                .frame(width: 44, height: 44)
         }
         .buttonStyle(.plain)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(workout.goal == g ? 0.16 : 0.08)))
+        .background(Circle().fill(Color.white.opacity(0.14)))
+    }
+
+    private func presetChip(_ label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+        }
+        .buttonStyle(.plain)
+        .background(Capsule().fill(Color.white.opacity(0.1)))
     }
 }

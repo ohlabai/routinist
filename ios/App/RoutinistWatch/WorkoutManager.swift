@@ -24,10 +24,23 @@ final class WorkoutManager: NSObject, ObservableObject {
     private var lastKmElapsedSec: TimeInterval = 0
     @Published var lastSplitPaceSecPerKm: Double?
 
+    private static var audioConfigured = false
+
     func speak(_ text: String) {
+        // v10 fix (320 실기기: "음성이 안 들려"): watchOS 는 AVAudioSession 을
+        // .playback 으로 활성화하지 않으면 TTS 가 스피커에서 무음.
+        // 카테고리는 1회 등록, setActive 는 발화 직전 lazy (폰 build 241 계약과 동일 패턴).
+        let session = AVAudioSession.sharedInstance()
+        if !Self.audioConfigured {
+            try? session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+            Self.audioConfigured = true
+        }
+        try? session.setActive(true)
+
         let u = AVSpeechUtterance(string: text)
         u.voice = AVSpeechSynthesisVoice(language: "ko-KR")
-        u.volume = 0.65   // 폰 앱 음성과 동일 톤 (feedback_voice_cue_tuning)
+        // 워치 스피커는 출력이 작아 0.9 — 이어폰 연결 시에도 과하지 않은 선
+        u.volume = 0.9
         u.rate = AVSpeechUtteranceDefaultSpeechRate * 0.95
         speech.speak(u)
     }
