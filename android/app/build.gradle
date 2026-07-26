@@ -10,7 +10,8 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         // iOS 빌드 번호와 동기 — iOS marketing 1.2.13 / build 324 와 정렬.
         // Android 만 단독 증가 시 충돌 피하려고 의도적으로 같은 versionCode 사용.
-        versionCode 324
+        // 325: 갤럭시 워치(:wear) 완주 러닝 수신부(WatchRunReceiverService) 추가 — 안드로이드 단독 bump.
+        versionCode 325
         versionName "1.2.13"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
