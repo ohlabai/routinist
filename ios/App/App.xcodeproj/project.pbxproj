@@ -23,7 +23,9 @@
 		8D4669B73D18D73B50686693 /* RoutinistWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = BBF71DF048AB7910A3B04436 /* RoutinistWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		9DFB7E0CFD4507D8DE322BE6 /* SummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98FAEC2373783EBC2122FD02 /* SummaryView.swift */; };
 		A1B2C3D420260505FAFA0002 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D420260505FAFA0001 /* GoogleService-Info.plist */; };
+		AA464224BEED90C938E787D1 /* PixelArt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A66BE129636BB35C571C9FD /* PixelArt.swift */; };
 		AD9708F9E85B21D622C4DD5C /* RoutinistWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C853828F10B353946C6AD25 /* RoutinistWatchApp.swift */; };
+		C0E658714DE598966FB2DBD2 /* CountdownView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9AFD58CC24CE005359EE162 /* CountdownView.swift */; };
 		FB0DCD6176A3DEF61ED11109 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6384B1BF79DC48242C7A7C47 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -71,9 +73,11 @@
 		6C853828F10B353946C6AD25 /* RoutinistWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RoutinistWatchApp.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		98FAEC2373783EBC2122FD02 /* SummaryView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SummaryView.swift; sourceTree = "<group>"; };
+		9A66BE129636BB35C571C9FD /* PixelArt.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PixelArt.swift; sourceTree = "<group>"; };
 		A1B2C3D420260505FAFA0001 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		BBF71DF048AB7910A3B04436 /* RoutinistWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RoutinistWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C1BD5861ACAFB46E635A56DA /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		E9AFD58CC24CE005359EE162 /* CountdownView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CountdownView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -107,6 +111,8 @@
 				C1BD5861ACAFB46E635A56DA /* Info.plist */,
 				6A62064EA6067EC47F14CCC4 /* RoutinistWatch.entitlements */,
 				6384B1BF79DC48242C7A7C47 /* Assets.xcassets */,
+				9A66BE129636BB35C571C9FD /* PixelArt.swift */,
+				E9AFD58CC24CE005359EE162 /* CountdownView.swift */,
 			);
 			name = RoutinistWatch;
 			path = RoutinistWatch;
@@ -280,6 +286,8 @@
 				3A13427D02448E5F929ADF6D /* StartView.swift in Sources */,
 				5FCF9EA95F2DFEC28C11D58B /* SessionPagingView.swift in Sources */,
 				9DFB7E0CFD4507D8DE322BE6 /* SummaryView.swift in Sources */,
+				AA464224BEED90C938E787D1 /* PixelArt.swift in Sources */,
+				C0E658714DE598966FB2DBD2 /* CountdownView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

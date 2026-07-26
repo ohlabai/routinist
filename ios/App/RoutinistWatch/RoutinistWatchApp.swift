@@ -29,6 +29,8 @@ struct RootView: View {
         switch workout.phase {
         case .idle, .requesting:
             StartView()
+        case .countdown:
+            CountdownView()
         case .active, .paused:
             SessionPagingView()
         case .ended:

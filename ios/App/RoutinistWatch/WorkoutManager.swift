@@ -4,6 +4,7 @@
 
 import Foundation
 import HealthKit
+import WatchKit
 
 @MainActor
 final class WorkoutManager: NSObject, ObservableObject {
@@ -14,13 +15,15 @@ final class WorkoutManager: NSObject, ObservableObject {
     private var builder: HKLiveWorkoutBuilder?
 
     // ── 화면 상태 ──────────────────────────────────────────────
-    enum Phase { case idle, requesting, active, paused, ended }
+    enum Phase { case idle, requesting, countdown, active, paused, ended }
     @Published var phase: Phase = .idle
     @Published var elapsedSeconds: TimeInterval = 0
     @Published var distanceMeters: Double = 0
     @Published var heartRate: Double = 0
     @Published var activeCalories: Double = 0
     @Published var authDenied = false
+    // 심박 스파크라인용 최근 샘플 (심박 페이지 그래프)
+    @Published var hrSamples: [Double] = []
     // 종료 요약
     @Published var summary: WorkoutSummary?
 
@@ -42,13 +45,22 @@ final class WorkoutManager: NSObject, ObservableObject {
     /// 시뮬레이터 UI 스크린샷용 — launch argument 로 mock 상태 주입 (HealthKit 불필요).
     func applyUIPreviewIfRequested() {
         let args = ProcessInfo.processInfo.arguments
-        if args.contains("-uipreview-metrics") || args.contains("-uipreview-controls") {
+        if args.contains("-uipreview-metrics") || args.contains("-uipreview-controls") || args.contains("-uipreview-hr") {
             phase = .active; elapsedSeconds = 1264; distanceMeters = 4230; heartRate = 156; activeCalories = 231
+            // 그럴싸한 심박 곡선 (워밍업 → 상승 → 고원)
+            hrSamples = (0..<120).map { i in
+                let t = Double(i) / 120.0
+                let base = 105.0 + 55.0 * min(1.0, t * 2.2)
+                let wobble = 6.0 * sin(Double(i) * 0.55) + 3.0 * sin(Double(i) * 0.13)
+                return base + wobble
+            }
         } else if args.contains("-uipreview-paused") {
             phase = .paused; elapsedSeconds = 1264; distanceMeters = 4230; heartRate = 121; activeCalories = 231
         } else if args.contains("-uipreview-summary") {
             summary = WorkoutSummary(distanceMeters: 5012, elapsedSeconds: 1650, avgHeartRate: 152, calories: 320)
             phase = .ended
+        } else if args.contains("-uipreview-countdown") {
+            phase = .countdown
         }
     }
     #endif
@@ -69,9 +81,16 @@ final class WorkoutManager: NSObject, ObservableObject {
         healthStore.requestAuthorization(toShare: typesToShare, read: typesToRead) { [weak self] ok, _ in
             Task { @MainActor in
                 guard let self else { return }
-                if ok { self.startWorkout() } else { self.authDenied = true; self.phase = .idle }
+                // 3-2-1 카운트다운 (Apple 운동앱 문법) → CountdownView 가 beginSession() 호출
+                if ok { self.phase = .countdown } else { self.authDenied = true; self.phase = .idle }
             }
         }
+    }
+
+    /// 카운트다운 종료 후 실제 세션 시작
+    func beginSession() {
+        WKInterfaceDevice.current().play(.start)
+        startWorkout()
     }
 
     // ── 세션 라이프사이클 ──────────────────────────────────────
@@ -116,6 +135,7 @@ final class WorkoutManager: NSObject, ObservableObject {
         distanceMeters = 0
         heartRate = 0
         activeCalories = 0
+        hrSamples = []
         summary = nil
     }
 
@@ -126,6 +146,10 @@ final class WorkoutManager: NSObject, ObservableObject {
         case HKQuantityType.quantityType(forIdentifier: .heartRate):
             let unit = HKUnit.count().unitDivided(by: .minute())
             heartRate = statistics.mostRecentQuantity()?.doubleValue(for: unit) ?? heartRate
+            if heartRate > 0 {
+                hrSamples.append(heartRate)
+                if hrSamples.count > 240 { hrSamples.removeFirst(hrSamples.count - 240) }
+            }
         case HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning):
             distanceMeters = statistics.sumQuantity()?.doubleValue(for: .meter()) ?? distanceMeters
         case HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned):

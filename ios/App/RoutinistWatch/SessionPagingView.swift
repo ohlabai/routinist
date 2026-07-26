@@ -1,30 +1,36 @@
-// 러닝 중 페이지 — 좌: 컨트롤 / 우: 메트릭 (Apple 운동앱 패턴).
-// 2026-07-26 hans: 달리면서 흘끗 봐도 읽히게 글씨 대폭 확대 — Apple Fitness 문법
-// (좌정렬 거대 숫자 스택, 라벨은 단위로 대체) + rounded 폰트로 친근하게.
+// 러닝 중 페이지 — 컨트롤 | 메트릭 | 심박 그래프 (Apple 운동앱 패턴, 페이지 dots).
+// 2026-07-26 hans: 큰 글씨 + 그래프 시각화 업그레이드.
 
 import SwiftUI
+import WatchKit
 
 struct SessionPagingView: View {
     @EnvironmentObject var workout: WorkoutManager
     @State private var selection: Tab
 
-    enum Tab { case controls, metrics }
+    enum Tab { case controls, metrics, heart }
 
     init() {
-        // DEBUG 스크린샷: -uipreview-controls 면 컨트롤 페이지로 시작
+        // DEBUG 스크린샷: -uipreview-controls / -uipreview-hr 로 시작 페이지 지정
+        let args = ProcessInfo.processInfo.arguments
         _selection = State(initialValue:
-            ProcessInfo.processInfo.arguments.contains("-uipreview-controls") ? .controls : .metrics)
+            args.contains("-uipreview-controls") ? .controls
+            : args.contains("-uipreview-hr") ? .heart
+            : .metrics)
     }
 
     var body: some View {
         TabView(selection: $selection) {
             ControlsView().tag(Tab.controls)
             MetricsView().tag(Tab.metrics)
+            HeartRateView().tag(Tab.heart)
         }
         .tabViewStyle(.page)
         .navigationBarBackButtonHidden(true)
     }
 }
+
+// ── 메트릭 (기본 페이지) ────────────────────────────────────────
 
 struct MetricsView: View {
     @EnvironmentObject var workout: WorkoutManager
@@ -56,6 +62,9 @@ struct MetricsView: View {
                     .font(.system(size: 34, weight: .heavy, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(.white)
+                Text("bpm")
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundStyle(.secondary)
             }
 
             if workout.phase == .paused {
@@ -83,39 +92,139 @@ struct MetricsView: View {
     }
 }
 
+// ── 심박 그래프 페이지 ──────────────────────────────────────────
+
+struct HeartRateView: View {
+    @EnvironmentObject var workout: WorkoutManager
+
+    private var avgHr: Double {
+        workout.hrSamples.isEmpty ? 0 : workout.hrSamples.reduce(0, +) / Double(workout.hrSamples.count)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: "heart.fill")
+                    .font(.system(size: 26))
+                    .foregroundStyle(.red)
+                Text(workout.heartRate > 0 ? String(format: "%.0f", workout.heartRate) : "--")
+                    .font(.system(size: 44, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(.white)
+                Text("bpm")
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundStyle(.secondary)
+            }
+
+            HeartSparkline(samples: workout.hrSamples)
+                .frame(height: 64)
+
+            if avgHr > 0 {
+                Text(String(format: "평균 %.0f bpm", avgHr))
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("심박 측정 중…")
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .padding(.horizontal, 4)
+    }
+}
+
+/// 심박 스파크라인 — 빨간 라인 + 그라데이션 필
+struct HeartSparkline: View {
+    let samples: [Double]
+
+    var body: some View {
+        Canvas { ctx, size in
+            guard samples.count >= 2 else { return }
+            let minV = (samples.min() ?? 60) - 5
+            let maxV = (samples.max() ?? 180) + 5
+            let range = max(1, maxV - minV)
+            let stepX = size.width / CGFloat(samples.count - 1)
+
+            func point(_ i: Int) -> CGPoint {
+                CGPoint(x: CGFloat(i) * stepX,
+                        y: size.height * (1 - CGFloat((samples[i] - minV) / range)))
+            }
+
+            var line = Path()
+            line.move(to: point(0))
+            for i in 1..<samples.count { line.addLine(to: point(i)) }
+
+            // 그라데이션 필 (라인 아래)
+            var fill = line
+            fill.addLine(to: CGPoint(x: size.width, y: size.height))
+            fill.addLine(to: CGPoint(x: 0, y: size.height))
+            fill.closeSubpath()
+            ctx.fill(fill, with: .linearGradient(
+                Gradient(colors: [Color.red.opacity(0.35), Color.red.opacity(0.02)]),
+                startPoint: .zero, endPoint: CGPoint(x: 0, y: size.height)))
+
+            ctx.stroke(line, with: .color(.red), style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+
+            // 현재 값 점
+            let last = point(samples.count - 1)
+            ctx.fill(Path(ellipseIn: CGRect(x: last.x - 3.5, y: last.y - 3.5, width: 7, height: 7)), with: .color(.white))
+        }
+    }
+}
+
+// ── 컨트롤 페이지 (Apple 운동앱 그리드) ─────────────────────────
+
 struct ControlsView: View {
     @EnvironmentObject var workout: WorkoutManager
 
     var body: some View {
-        HStack(spacing: 10) {
-            VStack(spacing: 6) {
-                Button {
-                    workout.endWorkout()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 26, weight: .heavy))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 22)
+        VStack(spacing: 8) {
+            HStack(spacing: 10) {
+                VStack(spacing: 5) {
+                    Button {
+                        workout.endWorkout()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 24, weight: .heavy))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 18)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.red.opacity(0.85))
+                    Text("종료")
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.red.opacity(0.85))
-                Text("종료")
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
-            }
-            VStack(spacing: 6) {
-                Button {
-                    workout.togglePause()
-                } label: {
-                    Image(systemName: workout.phase == .paused ? "arrow.clockwise" : "pause")
-                        .font(.system(size: 26, weight: .heavy))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 22)
+                VStack(spacing: 5) {
+                    Button {
+                        workout.togglePause()
+                    } label: {
+                        Image(systemName: workout.phase == .paused ? "arrow.clockwise" : "pause")
+                            .font(.system(size: 24, weight: .heavy))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 18)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.yellow.opacity(0.9))
+                    Text(workout.phase == .paused ? "재개" : "일시정지")
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.yellow.opacity(0.9))
-                Text(workout.phase == .paused ? "재개" : "일시정지")
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
             }
+            // 화면 잠금 (물·소매 오터치 방지) — Apple 운동앱의 물잠금 문법
+            Button {
+                WKInterfaceDevice.current().enableWaterLock()
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "drop.fill")
+                        .font(.system(size: 15, weight: .bold))
+                    Text("화면 잠금")
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+            }
+            .buttonStyle(.bordered)
+            .tint(.cyan)
         }
         .padding(.horizontal, 4)
     }
