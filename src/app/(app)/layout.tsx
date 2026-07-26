@@ -196,7 +196,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     const flagKey = `first_sync_done:${user.id}`;
     if (typeof window === 'undefined') return;
     const alreadyDone = window.localStorage.getItem(flagKey);
-    if (alreadyDone) return;
+    // build 317 (삼성헬스 리뷰): 첫 1회 이후 자동 재동기화가 전혀 없어 삼성헬스/애플헬스의
+    // 새 러닝이 수동 새로고침 전까지 안 들어왔음 → 앱 열 때 마지막 sync 6시간 경과면 재동기화.
+    const lastKey = `last_health_sync:${user.id}`;
+    const STALE_MS = 6 * 60 * 60 * 1000;
+    const lastTs = Number(window.localStorage.getItem(lastKey) ?? 0);
+    if (alreadyDone && Date.now() - lastTs < STALE_MS) return;
 
     // 첫 paint 이후로 defer (홈 hero 렌더 후 background 진입).
     const deferTimer = setTimeout(() => {
@@ -204,6 +209,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         try {
           const now = Date.now();
           lastSyncRef.current = now;
+          // 시도 시점에 기록 — HK 에러 반복 시 앱 열 때마다 재시도하는 폭주 방지 (6h 스로틀)
+          window.localStorage.setItem(lastKey, String(now));
           const r = await Promise.race([
             syncHealthData(user.id),
             new Promise<never>((_, reject) =>

@@ -74,6 +74,40 @@ export async function respondFriendRequest(requestId: string, accept: boolean): 
   }
 }
 
+// build 317 (2026-07-26 hans): "친구는 신청+수락 화면으로" — /social 검색·/nearby 의 즉시 follow 를
+// 신청 모델로 통일. 리스트 (수십 행) 가 버튼마다 상태를 물으면 N+1 → 모듈 캐시 (cheer-data 패턴).
+// receiverId → pending requestId.
+let sentPendingCache: { at: number; map: Map<string, string> } | null = null;
+let sentPendingInflight: Promise<Map<string, string>> | null = null;
+const SENT_PENDING_TTL_MS = 60_000;
+
+export async function getMySentPendingMap(): Promise<Map<string, string>> {
+  if (sentPendingCache && Date.now() - sentPendingCache.at < SENT_PENDING_TTL_MS) {
+    return sentPendingCache.map;
+  }
+  if (sentPendingInflight) return sentPendingInflight;
+  sentPendingInflight = (async () => {
+    try {
+      const requests = await fetchSentFriendRequests();
+      const map = new Map(requests.map(r => [r.receiver_id, r.id]));
+      sentPendingCache = { at: Date.now(), map };
+      return map;
+    } catch {
+      return sentPendingCache?.map ?? new Map<string, string>();
+    } finally {
+      sentPendingInflight = null;
+    }
+  })();
+  return sentPendingInflight;
+}
+
+/** 신청/취소 직후 캐시를 즉시 패치 — 다음 fetch 전까지 화면 간 일관성 유지. */
+export function touchSentPendingCache(receiverId: string, requestId: string | null) {
+  if (!sentPendingCache) sentPendingCache = { at: Date.now(), map: new Map() };
+  if (requestId) sentPendingCache.map.set(receiverId, requestId);
+  else sentPendingCache.map.delete(receiverId);
+}
+
 export type FriendshipStatus = 'none' | 'request_sent' | 'request_received' | 'friend';
 
 export interface FriendshipState {

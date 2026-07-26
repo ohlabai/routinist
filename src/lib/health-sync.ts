@@ -391,8 +391,14 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     setStage('query-workouts');
 
     // 기본은 러닝만. 걷기는 연동 페이지 토글을 켠 사용자만 병렬 fetch (기본 OFF).
-    const workoutTypes: ReadonlyArray<'running' | 'walking'> =
-      isWalkingSyncEnabled() ? ['running', 'walking'] : ['running'];
+    // build 317 (삼성헬스 리뷰): Android Health Connect 는 트레드밀 러닝이 별도 타입
+    // (EXERCISE_TYPE_RUNNING_TREADMILL) 이라 'running' 정확 매칭에서 떨어져 나감 →
+    // 삼성헬스 실내 러닝이 통째로 누락되던 갭. Android 만 추가 (iOS 는 .running 에 실내 포함).
+    const workoutTypes: ReadonlyArray<'running' | 'walking' | 'runningTreadmill'> = [
+      'running',
+      ...(isAndroid ? (['runningTreadmill'] as const) : []),
+      ...(isWalkingSyncEnabled() ? (['walking'] as const) : []),
+    ];
     const queryErrors: string[] = [];
     const queryResults = await Promise.all(workoutTypes.map(async (wType) => {
       try {
@@ -1278,8 +1284,10 @@ export async function syncHealthData(userId: string, options?: SyncOptions): Pro
     // 권한 거부 케이스에선 후처리 의미 없음.
     if (!result.authDenied) {
       void updateProfileTotals(userId).catch((e) => console.warn('[health-sync] updateProfileTotals 백그라운드 실패', e));
-      // GPS 경로 sync 는 iOS 전용 (Android 는 Phase B) — Android 에선 라벨도 띄우지 않음.
-      if (platform === 'ios') {
+      // build 317 (삼성헬스 리뷰): GPS 경로 sync 를 Android 에도 개방 — WorkoutRoute 플러그인은
+      // 321f419 에서 이미 개통 (READ_EXERCISE_ROUTE 권한 선언 포함). 이전엔 "Phase B" 주석 잔재로
+      // iOS 전용이라 삼성헬스 러닝이 지도 없이 들어오고, 지도 페이지를 열어야만 경로가 붙었음.
+      if (platform === 'ios' || platform === 'android') {
         options?.onProgress?.({ stage: 'route', percent: 95, label: ttl('GPS 경로 백그라운드 동기화...') });
         // syncRouteData 가 끝난 후에 region 자동 등록 — route_data 가 채워진 활동이 필요.
         void syncRouteData(userId)

@@ -7,7 +7,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, MapPin, Users, Activity, MessageCircle, Search, UserPlus, Zap, Globe, Share2 } from 'lucide-react';
+import { ArrowLeft, MapPin, Users, Activity, MessageCircle, Search, UserPlus, Zap, Globe, Share2, Clock } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import {
   fetchNearbyRunners,
@@ -21,7 +21,12 @@ import {
   type NearbyScope,
   type PaceMatchedRunner,
 } from '@/lib/nearby-data';
-import { followUser, unfollowUser, fetchFollowing } from '@/lib/social-data';
+import { unfollowUser, fetchFollowing } from '@/lib/social-data';
+// build 317 (2026-07-26 hans): 즉시 follow → 신청+수락 모델 통일 (FollowButton 과 동일)
+import {
+  sendFriendRequest, cancelFriendRequest,
+  getMySentPendingMap, touchSentPendingCache,
+} from '@/lib/friend-requests-data';
 import { shareInvite } from '@/lib/referral-data';
 import GenderBadge from '@/components/profile/GenderBadge';
 import AppLogo from '@/components/AppLogo';
@@ -49,6 +54,8 @@ export default function NearbyPage() {
   const [runners, setRunners] = useState<NearbyRunner[]>([]);
   const [paceRunners, setPaceRunners] = useState<PaceMatchedRunner[]>([]);
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
+  // build 317: 내가 보낸 pending 신청 (receiverId → requestId) — 버튼 "신청 보냄" 상태용
+  const [sentMap, setSentMap] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
@@ -63,21 +70,26 @@ export default function NearbyPage() {
     setLoading(true);
     try {
       const followingPromise = fetchFollowing(user.id).catch(() => []);
+      const sentPromise = getMySentPendingMap().catch(() => new Map<string, string>());
       if (mode === 'pace') {
-        const [pace, following] = await Promise.all([
+        const [pace, following, sent] = await Promise.all([
           fetchPaceMatchedRunners(20).catch(() => []),
           followingPromise,
+          sentPromise,
         ]);
         setPaceRunners(pace);
         setFollowingIds(new Set(following.map(f => f.id)));
+        setSentMap(new Map(sent));
         track('nearby_search', { mode: 'pace', result_count: pace.length });
       } else {
-        const [list, following] = await Promise.all([
+        const [list, following, sent] = await Promise.all([
           fetchNearbyRunners(scope, 100),
           followingPromise,
+          sentPromise,
         ]);
         setRunners(list);
         setFollowingIds(new Set(following.map(f => f.id)));
+        setSentMap(new Map(sent));
         track('nearby_search', { mode: 'region', scope, result_count: list.length });
       }
     } catch (e) {
@@ -106,23 +118,42 @@ export default function NearbyPage() {
     }
   }, [user, profile?.region_gu, mode, scope, search]);
 
+  // build 317: 즉시 follow → 신청 모델. none → 신청 / sent → 취소 confirm / friend → 해제 confirm.
   const handleFollow = async (target: NearbyRunner) => {
     if (busy === target.user_id) return;
     setBusy(target.user_id);
     const isFollowing = followingIds.has(target.user_id);
+    const sentId = sentMap.get(target.user_id);
     try {
       if (isFollowing) {
+        if (!window.confirm(locale === 'en' ? 'Remove this friend?' : '친구에서 해제할까요?')) return;
         await unfollowUser(target.user_id);
         setFollowingIds(prev => { const n = new Set(prev); n.delete(target.user_id); return n; });
-        showToast(tt('친구 끊기'));
+        showToast(tt('친구에서 해제했어요'));
+      } else if (sentId) {
+        if (!window.confirm(locale === 'en' ? 'Cancel this friend request?' : '보낸 친구 신청을 취소할까요?')) return;
+        await cancelFriendRequest(sentId);
+        setSentMap(prev => { const n = new Map(prev); n.delete(target.user_id); return n; });
+        touchSentPendingCache(target.user_id, null);
+        showToast(tt('신청을 취소했어요'));
       } else {
-        await followUser(target.user_id);
-        setFollowingIds(prev => new Set(prev).add(target.user_id));
-        showToast(tt('친구 추가됨'));
+        const rid = await sendFriendRequest(target.user_id);
+        if (rid) {
+          setSentMap(prev => new Map(prev).set(target.user_id, rid));
+          touchSentPendingCache(target.user_id, rid);
+        }
+        showToast(tt('친구 신청을 보냈어요 💌'));
         track('nearby_follow', { target: target.user_id });
       }
     } catch (e) {
-      showToast(e instanceof Error ? e.message : tt('실패'), 'warn');
+      const msg = e instanceof Error ? e.message : tt('실패');
+      // 서버 친근 안내 ("상대가 이미 친구 신청을 보냈어요!" / "이미 친구예요") 는 그대로
+      if (msg.includes('이미 친구')) {
+        setFollowingIds(prev => new Set(prev).add(target.user_id));
+        showToast(msg);
+      } else {
+        showToast(msg, msg.includes('상대가') ? 'ok' : 'warn');
+      }
     } finally {
       setBusy(null);
     }
@@ -210,6 +241,7 @@ export default function NearbyPage() {
             runners={paceRunners}
             loading={loading}
             followingIds={followingIds}
+            sentMap={sentMap}
             busy={busy}
             onFollow={(r) => handleFollow({ ...r, region_si: null, region_dong: null, bio: null, birth_year: null, total_runs: 0, total_distance_km: 0, last_active: null } as NearbyRunner)}
           />
@@ -267,6 +299,7 @@ export default function NearbyPage() {
                 {scope !== 'national' && (
                   <GlobalRunnersFallback
                     followingIds={followingIds}
+                    sentMap={sentMap}
                     busy={busy}
                     onFollow={handleFollow}
                   />
@@ -278,6 +311,7 @@ export default function NearbyPage() {
                   key={r.user_id}
                   r={r}
                   following={followingIds.has(r.user_id)}
+                  sent={sentMap.has(r.user_id)}
                   busy={busy === r.user_id}
                   onFollow={() => handleFollow(r)}
                 />
@@ -293,9 +327,11 @@ export default function NearbyPage() {
 }
 
 // 러너 카드 — 지역 결과 / 글로벌 fallback 공용 (build 293 추출).
-function RunnerCard({ r, following, busy, onFollow }: {
+function RunnerCard({ r, following, sent, busy, onFollow }: {
   r: NearbyRunner;
   following: boolean;
+  /** build 317: 친구 신청 보냄 (pending) 상태 */
+  sent: boolean;
   busy: boolean;
   onFollow: () => void;
 }) {
@@ -339,14 +375,16 @@ function RunnerCard({ r, following, busy, onFollow }: {
         <button
           onClick={onFollow}
           disabled={busy}
-          aria-label={following ? tt('친구 끊기') : tt('친구 추가')}
+          aria-label={following ? tt('친구 끊기') : sent ? tt('신청 보냄 · 탭하면 취소') : tt('친구 신청')}
           className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-50 transition ${
             following
               ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
-              : 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/25'
+              : sent
+                ? 'bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-300'
+                : 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/25'
           }`}
         >
-          <UserPlus size={16} />
+          {sent && !following ? <Clock size={16} /> : <UserPlus size={16} />}
         </button>
       </div>
       {/* 친선런 초대 버튼 제거 (단순화 B) — contest 기능 삭제. 쪽지만 유지. */}
@@ -364,8 +402,9 @@ function RunnerCard({ r, following, busy, onFollow }: {
 
 // build 293: 지역 결과 0명일 때 "전 세계 러너" fallback — 이번 주 활동한 공개 러너 상위 N.
 // 해외 신규 시장에서 nearby 가 완전히 빈 화면이 되는 콜드스타트 방지.
-function GlobalRunnersFallback({ followingIds, busy, onFollow }: {
+function GlobalRunnersFallback({ followingIds, sentMap, busy, onFollow }: {
   followingIds: Set<string>;
+  sentMap: Map<string, string>;
   busy: string | null;
   onFollow: (r: NearbyRunner) => void;
 }) {
@@ -406,6 +445,7 @@ function GlobalRunnersFallback({ followingIds, busy, onFollow }: {
           key={r.user_id}
           r={r}
           following={followingIds.has(r.user_id)}
+          sent={sentMap.has(r.user_id)}
           busy={busy === r.user_id}
           onFollow={() => onFollow(r)}
         />
@@ -415,10 +455,11 @@ function GlobalRunnersFallback({ followingIds, busy, onFollow }: {
 }
 
 // 페이스 매칭 결과 — 30일 평균 페이스 ±20초 범위 러너
-function PaceMatchedSection({ runners, loading, followingIds, busy, onFollow }: {
+function PaceMatchedSection({ runners, loading, followingIds, sentMap, busy, onFollow }: {
   runners: PaceMatchedRunner[];
   loading: boolean;
   followingIds: Set<string>;
+  sentMap: Map<string, string>;
   busy: string | null;
   onFollow: (r: PaceMatchedRunner) => void;
 }) {
@@ -494,14 +535,16 @@ function PaceMatchedSection({ runners, loading, followingIds, busy, onFollow }: 
               <button
                 onClick={() => onFollow(r)}
                 disabled={busy === r.user_id}
-                aria-label={following ? tt('친구 끊기') : tt('친구 추가')}
+                aria-label={following ? tt('친구 끊기') : sentMap.has(r.user_id) ? tt('신청 보냄 · 탭하면 취소') : tt('친구 신청')}
                 className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-50 transition ${
                   following
                     ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
-                    : 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/25'
+                    : sentMap.has(r.user_id)
+                      ? 'bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-300'
+                      : 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/25'
                 }`}
               >
-                <UserPlus size={16} />
+                {sentMap.has(r.user_id) && !following ? <Clock size={16} /> : <UserPlus size={16} />}
               </button>
             </div>
           </article>
