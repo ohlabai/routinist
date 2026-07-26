@@ -20,6 +20,13 @@ struct SummaryView: View {
                 Text("완주! 🎉")
                     .font(.system(size: 30, weight: .heavy, design: .rounded))
 
+                // v12: 다른 운동 앱이 세션을 가져가 종료된 경우 — 이유 안내 (버그 아님을 명확히)
+                if workout.endedExternally {
+                    Text("다른 운동 앱이 시작되면서 러닝이 종료됐어요. 여기까지 기록은 저장했어요.")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.orange)
+                }
+
                 if let s = workout.summary {
                     summaryRow(label: "거리", value: String(format: "%.2f", s.distanceMeters / 1000), unit: "km", color: emerald)
                     summaryRow(label: "시간", value: formatElapsed(s.elapsedSeconds), unit: nil, color: .yellow)

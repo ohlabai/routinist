@@ -218,6 +218,10 @@ final class WorkoutManager: NSObject, ObservableObject {
     @Published var heartRate: Double = 0
     @Published var activeCalories: Double = 0
     @Published var authDenied = false
+    // v12: 외부 종료 구분 — 다른 운동 앱 (애플 피트니스 등) 이 세션을 시작하면 OS 가
+    // 우리 세션을 강제 종료 (.ended). 사용자가 종료 버튼을 안 눌렀는데 끝난 경우 안내용.
+    @Published var endedExternally = false
+    private var endRequested = false
     // 심박 스파크라인용 최근 샘플 (심박 페이지 그래프)
     @Published var hrSamples: [Double] = []
     // 종료 요약
@@ -394,6 +398,7 @@ final class WorkoutManager: NSObject, ObservableObject {
     }
 
     func endWorkout() {
+        endRequested = true
         stallTimer?.invalidate()
         stallTimer = nil
         pedometer.stopUpdates()
@@ -415,6 +420,8 @@ final class WorkoutManager: NSObject, ObservableObject {
         lastAnnouncedKm = 0
         lastKmElapsedSec = 0
         lastSplitPaceSecPerKm = nil
+        endedExternally = false
+        endRequested = false
         elapsedAnchorValue = 0
         elapsedAnchorDate = .distantPast
         stallTimer?.invalidate()
@@ -481,6 +488,8 @@ extension WorkoutManager: HKWorkoutSessionDelegate {
                 // 정지 화면 표시값을 builder 의 정확한 경과시간으로 고정
                 if let b = self.builder { self.elapsedSeconds = b.elapsedTime }
             case .ended:
+                // v12: 종료 버튼 없이 끝남 = 외부 종료 (다른 운동 앱이 세션을 가져감)
+                self.endedExternally = !self.endRequested
                 // 수집 종료 → HealthKit 저장 → 요약
                 self.builder?.endCollection(withEnd: date) { [weak self] _, _ in
                     self?.builder?.finishWorkout { _, _ in
