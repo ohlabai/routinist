@@ -29,6 +29,8 @@ struct CountdownView: View {
 
     private func tick() {
         WKInterfaceDevice.current().play(.click)
+        // v7 (hans): 폰과 동일하게 "삼 / 이 / 일" 음성 — "출발!" 은 beginSession 이 발화
+        workout.announceCount(count)
         ringProgress = CGFloat(count - 1) / 3.0
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             if count > 1 {

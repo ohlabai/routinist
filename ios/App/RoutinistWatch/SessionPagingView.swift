@@ -20,13 +20,24 @@ struct SessionPagingView: View {
     }
 
     var body: some View {
-        TabView(selection: $selection) {
-            ControlsView().tag(Tab.controls)
-            MetricsView().tag(Tab.metrics)
-            HeartRateView().tag(Tab.heart)
+        // v7: watchOS 10+ 는 세로 페이징 (Apple 운동앱 문법) — 크라운으로도 페이지 전환.
+        // watchOS 9 는 기존 가로 페이징 폴백.
+        Group {
+            if #available(watchOS 10.0, *) {
+                TabView(selection: $selection) { pages }
+                    .tabViewStyle(.verticalPage)
+            } else {
+                TabView(selection: $selection) { pages }
+                    .tabViewStyle(.page)
+            }
         }
-        .tabViewStyle(.page)
         .navigationBarBackButtonHidden(true)
+    }
+
+    @ViewBuilder private var pages: some View {
+        ControlsView().tag(Tab.controls)
+        MetricsView().tag(Tab.metrics)
+        HeartRateView().tag(Tab.heart)
     }
 }
 
@@ -52,8 +63,13 @@ struct MetricsView: View {
             // 거리
             bigMetric(String(format: "%.2f", workout.distanceMeters / 1000), unit: "km", color: emerald, size: 46)
 
-            // 페이스
-            bigMetric(formatPace(workout.paceSecPerKm), unit: "/km", color: .white, size: 40)
+            // 페이스 — 직전 KM 구간이 있으면 그걸 우선 (Apple '직전 KM' 문법), 없으면 평균
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                bigMetric(formatPace(workout.lastSplitPaceSecPerKm ?? workout.paceSecPerKm), unit: "/km", color: .white, size: 40)
+                Text(workout.lastSplitPaceSecPerKm != nil ? "직전KM" : "평균")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(.secondary)
+            }
 
             // 심박
             HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -67,9 +83,11 @@ struct MetricsView: View {
             }
 
             if workout.phase == .paused {
-                Text("일시정지됨")
+                Text(workout.isAutoPaused ? "자동 일시정지 — 움직이면 이어서" : "일시정지됨")
                     .font(.system(size: 14, weight: .bold, design: .rounded))
                     .foregroundStyle(.orange)
+                    .minimumScaleFactor(0.8)
+                    .lineLimit(1)
             } else {
                 // v5: 거리 잔디 게이지 — 1km 마다 한 칸씩 자람
                 DistanceGrassGauge(distanceMeters: workout.distanceMeters)
@@ -105,8 +123,10 @@ struct HeartRateView: View {
         workout.hrSamples.isEmpty ? 0 : workout.hrSamples.reduce(0, +) / Double(workout.hrSamples.count)
     }
 
+    private static let zoneColors: [Color] = [.blue, .green, .yellow, .orange, .red]
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 5) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Image(systemName: "heart.fill")
                     .font(.system(size: 26))
@@ -115,21 +135,36 @@ struct HeartRateView: View {
                     .font(.system(size: 44, weight: .heavy, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(.white)
-                Text("bpm")
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                    .foregroundStyle(.secondary)
+                // v7: 현재 심박 존 칩 (영역 1~5, Apple 컬러 문법)
+                if workout.currentZone > 0 {
+                    Text("영역 \(workout.currentZone)")
+                        .font(.system(size: 14, weight: .heavy, design: .rounded))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(Self.zoneColors[workout.currentZone - 1].opacity(0.85)))
+                        .foregroundStyle(workout.currentZone >= 3 ? .black : .white)
+                }
+            }
+
+            // v7: 존 세그먼트 바 — 현재 존이 크고 밝게
+            HStack(spacing: 3) {
+                ForEach(1...5, id: \.self) { z in
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(Self.zoneColors[z - 1].opacity(z == workout.currentZone ? 1.0 : 0.28))
+                        .frame(height: z == workout.currentZone ? 10 : 6)
+                }
             }
 
             HeartSparkline(samples: workout.hrSamples)
-                .frame(height: 64)
+                .frame(height: 52)
 
             if avgHr > 0 {
-                Text(String(format: "평균 %.0f bpm", avgHr))
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                Text(String(format: "평균 %.0f bpm · 최대 %.0f", avgHr, workout.maxHeartRate))
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .foregroundStyle(.secondary)
             } else {
                 Text("심박 측정 중…")
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .foregroundStyle(.secondary)
             }
         }

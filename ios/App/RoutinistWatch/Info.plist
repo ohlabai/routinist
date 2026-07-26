@@ -28,5 +28,7 @@
 	<string>달리기 중 심박수·거리를 실시간으로 보여주기 위해 건강 데이터를 읽어요.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>완주한 러닝을 Apple Health 운동으로 저장해 iPhone 의 Routinist 와 자동으로 동기화해요.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>자동 일시정지 후 다시 움직이면 러닝을 자동으로 이어서 재기 위해 걸음을 감지해요.</string>
 </dict>
 </plist>

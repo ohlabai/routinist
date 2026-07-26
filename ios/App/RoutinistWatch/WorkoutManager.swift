@@ -6,6 +6,7 @@ import Foundation
 import HealthKit
 import WatchKit
 import AVFoundation
+import CoreMotion
 
 @MainActor
 final class WorkoutManager: NSObject, ObservableObject {
@@ -15,17 +16,100 @@ final class WorkoutManager: NSObject, ObservableObject {
     private var session: HKWorkoutSession?
     private var builder: HKLiveWorkoutBuilder?
 
-    // ── 음성 (v6, 2026-07-26 hans: "시작할 때 음성 안 나오는 거 같은데") ──
+    // ── 음성 (v6~7, 2026-07-26 hans) ──
     // 워치 자체 TTS — 워치에 페어링된 이어폰 또는 워치 스피커로 재생.
     private let speech = AVSpeechSynthesizer()
     private var lastAnnouncedKm = 0
+    // 직전 km 구간 페이스용 앵커 (v7)
+    private var lastKmElapsedSec: TimeInterval = 0
+    @Published var lastSplitPaceSecPerKm: Double?
 
-    private func speak(_ text: String) {
+    func speak(_ text: String) {
         let u = AVSpeechUtterance(string: text)
         u.voice = AVSpeechSynthesisVoice(language: "ko-KR")
         u.volume = 0.65   // 폰 앱 음성과 동일 톤 (feedback_voice_cue_tuning)
         u.rate = AVSpeechUtteranceDefaultSpeechRate * 0.95
         speech.speak(u)
+    }
+
+    /// v7: 카운트다운 음성 — 폰과 동일하게 "삼 / 이 / 일" (출발은 beginSession 이 발화)
+    func announceCount(_ n: Int) {
+        let words = ["", "일", "이", "삼"]
+        guard n >= 1 && n <= 3 else { return }
+        speak(words[n])
+    }
+
+    // ── 심박 존 (v7) — 최대심박 = 220 - 나이 (HealthKit 생년월일, 실패 시 190) ──
+    @Published var maxHeartRate: Double = 190
+
+    /// 현재 심박 존 1~5 (0 = 측정 전)
+    var currentZone: Int {
+        guard heartRate > 0 else { return 0 }
+        let pct = heartRate / maxHeartRate
+        if pct < 0.60 { return 1 }
+        if pct < 0.70 { return 2 }
+        if pct < 0.80 { return 3 }
+        if pct < 0.90 { return 4 }
+        return 5
+    }
+
+    private func loadMaxHeartRate() {
+        if let dob = try? healthStore.dateOfBirthComponents(),
+           let year = dob.year {
+            let age = Calendar.current.component(.year, from: Date()) - year
+            if age > 5 && age < 100 { maxHeartRate = Double(220 - age) }
+        }
+    }
+
+    // ── 자동 일시정지 (v7) — 15초간 거리 정지 → pause, 걸음 감지 → 자동 재개 ──
+    @Published var isAutoPaused = false
+    private var lastDistanceChangeAt = Date()
+    private var lastDistanceForStall: Double = 0
+    private var stallTimer: Timer?
+    private let pedometer = CMPedometer()
+
+    private func startStallWatch() {
+        lastDistanceChangeAt = Date()
+        lastDistanceForStall = distanceMeters
+        stallTimer?.invalidate()
+        stallTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.checkStall() }
+        }
+    }
+
+    private func checkStall() {
+        guard phase == .active else { return }
+        if distanceMeters - lastDistanceForStall >= 3 {
+            lastDistanceForStall = distanceMeters
+            lastDistanceChangeAt = Date()
+            return
+        }
+        if Date().timeIntervalSince(lastDistanceChangeAt) >= 15 {
+            // 자동 일시정지 (폰 엔진과 동일 컨셉)
+            session?.pause()
+            isAutoPaused = true
+            WKInterfaceDevice.current().play(.stop)
+            speak("자동 일시정지. 다시 움직이면 이어서 잴게요.")
+            startPedometerResumeWatch()
+        }
+    }
+
+    private func startPedometerResumeWatch() {
+        guard CMPedometer.isStepCountingAvailable() else { return }
+        let from = Date()
+        pedometer.startUpdates(from: from) { [weak self] data, _ in
+            guard let steps = data?.numberOfSteps.intValue, steps >= 12 else { return }
+            Task { @MainActor in
+                guard let self, self.isAutoPaused else { return }
+                self.pedometer.stopUpdates()
+                self.isAutoPaused = false
+                self.lastDistanceChangeAt = Date()
+                self.lastDistanceForStall = self.distanceMeters
+                self.session?.resume()
+                WKInterfaceDevice.current().play(.start)
+                self.speak("다시 시작합니다. 같이 가요.")
+            }
+        }
     }
 
     /// 1~99 한자어 수사 (폰 네이티브와 동일 — "십일 킬로미터" 오독 방지)
@@ -83,6 +167,8 @@ final class WorkoutManager: NSObject, ObservableObject {
         let args = ProcessInfo.processInfo.arguments
         if args.contains("-uipreview-metrics") || args.contains("-uipreview-controls") || args.contains("-uipreview-hr") {
             phase = .active; elapsedSeconds = 1264; distanceMeters = 4230; heartRate = 156; activeCalories = 231
+            lastSplitPaceSecPerKm = 282   // 4'42" — 직전 KM 표시 프리뷰
+            maxHeartRate = 190            // 156bpm → 존 4
             // 그럴싸한 심박 곡선 (워밍업 → 상승 → 고원)
             hrSamples = (0..<120).map { i in
                 let t = Double(i) / 120.0
@@ -108,6 +194,8 @@ final class WorkoutManager: NSObject, ObservableObject {
             HKQuantityType.quantityType(forIdentifier: .heartRate)!,
             HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning)!,
             HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)!,
+            // v7: 심박 존 계산용 나이 (220 - age)
+            HKCharacteristicType.characteristicType(forIdentifier: .dateOfBirth)!,
         ]
     }
 
@@ -127,7 +215,9 @@ final class WorkoutManager: NSObject, ObservableObject {
     func beginSession() {
         WKInterfaceDevice.current().play(.start)
         speak("출발!")
+        loadMaxHeartRate()
         startWorkout()
+        startStallWatch()
     }
 
     // ── 세션 라이프사이클 ──────────────────────────────────────
@@ -156,10 +246,23 @@ final class WorkoutManager: NSObject, ObservableObject {
 
     func togglePause() {
         guard let session else { return }
-        if phase == .active { session.pause() } else if phase == .paused { session.resume() }
+        if phase == .active {
+            session.pause()
+        } else if phase == .paused {
+            // 수동 재개 — 자동 일시정지 감시 상태 초기화
+            pedometer.stopUpdates()
+            isAutoPaused = false
+            lastDistanceChangeAt = Date()
+            lastDistanceForStall = distanceMeters
+            session.resume()
+        }
     }
 
     func endWorkout() {
+        stallTimer?.invalidate()
+        stallTimer = nil
+        pedometer.stopUpdates()
+        isAutoPaused = false
         session?.end()
     }
 
@@ -175,8 +278,14 @@ final class WorkoutManager: NSObject, ObservableObject {
         hrSamples = []
         summary = nil
         lastAnnouncedKm = 0
+        lastKmElapsedSec = 0
+        lastSplitPaceSecPerKm = nil
         elapsedAnchorValue = 0
         elapsedAnchorDate = .distantPast
+        stallTimer?.invalidate()
+        stallTimer = nil
+        pedometer.stopUpdates()
+        isAutoPaused = false
     }
 
     // ── 통계 반영 ─────────────────────────────────────────────
@@ -192,15 +301,19 @@ final class WorkoutManager: NSObject, ObservableObject {
             }
         case HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning):
             distanceMeters = statistics.sumQuantity()?.doubleValue(for: .meter()) ?? distanceMeters
-            // v6: km 마일스톤 — 햅틱 + 음성 ("N 킬로미터 통과. 평균 페이스 M분 S초. 잘하고 있어요")
+            // v6~7: km 마일스톤 — 햅틱 + 구간 페이스 음성 (폰 템플릿과 동일:
+            // "N 킬로미터 통과. 이번 구간 M분 S초. 잘하고 있어요")
             let km = Int(distanceMeters / 1000)
             if km > lastAnnouncedKm {
                 lastAnnouncedKm = km
+                let splitSec = elapsedSeconds - lastKmElapsedSec
+                lastKmElapsedSec = elapsedSeconds
+                if splitSec > 60 { lastSplitPaceSecPerKm = splitSec }  // 1km 구간 시간 = 구간 페이스
                 WKInterfaceDevice.current().play(.notification)
                 var text = "\(Self.sinoKorean(km)) 킬로미터 통과."
-                if let p = paceSecPerKm {
+                if let p = lastSplitPaceSecPerKm ?? paceSecPerKm {
                     let t = Int(p.rounded()), m = t / 60, s = t % 60
-                    text += s == 0 ? " 평균 페이스 \(m)분." : " 평균 페이스 \(m)분 \(s)초."
+                    text += s == 0 ? " 이번 구간 \(m)분." : " 이번 구간 \(m)분 \(s)초."
                 }
                 text += " 잘하고 있어요."
                 speak(text)
