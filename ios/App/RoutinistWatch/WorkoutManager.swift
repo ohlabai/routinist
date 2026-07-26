@@ -38,6 +38,21 @@ final class WorkoutManager: NSObject, ObservableObject {
         distanceMeters > 50 ? elapsedSeconds / (distanceMeters / 1000) : nil
     }
 
+    #if DEBUG
+    /// 시뮬레이터 UI 스크린샷용 — launch argument 로 mock 상태 주입 (HealthKit 불필요).
+    func applyUIPreviewIfRequested() {
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains("-uipreview-metrics") || args.contains("-uipreview-controls") {
+            phase = .active; elapsedSeconds = 1264; distanceMeters = 4230; heartRate = 156; activeCalories = 231
+        } else if args.contains("-uipreview-paused") {
+            phase = .paused; elapsedSeconds = 1264; distanceMeters = 4230; heartRate = 121; activeCalories = 231
+        } else if args.contains("-uipreview-summary") {
+            summary = WorkoutSummary(distanceMeters: 5012, elapsedSeconds: 1650, avgHeartRate: 152, calories: 320)
+            phase = .ended
+        }
+    }
+    #endif
+
     // ── 권한 ──────────────────────────────────────────────────
     private var typesToShare: Set<HKSampleType> { [HKObjectType.workoutType()] }
     private var typesToRead: Set<HKObjectType> {

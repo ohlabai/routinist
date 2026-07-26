@@ -8,6 +8,12 @@ import SwiftUI
 struct RoutinistWatchApp: App {
     @StateObject private var workout = WorkoutManager.shared
 
+    init() {
+        #if DEBUG
+        WorkoutManager.shared.applyUIPreviewIfRequested()
+        #endif
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()

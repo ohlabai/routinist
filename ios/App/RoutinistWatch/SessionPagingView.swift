@@ -4,9 +4,15 @@ import SwiftUI
 
 struct SessionPagingView: View {
     @EnvironmentObject var workout: WorkoutManager
-    @State private var selection: Tab = .metrics
+    @State private var selection: Tab
 
     enum Tab { case controls, metrics }
+
+    init() {
+        // DEBUG 스크린샷: -uipreview-controls 면 컨트롤 페이지로 시작
+        _selection = State(initialValue:
+            ProcessInfo.processInfo.arguments.contains("-uipreview-controls") ? .controls : .metrics)
+    }
 
     var body: some View {
         TabView(selection: $selection) {
