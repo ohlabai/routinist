@@ -22,6 +22,12 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>WKApplication</key>
 	<true/>
+	<key>WKBackgroundModes</key>
+	<array>
+		<!-- 필수: 없으면 화면 꺼짐/앱 이탈 시 워크아웃 세션이 백그라운드 유지 안 됨
+		     (322 fix — 음성 첫 발화 후 중단 + 복귀 시 완료 처리 버그의 공통 원인) -->
+		<string>workout-processing</string>
+	</array>
 	<key>WKCompanionAppBundleIdentifier</key>
 	<string>com.routinist.app</string>
 	<key>NSHealthShareUsageDescription</key>

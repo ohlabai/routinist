@@ -291,13 +291,71 @@ final class WorkoutManager: NSObject, ObservableObject {
     /// 카운트다운 종료 후 실제 세션 시작
     func beginSession() {
         WKInterfaceDevice.current().play(.start)
+        // v11: 오디오 세션을 워크아웃 내내 유지 — 백그라운드 (손목 내림) 발화의 전제조건.
+        // 인터럽션 (전화·시리 등) 종료 시 재활성화 옵저버도 1회 등록.
+        activateAudioSession()
+        registerAudioInterruptionObserverOnce()
         speak("출발!")
         loadMaxHeartRate()
         startWorkout()
         startStallWatch()
     }
 
+    private func activateAudioSession() {
+        let session = AVAudioSession.sharedInstance()
+        if !Self.audioConfigured {
+            try? session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+            Self.audioConfigured = true
+        }
+        try? session.setActive(true)
+    }
+
+    private static var interruptionObserverRegistered = false
+    private func registerAudioInterruptionObserverOnce() {
+        guard !Self.interruptionObserverRegistered else { return }
+        Self.interruptionObserverRegistered = true
+        NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            guard let info = note.userInfo,
+                  let typeRaw = info[AVAudioSessionInterruptionTypeKey] as? UInt,
+                  AVAudioSession.InterruptionType(rawValue: typeRaw) == .ended else { return }
+            Task { @MainActor in
+                guard let self, self.phase == .active || self.phase == .paused else { return }
+                self.activateAudioSession()
+            }
+        }
+    }
+
     // ── 세션 라이프사이클 ──────────────────────────────────────
+
+    /// v11: 앱 UI 프로세스가 재실행됐을 때 진행 중이던 워크아웃 세션에 재접속.
+    /// (watchOS 는 다른 화면 오래 보면 앱 UI 를 종료할 수 있음 — 세션은 살아 있음)
+    func recoverSessionIfNeeded() {
+        guard session == nil, phase == .idle else { return }
+        healthStore.recoverActiveWorkoutSession { [weak self] recovered, _ in
+            guard let recovered else { return }
+            Task { @MainActor in
+                guard let self, self.session == nil else { return }
+                let builder = recovered.associatedWorkoutBuilder()
+                builder.dataSource = HKLiveWorkoutDataSource(
+                    healthStore: self.healthStore,
+                    workoutConfiguration: recovered.workoutConfiguration
+                )
+                recovered.delegate = self
+                builder.delegate = self
+                self.session = recovered
+                self.builder = builder
+                self.phase = recovered.state == .paused ? .paused : .active
+                self.syncElapsed(builder.elapsedTime)
+                self.loadGoal()
+                self.loadMaxHeartRate()
+                self.activateAudioSession()
+                self.registerAudioInterruptionObserverOnce()
+                self.startStallWatch()
+            }
+        }
+    }
     private func startWorkout() {
         let config = HKWorkoutConfiguration()
         config.activityType = .running

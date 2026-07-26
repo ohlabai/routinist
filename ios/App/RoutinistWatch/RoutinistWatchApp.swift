@@ -12,6 +12,8 @@ struct RoutinistWatchApp: App {
         #if DEBUG
         WorkoutManager.shared.applyUIPreviewIfRequested()
         #endif
+        // v11: UI 재실행 시 진행 중 워크아웃 세션 재접속 (있을 때만)
+        WorkoutManager.shared.recoverSessionIfNeeded()
     }
 
     var body: some Scene {
