@@ -24,6 +24,7 @@
 		9DFB7E0CFD4507D8DE322BE6 /* SummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98FAEC2373783EBC2122FD02 /* SummaryView.swift */; };
 		A1B2C3D420260505FAFA0002 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D420260505FAFA0001 /* GoogleService-Info.plist */; };
 		AD9708F9E85B21D622C4DD5C /* RoutinistWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C853828F10B353946C6AD25 /* RoutinistWatchApp.swift */; };
+		FB0DCD6176A3DEF61ED11109 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6384B1BF79DC48242C7A7C47 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -65,6 +66,7 @@
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		5A1F0A0E2D6B4C8E90FAB124 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
 		5EDB835D691C932B97A15699 /* WorkoutManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WorkoutManager.swift; sourceTree = "<group>"; };
+		6384B1BF79DC48242C7A7C47 /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		6A62064EA6067EC47F14CCC4 /* RoutinistWatch.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = RoutinistWatch.entitlements; sourceTree = "<group>"; };
 		6C853828F10B353946C6AD25 /* RoutinistWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RoutinistWatchApp.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
@@ -104,6 +106,7 @@
 				98FAEC2373783EBC2122FD02 /* SummaryView.swift */,
 				C1BD5861ACAFB46E635A56DA /* Info.plist */,
 				6A62064EA6067EC47F14CCC4 /* RoutinistWatch.entitlements */,
+				6384B1BF79DC48242C7A7C47 /* Assets.xcassets */,
 			);
 			name = RoutinistWatch;
 			path = RoutinistWatch;
@@ -261,6 +264,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FB0DCD6176A3DEF61ED11109 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
