@@ -46,14 +46,14 @@ struct StartView: View {
             )
             .disabled(workout.phase == .requesting)
 
-            // v9: 목표 버튼 (Apple 운동앱 목표 문법)
+            // v14 (hans): "목표 없음" 대신 친근한 초대 카피 — 누르면 목표 설정
             Button {
                 showGoalPicker = true
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "target")
                         .font(.system(size: 13, weight: .bold))
-                    Text(workout.goal.label)
+                    Text(goalButtonLabel)
                         .font(.system(size: 14, weight: .bold, design: .rounded))
                 }
                 .padding(.horizontal, 12)
@@ -61,7 +61,7 @@ struct StartView: View {
             }
             .buttonStyle(.plain)
             .background(Capsule().fill(Color.white.opacity(0.12)))
-            .foregroundStyle(workout.goal == .open ? .secondary : Color(red: 0.20, green: 0.83, blue: 0.60))
+            .foregroundStyle(Color(red: 0.20, green: 0.83, blue: 0.60))
 
             // v9: 이달 챌린지 진행률 (iPhone 에서 동기화되면 표시)
             if let target = connectivity.challengeTargetKm, target > 0 {
@@ -84,6 +84,17 @@ struct StartView: View {
         .onAppear { workout.loadGoal() }
         .sheet(isPresented: $showGoalPicker) { GoalPickerView() }
     }
+
+    /// v14: 미설정 = 초대 카피 / 설정 = "오늘 목표 · 5km"
+    private var goalButtonLabel: String {
+        switch workout.goal {
+        case .open: return "오늘은 얼마쯤 달릴까?"
+        case .distanceKm(let km):
+            let v = km == 21.1 ? "하프" : km == 42.2 ? "풀" : String(format: km == km.rounded() ? "%.0fkm" : "%.1fkm", km)
+            return "오늘 목표 · \(v)"
+        case .timeMin(let m): return "오늘 목표 · \(m)분"
+        }
+    }
 }
 
 // v10: 목표 선택 시트 — ± 버튼으로 1km/5분 단위 자유 조정 (hans: "13km 목표를 못 잡네")
@@ -93,16 +104,19 @@ struct GoalPickerView: View {
 
     private let emerald = Color(red: 0.20, green: 0.83, blue: 0.60)
 
-    enum Mode: String, CaseIterable { case none = "없음", distance = "거리", time = "시간" }
-    @State private var mode: Mode = .none
+    // v14: '없음' 모드 제거 (hans) — 거리/시간만. 목표는 축하 장치라 있어도 부담 없음.
+    enum Mode: String, CaseIterable { case distance = "거리", time = "시간" }
+    @State private var mode: Mode = .distance
     @State private var km: Double = 5
     @State private var minutes: Int = 30
 
     var body: some View {
         ScrollView {
             VStack(spacing: 8) {
-                Text("목표 설정")
-                    .font(.system(size: 16, weight: .heavy, design: .rounded))
+                Text("오늘은 얼마쯤 달릴까? 🏃")
+                    .font(.system(size: 15, weight: .heavy, design: .rounded))
+                    .minimumScaleFactor(0.8)
+                    .lineLimit(1)
 
                 // 모드 선택
                 HStack(spacing: 4) {
@@ -131,19 +145,13 @@ struct GoalPickerView: View {
                         presetChip("하프") { km = 21.1 }
                         presetChip("풀") { km = 42.2 }
                     }
-                } else if mode == .time {
+                } else {
                     stepperRow(value: "\(minutes)", unit: "분",
                                minus: { minutes = max(5, minutes - 5) }, plus: { minutes = min(300, minutes + 5) })
-                } else {
-                    Text("자유 러닝 — 목표 없이 달려요")
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.secondary)
-                        .padding(.vertical, 6)
                 }
 
                 Button {
                     switch mode {
-                    case .none: workout.goal = .open
                     case .distance: workout.goal = .distanceKm(km)
                     case .time: workout.goal = .timeMin(minutes)
                     }
@@ -161,9 +169,9 @@ struct GoalPickerView: View {
             .padding(.horizontal, 4)
         }
         .onAppear {
-            // 현재 목표로 초기화
+            // 현재 목표로 초기화 (미설정이면 거리 5km 기본)
             switch workout.goal {
-            case .open: mode = .none
+            case .open: mode = .distance; km = 5
             case .distanceKm(let v): mode = .distance; km = v
             case .timeMin(let m): mode = .time; minutes = m
             }
