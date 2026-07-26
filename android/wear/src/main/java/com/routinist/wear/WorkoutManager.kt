@@ -69,9 +69,11 @@ object WorkoutManager {
     private var appContext: Context? = null
     private var exerciseClient: ExerciseClient? = null
 
-    // 경과시간 앵커 (activeDurationCheckpoint 기반 보간)
-    @Volatile private var checkpointDurationMs: Long = 0
-    @Volatile private var checkpointAtMs: Long = 0
+    // 경과시간 = 벽시계 - 누적 일시정지 (auto-pause off 이므로 수동 pause 만 보정).
+    // activeDurationCheckpoint 는 기기/합성별로 0 을 보내는 경우가 있어 신뢰하지 않음.
+    @Volatile private var runStartWallMs: Long = 0
+    @Volatile private var pausedAccumMs: Long = 0
+    @Volatile private var pauseStartMs: Long = 0
     private var ticker: Job? = null
 
     // GPS 경로 [[lat, lng, alt, epochMs], ...]
@@ -137,8 +139,8 @@ object WorkoutManager {
         route.clear()
         lastAnnouncedKm = 0
         avgHrSum = 0.0; avgHrCount = 0
-        checkpointDurationMs = 0
-        checkpointAtMs = System.currentTimeMillis()
+        pausedAccumMs = 0
+        pauseStartMs = 0
         startMs = System.currentTimeMillis()
 
         client.setUpdateCallback(callback)
@@ -157,6 +159,7 @@ object WorkoutManager {
         scope.launch {
             try {
                 client.startExerciseAsync(config).await()
+                runStartWallMs = System.currentTimeMillis()
                 _state.value = _state.value.copy(phase = Phase.ACTIVE)
                 speak("출발!")
                 startTicker()
@@ -171,8 +174,8 @@ object WorkoutManager {
         ticker = scope.launch {
             while (true) {
                 val s = _state.value
-                if (s.phase == Phase.ACTIVE) {
-                    val elapsed = (checkpointDurationMs + (System.currentTimeMillis() - checkpointAtMs)) / 1000.0
+                if (s.phase == Phase.ACTIVE && runStartWallMs > 0) {
+                    val elapsed = (System.currentTimeMillis() - runStartWallMs - pausedAccumMs) / 1000.0
                     _state.value = s.copy(elapsedSec = elapsed)
                 }
                 delay(250)
@@ -231,11 +234,6 @@ object WorkoutManager {
                 route.add(doubleArrayOf(loc.latitude, loc.longitude, loc.altitude ?: 0.0, now.toDouble()))
             }
 
-            update.activeDurationCheckpoint?.let { cp ->
-                checkpointDurationMs = cp.activeDuration.toMillis()
-                checkpointAtMs = now
-            }
-
             announceKmIfNeeded()
             reflectState(update.exerciseStateInfo.state)
         }
@@ -276,10 +274,18 @@ object WorkoutManager {
         when {
             exState.isEnded -> onEnded()
             exState == ExerciseState.ACTIVE -> {
-                if (_state.value.phase == Phase.PAUSED) _state.value = _state.value.copy(phase = Phase.ACTIVE)
+                if (_state.value.phase == Phase.PAUSED) {
+                    // 재개 — 일시정지했던 시간을 누적에서 보정
+                    if (pauseStartMs > 0) pausedAccumMs += System.currentTimeMillis() - pauseStartMs
+                    pauseStartMs = 0
+                    _state.value = _state.value.copy(phase = Phase.ACTIVE)
+                }
             }
             exState == ExerciseState.USER_PAUSED || exState == ExerciseState.AUTO_PAUSED -> {
-                if (_state.value.phase == Phase.ACTIVE) _state.value = _state.value.copy(phase = Phase.PAUSED)
+                if (_state.value.phase == Phase.ACTIVE) {
+                    pauseStartMs = System.currentTimeMillis()
+                    _state.value = _state.value.copy(phase = Phase.PAUSED)
+                }
             }
             else -> {}
         }
