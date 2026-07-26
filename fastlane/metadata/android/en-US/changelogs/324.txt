@@ -1,0 +1,8 @@
+• Improved onboarding so Samsung Health & Galaxy Watch runs sync in automatically
+• Illustrated guide when no runs show up yet, explaining how to connect
+• Better treadmill (indoor run) sync
+• GPS routes are now drawn on the map
+• Periodic re-check of recent activity to reduce missed runs
+• Refined voice cue pronunciation and tone during runs
+• One-tap cheer — send a heart to friends instantly
+• Unified friend request flow and stability fixes

@@ -8,10 +8,10 @@ android {
         applicationId "com.routinist.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        // iOS 빌드 번호와 동기 — iOS marketing 1.2.9 / build 307 과 정렬.
+        // iOS 빌드 번호와 동기 — iOS marketing 1.2.13 / build 324 와 정렬.
         // Android 만 단독 증가 시 충돌 피하려고 의도적으로 같은 versionCode 사용.
-        versionCode 310
-        versionName "1.2.9"
+        versionCode 324
+        versionName "1.2.13"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
