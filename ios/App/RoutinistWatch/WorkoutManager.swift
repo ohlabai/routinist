@@ -39,6 +39,64 @@ final class WorkoutManager: NSObject, ObservableObject {
         speak(words[n])
     }
 
+    // ── 목표 설정 (v9) — 거리/시간 목표 + 달성 음성·햅틱 (Apple 운동앱 목표 문법) ──
+    enum RunGoal: Equatable, Codable {
+        case open
+        case distanceKm(Double)
+        case timeMin(Int)
+
+        var label: String {
+            switch self {
+            case .open: return "목표 없음"
+            case .distanceKm(let km):
+                return km == 21.1 ? "하프 목표" : String(format: km == km.rounded() ? "%.0fkm 목표" : "%.1fkm 목표", km)
+            case .timeMin(let m): return "\(m)분 목표"
+            }
+        }
+    }
+
+    @Published var goal: RunGoal = .open {
+        didSet { saveGoal() }
+    }
+    private var goalAnnounced = false
+
+    private func saveGoal() {
+        if let data = try? JSONEncoder().encode(goal) {
+            UserDefaults.standard.set(data, forKey: "runGoal")
+        }
+    }
+
+    func loadGoal() {
+        if let data = UserDefaults.standard.data(forKey: "runGoal"),
+           let g = try? JSONDecoder().decode(RunGoal.self, from: data) {
+            goal = g
+        }
+    }
+
+    /// 목표 진행률 0~1 (open 이면 nil)
+    var goalProgress: Double? {
+        switch goal {
+        case .open: return nil
+        case .distanceKm(let km): return min(1, distanceMeters / (km * 1000))
+        case .timeMin(let m): return min(1, elapsedSeconds / Double(m * 60))
+        }
+    }
+
+    private func checkGoal() {
+        guard !goalAnnounced, phase == .active else { return }
+        let done: Bool
+        switch goal {
+        case .open: return
+        case .distanceKm(let km): done = distanceMeters >= km * 1000
+        case .timeMin(let m): done = elapsedSeconds >= Double(m * 60)
+        }
+        if done {
+            goalAnnounced = true
+            WKInterfaceDevice.current().play(.success)
+            speak("목표 달성! 정말 대단해요.")
+        }
+    }
+
     // ── 심박 존 (v7) — 최대심박 = 220 - 나이 (HealthKit 생년월일, 실패 시 190) ──
     @Published var maxHeartRate: Double = 190
 
@@ -54,6 +112,11 @@ final class WorkoutManager: NSObject, ObservableObject {
     }
 
     private func loadMaxHeartRate() {
+        // v9: iPhone 프로필의 max_hr 이 동기화돼 있으면 최우선 (실측값 > 공식)
+        if let synced = ConnectivityStore.shared.syncedMaxHr {
+            maxHeartRate = synced
+            return
+        }
         if let dob = try? healthStore.dateOfBirthComponents(),
            let year = dob.year {
             let age = Calendar.current.component(.year, from: Date()) - year
@@ -287,6 +350,7 @@ final class WorkoutManager: NSObject, ObservableObject {
         stallTimer = nil
         pedometer.stopUpdates()
         isAutoPaused = false
+        goalAnnounced = false
     }
 
     // ── 통계 반영 ─────────────────────────────────────────────
@@ -319,6 +383,7 @@ final class WorkoutManager: NSObject, ObservableObject {
                 text += " 잘하고 있어요."
                 speak(text)
             }
+            checkGoal()   // v9: 거리 목표 체크
         case HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned):
             activeCalories = statistics.sumQuantity()?.doubleValue(for: .kilocalorie()) ?? activeCalories
         default: break
@@ -397,5 +462,6 @@ extension WorkoutManager: HKLiveWorkoutBuilderDelegate {
         elapsedSeconds = value
         elapsedAnchorValue = value
         elapsedAnchorDate = Date()
+        checkGoal()   // v9: 시간 목표 체크
     }
 }

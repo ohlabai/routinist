@@ -6,9 +6,12 @@ import SwiftUI
 struct StartView: View {
     @EnvironmentObject var workout: WorkoutManager
     // v8: 잔디 성장 트랜지션 제거 (hans: "촌스러워") — 탭 즉시 카운트다운으로
+    // v9: 목표 설정 (거리/시간) + 이달 챌린지 진행률 칩 (폰 연동)
+    @State private var showGoalPicker = false
+    @ObservedObject private var connectivity = ConnectivityStore.shared
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
             // 브랜드 — 워드마크 에메랄드 단독 (R 중복 회피), 카피는 화이트
             VStack(spacing: 3) {
                 Text("Routinist")
@@ -43,6 +46,30 @@ struct StartView: View {
             )
             .disabled(workout.phase == .requesting)
 
+            // v9: 목표 버튼 (Apple 운동앱 목표 문법)
+            Button {
+                showGoalPicker = true
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "target")
+                        .font(.system(size: 13, weight: .bold))
+                    Text(workout.goal.label)
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+            }
+            .buttonStyle(.plain)
+            .background(Capsule().fill(Color.white.opacity(0.12)))
+            .foregroundStyle(workout.goal == .open ? .secondary : Color(red: 0.20, green: 0.83, blue: 0.60))
+
+            // v9: 이달 챌린지 진행률 (iPhone 에서 동기화되면 표시)
+            if let target = connectivity.challengeTargetKm, target > 0 {
+                Text(String(format: "🌱 이달 %.1f / %.1fkm", connectivity.challengeProgressKm ?? 0, target))
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.secondary)
+            }
+
             if workout.phase == .requesting {
                 ProgressView()
             }
@@ -54,5 +81,64 @@ struct StartView: View {
             }
         }
         .padding(.horizontal, 6)
+        .onAppear { workout.loadGoal() }
+        .sheet(isPresented: $showGoalPicker) { GoalPickerView() }
+    }
+}
+
+// v9: 목표 선택 시트 — 거리/시간 프리셋
+struct GoalPickerView: View {
+    @EnvironmentObject var workout: WorkoutManager
+    @Environment(\.dismiss) private var dismiss
+
+    private let emerald = Color(red: 0.20, green: 0.83, blue: 0.60)
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 6) {
+                Text("목표 설정")
+                    .font(.system(size: 16, weight: .heavy, design: .rounded))
+
+                goalRow(.open)
+                Text("거리")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                goalRow(.distanceKm(3))
+                goalRow(.distanceKm(5))
+                goalRow(.distanceKm(10))
+                goalRow(.distanceKm(21.1))
+                Text("시간")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                goalRow(.timeMin(15))
+                goalRow(.timeMin(30))
+                goalRow(.timeMin(60))
+            }
+            .padding(.horizontal, 4)
+        }
+    }
+
+    private func goalRow(_ g: WorkoutManager.RunGoal) -> some View {
+        Button {
+            workout.goal = g
+            dismiss()
+        } label: {
+            HStack {
+                Text(g.label)
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                Spacer()
+                if workout.goal == g {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 13, weight: .heavy))
+                        .foregroundStyle(emerald)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+        }
+        .buttonStyle(.plain)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(workout.goal == g ? 0.16 : 0.08)))
     }
 }

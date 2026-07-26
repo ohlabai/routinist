@@ -39,7 +39,7 @@ const TABS_BASE: {
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, profile } = useAuth();
   const { t, tt } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
@@ -142,6 +142,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // build 298: /social 진입 시 자동 markRead 제거 (2026-07-11 피드백 — 아이콘 배지 숫자를 보고
   // 들어와도 어디서 알림이 떴는지 확인하기 전에 배지가 사라졌음). 이제 읽음 처리는
   // /notifications 에서 항목 탭(개별) 또는 "모두 읽음" 버튼으로만 일어난다.
+
+  // watch v9: 프로필 max_hr 을 워치 컨텍스트로 (iOS 네이티브만) — 심박 존 정밀화.
+  useEffect(() => {
+    if (!isNativeApp() || !profile) return;
+    const maxHr = (profile as { max_hr?: number | null }).max_hr;
+    if (maxHr) {
+      void import('@/lib/watch-bridge').then(m => m.setWatchContext({ maxHr })).catch(() => {});
+    }
+  }, [profile]);
 
   // build 291: locale/timezone 을 profiles 에 동기화 — push 다국어·로컬 저녁 발송용.
   // 세션당 1회, 값이 바뀌었을 때만 UPDATE (fire-and-forget).

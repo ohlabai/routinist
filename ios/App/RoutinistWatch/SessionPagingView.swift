@@ -88,6 +88,23 @@ struct MetricsView: View {
                     .foregroundStyle(.orange)
                     .minimumScaleFactor(0.8)
                     .lineLimit(1)
+            } else if let progress = workout.goalProgress {
+                // v9: 목표 설정 시 — 목표 진행 바 (달성률 %)
+                HStack(spacing: 6) {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color.white.opacity(0.14))
+                            Capsule().fill(emerald)
+                                .frame(width: max(4, geo.size.width * CGFloat(progress)))
+                        }
+                    }
+                    .frame(height: 8)
+                    Text("\(Int(progress * 100))%")
+                        .font(.system(size: 13, weight: .heavy, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(progress >= 1 ? emerald : .secondary)
+                }
+                .padding(.top, 4)
             } else {
                 // v5: 거리 잔디 게이지 — 1km 마다 한 칸씩 자람
                 DistanceGrassGauge(distanceMeters: workout.distanceMeters)

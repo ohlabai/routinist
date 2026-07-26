@@ -2,6 +2,7 @@ import UIKit
 import Capacitor
 import GoogleSignIn
 import AVFoundation
+import WatchConnectivity
 // CapApp-SPM 모듈 — 커스텀 WorkoutRoutePlugin 이 들어있는 SPM 모듈을 강제 로드.
 // SPM 빌드에선 ObjC runtime 의 lazy load 때문에 Capacitor 가 plugin 클래스를 iterate 할 때
 // 모듈이 아직 메모리에 안 올라와서 검출 못 함 → "WorkoutRoute plugin is not implemented on ios" 회귀.
@@ -32,13 +33,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         } catch {
             NSLog("[AppDelegate] AVAudioSession setCategory failed: \(error)")
         }
+
+        // watch v9: WCSession 활성화 (RoutinistWatch 연동)
+        WatchBridge.shared.activate()
         return true
     }
 
     func applicationWillResignActive(_ application: UIApplication) {}
     func applicationDidEnterBackground(_ application: UIApplication) {}
     func applicationWillEnterForeground(_ application: UIApplication) {}
-    func applicationDidBecomeActive(_ application: UIApplication) {}
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        // watch v9: 웹 레이어가 Preferences 로 심어둔 워치 컨텍스트 (max_hr·이달 챌린지) 를
+        // WCSession applicationContext 로 워치에 push. 웹 키 = CapacitorStorage.watch_ctx (JSON).
+        WatchBridge.shared.pushContextIfPossible()
+    }
     func applicationWillTerminate(_ application: UIApplication) {}
 
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {

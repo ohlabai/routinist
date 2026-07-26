@@ -22,7 +22,7 @@ export async function fetchMonthlyChallenge(): Promise<MonthlyChallenge | null> 
   }
   if (!data) return null;
   const d = data as Record<string, unknown>;
-  return {
+  const result = {
     period_ym: String(d.period_ym ?? ''),
     joined: Boolean(d.joined),
     entry_fee: Number(d.entry_fee ?? 100),
@@ -31,6 +31,11 @@ export async function fetchMonthlyChallenge(): Promise<MonthlyChallenge | null> 
     completed_at: (d.completed_at as string) ?? null,
     days_left: Number(d.days_left ?? 0),
   };
+  // watch v9: 워치 시작 화면의 이달 챌린지 칩 데이터 (fire-and-forget)
+  void import('./watch-bridge').then(m =>
+    m.setWatchContext({ challengeProgressKm: result.progress_km, challengeTargetKm: result.target_km })
+  ).catch(() => {});
+  return result;
 }
 
 export interface JoinMonthlyResult {
