@@ -71,6 +71,10 @@ struct MetricsView: View {
                 Text("일시정지됨")
                     .font(.system(size: 14, weight: .bold, design: .rounded))
                     .foregroundStyle(.orange)
+            } else {
+                // v5: 거리 잔디 게이지 — 1km 마다 한 칸씩 자람
+                DistanceGrassGauge(distanceMeters: workout.distanceMeters)
+                    .padding(.top, 3)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)

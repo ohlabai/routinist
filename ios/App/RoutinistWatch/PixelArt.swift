@@ -99,6 +99,89 @@ struct RunningGrassView: View {
     }
 }
 
+// ── 완주 잔디 컨페티 (v5) — 잔디 블록이 흩날리며 떨어지는 축하 효과 ──
+
+struct GrassConfettiView: View {
+    @State private var fall = false
+    private let count = 22
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .topLeading) {
+                ForEach(0..<count, id: \.self) { i in
+                    let fx = CGFloat((i * 37 + 13) % 100) / 100.0
+                    let delay = Double(i % 7) * 0.13
+                    let size: CGFloat = 6 + CGFloat(i % 3) * 3
+                    let color: Color = i % 3 == 0 ? GrassPalette.light : i % 3 == 1 ? GrassPalette.mid : GrassPalette.dark
+                    RoundedRectangle(cornerRadius: size * 0.25)
+                        .fill(color)
+                        .frame(width: size, height: size)
+                        .rotationEffect(.degrees(fall ? Double((i % 5) - 2) * 160 : 0))
+                        .position(x: fx * geo.size.width,
+                                  y: fall ? geo.size.height + 24 : -24)
+                        .opacity(fall ? 0.95 : 0)
+                        .animation(.easeIn(duration: 1.7).delay(delay), value: fall)
+                }
+            }
+        }
+        .allowsHitTesting(false)
+        .onAppear { fall = true }
+    }
+}
+
+// ── 시작 탭 트랜지션 (v5) — 잔디가 화면 가득 자라난 뒤 카운트다운으로 ──
+
+struct GrassGrowView: View {
+    @State private var grow = false
+    private let cols = 13
+
+    var body: some View {
+        GeometryReader { geo in
+            HStack(alignment: .bottom, spacing: 2) {
+                ForEach(0..<cols, id: \.self) { i in
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(i % 3 == 0 ? GrassPalette.light : i % 3 == 1 ? GrassPalette.mid : GrassPalette.dark)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: grow ? geo.size.height * 1.1 : 4)
+                        .animation(.easeOut(duration: 0.45).delay(Double((i * 5) % 13) * 0.028), value: grow)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .onAppear { grow = true }
+    }
+}
+
+// ── 거리 잔디 게이지 (v5) — 1km 마다 잔디 한 칸이 자란다 ──
+
+struct DistanceGrassGauge: View {
+    let distanceMeters: Double
+
+    var body: some View {
+        let km = distanceMeters / 1000
+        let full = Int(km)
+        let frac = km - Double(full)
+        // 최소 5칸 보이고, 달릴수록 늘어남 (14칸 넘으면 최근 14칸 유지)
+        let slots = min(14, max(5, full + 2))
+        let offset = max(0, full + 2 - 14)   // 14칸 초과 시 왼쪽부터 밀림
+        HStack(alignment: .bottom, spacing: 3) {
+            ForEach(0..<slots, id: \.self) { i in
+                let kmIndex = i + offset
+                let h: CGFloat = kmIndex < full ? 12 : (kmIndex == full ? max(3, 12 * CGFloat(frac)) : 3)
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(kmIndex < full ? GrassPalette.light
+                          : kmIndex == full ? GrassPalette.mid
+                          : GrassPalette.dark.opacity(0.45))
+                    .frame(width: 8, height: h)
+                    .animation(.easeOut(duration: 0.4), value: full)
+            }
+        }
+        .frame(height: 12, alignment: .bottom)
+    }
+}
+
 struct GrassWaveFrame: View {
     let tick: Int
     private let cols = 13

@@ -9,6 +9,12 @@ struct SummaryView: View {
     private let emerald = Color(red: 0.20, green: 0.83, blue: 0.60)
 
     var body: some View {
+        scrollContent
+            // v5: 완주 잔디 컨페티 — 블록들이 흩날리며 떨어지는 축하
+            .overlay { GrassConfettiView() }
+    }
+
+    private var scrollContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 Text("완주! 🎉")
