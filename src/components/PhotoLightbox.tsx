@@ -36,7 +36,7 @@ interface Props {
 
 export default function PhotoLightbox({ photos, initialIndex = 0, onClose, showProfileLink = false, onLikeChange }: Props) {
   const [index, setIndex] = useState(Math.max(0, Math.min(initialIndex, photos.length - 1)));
-  const { tt } = useI18n();
+  const { tt, locale } = useI18n();
   const { user } = useAuth();
   const startX = useRef<number | null>(null);
   const deltaX = useRef(0);
@@ -59,6 +59,10 @@ export default function PhotoLightbox({ photos, initialIndex = 0, onClose, showP
     });
   }, [photos]);
   const [likeBusy, setLikeBusy] = useState(false);
+  // build 317 (2026-07-26 hans): 사진 탭 = 깨끗한 원본 ↔ 기록 카드 토글 (원본 있는 사진만).
+  // photo_id → original_url (null = 원본 없음). 현재 사진만 lazy fetch.
+  const [originalMap, setOriginalMap] = useState<Map<string, string | null>>(new Map());
+  const [showOriginal, setShowOriginal] = useState(false);
   // build 219 #3: photos prop 에 like_count 가 누락된 경우 (홈 친구 스토리 등) 마운트 시 fetch.
   useEffect(() => {
     let cancelled = false;
@@ -114,6 +118,27 @@ export default function PhotoLightbox({ photos, initialIndex = 0, onClose, showP
     return () => window.removeEventListener('keydown', handleKey);
   }, [onClose, photos.length]);
 
+  // build 317: 사진 넘기면 원본 보기 해제 + 현재 사진의 original_url lazy fetch
+  useEffect(() => {
+    setShowOriginal(false);
+    const cur = photos[index];
+    if (!cur || originalMap.has(cur.photo_id)) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { getSupabase } = await import('@/lib/supabase');
+        const { data, error } = await getSupabase().rpc('get_photo_original', { p_photo_id: cur.photo_id });
+        if (!cancelled) {
+          setOriginalMap(prev => new Map(prev).set(cur.photo_id, error ? null : ((data as string | null) ?? null)));
+        }
+      } catch {
+        if (!cancelled) setOriginalMap(prev => new Map(prev).set(cur.photo_id, null));
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, photos]);
+
   const onTouchStart = (e: React.TouchEvent) => {
     startX.current = e.touches[0].clientX;
     deltaX.current = 0;
@@ -165,6 +190,7 @@ export default function PhotoLightbox({ photos, initialIndex = 0, onClose, showP
   const current = photos[index];
   const curLike = likeState.get(current.photo_id) ?? { liked: false, count: 0 };
   const canActOnUser = !!user && !!current.user_id && user.id !== current.user_id;
+  const currentOriginal = originalMap.get(current.photo_id) ?? null;
 
   return (
     <div
@@ -174,12 +200,31 @@ export default function PhotoLightbox({ photos, initialIndex = 0, onClose, showP
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
     >
+      {/* build 317: 원본이 있으면 사진 탭 = 원본↔카드 토글 (pointer-events 활성).
+          원본 없는 사진은 기존처럼 탭이 backdrop 으로 bubble → 닫기. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={current.photo_url}
+        src={showOriginal && currentOriginal ? currentOriginal : current.photo_url}
         alt=""
-        className="max-w-full max-h-full object-contain rounded-lg select-none pointer-events-none"
+        className={`max-w-full max-h-full object-contain rounded-lg select-none transition-opacity duration-200 ${
+          currentOriginal ? '' : 'pointer-events-none'
+        }`}
+        onClick={(e) => {
+          if (!currentOriginal) return;
+          e.stopPropagation();
+          setShowOriginal(s => !s);
+        }}
       />
+      {currentOriginal && (
+        <div
+          className="absolute left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur text-white/90 text-[11px] font-bold pointer-events-none z-10"
+          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 20px)' }}
+        >
+          {showOriginal
+            ? (locale === 'en' ? 'Tap to show the record' : '탭하면 기록이 다시 보여요')
+            : (locale === 'en' ? 'Tap to see the clean photo' : '탭하면 사진만 깨끗하게 보여요')}
+        </div>
+      )}
 
       {/* build 219 #1: 우상단 stack — X (닫기) + 하트 + 쪽지. 오른손 엄지 동선 최적화 */}
       <div
@@ -260,7 +305,8 @@ export default function PhotoLightbox({ photos, initialIndex = 0, onClose, showP
             ))}
           </div>
         )}
-        {(current.display_name || current.distance_km != null || current.caption) && (
+        {/* build 317: 원본 보기 중엔 캡션 패널 숨김 — 사진만 깨끗하게 */}
+        {!showOriginal && (current.display_name || current.distance_km != null || current.caption) && (
           <div className="px-4 py-3 rounded-2xl bg-black/55 backdrop-blur-md text-white text-sm leading-relaxed">
             <div className="flex items-center gap-2">
               {current.display_name && <p className="font-extrabold flex-1 truncate">@{current.display_name}</p>}

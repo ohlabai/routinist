@@ -1,9 +1,11 @@
 'use client';
 
 // 응원 보내기 버튼 — 랭킹/프로필 카드에 부착.
-// 탭하면 5개 이모지 picker 가 떠오름. 같은 이모지는 주 1회 한도.
+// build 317 (2026-07-26 hans): "선택을 해야 해서 귀찮다" → 탭 = ❤️ 즉시 발사,
+// 꾹 누르면 (450ms) 5개 이모지 picker. ❤️ 를 이번 주 이미 보냈으면 탭이 picker 를 연다.
+// 같은 이모지는 주 1회 한도 (DB unique).
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { sendCheer, getMySentCheersThisWeek, CHEER_EMOJIS, type CheerEmoji } from '@/lib/cheer-data';
 import { useAuth } from '@/components/AuthProvider';
 import { useI18n } from '@/lib/i18n';
@@ -21,11 +23,17 @@ export default function CheerButton({ toUserId, context = 'profile', size = 'md'
   const [sentSet, setSentSet] = useState<Set<string>>(new Set());
   const [sending, setSending] = useState<CheerEmoji | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  // 꾹 누르기 감지 — PhotoCard 더블탭 패턴처럼 ref 로 (렌더마다 초기화되면 안 됨)
+  const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressedRef = useRef(false);
 
   useEffect(() => {
     if (!user) return;
     getMySentCheersThisWeek().then(setSentSet);
   }, [user, toUserId]);
+
+  // 언마운트 시 타이머 정리
+  useEffect(() => () => { if (pressTimerRef.current) clearTimeout(pressTimerRef.current); }, []);
 
   if (!user || user.id === toUserId) return null;  // 본인한테 못 보냄
 
@@ -72,13 +80,40 @@ export default function CheerButton({ toUserId, context = 'profile', size = 'md'
   const btnSize = size === 'sm' ? 'w-8 h-8 text-base' : 'w-10 h-10 text-lg';
   const containerCls = size === 'sm' ? 'gap-1' : 'gap-1.5';
 
+  // build 317: 탭 = ❤️ 즉시 / 꾹 (450ms) = picker. pointer 이벤트로 판별.
+  const startPress = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    longPressedRef.current = false;
+    pressTimerRef.current = setTimeout(() => {
+      longPressedRef.current = true;
+      setOpen(true);
+    }, 450);
+  };
+  const endPress = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (pressTimerRef.current) { clearTimeout(pressTimerRef.current); pressTimerRef.current = null; }
+    if (longPressedRef.current) return;  // picker 가 이미 열림 — 발사 안 함
+    if (sending !== null) return;
+    if (!sentSet.has(`${toUserId}:❤️`)) void handlePick('❤️');
+    else setOpen(true);  // ❤️ 는 이번 주 이미 보냄 → 다른 이모지 고르게 picker
+  };
+  const cancelPress = () => {
+    if (pressTimerRef.current) { clearTimeout(pressTimerRef.current); pressTimerRef.current = null; }
+  };
+
   return (
     <div className="relative">
       {!open ? (
         <button
-          onClick={(e) => { e.stopPropagation(); setOpen(true); }}
-          className={`${btnSize} rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 active:scale-90 transition flex items-center justify-center`}
-          aria-label={tt('응원 보내기')}
+          onPointerDown={startPress}
+          onPointerUp={endPress}
+          onPointerLeave={cancelPress}
+          onPointerCancel={cancelPress}
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+          onContextMenu={(e) => e.preventDefault()}
+          className={`${btnSize} rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 active:scale-90 transition flex items-center justify-center select-none`}
+          aria-label={locale === 'en' ? 'Send a cheer (hold for more emojis)' : '응원 보내기 (꾹 누르면 이모지 선택)'}
         >
           ❤️
         </button>

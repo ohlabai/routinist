@@ -43,6 +43,10 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
   // original_url 은 라이트박스 첫 오픈 시 lazy fetch (undefined = 미조회, null = 원본 없음).
   const [originalUrl, setOriginalUrl] = useState<string | null | undefined>(undefined);
   const [showOriginal, setShowOriginal] = useState(false);
+  // build 317 후속: 꾹 누르면 (400ms) 원본 잠깐 보기 — 떼면 기록 카드로 복귀 (Instagram peek 감성)
+  const peekTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const peekingRef = useRef(false);
+  const [savingOriginal, setSavingOriginal] = useState(false);
 
   useEffect(() => {
     if (!showLightbox) { setShowOriginal(false); return; }
@@ -305,13 +309,54 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
           <img
             src={showOriginal && originalUrl ? originalUrl : photo.photo_url}
             alt=""
-            className="max-w-full max-h-full object-contain rounded-lg transition-opacity duration-200"
-            onClick={(e) => {
+            className="max-w-full max-h-full object-contain rounded-lg transition-opacity duration-200 select-none"
+            onClick={(e) => e.stopPropagation()}
+            onContextMenu={(e) => e.preventDefault()}
+            // build 317: 원본이 있으면 탭 = 토글, 꾹 (400ms) = 누르는 동안만 원본 (떼면 복귀)
+            onPointerDown={(e) => {
               e.stopPropagation();
-              // build 317: 원본이 있으면 탭 = 깨끗한 사진 ↔ 기록 카드 토글
-              if (originalUrl) setShowOriginal(s => !s);
+              if (!originalUrl) return;
+              peekingRef.current = false;
+              peekTimerRef.current = setTimeout(() => {
+                peekingRef.current = true;
+                setShowOriginal(true);
+              }, 400);
+            }}
+            onPointerUp={(e) => {
+              e.stopPropagation();
+              if (peekTimerRef.current) { clearTimeout(peekTimerRef.current); peekTimerRef.current = null; }
+              if (!originalUrl) return;
+              if (peekingRef.current) { peekingRef.current = false; setShowOriginal(false); return; }
+              setShowOriginal(s => !s);
+            }}
+            onPointerLeave={() => {
+              if (peekTimerRef.current) { clearTimeout(peekTimerRef.current); peekTimerRef.current = null; }
+              if (peekingRef.current) { peekingRef.current = false; setShowOriginal(false); }
+            }}
+            onPointerCancel={() => {
+              if (peekTimerRef.current) { clearTimeout(peekTimerRef.current); peekTimerRef.current = null; }
+              if (peekingRef.current) { peekingRef.current = false; setShowOriginal(false); }
             }}
           />
+          {/* build 317: 원본 보기 중 — 내 사진이면 원본 저장 (공유 시트) */}
+          {showOriginal && originalUrl && isOwner && (
+            <button
+              onClick={async (e) => {
+                e.stopPropagation();
+                if (savingOriginal) return;
+                setSavingOriginal(true);
+                try {
+                  const { shareImageUrl } = await import('@/lib/share-image');
+                  await shareImageUrl(originalUrl, `routinist-original-${photo.photo_id.slice(0, 8)}.jpg`);
+                } catch { /* 사용자 취소 포함 — 조용히 */ }
+                finally { setSavingOriginal(false); }
+              }}
+              className="absolute right-4 bottom-[calc(env(safe-area-inset-bottom)+24px)] px-4 py-3 rounded-2xl bg-white/15 backdrop-blur text-white text-sm font-semibold active:scale-95 transition disabled:opacity-50"
+              disabled={savingOriginal}
+            >
+              {savingOriginal ? '…' : (locale === 'en' ? 'Save photo' : '원본 저장')}
+            </button>
+          )}
           {/* 원본 토글 힌트 — 원본이 있을 때만 */}
           {originalUrl && (
             <div
