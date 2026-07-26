@@ -606,7 +606,12 @@ object RunSessionEngine {
                 put("avgPaceSecPerKm", avgPace ?: JSONObject.NULL)
                 put("splitPaceSecPerKm", splitPace ?: JSONObject.NULL)
             })
-            val kmText = if (km == Math.floor(km)) km.toInt().toString() else String.format(Locale.US, "%.1f", km)
+            // 2026-07-26 hans 신고 (iOS 와 동일 fix): "11킬로미터" 숫자+단위 붙임을 한국어 TTS 가
+            // 오독하는 사례 → ko 는 한자어 수사로 명시 변환해 발음을 결정적으로.
+            val isKo = sessionLocale.lowercase(Locale.US).startsWith("ko")
+            val kmText = if (km == Math.floor(km)) {
+                if (isKo) sinoKoreanNumber(km.toInt()) + " " else km.toInt().toString()
+            } else String.format(Locale.US, "%.1f", km)
             val paceText = splitPace?.let { formatPaceForSpeech(it, sessionLocale) } ?: ""
             speak(
                 templates.milestone
@@ -614,6 +619,19 @@ object RunSessionEngine {
                     .replace("{pace}", paceText)
             )
         }
+    }
+
+    /** 1~99 를 한자어 수사로 (1→일, 10→십, 11→십일, 21→이십일, 50→오십). 범위 밖은 숫자 폴백. */
+    private fun sinoKoreanNumber(n: Int): String {
+        if (n < 1 || n > 99) return n.toString()
+        val digits = arrayOf("", "일", "이", "삼", "사", "오", "육", "칠", "팔", "구")
+        val tens = n / 10
+        val ones = n % 10
+        val sb = StringBuilder()
+        if (tens >= 2) sb.append(digits[tens])
+        if (tens >= 1) sb.append("십")
+        sb.append(digits[ones])
+        return sb.toString()
     }
 
     /** "5분 30초" / "5 minutes 30 seconds" — TTS 가 자연스럽게 읽는 형태 (iOS 와 동일). */

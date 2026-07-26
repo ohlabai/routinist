@@ -1513,6 +1513,35 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
         ),
       ];
       if (includeGallery) {
+        // build 317 (2026-07-26 hans): 원본 배경 (사진 또는 영상 프레임) 을 별도 JPEG 로 업로드.
+        // 라이트박스에서 "깨끗한 원본 보기" 토글용. 실패해도 카드 등록은 그대로 진행.
+        let originalUrl: string | null = null;
+        const origSrc: HTMLImageElement | HTMLVideoElement | null = bgImage ?? videoStill;
+        if (origSrc) {
+          try {
+            const ow = origSrc instanceof HTMLVideoElement ? origSrc.videoWidth : origSrc.naturalWidth;
+            const oh = origSrc instanceof HTMLVideoElement ? origSrc.videoHeight : origSrc.naturalHeight;
+            if (ow > 0 && oh > 0) {
+              const scale = Math.min(1, 1600 / Math.max(ow, oh));
+              const oc = document.createElement('canvas');
+              oc.width = Math.round(ow * scale);
+              oc.height = Math.round(oh * scale);
+              oc.getContext('2d')!.drawImage(origSrc, 0, 0, oc.width, oc.height);
+              const oBlob = await new Promise<Blob | null>(res => oc.toBlob(b => res(b), 'image/jpeg', 0.85));
+              if (oBlob) {
+                const oPath = `${user.id}/routine/orig-${activity.activity_date}-${Date.now()}.jpg`;
+                const { error: oErr } = await withTimeout(
+                  supabase.storage.from('activity-photos').upload(oPath, oBlob, { contentType: 'image/jpeg', upsert: false }),
+                  30000,
+                  'original photo upload',
+                );
+                if (!oErr) originalUrl = supabase.storage.from('activity-photos').getPublicUrl(oPath).data.publicUrl;
+              }
+            }
+          } catch (e) {
+            console.warn('[ShareCard] 원본 업로드 실패 (카드 등록은 계속):', e);
+          }
+        }
         // quote_id 는 quotes 테이블 row 일 때만 (non-fallback, 또한 user 직접 입력은 X — id 가 'custom-' 접두로 시작).
         // build 137: caption 컬럼에 quote.text 직접 저장 → view join 실패해도 캡션 노출 보장.
         // build 167 #4: 사용자가 직접 타이핑한 customText + saveToQuotes ON 이면 createUserQuote 로
@@ -1535,6 +1564,7 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
               activity_id: activity.id,
               user_id: user.id,
               photo_url: photoUrl,
+              original_url: originalUrl,
               share_in_gallery: true,
               sort_order: 0,
               quote_id: quoteIdForCard,
@@ -1666,7 +1696,21 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
       <div className="bg-[var(--background)] rounded-2xl max-w-sm w-full overflow-hidden max-h-[90vh] flex flex-col">
         {/* 캔버스 — 닫기 버튼은 이미지 우상단 floating (status bar 영역 아닌 카드 안). */}
         <div className="p-4 flex-1 overflow-auto relative">
-          <canvas ref={canvasRef} className="w-full rounded-xl shadow-lg" style={{ aspectRatio: '9/16' }} />
+          {/* build 317 (2026-07-26 hans): 카드 배경을 탭하면 바로 사진 선택 — 버튼 찾기 전에 직관 경로 */}
+          <canvas
+            ref={canvasRef}
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full rounded-xl shadow-lg cursor-pointer"
+            style={{ aspectRatio: '9/16' }}
+          />
+          {!bgImage && !attachedVideoUrl && (
+            <div
+              className="absolute left-6 px-3 py-1.5 rounded-full bg-black/55 backdrop-blur-sm text-white text-[11px] font-bold pointer-events-none inline-flex items-center gap-1"
+              style={{ top: 'calc(env(safe-area-inset-top, 0px) + 28px)' }}
+            >
+              📷 {locale === 'en' ? 'Tap to add a background photo' : '탭해서 배경 사진 추가'}
+            </div>
+          )}
           <button
             onClick={onClose}
             aria-label={tt('닫기')}

@@ -935,13 +935,35 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
                 "avgPaceSecPerKm": avgPace.map { $0 as Any } ?? NSNull(),
                 "splitPaceSecPerKm": splitPace.map { $0 as Any } ?? NSNull(),
             ])
-            let kmText = km == km.rounded() ? String(Int(km)) : String(format: "%.1f", km)
+            // 2026-07-26 hans 신고: "11킬로미터" 같은 숫자+단위 붙임 표기를 한국어 TTS 가
+            // 오독하는 사례 (특히 두 자리). ko 는 한자어 수사로 명시 변환해 발음을 결정적으로.
+            let isKo = localeCode.lowercased().hasPrefix("ko")
+            let kmText: String
+            if km == km.rounded() {
+                kmText = isKo ? Self.sinoKoreanNumber(Int(km)) + " " : String(Int(km))
+            } else {
+                kmText = String(format: "%.1f", km)
+            }
             let paceText = splitPace.map { Self.formatPaceForSpeech($0, locale: localeCode) } ?? ""
             let text = templates.milestone
                 .replacingOccurrences(of: "{km}", with: kmText)
                 .replacingOccurrences(of: "{pace}", with: paceText)
             speak(text)
         }
+    }
+
+    /// 1~99 를 한자어 수사로 (1→일, 10→십, 11→십일, 21→이십일, 50→오십).
+    /// 범위 밖 (0 이하·100 이상) 은 숫자 문자열 폴백 — 현실적으로 발생 안 함.
+    private static func sinoKoreanNumber(_ n: Int) -> String {
+        guard n >= 1 && n <= 99 else { return String(n) }
+        let digits = ["", "일", "이", "삼", "사", "오", "육", "칠", "팔", "구"]
+        let tens = n / 10
+        let ones = n % 10
+        var out = ""
+        if tens >= 2 { out += digits[tens] }
+        if tens >= 1 { out += "십" }
+        out += digits[ones]
+        return out
     }
 
     /// "5분 30초" / "5 minutes 30 seconds" — TTS 가 자연스럽게 읽는 형태 (계약).

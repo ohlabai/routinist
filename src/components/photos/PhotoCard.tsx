@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { Heart, MapPin, X, Trash2, Flag, MessageCircle } from 'lucide-react';
 import type { RoutinePhoto } from '@/lib/routine-photos';
 import { togglePhotoLike, deleteMyPhoto, reportPhoto } from '@/lib/routine-photos';
+import { getSupabase } from '@/lib/supabase';
 import { blockUser } from '@/lib/message-data';
 import { fetchPhotoCommentCount } from '@/lib/photo-comments';
 import { useAuth } from '@/components/AuthProvider';
@@ -38,6 +39,26 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
   const [busy, setBusy] = useState(false);
   const [showLightbox, setShowLightbox] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  // build 317 (2026-07-26 hans): 라이트박스에서 사진 탭 = 깨끗한 원본 ↔ 기록 카드 토글.
+  // original_url 은 라이트박스 첫 오픈 시 lazy fetch (undefined = 미조회, null = 원본 없음).
+  const [originalUrl, setOriginalUrl] = useState<string | null | undefined>(undefined);
+  const [showOriginal, setShowOriginal] = useState(false);
+
+  useEffect(() => {
+    if (!showLightbox) { setShowOriginal(false); return; }
+    if (originalUrl !== undefined) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const supabase = getSupabase();
+        const { data, error } = await supabase.rpc('get_photo_original', { p_photo_id: photo.photo_id });
+        if (!cancelled) setOriginalUrl(error ? null : ((data as string | null) ?? null));
+      } catch {
+        if (!cancelled) setOriginalUrl(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showLightbox, originalUrl, photo.photo_id]);
   const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
   const [removed, setRemoved] = useState(false);
@@ -282,11 +303,26 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={photo.photo_url}
+            src={showOriginal && originalUrl ? originalUrl : photo.photo_url}
             alt=""
-            className="max-w-full max-h-full object-contain rounded-lg"
-            onClick={(e) => e.stopPropagation()}
+            className="max-w-full max-h-full object-contain rounded-lg transition-opacity duration-200"
+            onClick={(e) => {
+              e.stopPropagation();
+              // build 317: 원본이 있으면 탭 = 깨끗한 사진 ↔ 기록 카드 토글
+              if (originalUrl) setShowOriginal(s => !s);
+            }}
           />
+          {/* 원본 토글 힌트 — 원본이 있을 때만 */}
+          {originalUrl && (
+            <div
+              className="absolute left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur text-white/90 text-[11px] font-bold pointer-events-none"
+              style={{ top: 'calc(env(safe-area-inset-top, 0px) + 20px)' }}
+            >
+              {showOriginal
+                ? (locale === 'en' ? 'Tap to show the record' : '탭하면 기록이 다시 보여요')
+                : (locale === 'en' ? 'Tap to see the clean photo' : '탭하면 사진만 깨끗하게 보여요')}
+            </div>
+          )}
           {/* X 닫기 버튼 — status bar / 부모 헤더와 안 겹치게 safe-area 적용 (사용자 피드백 #5). */}
           <button
             onClick={() => setShowLightbox(false)}
@@ -296,6 +332,8 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
           >
             <X size={26} strokeWidth={2.5} className="text-white" />
           </button>
+          {/* build 317: 원본 보기 중엔 하단 패널도 숨김 — 사진만 깨끗하게 */}
+          {!showOriginal && (
           <div className="absolute left-4 right-4 bottom-[calc(env(safe-area-inset-bottom)+24px)] space-y-3" onClick={(e) => e.stopPropagation()}>
             {(photo.quote_text || photo.caption || photo.essay_body) && (
               <div className="px-4 py-3 rounded-2xl bg-black/55 backdrop-blur-md text-white text-sm leading-relaxed max-h-40 overflow-y-auto">
@@ -326,6 +364,7 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
               )}
             </div>
           </div>
+          )}
         </div>
       )}
 

@@ -498,12 +498,13 @@ function TrackPageImpl() {
 
   // 카운트다운 tick (3 → 2 → 1 → GO!)
   // build 220 #1: 각 tick 마다 짧은 beep (3,2,1: 660Hz, GO: 880Hz 길게).
-  // build 300 후속: 네이티브면 TTS 카운트다운 ("셋/둘/하나/출발") — WebAudio 비프가 iOS
+  // build 300 후속: 네이티브면 TTS 카운트다운 — WebAudio 비프가 iOS
   // 실기기에서 무음 (hans 실측, prepareAudio 이후에도). 웹/레거시만 비프 유지.
+  // build 317 (2026-07-26 hans): "셋/둘/하나" → "삼/이/일" — 스포츠 카운트다운 어감.
   useEffect(() => {
     if (countdown === null) return;
     const sayOrBeep = (n: number) => {
-      const ko = ['출발!', '하나', '둘', '셋'];
+      const ko = ['출발!', '일', '이', '삼'];
       const en = ['Go!', 'one', 'two', 'three'];
       const text = (locale === 'en' ? en : ko)[n] ?? String(n);
       void speakNative(text, locale).then(ok => {
