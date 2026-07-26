@@ -95,8 +95,14 @@ export default function CheerButton({ toUserId, context = 'profile', size = 'md'
     if (pressTimerRef.current) { clearTimeout(pressTimerRef.current); pressTimerRef.current = null; }
     if (longPressedRef.current) return;  // picker 가 이미 열림 — 발사 안 함
     if (sending !== null) return;
-    if (!sentSet.has(`${toUserId}:❤️`)) void handlePick('❤️');
-    else setOpen(true);  // ❤️ 는 이번 주 이미 보냄 → 다른 이모지 고르게 picker
+    // 2026-07-26 hans 확정: 탭은 어떤 경우에도 picker 를 열지 않는다 — 하트 전송이 전부.
+    // 이미 보냈으면 안내 토스트만 (picker 는 오직 꾹 누르기로).
+    if (!sentSet.has(`${toUserId}:❤️`)) {
+      void handlePick('❤️');
+    } else {
+      setToast(tt('이번 주 이미 보냈어요 · 꾹 누르면 다른 이모지'));
+      setTimeout(() => setToast(null), 2000);
+    }
   };
   const cancelPress = () => {
     if (pressTimerRef.current) { clearTimeout(pressTimerRef.current); pressTimerRef.current = null; }
