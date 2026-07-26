@@ -74,7 +74,8 @@ struct MetricsView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .padding(.horizontal, 4)
+        .padding(.leading, 16)
+        .padding(.trailing, 6)
     }
 
     private func bigMetric(_ value: String, unit: String, color: Color, size: CGFloat) -> some View {
@@ -130,7 +131,8 @@ struct HeartRateView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .padding(.horizontal, 4)
+        .padding(.leading, 16)
+        .padding(.trailing, 10)
     }
 }
 

@@ -8,25 +8,25 @@ struct StartView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            // 브랜드 락업 — 웹 스플래시와 동일 구성
-            HStack(spacing: 7) {
-                GrassLogoChip(size: 30)
+            // 브랜드 — 워드마크 에메랄드 단독 (R 중복 회피), 카피는 화이트
+            VStack(spacing: 3) {
                 Text("Routinist")
-                    .font(.system(size: 24, weight: .heavy))
+                    .font(.system(size: 26, weight: .heavy))
                     .tracking(-0.5)
+                    .foregroundStyle(GrassPalette.mid)
+                Text("Run Your Routine!")
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(.white)
             }
-            Text("Run Your Routine!")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(GrassPalette.mid)
-                .padding(.top, -6)
 
             Button {
                 workout.requestAuthorizationAndStart()
             } label: {
-                VStack(spacing: 7) {
-                    PixelGridView(grid: GRASS_RUNNER_GRID)
-                        .frame(width: 44, height: 44)
+                VStack(spacing: 9) {
+                    // 달리는 잔디 애니메이션 — 물결이 오른쪽으로 달림
+                    RunningGrassView()
+                        .frame(height: 40)
+                        .padding(.horizontal, 14)
                     Text("달리기 시작")
                         .font(.system(size: 18, weight: .heavy, design: .rounded))
                         .foregroundStyle(.white)
