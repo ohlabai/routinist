@@ -7,6 +7,8 @@ import HealthKit
 import WatchKit
 import AVFoundation
 import CoreMotion
+import CoreLocation
+import WatchConnectivity
 
 @MainActor
 final class WorkoutManager: NSObject, ObservableObject {
@@ -27,22 +29,46 @@ final class WorkoutManager: NSObject, ObservableObject {
     private static var audioConfigured = false
 
     func speak(_ text: String) {
-        // v10 fix (320 실기기: "음성이 안 들려"): watchOS 는 AVAudioSession 을
-        // .playback 으로 활성화하지 않으면 TTS 가 스피커에서 무음.
-        // 카테고리는 1회 등록, setActive 는 발화 직전 lazy (폰 build 241 계약과 동일 패턴).
-        let session = AVAudioSession.sharedInstance()
-        if !Self.audioConfigured {
-            try? session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
-            Self.audioConfigured = true
+        // v13 (hans: "이어폰에서 나게"): iPhone 이 접근 가능하면 폰에 릴레이 —
+        // 음악 듣는 그 이어폰 (폰에 연결된) 에서 발화 + 음악 덕킹. 실패 시 워치 로컬 폴백.
+        if WCSession.isSupported(), WCSession.default.isReachable {
+            WCSession.default.sendMessage(["voice": text], replyHandler: nil) { [weak self] _ in
+                Task { @MainActor in self?.speakLocally(text) }
+            }
+            return
         }
-        try? session.setActive(true)
+        speakLocally(text)
+    }
 
+    private func speakLocally(_ text: String) {
+        // v10 fix: watchOS 는 AVAudioSession .playback 활성화 없이 TTS 스피커 무음.
+        activateAudioSession()
         let u = AVSpeechUtterance(string: text)
         u.voice = AVSpeechSynthesisVoice(language: "ko-KR")
         // 워치 스피커는 출력이 작아 0.9 — 이어폰 연결 시에도 과하지 않은 선
         u.volume = 0.9
         u.rate = AVSpeechUtteranceDefaultSpeechRate * 0.95
         speech.speak(u)
+    }
+
+    // ── GPS 경로 (v13) — HKWorkoutRouteBuilder: 워치 러닝에도 지도가 생긴다 ──
+    // 폰 앱의 기존 경로 동기화 (WorkoutRoute 플러그인) 가 HKWorkoutRoute 를 읽으므로
+    // 여기서 route 를 저장하면 지도·지역 라벨이 자동으로 붙음.
+    private let locationManager = CLLocationManager()
+    private var routeBuilder: HKWorkoutRouteBuilder?
+
+    private func startLocationUpdates() {
+        locationManager.delegate = self
+        locationManager.desiredAccuracy = kCLLocationAccuracyBest
+        locationManager.activityType = .fitness
+        locationManager.requestWhenInUseAuthorization()
+        routeBuilder = HKWorkoutRouteBuilder(healthStore: healthStore, device: nil)
+        locationManager.allowsBackgroundLocationUpdates = true
+        locationManager.startUpdatingLocation()
+    }
+
+    private func stopLocationUpdates() {
+        locationManager.stopUpdatingLocation()
     }
 
     /// v7: 카운트다운 음성 — 폰과 동일하게 "삼 / 이 / 일" (출발은 beginSession 이 발화)
@@ -303,6 +329,7 @@ final class WorkoutManager: NSObject, ObservableObject {
         loadMaxHeartRate()
         startWorkout()
         startStallWatch()
+        startLocationUpdates()   // v13: GPS 경로 수집
     }
 
     private func activateAudioSession() {
@@ -402,6 +429,7 @@ final class WorkoutManager: NSObject, ObservableObject {
         stallTimer?.invalidate()
         stallTimer = nil
         pedometer.stopUpdates()
+        stopLocationUpdates()
         isAutoPaused = false
         session?.end()
     }
@@ -469,6 +497,22 @@ final class WorkoutManager: NSObject, ObservableObject {
     }
 }
 
+// MARK: - CLLocationManagerDelegate (v13 — GPS 경로)
+
+extension WorkoutManager: CLLocationManagerDelegate {
+    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        // 정확도 필터 (폰 엔진과 동일 기준: 50m 이하만)
+        let good = locations.filter { $0.horizontalAccuracy > 0 && $0.horizontalAccuracy <= 50 }
+        guard !good.isEmpty else { return }
+        Task { @MainActor in
+            guard self.phase == .active, let rb = self.routeBuilder else { return }
+            rb.insertRouteData(good) { _, _ in }
+        }
+    }
+
+    nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {}
+}
+
 // MARK: - HKWorkoutSessionDelegate
 
 extension WorkoutManager: HKWorkoutSessionDelegate {
@@ -491,8 +535,13 @@ extension WorkoutManager: HKWorkoutSessionDelegate {
                 // v12: 종료 버튼 없이 끝남 = 외부 종료 (다른 운동 앱이 세션을 가져감)
                 self.endedExternally = !self.endRequested
                 // 수집 종료 → HealthKit 저장 → 요약
+                self.stopLocationUpdates()
                 self.builder?.endCollection(withEnd: date) { [weak self] _, _ in
-                    self?.builder?.finishWorkout { _, _ in
+                    self?.builder?.finishWorkout { workout, _ in
+                        // v13: 경로를 완성된 워크아웃에 붙임 (지도 데이터)
+                        if let workout, let rb = self?.routeBuilder {
+                            rb.finishRoute(with: workout, metadata: nil) { _, _ in }
+                        }
                         Task { @MainActor in
                             guard let self else { return }
                             let hrUnit = HKUnit.count().unitDivided(by: .minute())

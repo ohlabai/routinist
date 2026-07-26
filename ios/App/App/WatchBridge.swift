@@ -5,9 +5,24 @@
 
 import Foundation
 import WatchConnectivity
+import AVFoundation
 
 final class WatchBridge: NSObject {
     static let shared = WatchBridge()
+
+    // watch v13: 워치 러닝 음성 릴레이 — 폰에 연결된 이어폰 (음악 듣는 그 이어폰) 에서 발화.
+    // 워치가 sendMessage 로 보내면 폰 앱이 백그라운드여도 깨어나 이 핸들러가 받는다.
+    private let speech = AVSpeechSynthesizer()
+
+    fileprivate func speakRelayed(_ text: String) {
+        // AppDelegate 가 카테고리 등록 (.playback + .spokenAudio + .duckOthers) — 발화 직전 lazy activate
+        try? AVAudioSession.sharedInstance().setActive(true)
+        let u = AVSpeechUtterance(string: text)
+        u.voice = AVSpeechSynthesisVoice(language: "ko-KR")
+        u.volume = 0.65   // 폰 음성 톤 규칙 (feedback_voice_cue_tuning)
+        u.rate = AVSpeechUtteranceDefaultSpeechRate * 0.95
+        speech.speak(u)
+    }
 
     func activate() {
         guard WCSession.isSupported() else { return }
@@ -41,4 +56,11 @@ extension WatchBridge: WCSessionDelegate {
     }
     func sessionDidBecomeInactive(_ session: WCSession) {}
     func sessionDidDeactivate(_ session: WCSession) { session.activate() }
+
+    // watch v13: 워치 → 폰 실시간 메시지 (음성 릴레이)
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        if let text = message["voice"] as? String, !text.isEmpty {
+            DispatchQueue.main.async { self.speakRelayed(text) }
+        }
+    }
 }
