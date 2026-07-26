@@ -12,6 +12,7 @@ import {
 import { useI18n } from '@/lib/i18n';
 import { ArrowLeft, Heart, Smartphone, Check, RefreshCw, Footprints, Download, Settings } from 'lucide-react';
 import Link from 'next/link';
+import SamsungHealthGuide from '@/components/health/SamsungHealthGuide';
 
 export default function ConnectPage() {
   const { user } = useAuth();
@@ -351,23 +352,8 @@ export default function ConnectPage() {
                 )}
                 {/* 2026-07-26: 연결·권한 정상인데 HC 가 빈 경우 — 삼성헬스가 기본으로
                     Health Connect 에 데이터를 공유하지 않아서 (손레띠·Kevin 실측 0건).
-                    유저가 삼성헬스에서 한 번 켜야 하는 설정이라 단계 가이드 노출. */}
-                {connected && hcEmpty && (
-                  <div className="mt-2 rounded-2xl bg-amber-50 dark:bg-amber-950/25 border border-amber-200/70 dark:border-amber-800/40 p-3.5 text-left">
-                    <p className="text-sm font-extrabold text-amber-800 dark:text-amber-300 mb-1.5">
-                      🌱 {tt('삼성헬스 기록이 안 보이나요?')}
-                    </p>
-                    <p className="text-xs text-amber-800/90 dark:text-amber-200/90 leading-relaxed mb-2">
-                      {tt('삼성헬스는 기본으로 Health Connect 에 데이터를 공유하지 않아요. 한 번만 켜주면 자동으로 들어와요:')}
-                    </p>
-                    <ol className="text-xs text-amber-800/90 dark:text-amber-200/90 leading-relaxed space-y-1 list-decimal list-inside">
-                      <li>{tt('삼성헬스 앱 → 우상단 ⋮ → 설정')}</li>
-                      <li>{tt("'Health Connect' → 데이터 동기화 켜기")}</li>
-                      <li>{tt("공유 항목에서 '운동' 켜기")}</li>
-                      <li>{tt('돌아와서 위의 동기화 버튼을 다시 누르기')}</li>
-                    </ol>
-                  </div>
-                )}
+                    미니 목업 일러스트 4단계 가이드 (hans: "이미지로 직관적으로"). */}
+                {connected && hcEmpty && <SamsungHealthGuide />}
                 {/* Android 는 Health Connect 앱에서 권한을 직접 관리 — 설정 화면 바로가기 제공 */}
                 {connected && !needsHealthConnect && (
                   <button
