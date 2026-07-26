@@ -5,6 +5,7 @@
 import Foundation
 import HealthKit
 import WatchKit
+import AVFoundation
 
 @MainActor
 final class WorkoutManager: NSObject, ObservableObject {
@@ -13,6 +14,41 @@ final class WorkoutManager: NSObject, ObservableObject {
     private let healthStore = HKHealthStore()
     private var session: HKWorkoutSession?
     private var builder: HKLiveWorkoutBuilder?
+
+    // ── 음성 (v6, 2026-07-26 hans: "시작할 때 음성 안 나오는 거 같은데") ──
+    // 워치 자체 TTS — 워치에 페어링된 이어폰 또는 워치 스피커로 재생.
+    private let speech = AVSpeechSynthesizer()
+    private var lastAnnouncedKm = 0
+
+    private func speak(_ text: String) {
+        let u = AVSpeechUtterance(string: text)
+        u.voice = AVSpeechSynthesisVoice(language: "ko-KR")
+        u.volume = 0.65   // 폰 앱 음성과 동일 톤 (feedback_voice_cue_tuning)
+        u.rate = AVSpeechUtteranceDefaultSpeechRate * 0.95
+        speech.speak(u)
+    }
+
+    /// 1~99 한자어 수사 (폰 네이티브와 동일 — "십일 킬로미터" 오독 방지)
+    private static func sinoKorean(_ n: Int) -> String {
+        guard n >= 1 && n <= 99 else { return String(n) }
+        let d = ["", "일", "이", "삼", "사", "오", "육", "칠", "팔", "구"]
+        let tens = n / 10, ones = n % 10
+        var out = ""
+        if tens >= 2 { out += d[tens] }
+        if tens >= 1 { out += "십" }
+        out += d[ones]
+        return out
+    }
+
+    // ── 센티초 타이머 보간 앵커 (v6) — builder 이벤트 사이를 벽시계로 보간 ──
+    private(set) var elapsedAnchorValue: TimeInterval = 0
+    private(set) var elapsedAnchorDate = Date.distantPast
+
+    /// TimelineView 프레임마다 호출 — active 일 때만 보간, 아니면 마지막 값
+    func displayElapsed(at now: Date) -> TimeInterval {
+        guard phase == .active, elapsedAnchorDate != .distantPast else { return elapsedSeconds }
+        return elapsedAnchorValue + now.timeIntervalSince(elapsedAnchorDate)
+    }
 
     // ── 화면 상태 ──────────────────────────────────────────────
     enum Phase { case idle, requesting, countdown, active, paused, ended }
@@ -90,6 +126,7 @@ final class WorkoutManager: NSObject, ObservableObject {
     /// 카운트다운 종료 후 실제 세션 시작
     func beginSession() {
         WKInterfaceDevice.current().play(.start)
+        speak("출발!")
         startWorkout()
     }
 
@@ -137,6 +174,9 @@ final class WorkoutManager: NSObject, ObservableObject {
         activeCalories = 0
         hrSamples = []
         summary = nil
+        lastAnnouncedKm = 0
+        elapsedAnchorValue = 0
+        elapsedAnchorDate = .distantPast
     }
 
     // ── 통계 반영 ─────────────────────────────────────────────
@@ -152,6 +192,19 @@ final class WorkoutManager: NSObject, ObservableObject {
             }
         case HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning):
             distanceMeters = statistics.sumQuantity()?.doubleValue(for: .meter()) ?? distanceMeters
+            // v6: km 마일스톤 — 햅틱 + 음성 ("N 킬로미터 통과. 평균 페이스 M분 S초. 잘하고 있어요")
+            let km = Int(distanceMeters / 1000)
+            if km > lastAnnouncedKm {
+                lastAnnouncedKm = km
+                WKInterfaceDevice.current().play(.notification)
+                var text = "\(Self.sinoKorean(km)) 킬로미터 통과."
+                if let p = paceSecPerKm {
+                    let t = Int(p.rounded()), m = t / 60, s = t % 60
+                    text += s == 0 ? " 평균 페이스 \(m)분." : " 평균 페이스 \(m)분 \(s)초."
+                }
+                text += " 잘하고 있어요."
+                speak(text)
+            }
         case HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned):
             activeCalories = statistics.sumQuantity()?.doubleValue(for: .kilocalorie()) ?? activeCalories
         default: break
@@ -210,11 +263,18 @@ extension WorkoutManager: HKLiveWorkoutBuilderDelegate {
                 guard let qt = type as? HKQuantityType else { continue }
                 self.updateForStatistics(workoutBuilder.statistics(for: qt))
             }
-            self.elapsedSeconds = workoutBuilder.elapsedTime
+            self.syncElapsed(workoutBuilder.elapsedTime)
         }
     }
 
     nonisolated func workoutBuilderDidCollectEvent(_ workoutBuilder: HKLiveWorkoutBuilder) {
-        Task { @MainActor in self.elapsedSeconds = workoutBuilder.elapsedTime }
+        Task { @MainActor in self.syncElapsed(workoutBuilder.elapsedTime) }
+    }
+
+    /// builder 의 권위 있는 경과시간으로 앵커 갱신 — 센티초 표시는 이 앵커에서 보간
+    private func syncElapsed(_ value: TimeInterval) {
+        elapsedSeconds = value
+        elapsedAnchorValue = value
+        elapsedAnchorDate = Date()
     }
 }

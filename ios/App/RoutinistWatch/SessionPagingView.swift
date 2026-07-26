@@ -38,33 +38,32 @@ struct MetricsView: View {
     private let emerald = Color(red: 0.20, green: 0.83, blue: 0.60)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            // 시간 — hero (제일 크게)
-            Text(formatElapsed(workout.elapsedSeconds))
-                .font(.system(size: 46, weight: .heavy, design: .rounded))
-                .monospacedDigit()
-                .minimumScaleFactor(0.6)
-                .lineLimit(1)
-                .foregroundStyle(.yellow)
+        VStack(alignment: .leading, spacing: 1) {
+            // 시간 — hero, 0.01초 단위 (v6, Apple 운동앱 동일). TimelineView 로 부드럽게 보간.
+            TimelineView(.animation(minimumInterval: 0.03, paused: workout.phase != .active)) { ctx in
+                Text(formatElapsedCenti(workout.displayElapsed(at: ctx.date)))
+                    .font(.system(size: 54, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .minimumScaleFactor(0.55)
+                    .lineLimit(1)
+                    .foregroundStyle(.yellow)
+            }
 
             // 거리
-            bigMetric(String(format: "%.2f", workout.distanceMeters / 1000), unit: "km", color: emerald, size: 40)
+            bigMetric(String(format: "%.2f", workout.distanceMeters / 1000), unit: "km", color: emerald, size: 46)
 
             // 페이스
-            bigMetric(formatPace(workout.paceSecPerKm), unit: "/km", color: .white, size: 34)
+            bigMetric(formatPace(workout.paceSecPerKm), unit: "/km", color: .white, size: 40)
 
             // 심박
-            HStack(alignment: .firstTextBaseline, spacing: 5) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Image(systemName: "heart.fill")
-                    .font(.system(size: 22))
+                    .font(.system(size: 26))
                     .foregroundStyle(.red)
                 Text(workout.heartRate > 0 ? String(format: "%.0f", workout.heartRate) : "--")
-                    .font(.system(size: 34, weight: .heavy, design: .rounded))
+                    .font(.system(size: 40, weight: .heavy, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(.white)
-                Text("bpm")
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
-                    .foregroundStyle(.secondary)
             }
 
             if workout.phase == .paused {
@@ -244,6 +243,16 @@ func formatElapsed(_ seconds: TimeInterval) -> String {
     return h > 0
         ? String(format: "%d:%02d:%02d", h, m, s)
         : String(format: "%02d:%02d", m, s)
+}
+
+/// v6: 0.01초 단위 (Apple 운동앱 동일). 1시간 넘으면 센티 생략 (H:MM:SS).
+func formatElapsedCenti(_ seconds: TimeInterval) -> String {
+    let cs = max(0, Int((seconds * 100).rounded()))
+    let totalS = cs / 100
+    if totalS >= 3600 {
+        return String(format: "%d:%02d:%02d", totalS / 3600, (totalS % 3600) / 60, totalS % 60)
+    }
+    return String(format: "%02d:%02d.%02d", totalS / 60, totalS % 60, cs % 100)
 }
 
 func formatPace(_ secPerKm: Double?) -> String {
