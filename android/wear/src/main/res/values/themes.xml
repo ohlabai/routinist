@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose for Wear 는 Compose 쪽에서 색/타이포를 그리므로 시스템 테마는 최소한만 -->
+    <style name="RoutinistWearTheme" parent="@android:style/Theme.DeviceDefault">
+        <item name="android:windowBackground">@android:color/black</item>
+    </style>
+</resources>

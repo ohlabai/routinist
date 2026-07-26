@@ -60,6 +60,8 @@ dependencies {
     implementation 'androidx.health.connect:connect-client:1.1.0-alpha07'
     // FusedLocationProvider — RunSessionEngine (네이티브 러닝 세션, Android Phase 2)
     implementation 'com.google.android.gms:play-services-location:21.3.0'
+    // Wearable Data Layer — 갤럭시 워치(:wear) 완주 러닝 수신 (WatchRunReceiverService)
+    implementation 'com.google.android.gms:play-services-wearable:20.0.1'
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlinxCoroutinesVersion"
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"

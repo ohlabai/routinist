@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Home, Trophy, User, Users, Play } from 'lucide-react';
 import { syncHealthData, isNativeApp } from '@/lib/health-sync';
+import { drainWatchRuns } from '@/lib/watch-runs';
 import AppLogo from '@/components/AppLogo';
 import { useI18n, getCurrentLocale } from '@/lib/i18n';
 import { getSupabase } from '@/lib/supabase';
@@ -242,6 +243,27 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }, 2000);
 
     return () => clearTimeout(deferTimer);
+  }, [user]);
+
+  // 갤럭시 워치(:wear) 완주 러닝 드레인 — 폰 수신 서비스가 Preferences 큐에 쌓아둔 워치 러닝을
+  // 앱 진입/포그라운드 복귀 시 activities 로 저장 (Wear OS 는 Health Connect 가 없어 별도 경로).
+  // health-sync 와 달리 스로틀 불필요 — 큐가 비었으면 즉시 no-op (읽기 1회).
+  useEffect(() => {
+    if (!user) return;
+    if (!isNativeApp()) return;
+    let cleanup: (() => void) | undefined;
+    const drain = () => { drainWatchRuns(user.id).catch(() => {}); };
+    const t = setTimeout(drain, 2500); // 첫 sync 와 겹치지 않게 살짝 뒤
+    (async () => {
+      try {
+        const { App } = await import('@capacitor/app');
+        const handle = await App.addListener('appStateChange', ({ isActive }) => {
+          if (isActive) drain();
+        });
+        cleanup = () => { handle.remove(); };
+      } catch { /* 웹/비네이티브 — 무시 */ }
+    })();
+    return () => { clearTimeout(t); cleanup?.(); };
   }, [user]);
 
   if (loading) {

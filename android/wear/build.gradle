@@ -1,0 +1,78 @@
+apply plugin: 'com.android.application'
+apply plugin: 'org.jetbrains.kotlin.android'
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
+
+android {
+    namespace = "com.routinist.wear"
+    compileSdk = rootProject.ext.compileSdkVersion   // 36
+
+    defaultConfig {
+        // Play Multi-APK: 폰 앱과 동일 applicationId 로 한 리스팅에 배포.
+        applicationId "com.routinist.app"
+        minSdkVersion 30                              // Wear OS 3+
+        targetSdkVersion 34                           // Wear OS 5
+        // versionCode 는 폰과 반드시 달라야 함 (같은 앱, 다른 폼팩터 APK).
+        // 폰 build 324 → 워치는 1_000_000 오프셋 스킴으로 충돌 방지.
+        versionCode 1000324
+        versionName "1.2.13"
+    }
+
+    signingConfigs {
+        release {
+            def keystorePropsFile = rootProject.file('keystore.properties')
+            if (keystorePropsFile.exists()) {
+                def props = new Properties()
+                props.load(new FileInputStream(keystorePropsFile))
+                storeFile rootProject.file(props['storeFile'])
+                storePassword props['storePassword']
+                keyAlias props['keyAlias']
+                keyPassword props['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            if (rootProject.file('keystore.properties').exists()) {
+                signingConfig signingConfigs.release
+            }
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+    kotlinOptions {
+        jvmTarget = "21"
+    }
+    buildFeatures {
+        compose true
+    }
+}
+
+dependencies {
+    // Health Services — 워치 라이브 운동 트래킹
+    implementation "androidx.health:health-services-client:1.1.0-rc02"
+    // ExerciseClient 는 Guava ListenableFuture 를 반환 — 타입 노출용 guava + await() 확장
+    implementation "androidx.concurrent:concurrent-futures-ktx:1.2.0"
+    implementation "com.google.guava:guava:33.4.8-android"
+
+    // Wearable Data Layer — 완주 데이터를 폰으로 전송
+    implementation "com.google.android.gms:play-services-wearable:20.0.1"
+
+    // Compose for Wear OS
+    def composeBom = platform("androidx.compose:compose-bom:2026.06.01")
+    implementation composeBom
+    implementation "androidx.activity:activity-compose:1.13.0"
+    implementation "androidx.wear.compose:compose-material3:1.6.2"
+    implementation "androidx.wear.compose:compose-foundation:1.6.2"
+    implementation "androidx.wear.compose:compose-navigation:1.6.2"
+    implementation "androidx.compose.ui:ui-tooling-preview"
+    debugImplementation "androidx.compose.ui:ui-tooling"
+
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlinxCoroutinesVersion"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-play-services:$kotlinxCoroutinesVersion"
+}

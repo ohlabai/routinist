@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 갤럭시 워치(:wear) 앱이 완주 러닝을 전송할 대상 능력.
+         워치의 CapabilityClient 가 이 이름으로 폰 노드를 찾는다. -->
+    <string-array name="android_wear_capabilities">
+        <item>routinist_run_import</item>
+    </string-array>
+</resources>

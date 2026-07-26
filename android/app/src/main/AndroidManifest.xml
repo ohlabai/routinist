@@ -48,6 +48,18 @@
             android:exported="false"
             android:foregroundServiceType="location" />
 
+        <!-- 갤럭시 워치(:wear) 완주 러닝 수신 — Wearable Data Layer.
+             워치가 DataClient 로 /routinist/run/* 를 보내면 로컬 pending 큐에 쌓고,
+             앱 포그라운드 시 WatchRunInbox 플러그인이 JS 로 넘겨 기존 저장 플로우로 Supabase 저장. -->
+        <service
+            android:name=".WatchRunReceiverService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data android:scheme="wear" android:host="*" android:pathPrefix="/routinist/run" />
+            </intent-filter>
+        </service>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
