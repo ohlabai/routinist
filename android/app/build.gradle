@@ -11,7 +11,9 @@ android {
         // iOS 빌드 번호와 동기 — iOS marketing 1.2.13 / build 324 와 정렬.
         // Android 만 단독 증가 시 충돌 피하려고 의도적으로 같은 versionCode 사용.
         // 325: 갤럭시 워치(:wear) 완주 러닝 수신부(WatchRunReceiverService) 추가 — 안드로이드 단독 bump.
-        versionCode 325
+        // 326: 325 를 단독 릴리스로 먼저 제출해 라이브러리에서 잠김 → 워치와 결합 릴리스용으로 재빌드
+        //      (코드 동일, versionCode 만 +1). iOS 와 무관한 Android 단독 증가.
+        versionCode 326
         versionName "1.2.13"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

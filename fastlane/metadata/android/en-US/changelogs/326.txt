@@ -1,0 +1,3 @@
+• Record runs on your Galaxy Watch (Wear OS) — watch runs sync automatically to the phone app
+• See time, distance, pace, heart rate and GPS route live on your wrist, with voice cues
+• Stability improvements
