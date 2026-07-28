@@ -968,13 +968,37 @@ function TrackPageImpl() {
     router.back();
   };
 
+  // build 327 (hans 확정): 나가기 = 폐기가 아니라 저장. "무조건 러닝 기록은 저장되게" —
+  // 완주 자동저장 철학(feedback_autosave_after_run)과 동일 경로(proceedFinish→요약시트 autosave).
+  // 의미 있는 거리(50m+)면 저장하고, 그 미만만 저장 없이 종료 (테스트 런 소음 방지).
   const handleAbort = () => {
     if (!state) return;
-    const msg = locale === 'en'
-      ? 'Stop tracking? Your run will not be saved.'
-      : '트래킹을 종료할까요? 기록은 저장되지 않습니다.';
-    if (!window.confirm(msg)) return;
-    discardRun('user-cancel');
+    void (async () => {
+      let effectiveMeters = state.distanceMeters;
+      if (useNative) {
+        try {
+          const snap = await getRunSnapshot();
+          if (snap.active && Number.isFinite(snap.distanceM)) {
+            effectiveMeters = Math.max(effectiveMeters, snap.distanceM);
+          }
+        } catch { /* 스냅샷 실패 — JS 미러 거리로 판정 */ }
+      }
+      if (effectiveMeters < 50) {
+        const msg = locale === 'en'
+          ? 'Stop tracking? (Almost no distance yet — nothing will be saved)'
+          : '트래킹을 종료할까요? 아직 이동 거리가 거의 없어 저장 없이 종료돼요.';
+        if (!window.confirm(msg)) return;
+        discardRun('user-cancel');
+        return;
+      }
+      const km = (effectiveMeters / 1000).toFixed(2);
+      const msg = locale === 'en'
+        ? `Stop and save your run? (${km} km recorded)`
+        : `러닝을 종료할까요? 지금까지 기록 (${km} km) 은 자동으로 저장돼요.`;
+      if (!window.confirm(msg)) return;
+      logClientInfo('track-abort', 'exit-save', { distance_m: Math.round(effectiveMeters) });
+      proceedFinish();
+    })();
   };
 
   // 2026-07-15 Android 리뷰 P1-3: 하드웨어 뒤로가기. Capacitor 기본 동작은 WebView history

@@ -1238,10 +1238,11 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
         const rank = Number(row.rank_position ?? 0);
         if (rank === 0 || total === 0) return;
         const loc = getCurrentLocale();
+        // build 327 (hans): 1위도 "N명 중" 포함 — 몇 명 중의 1위인지가 자랑의 핵심.
         if (loc === 'en') {
-          setRankSuffix(rank === 1 ? '#1 overall this month ✨' : `#${rank} of ${total} this month`);
+          setRankSuffix(rank === 1 ? `#1 of ${total} this month ✨` : `#${rank} of ${total} this month`);
         } else {
-          setRankSuffix(rank === 1 ? '이번 달 전체 1위 ✨' : `이번 달 전체 ${rank}위 / ${total}명`);
+          setRankSuffix(rank === 1 ? `이번 달 전체 1위 / ${total}명 ✨` : `이번 달 전체 ${rank}위 / ${total}명`);
         }
       } catch { /* 랭킹 실패해도 카드 동작에 영향 X */ }
     })();

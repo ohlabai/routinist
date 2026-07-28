@@ -76,11 +76,10 @@ export function rankLineFromHero(hero: {
   const rank = hero.rank_position ?? 0;
   const scope = hero.scope_label ?? '';
   if (rank === 0 || total === 0) return null;
-  if (total <= 3) {
-    if (rank === 1) return `${scope} ${periodWord} 1위 ✨`;
-    return `${scope} ${periodWord} ${rank}위`;
-  }
-  return `${rank}위 · ${scope} ${total}명`;
+  // build 327 (hans): 일간 카드와 형식 통일 — 1위 포함 항상 "N위 / N명".
+  // ("8위 · 전체 100명" / 맨몸 "1위 ✨" 혼재 → "이번 달 전체 8위 / 100명" 한 형식)
+  const suffix = rank === 1 ? ' ✨' : '';
+  return `${periodWord} ${scope} ${rank}위 / ${total}명${suffix}`;
 }
 
 // 사용자 timezone 의 이번 주 (월~일) 시작일 ISO 문자열 반환.
