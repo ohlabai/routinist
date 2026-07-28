@@ -101,32 +101,39 @@ private fun requiredPermissions(): Array<String> {
 
 @Composable
 private fun StartScreen(error: String?, onStart: () -> Unit) {
-    // 잔디가 살짝 숨쉬듯 흔들리는 브랜드 인트로
+    // v3 (hans): 애플워치처럼 "살아있는" 시작 화면 — 숨쉬는 새싹 + 하단 달리는 잔디 물결
     val t = rememberInfiniteTransition(label = "intro")
     val bob by t.animateFloat(
         0f, 1f, infiniteRepeatable(tween(1800, easing = LinearEasing), RepeatMode.Reverse), label = "bob",
     )
-    Column(
-        Modifier.fillMaxSize().padding(horizontal = 18.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        SproutMark(Modifier.padding(bottom = (2 + bob * 3).dp), sizeDp = 30)
-        Text("루티니스트", color = Brand.EmeraldLight, fontSize = 22.sp, fontWeight = FontWeight.Black)
-        Spacer(Modifier.height(3.dp))
-        Text("오늘도 달려볼까요?", color = Brand.Snow, fontSize = 13.sp)
-        if (error != null) {
-            Spacer(Modifier.height(4.dp))
-            Text(error, color = Brand.Heart, fontSize = 12.sp, textAlign = TextAlign.Center)
-        }
-        Spacer(Modifier.height(14.dp))
-        Button(
-            onClick = onStart,
-            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-            modifier = Modifier.clip(RoundedCornerShape(24.dp)).background(Brand.CtaGradient),
+    Box(Modifier.fillMaxSize()) {
+        Column(
+            Modifier.fillMaxSize().padding(horizontal = 18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
-            Text("달리기 시작", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Brand.Ink)
+            SproutMark(Modifier.padding(bottom = (2 + bob * 3).dp), sizeDp = 30)
+            Text("루티니스트", color = Brand.EmeraldLight, fontSize = 22.sp, fontWeight = FontWeight.Black)
+            Spacer(Modifier.height(3.dp))
+            Text("오늘도 달려볼까요?", color = Brand.Snow, fontSize = 13.sp)
+            if (error != null) {
+                Spacer(Modifier.height(4.dp))
+                Text(error, color = Brand.Heart, fontSize = 12.sp, textAlign = TextAlign.Center)
+            }
+            Spacer(Modifier.height(14.dp))
+            Button(
+                onClick = onStart,
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                modifier = Modifier.clip(RoundedCornerShape(24.dp)).background(Brand.CtaGradient),
+            ) {
+                Text("달리기 시작", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Brand.Ink)
+            }
         }
+        // 하단 잔디 물결 — 러닝 중 화면과 동일한 브랜드 모션 (애플워치 RunningGrassView 대응)
+        GrassWave(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth(0.55f).padding(bottom = 10.dp),
+            blades = 9,
+        )
     }
 }
 

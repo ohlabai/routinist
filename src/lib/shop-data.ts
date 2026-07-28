@@ -292,10 +292,34 @@ export async function cancelOrder(
   onlyIfPending?: boolean,
 ): Promise<void> {
   const supabase = getSupabase();
+
+  // build 327 (2026-07-28): 사용자 취소는 서버 라우트 경유 — 토스 실환불 + DB 정리.
+  // 기존엔 cancel_order RPC 직행이라 DB 상태만 바뀌고 실제 PG 환불이 없었다.
+  // onlyIfPending(결제 fail 페이지의 pending 정리)은 돈이 안 걸려 있어 기존 RPC 유지.
+  if (!onlyIfPending) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) throw new Error('로그인이 필요해요');
+    // 네이티브 앱은 정적 번들(capacitor://localhost)이라 상대 /api 가 없음 — Vercel 절대 URL 로.
+    const isNative = typeof window !== 'undefined'
+      && Boolean((window as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.());
+    const apiBase = isNative ? 'https://app.routinist.kr' : '';
+    const res = await fetch(`${apiBase}/api/payments/toss/cancel`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ orderId, reason: reason ?? '사용자 요청' }),
+    });
+    const json = await res.json().catch(() => ({})) as { error?: string };
+    if (!res.ok) throw new Error(json.error || '취소 실패');
+    return;
+  }
+
   const { error } = await supabase.rpc('cancel_order', {
     p_order_id: orderId,
     p_reason: reason ?? null,
-    p_only_if_pending: onlyIfPending ?? false,
+    p_only_if_pending: true,
   });
   if (error) throw error;
 }

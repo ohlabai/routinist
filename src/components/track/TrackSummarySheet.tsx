@@ -12,7 +12,7 @@ import { getSupabase } from '@/lib/supabase';
 import {
   type TrackingState, formatDuration, formatDistanceKm,
   averagePaceSecondsPerKm, formatPace, haversineMeters,
-  smoothCoords, clearFinishArchive,
+  smoothCoords, clearFinishArchive, writeFinishArchive,
 } from '@/lib/gps-tracking';
 import RouteMap from '@/components/map/RouteMap';
 import type { GeoJSONLineString } from '@/types';
@@ -272,7 +272,10 @@ export default function TrackSummarySheet({ finalState, userId, nativeEngine, on
       elapsed_s: elapsedSeconds,
       coords_n: finalState.coords.length,
     });
-    clearFinishArchive();
+    // build 327 (사용자 신고 "기록 삭제됐어요"): 아카이브를 지우지 않고 abort 로 강등 —
+    // 24h 안에 트래킹 화면 재진입 시 "복구할까요?" 휴지통 역할. (이전엔 여기서 완전 삭제
+    // → 저장 실패 후 얼떨결에 버리면 영구 유실이 유일한 결말이었다)
+    writeFinishArchive(finalState, 'abort', false);
     onClose();
     router.replace('/dashboard');
   };

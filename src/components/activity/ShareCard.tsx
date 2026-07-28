@@ -310,6 +310,9 @@ function drawCard(
       const scale = Math.min(mapW / dLng, mapH / dLat);
       const offsetX = padding + (mapW - dLng * scale) / 2;
       const offsetY = mapY + (mapH - dLat * scale) / 2;
+      // fix(2026-07-28 hans): y 플립은 실제 스케일된 높이 기준이어야 함 — mapH(480) 로 플립하면
+      // 가로로 넓은 경로일수록 아래로 밀려 거리 숫자와 겹침 (offsetY 중앙정렬과 이중 가산).
+      const scaledH = dLat * scale;
 
       // fade in/out (영상 모드일 때 segment 경계에서 0.1 까지 페이드)
       let segmentAlpha = 1;
@@ -327,7 +330,7 @@ function drawCard(
         ctx.beginPath();
         route.forEach(([lng, lat], i) => {
           const x = offsetX + (lng - minLng) * scale;
-          const y = offsetY + mapH - (lat - minLat) * scale;
+          const y = offsetY + scaledH - (lat - minLat) * scale;
           if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         });
         ctx.strokeStyle = hasMedia ?'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.35)';
@@ -387,7 +390,7 @@ function drawCard(
         ctx.beginPath();
         sliced.forEach(([lng, lat], i) => {
           const x = offsetX + (lng - minLng) * scale;
-          const y = offsetY + mapH - (lat - minLat) * scale;
+          const y = offsetY + scaledH - (lat - minLat) * scale;
           if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         });
         ctx.strokeStyle = hasMedia ?'#ffffff' : theme.routeColor;
@@ -395,7 +398,7 @@ function drawCard(
         ctx.stroke();
         const last = sliced[sliced.length - 1];
         lastDrawnX = offsetX + (last[0] - minLng) * scale;
-        lastDrawnY = offsetY + mapH - (last[1] - minLat) * scale;
+        lastDrawnY = offsetY + scaledH - (last[1] - minLat) * scale;
       }
 
       ctx.globalAlpha = 1;
@@ -467,7 +470,7 @@ function drawCard(
       if (firstRoute && firstRoute.length >= 1) {
         const [sLng, sLat] = firstRoute[0];
         const sx = offsetX + (sLng - minLng) * scale;
-        const sy = offsetY + mapH - (sLat - minLat) * scale;
+        const sy = offsetY + scaledH - (sLat - minLat) * scale;
         const pinR = 18, pinCenterY = sy - 30;
         ctx.fillStyle = '#EF4444';
         ctx.beginPath();
@@ -534,6 +537,8 @@ function drawCard(
 
     const offsetX = padding + (mapW - (maxLng - minLng) * scale) / 2;
     const offsetY = mapY + (mapH - (maxLat - minLat) * scale) / 2;
+    // fix(2026-07-28 hans): y 플립은 스케일된 높이 기준 (위 cluster 브랜치와 동일 버그 fix)
+    const scaledH = (maxLat - minLat) * scale;
 
     // 애니메이션: routeProgress 비율만큼 슬라이스 (최소 2개 필요).
     // build 151: 좌표에 timestamp(4번째 슬롯)가 있으면 **시간 기반** progress —
@@ -586,7 +591,7 @@ function drawCard(
     ctx.beginPath();
     coordsAll.forEach(([lng, lat], i) => {
       const x = offsetX + (lng - minLng) * scale;
-      const y = offsetY + mapH - (lat - minLat) * scale;
+      const y = offsetY + scaledH - (lat - minLat) * scale;
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     });
     ctx.strokeStyle = hasMedia ?'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.35)';
@@ -599,7 +604,7 @@ function drawCard(
     ctx.beginPath();
     coords.forEach(([lng, lat], i) => {
       const x = offsetX + (lng - minLng) * scale;
-      const y = offsetY + mapH - (lat - minLat) * scale;
+      const y = offsetY + scaledH - (lat - minLat) * scale;
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     });
     ctx.strokeStyle = hasMedia ?'#ffffff' : theme.routeColor;
@@ -608,7 +613,7 @@ function drawCard(
 
     // 시작점 — build 209 #1: 초록 dot → 빨간 핀(A) + 도시명 라벨 옆에 표시.
     // 핀 모양: 위가 둥글고 아래가 뾰족한 teardrop. 사용자 신고 "출발점도 초록이라 어디부터인지 헷갈림" 직접 해결.
-    const [sx, sy] = [offsetX + (coordsAll[0][0] - minLng) * scale, offsetY + mapH - (coordsAll[0][1] - minLat) * scale];
+    const [sx, sy] = [offsetX + (coordsAll[0][0] - minLng) * scale, offsetY + scaledH - (coordsAll[0][1] - minLat) * scale];
     // teardrop pin: 위 원 + 아래 삼각형
     const pinR = 18;
     const pinTipY = sy;                     // 핀 끝(좌표)은 실제 시작점
@@ -665,7 +670,7 @@ function drawCard(
 
     // 끝점 — 라인이 종착하는 위치 (애니메이션 중에는 현재 진행점이 보임)
     const lastCoord = coords[coords.length - 1];
-    const [ex, ey] = [offsetX + (lastCoord[0] - minLng) * scale, offsetY + mapH - (lastCoord[1] - minLat) * scale];
+    const [ex, ey] = [offsetX + (lastCoord[0] - minLng) * scale, offsetY + scaledH - (lastCoord[1] - minLat) * scale];
     if (routeProgress >= 1) {
       // 끝점: 작은 흰 원 + 검정 테두리 — 시작 핀과 시각적 구분
       ctx.fillStyle = '#ffffff';
@@ -1692,15 +1697,17 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-[var(--background)] rounded-2xl max-w-sm w-full overflow-hidden max-h-[90vh] flex flex-col">
+    // build 327 (2026-07-28 hans): 작은 센터 모달 → 풀스크린 몰입 뷰.
+    // 카드가 화면을 꽉 채우고, 메시지·테마·공유 액션은 아래로 스크롤.
+    <div className="fixed inset-0 z-50 bg-black/70" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-[var(--background)] w-full h-full overflow-hidden flex flex-col">
         {/* 캔버스 — 닫기 버튼은 이미지 우상단 floating (status bar 영역 아닌 카드 안). */}
-        <div className="p-4 flex-1 overflow-auto relative">
+        <div className="flex-1 overflow-auto relative">
           {/* build 317 (2026-07-26 hans): 카드 배경을 탭하면 바로 사진 선택 — 버튼 찾기 전에 직관 경로 */}
           <canvas
             ref={canvasRef}
             onClick={() => fileInputRef.current?.click()}
-            className="w-full rounded-xl shadow-lg cursor-pointer"
+            className="w-full cursor-pointer"
             style={{ aspectRatio: '9/16' }}
           />
           {!bgImage && !attachedVideoUrl && (
@@ -1798,7 +1805,8 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
             3) 공유 — 단일 CTA. "사진으로 저장만" 제거 */}
         <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
         <input ref={videoInputRef} type="file" accept="video/*" onChange={handleVideoUpload} className="hidden" />
-        <div className="flex flex-col gap-3 px-4 pb-4 pt-2 flex-shrink-0">
+        {/* 풀스크린 전환에 따른 하단 safe-area 확보 (홈 인디케이터와 겹침 방지) */}
+        <div className="flex flex-col gap-3 px-4 pt-2 flex-shrink-0" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
           {/* 배경 사진 + 영상 추가 — 가로 2-col. build 216 #4: 영상 첨부 = 인트로 (max 5s). */}
           <div className="grid grid-cols-2 gap-2">
             <div className="relative">

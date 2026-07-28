@@ -119,6 +119,85 @@ export async function fetchPublicUsers(limit = 50): Promise<Profile[]> {
 }
 
 // =============================================
+// 추천 러너 (build 327, 2026-07-28 hans)
+// 전체 회원 리스트 나열 → 인스타식 "알 수도 있는 러너" 추천으로 전환.
+// ① 동네 (region_gu → region_si) ② 이달 거리 비슷 (내 ±50%) ③ 이달 활동 러너 순으로
+// 채우고 이유 라벨을 함께 반환. 검색은 기존 searchUsers 그대로.
+// =============================================
+
+export type RecommendReason = 'region' | 'similar' | 'active';
+
+export interface RecommendedRunner {
+  profile: Profile;
+  reason: RecommendReason;
+}
+
+export async function fetchRecommendedRunners(
+  me: Pick<Profile, 'id' | 'region_gu' | 'region_si'> & { this_month_distance_km?: number | null },
+  excludeIds: Set<string>,
+  limit = 20,
+): Promise<RecommendedRunner[]> {
+  const supabase = getSupabase();
+  const out: RecommendedRunner[] = [];
+  const seen = new Set<string>([me.id, ...excludeIds]);
+
+  const push = (rows: Profile[] | null | undefined, reason: RecommendReason) => {
+    for (const p of rows ?? []) {
+      if (out.length >= limit) return;
+      if (seen.has(p.id)) continue;
+      seen.add(p.id);
+      out.push({ profile: p as Profile, reason });
+    }
+  };
+
+  // ① 동네 — 같은 구 우선, 부족하면 같은 시
+  if (me.region_gu || me.region_si) {
+    const col = me.region_gu ? 'region_gu' : 'region_si';
+    const val = (me.region_gu ?? me.region_si)!;
+    const { data } = await supabase
+      .from('profiles').select('*')
+      .eq('is_public', true).eq(col, val)
+      .order('this_month_distance_km', { ascending: false, nullsFirst: false })
+      .limit(limit);
+    push(data as Profile[] | null, 'region');
+    if (out.length < Math.min(6, limit) && me.region_gu && me.region_si) {
+      const { data: siRows } = await supabase
+        .from('profiles').select('*')
+        .eq('is_public', true).eq('region_si', me.region_si)
+        .order('this_month_distance_km', { ascending: false, nullsFirst: false })
+        .limit(limit);
+      push(siRows as Profile[] | null, 'region');
+    }
+  }
+
+  // ② 이달 거리 비슷 — 내 이달 누적의 ±50% 범위 (내가 0km 면 스킵)
+  const myKm = Number(me.this_month_distance_km ?? 0);
+  if (out.length < limit && myKm > 0) {
+    const { data } = await supabase
+      .from('profiles').select('*')
+      .eq('is_public', true)
+      .gte('this_month_distance_km', myKm * 0.5)
+      .lte('this_month_distance_km', myKm * 1.5)
+      .order('this_month_distance_km', { ascending: false })
+      .limit(limit);
+    push(data as Profile[] | null, 'similar');
+  }
+
+  // ③ 이달 활동 러너 폴백 — 그래도 부족하면 이번 달 뛴 사람 순
+  if (out.length < limit) {
+    const { data } = await supabase
+      .from('profiles').select('*')
+      .eq('is_public', true)
+      .gt('this_month_distance_km', 0)
+      .order('this_month_distance_km', { ascending: false })
+      .limit(limit);
+    push(data as Profile[] | null, 'active');
+  }
+
+  return out;
+}
+
+// =============================================
 // 클럽
 // =============================================
 

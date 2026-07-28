@@ -1154,6 +1154,12 @@ const EXTRAS_EN: Record<string, string> = {
   '저장 중…': 'Saving…',
   '저장 실패': 'Save failed',
   '이번 기록을 저장하지 않고 버릴까요?': 'Discard this run without saving?',
+  // 추천 러너 칩 (build 327) — '우리 동네' 는 기존 MileageRankingTab 항목 재사용
+  '이달 거리 비슷': 'Similar distance',
+  '이번 달 달리는 중': 'Active this month',
+  // 나가기 러닝 복구 (build 327)
+  '저장하지 않고 나갔던 러닝이 있어요': 'You have a run that was discarded without saving',
+  '지금 복구해서 저장할까요?': 'Restore and save it now?',
   // 홈
   '공유카드': 'Share card',
   '이번 주': 'This week',

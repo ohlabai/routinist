@@ -29,7 +29,7 @@ import {
   startWatcher, type WatcherHandle,
   appendCoord, tickElapsed, formatDistanceKm,
   detectAutoPause, detectAutoResume,
-  writeFinishArchive, readPendingFinishArchive,
+  writeFinishArchive, readPendingFinishArchive, readAbortArchive, clearFinishArchive,
 } from '@/lib/gps-tracking';
 // build 292 Phase 1: 네이티브 RunSession 엔진. 두뇌 (거리/자동정지/음성) 를 native 로 이관,
 // JS 는 'update' 이벤트 렌더러. 플러그인 미탑재 빌드는 위 레거시 JS 엔진 폴백 (동작 무변경).
@@ -818,13 +818,33 @@ function TrackPageImpl() {
       }
       if (cancelled) return;
       const archive = readPendingFinishArchive();
-      if (!archive) return;
-      setFinished(prev => prev ?? archive.state);
-      void logClientInfo('track-recover', 'unsaved-finish restored', {
-        distance_m: Math.round(archive.state.distanceMeters),
-        age_min: Math.round((Date.now() - archive.archivedAt) / 60000),
-        reason: archive.reason,
-      });
+      if (archive) {
+        setFinished(prev => prev ?? archive.state);
+        void logClientInfo('track-recover', 'unsaved-finish restored', {
+          distance_m: Math.round(archive.state.distanceMeters),
+          age_min: Math.round((Date.now() - archive.archivedAt) / 60000),
+          reason: archive.reason,
+        });
+        return;
+      }
+      // build 327 (사용자 신고 "나가기 눌렀더니 기록 삭제"): 나가기로 버려진 러닝 복구 제안.
+      // 데이터는 abort 아카이브에 온전히 남아 있었는데 복구 경로가 없어 "삭제"로 체감됐다.
+      const aborted = readAbortArchive();
+      if (!aborted) return;
+      const km = (aborted.state.distanceMeters / 1000).toFixed(2);
+      const ok = window.confirm(
+        tt('저장하지 않고 나갔던 러닝이 있어요') + ` (${km}km). ` + tt('지금 복구해서 저장할까요?'),
+      );
+      if (ok) {
+        setFinished(prev => prev ?? aborted.state);
+        void logClientInfo('track-recover', 'abort restored', {
+          distance_m: Math.round(aborted.state.distanceMeters),
+          age_min: Math.round((Date.now() - aborted.archivedAt) / 60000),
+        });
+      } else {
+        // 거절 = 의사 확인됨 — 다음 방문마다 다시 묻지 않게 정리
+        clearFinishArchive();
+      }
     })();
     return () => { cancelled = true; };
   }, []);

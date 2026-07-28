@@ -103,6 +103,25 @@ export function clearFinishArchive(): void {
   try { window.localStorage.removeItem(ARCHIVE_KEY); } catch {}
 }
 
+/**
+ * build 327 (2026-07-28, 사용자 신고 "나가기 눌렀더니 기록 삭제"): 나가기(abort)로 버려진
+ * 러닝도 복구 제안 대상으로. abort 아카이브는 pendingSave=false 라 기존 복구가 무시했지만
+ * 데이터는 온전히 남아 있다 — 실수로 나간 사용자의 "휴지통" 역할 (24h, 200m+).
+ */
+export function readAbortArchive(): FinishArchive | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(ARCHIVE_KEY);
+    if (!raw) return null;
+    const a = JSON.parse(raw) as FinishArchive;
+    if (a.pendingSave) return null;                    // pending 은 기존 복구 경로가 처리
+    if (a.reason !== 'abort') return null;             // 명시 폐기(discard 등)는 존중
+    if (Date.now() - a.archivedAt > ARCHIVE_RECOVER_MAX_AGE_MS) return null;
+    if (!a.state || a.state.distanceMeters < 200) return null; // 짧은 테스트 런은 안 물어봄
+    return a;
+  } catch { return null; }
+}
+
 export function createInitialState(): TrackingState {
   const now = Date.now();
   return {

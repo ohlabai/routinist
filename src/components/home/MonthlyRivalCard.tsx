@@ -10,6 +10,8 @@ import { Swords, Calendar } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { useI18n } from '@/lib/i18n';
 import { fetchMyMonthlyRival, type MonthlyRival } from '@/lib/rival-data';
+import { getFriendshipStatus } from '@/lib/friend-requests-data';
+import FollowButton from '@/components/social/FollowButton';
 import AppLogo from '@/components/AppLogo';
 
 export default function MonthlyRivalCard() {
@@ -17,12 +19,20 @@ export default function MonthlyRivalCard() {
   const { locale } = useI18n();
   const [rival, setRival] = useState<MonthlyRival | null>(null);
   const [loading, setLoading] = useState(true);
+  // build 327 (2026-07-28 hans): 매칭된 페이스메이커(비친구)와 바로 친구가 될 수 있게.
+  // 이미 친구면 버튼 숨김 — 카드 본연의 대결 레이아웃 유지.
+  const [friendStatus, setFriendStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
     let mounted = true;
     fetchMyMonthlyRival().then(r => {
       if (mounted) { setRival(r); setLoading(false); }
+      if (mounted && r) {
+        getFriendshipStatus(r.rivalUserId)
+          .then(s => { if (mounted) setFriendStatus(s.status); })
+          .catch(() => {});
+      }
     }).catch(() => mounted && setLoading(false));
     return () => { mounted = false; };
   }, [user]);
@@ -128,6 +138,13 @@ export default function MonthlyRivalCard() {
             )
           )}
         </p>
+
+        {/* 친구 신청 — 한 달을 함께 달리는 사이, 친구로 이어지게 (비친구일 때만) */}
+        {friendStatus && friendStatus !== 'friend' && friendStatus !== 'request_received' && (
+          <div className="mt-2.5 flex justify-center">
+            <FollowButton userId={rival.rivalUserId} initialFollowing={false} size="sm" />
+          </div>
+        )}
       </div>
     </div>
   );

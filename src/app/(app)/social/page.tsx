@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
-import { searchUsers, fetchPublicUsers, getMyClubs, fetchFollowing } from '@/lib/social-data';
+import { searchUsers, fetchRecommendedRunners, getMyClubs, fetchFollowing, type RecommendReason } from '@/lib/social-data';
 import { getSupabase } from '@/lib/supabase';
 import UserRow from '@/components/social/UserRow';
 import PhotosTab from '@/components/photos/PhotosTab';
@@ -52,6 +52,8 @@ function SocialPageInner() {
   );
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState<Profile[]>([]);
+  // build 327: 추천 이유 라벨 (우리 동네 / 이달 거리 비슷 / 이번 달 활동) — 검색 결과엔 없음
+  const [reasons, setReasons] = useState<Map<string, RecommendReason>>(new Map());
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
   const [myClubs, setMyClubs] = useState<Club[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,14 +64,27 @@ function SocialPageInner() {
     if (!user) return;
     setLoading(true);
     try {
-      const [publicUsers, following, clubs] = await Promise.all([
-        fetchPublicUsers(30),
+      const [following, clubs] = await Promise.all([
         fetchFollowing(user.id),
         getMyClubs(),
       ]);
-      setUsers(publicUsers.filter((u) => u.id !== user.id));
       setFollowingIds(new Set(following.map((f) => f.id)));
       setMyClubs(clubs);
+
+      // build 327 (2026-07-28 hans): 전체 회원 나열 → 추천 러너 (동네·거리 유사·활동).
+      // 이미 친구인 사람은 추천에서 제외 — 인스타 "알 수도 있는 친구" 문법.
+      const recommended = await fetchRecommendedRunners(
+        {
+          id: user.id,
+          region_gu: profile?.region_gu ?? null,
+          region_si: profile?.region_si ?? null,
+          this_month_distance_km: profile?.this_month_distance_km ?? null,
+        },
+        new Set(following.map((f) => f.id)),
+        20,
+      );
+      setUsers(recommended.map((r) => r.profile));
+      setReasons(new Map(recommended.map((r) => [r.profile.id, r.reason])));
 
       // 친구 + 나 비교 — 기간(주/월) 선택 (build 205 #4).
       const supabase = getSupabase();
@@ -100,12 +115,13 @@ function SocialPageInner() {
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
     if (!query.trim()) {
-      const publicUsers = await fetchPublicUsers(30);
-      setUsers(publicUsers.filter((u) => u.id !== user?.id));
+      // 검색어 지우면 추천 리스트 복원
+      await loadData();
       return;
     }
     const results = await searchUsers(query);
     setUsers(results.filter((u) => u.id !== user?.id));
+    setReasons(new Map());
   };
 
   return (
@@ -313,21 +329,32 @@ function SocialPageInner() {
               </div>
             ) : (
               <div className="card px-4 divide-y divide-[var(--card-border)]">
-                {users.map((u) => (
-                  <UserRow
-                    key={u.id}
-                    profile={u}
-                    currentUserId={user?.id}
-                    isFollowing={followingIds.has(u.id)}
-                    onFollowToggle={(uid, f) => {
-                      setFollowingIds((prev) => {
-                        const next = new Set(prev);
-                        f ? next.add(uid) : next.delete(uid);
-                        return next;
-                      });
-                    }}
-                  />
-                ))}
+                {users.map((u) => {
+                  const reason = reasons.get(u.id);
+                  const badge = reason === 'region'
+                    ? tt('우리 동네')
+                    : reason === 'similar'
+                      ? tt('이달 거리 비슷')
+                      : reason === 'active'
+                        ? tt('이번 달 달리는 중')
+                        : undefined;
+                  return (
+                    <UserRow
+                      key={u.id}
+                      profile={u}
+                      currentUserId={user?.id}
+                      isFollowing={followingIds.has(u.id)}
+                      badge={badge}
+                      onFollowToggle={(uid, f) => {
+                        setFollowingIds((prev) => {
+                          const next = new Set(prev);
+                          f ? next.add(uid) : next.delete(uid);
+                          return next;
+                        });
+                      }}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>
