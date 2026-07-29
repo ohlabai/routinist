@@ -56,13 +56,19 @@ final class WorkoutManager: NSObject, ObservableObject {
     // 여기서 route 를 저장하면 지도·지역 라벨이 자동으로 붙음.
     private let locationManager = CLLocationManager()
     private var routeBuilder: HKWorkoutRouteBuilder?
+    // v15: 위치 동의를 카운트다운 전에 처리 — 응답 대기 중임을 표시
+    private var pendingCountdownAfterLocationAuth = false
 
     private func startLocationUpdates() {
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
         locationManager.activityType = .fitness
-        locationManager.requestWhenInUseAuthorization()
         routeBuilder = HKWorkoutRouteBuilder(healthStore: healthStore, device: nil)
+        // v15 crash fix (hans 실기기): 권한 없이 allowsBackgroundLocationUpdates=true 를 켜면
+        // NSInvalidArgumentException 으로 즉사 (Info.plist location 모드와 세트).
+        // 거부 상태면 경로 없이 러닝 진행 — 크래시보다 훨씬 낫다.
+        let auth = locationManager.authorizationStatus
+        guard auth == .authorizedWhenInUse || auth == .authorizedAlways else { return }
         locationManager.allowsBackgroundLocationUpdates = true
         locationManager.startUpdatingLocation()
     }
@@ -309,13 +315,36 @@ final class WorkoutManager: NSObject, ObservableObject {
     func requestAuthorizationAndStart() {
         guard HKHealthStore.isHealthDataAvailable() else { return }
         phase = .requesting
-        healthStore.requestAuthorization(toShare: typesToShare, read: typesToRead) { [weak self] ok, _ in
+        // v15 fix (hans 실기기): 이미 응답한 권한인데도 시작할 때마다 동의 시트가 뜨던 문제 —
+        // "요청이 필요한 상태" 일 때만 시트를 띄우고, 아니면 바로 진행.
+        healthStore.getRequestStatusForAuthorization(toShare: typesToShare, read: typesToRead) { [weak self] status, _ in
             Task { @MainActor in
                 guard let self else { return }
-                // 3-2-1 카운트다운 (Apple 운동앱 문법) → CountdownView 가 beginSession() 호출
-                if ok { self.phase = .countdown } else { self.authDenied = true; self.phase = .idle }
+                if status == .unnecessary {
+                    self.requestLocationThenCountdown()
+                    return
+                }
+                self.healthStore.requestAuthorization(toShare: self.typesToShare, read: self.typesToRead) { [weak self] ok, _ in
+                    Task { @MainActor in
+                        guard let self else { return }
+                        if ok { self.requestLocationThenCountdown() } else { self.authDenied = true; self.phase = .idle }
+                    }
+                }
             }
         }
+    }
+
+    /// v15: 위치 동의를 카운트다운 **전에** — 이전엔 beginSession 도중 프롬프트가 떠
+    /// 세션 시작과 겹쳤다 (크래시와 맞물려 동의가 영영 저장 안 되는 루프).
+    /// 거부해도 러닝은 정상 진행 (경로만 없음).
+    private func requestLocationThenCountdown() {
+        locationManager.delegate = self
+        if locationManager.authorizationStatus == .notDetermined {
+            pendingCountdownAfterLocationAuth = true
+            locationManager.requestWhenInUseAuthorization()
+            return
+        }
+        phase = .countdown
     }
 
     /// 카운트다운 종료 후 실제 세션 시작
@@ -457,6 +486,7 @@ final class WorkoutManager: NSObject, ObservableObject {
         pedometer.stopUpdates()
         isAutoPaused = false
         goalAnnounced = false
+        pendingCountdownAfterLocationAuth = false
     }
 
     // ── 통계 반영 ─────────────────────────────────────────────
@@ -511,6 +541,16 @@ extension WorkoutManager: CLLocationManagerDelegate {
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {}
+
+    /// v15: 시작 전 위치 프롬프트 응답 수신 → 카운트다운 재개 (허용/거부 무관 — 거부면 경로만 없음)
+    nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        let status = manager.authorizationStatus
+        Task { @MainActor in
+            guard self.pendingCountdownAfterLocationAuth, status != .notDetermined else { return }
+            self.pendingCountdownAfterLocationAuth = false
+            self.phase = .countdown
+        }
+    }
 }
 
 // MARK: - HKWorkoutSessionDelegate
