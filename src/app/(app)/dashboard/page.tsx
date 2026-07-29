@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
 import PullToRefresh from '@/components/PullToRefresh';
+import { PixelParadeStrip } from '@/components/PixelSprite';
 import {
   getWeeklyStreak,
   getMaxWeeklyStreak,
@@ -412,6 +413,8 @@ export default function DashboardPage() {
         {/* Phase C (build 327, hans UX 리뷰): 5그룹 재배치 —
             지금(헤더·그리드·랭킹히어로) → 이번 주 → 이번 달 → 함께 달리기 → 내 기록.
             그룹 라벨(SectionLabel)로 경계 표시, 경쟁 3표면은 CompetitionHub 탭으로 통합. */}
+        {/* 잔디 픽셀 퍼레이드 — 워치 시작화면과 세트. 사람·동물들이 차례로 달려간다 */}
+        <PixelParadeStrip height={30} className="-mb-1" />
         <PullDownOnboardingHint />
 
         {/* 신규 가입자 onboarding 가이드 — 가입 7일 이내 + 5회 미만.

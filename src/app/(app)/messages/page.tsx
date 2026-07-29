@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { fetchConversations } from '@/lib/message-data';
 import { ArrowLeft, MessageCircle } from 'lucide-react';
+import { PixelRunnerLoader } from '@/components/PixelSprite';
 import Link from 'next/link';
 import type { Conversation } from '@/types';
 import AppLogo from '@/components/AppLogo';
@@ -70,7 +71,8 @@ export default function MessagesPage() {
       ) : conversations.length === 0 ? (
         <div className="text-center py-24 px-6">
           <div className="w-24 h-24 rounded-full bg-emerald-50 dark:bg-emerald-950/30 mx-auto mb-5 flex items-center justify-center">
-            <MessageCircle size={42} className="text-emerald-500" />
+            {/* 잔디 픽셀 동물 — 친근 empty state (매번 랜덤 동물이 제자리 달리기) */}
+            <PixelRunnerLoader height={40} />
           </div>
           <p className="text-lg font-extrabold mb-1.5">{tt('아직 쪽지가 없어요')}</p>
           <p className="text-sm text-[var(--muted)] mb-7">{tt('다른 러너의 프로필에서 쪽지를 보내보세요')}</p>

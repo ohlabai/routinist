@@ -220,3 +220,13 @@ body {
   background-size: 200% 100%;
   animation: shimmer 2.5s linear infinite;
 }
+
+/* 잔디 픽셀 퍼레이드 (PixelParadeStrip) — 러너가 왼쪽 밖에서 화면 너비만큼 가로지름 */
+@keyframes pixel-parade-run {
+  from {
+    transform: translateX(-70px);
+  }
+  to {
+    transform: translateX(100vw);
+  }
+}

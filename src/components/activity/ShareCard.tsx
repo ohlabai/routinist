@@ -15,6 +15,8 @@ import { track } from '@/lib/analytics';
 import { fetchActivityRoute, startTimeLabel } from '@/lib/routinist-data';
 import { createUserQuote } from '@/lib/user-quotes';
 import { getDistanceUnit, toDisplayDistance, unitLabel, formatPaceForUnit } from '@/lib/units';
+import { paceAnimal } from '@/lib/pace-animal';
+import { PIXEL_RUNNER_BY_NAME } from '@/lib/pixel-sprites';
 import AppToast from '@/components/AppToast';
 import type { Activity } from '@/types';
 
@@ -781,6 +783,30 @@ function drawCard(
   ctx.moveTo(W * 0.2, lineY);
   ctx.lineTo(W * 0.8, lineY);
   ctx.stroke();
+
+  // 페이스 동물 — 잔디 픽셀 동물이 구분선을 지면 삼아 달린다 (완료 화면 배지와 세트,
+  // 워치 퍼레이드 스프라이트 공유). 구분선 우측 끝이라 KILOMETERS 텍스트와 안 겹침.
+  if (activity.pace_avg_sec_per_km) {
+    const animal = PIXEL_RUNNER_BY_NAME[paceAnimal(activity.pace_avg_sec_per_km).name];
+    if (animal) {
+      const grid = animal.frames[0];
+      // 높이 48px — KILOMETERS 텍스트 (baseline distY+60) 아래로만 그려져 안 겹침.
+      // roundRect 는 iOS 15 WKWebView 미지원 — fillRect 사용 (작은 셀이라 시각차 없음).
+      const aCell = 48 / grid.length;
+      const aW = (grid[0]?.length ?? 1) * aCell;
+      const ax = W * 0.8 - aW; // 구분선 우측 끝 정렬
+      const SPRITE_COLORS: Record<number, string> = { 1: '#4ade80', 2: '#22c55e', 3: '#16a34a' };
+      grid.forEach((row, gy) => {
+        row.forEach((v, gx) => {
+          if (v === -1) return;
+          ctx.fillStyle = SPRITE_COLORS[v];
+          const px = ax + gx * aCell;
+          const py = lineY - 4 - (grid.length - gy) * aCell;
+          ctx.fillRect(px + aCell * 0.06, py + aCell * 0.06, aCell * 0.88, aCell * 0.88);
+        });
+      });
+    }
+  }
 
   // 통계 4열 — 시간 / 페이스 / 칼로리 / 월 누적 (사용자 결정 — 월 누적 km 표시 위치 이동)
   const statsY = lineY + 100;
