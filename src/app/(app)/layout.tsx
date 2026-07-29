@@ -28,7 +28,7 @@ const TABS_BASE: {
   Icon: typeof Home;
   activeFor?: string[];
 }[] = [
-  { href: '/dashboard', labelKey: 'nav.home', Icon: Home, activeFor: ['/map'] },
+  { href: '/dashboard', labelKey: 'nav.home', Icon: Home, activeFor: ['/map', '/stats'] },
   { href: '/ranking', labelKey: 'nav.ranking', Icon: Trophy },
   { href: '/social', labelKey: 'nav.social', Icon: Users },
   {

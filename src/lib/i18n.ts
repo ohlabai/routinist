@@ -1417,6 +1417,9 @@ const EXTRAS_EN: Record<string, string> = {
   '반기': 'Half-year',
   '연간': 'Yearly',
   '통계 로딩 중...': 'Loading stats...',
+  // Phase B: /stats 페이지 (build 327)
+  '내 기록 통계': 'My stats',
+  '개인 베스트 · 추이 차트 · 기간별 비교': 'Personal bests · trends · period compare',
   '지역을 자동 등록했어요': 'Region auto-registered',
   '확인': 'OK',
   '내 정보': 'My profile',
