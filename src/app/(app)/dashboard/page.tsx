@@ -583,7 +583,8 @@ export default function DashboardPage() {
       window.dispatchEvent(new CustomEvent('routinist:lastSync', { detail: { ts: optimisticTs } }));
       try {
         const r = await Promise.race([
-          syncHealthData(user.id),
+          // build 327: pull-to-refresh 는 조용히 조회만 — 새로고침마다 승인 시트 금지
+          syncHealthData(user.id, { interactiveAuth: false }),
           new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error('pull-refresh sync 30s timeout')), 30000)
           ),

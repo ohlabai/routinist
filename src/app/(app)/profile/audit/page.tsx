@@ -175,7 +175,7 @@ export default function DataAuditPage() {
 
       try {
         await withTimeout(Health.requestAuthorization({
-          read: ['workouts', 'distance', 'heartRate', 'calories', 'exerciseTime'],
+          read: ['workouts', 'distance', 'heartRate', 'calories'], // build 327: 미사용 exerciseTime 제거 (승인 시트 반복 원인)
           write: [],
         }), 20000, 'requestAuthorization');
       } catch (e) {

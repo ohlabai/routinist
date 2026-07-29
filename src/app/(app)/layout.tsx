@@ -222,7 +222,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           // 시도 시점에 기록 — HK 에러 반복 시 앱 열 때마다 재시도하는 폭주 방지 (6h 스로틀)
           window.localStorage.setItem(lastKey, String(now));
           const r = await Promise.race([
-            syncHealthData(user.id),
+            // build 327: 첫 온보딩 sync 만 권한 시트 허용 — 6h 재동기화는 조용히 조회만
+            // (매 재동기화가 승인 팝업을 다시 띄우던 버그).
+            syncHealthData(user.id, { interactiveAuth: !alreadyDone }),
             new Promise<never>((_, reject) =>
               setTimeout(() => reject(new Error('first-sync timeout 60s')), 60000)
             ),

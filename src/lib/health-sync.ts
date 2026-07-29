@@ -78,9 +78,18 @@ export interface SyncProgress {
 }
 export interface SyncOptions {
   onProgress?: (p: SyncProgress) => void;
+  /**
+   * build 327 (hans "승인 팝업 계속 뜸"): false 면 권한 요청 UI 를 절대 띄우지 않고
+   * 조회만 시도. 자동 동기화(6h 재동기화·pull-to-refresh)용 — 권한 시트는 사용자가
+   * 명시적으로 누른 흐름(연결·온보딩·동기화 버튼)에서만. 기본 true (기존 동작 유지).
+   */
+  interactiveAuth?: boolean;
 }
 
-const HEALTH_READ_TYPES: HealthDataType[] = ['workouts', 'distance', 'heartRate', 'calories', 'exerciseTime'];
+// build 327: 'exerciseTime' 제거 — 요청만 하고 어디서도 조회하지 않던 권한.
+// appleExerciseTime 은 건강 시트에서 사용자가 응답할 수 없는 형태로 남는 경우가 있어
+// 영구 미결정 → requestAuthorization 을 부를 때마다 시트가 다시 뜨는 원인이 된다.
+const HEALTH_READ_TYPES: HealthDataType[] = ['workouts', 'distance', 'heartRate', 'calories'];
 // Android(Health Connect) 는 exerciseTime 미지원 — plugin 의 HealthDataType.kt 에 없어서
 // requestAuthorization/checkAuthorization 자체가 "Unsupported data type: exerciseTime" 으로 reject 됨.
 // 반드시 exerciseTime 을 뺀 별도 리스트를 사용해야 함.
@@ -156,7 +165,10 @@ async function ensureAuthorization(
   const readTypes = isAndroid ? HEALTH_READ_TYPES_ANDROID : HEALTH_READ_TYPES;
   const interactive = opts?.interactive ?? true;
 
-  if (!isAndroid || interactive) {
+  // build 327 (hans "승인 팝업 계속 뜸"): 권한 요청 UI 는 interactive 흐름에서만 —
+  // iOS 도 "한 번 결정되면 조용" 가정이 깨지는 케이스(미응답으로 남는 타입)가 실기기에서
+  // 확인돼, 자동 동기화에선 iOS 포함 어떤 플랫폼도 요청 UI 를 띄우지 않는다.
+  if (interactive) {
     // 권한 요청은 한 번 결정되면 즉시 resolve, 미결정 상태면 다이얼로그 후 응답.
     // 사용자가 다이얼로그를 dismiss 하지 않고 멍하니 두는 경우 hang → 20s timeout (iOS).
     try {
@@ -168,22 +180,20 @@ async function ensureAuthorization(
     } catch (e) {
       logClientWarn('health-sync', 'requestAuthorization timeout/실패 (계속 진행)', { err: String(e) });
     }
-  }
 
-  // GPS 경로 권한 — iOS(HKWorkoutRoute)·Android(Health Connect ExerciseRoute) 공용.
-  // 2026-07-18: Android 게이트 해제 — WorkoutRoutePlugin.kt 가 실제 HC 권한 요청 UI 를
-  // 띄우도록 수리됨 (Play 재제출에 경로 기능 포함). Android 권한 UI 는 사용자 응답이
-  // 필요해 timeout 을 여유 있게.
-  try {
-    const { WorkoutRoute } = await import('./workout-route');
-    await withTimeout(
-      WorkoutRoute.requestAuthorization(),
-      isAndroid ? 120000 : 20000,
-      'WorkoutRoute.requestAuthorization',
-    );
-  } catch (e) {
-    // 커스텀 플러그인 미빌드 또는 옛 버전이면 무시 — 코어 동기화는 계속 진행.
-    console.warn('[health-sync] WorkoutRoute auth 실패 (플러그인 미빌드 가능):', e);
+    // GPS 경로 권한 — iOS(HKWorkoutRoute)·Android(Health Connect ExerciseRoute) 공용.
+    // 이것도 시트/Activity 를 띄울 수 있으므로 interactive 흐름에서만.
+    try {
+      const { WorkoutRoute } = await import('./workout-route');
+      await withTimeout(
+        WorkoutRoute.requestAuthorization(),
+        isAndroid ? 120000 : 20000,
+        'WorkoutRoute.requestAuthorization',
+      );
+    } catch (e) {
+      // 커스텀 플러그인 미빌드 또는 옛 버전이면 무시 — 코어 동기화는 계속 진행.
+      console.warn('[health-sync] WorkoutRoute auth 실패 (플러그인 미빌드 가능):', e);
+    }
   }
 
   // iOS 는 보안상 readDenied 도 readAuthorized 처럼 보고하지 않을 수 있어 (앱이 미허용을 알 수 없게)
@@ -368,8 +378,11 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     }
 
     // 자동 sync 진입부에서도 권한을 보장 — connect 페이지를 거치지 않은 사용자도 정상 동작.
-    // Android 는 non-interactive: 여기서 권한 Activity 를 띄우지 않음 (연결 버튼에서만).
-    const auth = await ensureAuthorization({ interactive: !isAndroid });
+    // build 327: 호출자가 interactiveAuth=false 를 주면 iOS 포함 권한 UI 를 절대 안 띄움
+    // (6h 재동기화·pull-to-refresh 가 승인 시트를 반복해서 띄우던 버그).
+    const auth = await ensureAuthorization({
+      interactive: !isAndroid && (options?.interactiveAuth ?? true),
+    });
     setStage('after-auth');
     if (!auth.authorized) {
       logClientWarn('health-sync', 'authorization denied', { denied: auth.denied });

@@ -48,7 +48,7 @@ export default function ConnectPage() {
         try {
           const { Health } = await import('@capgo/capacitor-health');
           const status = await Health.checkAuthorization({
-            read: ['workouts', 'distance', 'heartRate', 'calories', 'exerciseTime'],
+            read: ['workouts', 'distance', 'heartRate', 'calories'], // build 327: 미사용 exerciseTime 제거 (승인 시트 반복 원인)
             write: [],
           });
           if ((status.readAuthorized?.length ?? 0) > 0) {
