@@ -23,9 +23,13 @@ const ONE_TAP_PRESETS = [2, 3, 4];
 interface Props {
   /** 보호권 반영된 현재 주간 스트릭 — 설정자 진행 카드에 "🔥 N주 연속" 칩 표시 */
   weeklyStreak?: number;
+  /** Phase A (build 327): 인라인 주간 스트릭 카드 흡수 — 최장 기록 관련 푸터 라인 */
+  maxStreak?: number;
+  isRecordBreaking?: boolean;
+  weeksToRecord?: number;
 }
 
-export default function WeeklyGoalCard({ weeklyStreak = 0 }: Props) {
+export default function WeeklyGoalCard({ weeklyStreak = 0, maxStreak = 0, isRecordBreaking = false, weeksToRecord = 0 }: Props) {
   const { user, profile, refreshProfile } = useAuth();
   const { activities } = useUserData();
   const { tt, locale } = useI18n();
@@ -201,6 +205,23 @@ export default function WeeklyGoalCard({ weeklyStreak = 0 }: Props) {
                     ? `${Math.max(0, goal - weekRunCount)} more to go this week`
                     : `이번 주 ${Math.max(0, goal - weekRunCount)}번 남았어요`)}
           </p>
+
+          {/* Phase A: 최장 기록 라인 — 인라인 주간 스트릭 카드에서 흡수 */}
+          {isRecordBreaking && maxStreak >= 2 ? (
+            <p className="text-center text-xs font-bold text-orange-500 mt-2 achievement-shimmer rounded-lg py-1">
+              {tt('🔥 최장 기록 갱신 중!')}
+            </p>
+          ) : weeksToRecord > 0 && weeksToRecord <= 3 ? (
+            <p className="text-center text-xs font-semibold text-[var(--accent)] mt-2">
+              {locale === 'en'
+                ? `${weeksToRecord} week${weeksToRecord === 1 ? '' : 's'} to your all-time record!`
+                : `역대 최장 기록까지 ${weeksToRecord}주!`}
+            </p>
+          ) : maxStreak >= 2 ? (
+            <p className="text-center text-[11px] font-semibold text-[var(--muted)] mt-2">
+              {locale === 'en' ? `Best streak · ${maxStreak} weeks` : `최장 연속 ${maxStreak}주`}
+            </p>
+          ) : null}
         </div>
       </div>
       {toast && (

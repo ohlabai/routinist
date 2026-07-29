@@ -9,7 +9,6 @@ import {
   getMaxWeeklyStreak,
   getThisWeekRunDays,
   getMonthlyDistance,
-  getWeeklyActivities,
   runningOnly,
   formatPace,
   formatDuration,
@@ -64,7 +63,7 @@ import FreshnessBadge from '@/components/FreshnessBadge';
 import AppToast from '@/components/AppToast';
 import Link from 'next/link';
 import {
-  ChevronRight, Flag, MapPin, Zap, Trophy, Flame, Clock, Calendar,
+  ChevronRight, Flag, MapPin, Zap, Trophy, Clock, Calendar,
   BarChart3, TrendingUp,
 } from 'lucide-react';
 import { chartStyle } from '@/lib/chart-theme';
@@ -361,10 +360,7 @@ export default function DashboardPage() {
   }, [goals, year, month, monthlyDistance]);
   const { goalKm, goalProgress, goalRemaining, dailyNeeded } = goalState;
 
-  const calendarActivities = useMemo(() =>
-    activities.filter(a => a.activity_date.slice(0, 7) === `${year}-${String(month).padStart(2, '0')}`),
-    [activities, year, month]
-  );
+  // Phase A: calendarActivities 제거 — 요약 4칩 삭제로 미사용
 
   const totalKm = Number(profile?.total_distance_km ?? 0);
   const totalRuns = profile?.total_runs ?? 0;
@@ -385,63 +381,9 @@ export default function DashboardPage() {
     };
   }, [activities, weeklyRunGoal, freezes.uses]);
   const { streak, maxStreak, thisWeekRunDays, isRecordBreaking, weeksToRecord } = streakState;
-  const weeklyGoalEff = Math.max(1, weeklyRunGoal ?? 1);
 
-  const ytdMonth = new Date().getMonth();
-  const yearlyTotal = monthlyData.slice(0, ytdMonth + 1).reduce((s, d) => s + d.distance, 0);
-  const yearlyPrevTotal = monthlyData.slice(0, ytdMonth + 1).reduce((s, d) => s + (d.prevDistance || 0), 0);
 
-  const yoyComparison = useMemo(() => {
-    const now = new Date();
-    const yearMs = 365 * 24 * 60 * 60 * 1000;
-    const dayMs = 24 * 60 * 60 * 1000;
-
-    const startOfThisWeek = new Date(now);
-    const dow = (now.getDay() + 6) % 7;
-    startOfThisWeek.setHours(0, 0, 0, 0);
-    startOfThisWeek.setDate(now.getDate() - dow);
-    const startOfLastWeek = new Date(startOfThisWeek.getTime() - yearMs);
-    const endOfLastWeekRange = new Date(now.getTime() - yearMs);
-
-    const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfLastYearMonth = new Date(now.getFullYear() - 1, now.getMonth(), 1);
-    const endOfLastYearMonthRange = new Date(now.getTime() - yearMs);
-
-    const q = Math.floor(now.getMonth() / 3);
-    const startOfThisQ = new Date(now.getFullYear(), q * 3, 1);
-    const startOfLastYearQ = new Date(now.getFullYear() - 1, q * 3, 1);
-
-    const h = now.getMonth() < 6 ? 0 : 1;
-    const startOfThisH = new Date(now.getFullYear(), h * 6, 1);
-    const startOfLastYearH = new Date(now.getFullYear() - 1, h * 6, 1);
-
-    let weekThis = 0, weekLast = 0;
-    let monthThis = 0, monthLast = 0;
-    let qThis = 0, qLast = 0;
-    let hThis = 0, hLast = 0;
-
-    activities.forEach(a => {
-      // 'YYYY-MM-DD' 를 UTC 로 파싱하면 로컬 자정 경계와 어긋남 — 로컬 자정으로 파싱
-      const [ay, am, ad] = a.activity_date.split('-').map(Number);
-      const t = new Date(ay, am - 1, ad).getTime();
-      const km = a.distance_km;
-      if (t >= startOfThisWeek.getTime()) weekThis += km;
-      else if (t >= startOfLastWeek.getTime() && t <= endOfLastWeekRange.getTime() + dayMs) weekLast += km;
-      if (t >= startOfThisMonth.getTime()) monthThis += km;
-      else if (t >= startOfLastYearMonth.getTime() && t <= endOfLastYearMonthRange.getTime() + dayMs) monthLast += km;
-      if (t >= startOfThisQ.getTime()) qThis += km;
-      else if (t >= startOfLastYearQ.getTime() && t <= endOfLastYearMonthRange.getTime() + dayMs) qLast += km;
-      if (t >= startOfThisH.getTime()) hThis += km;
-      else if (t >= startOfLastYearH.getTime() && t <= endOfLastYearMonthRange.getTime() + dayMs) hLast += km;
-    });
-
-    return {
-      week: { now: weekThis, last: weekLast, diff: weekThis - weekLast },
-      month: { now: monthThis, last: monthLast, diff: monthThis - monthLast },
-      quarter: { now: qThis, last: qLast, diff: qThis - qLast },
-      half: { now: hThis, last: hLast, diff: hThis - hLast },
-    };
-  }, [activities]);
+  // Phase A: yoyComparison·연간 합계 제거 — 요약 4칩 삭제로 미사용 (기간 상세 카드가 대체)
 
   const dailyData = useMemo(() => {
     const map = new Map<string, number>();
@@ -540,9 +482,6 @@ export default function DashboardPage() {
   const detailPrevTotal = detailLast?.prevDistance ?? 0;
   const hasDetailPrev = (detailLast?.prevDistance ?? 0) > 0;
 
-  const weekActivities = getWeeklyActivities(activities);
-  const weekKm = weekActivities.reduce((s, a) => s + Number(a.distance_km), 0);
-  const weekRuns = weekActivities.length;
 
   const recentActivities = activities.slice(0, 5);
 
@@ -559,6 +498,18 @@ export default function DashboardPage() {
     if (!Number.isFinite(created)) return false;
     return Date.now() - created <= 14 * 24 * 60 * 60 * 1000;
   }, [profile, activities.length]);
+
+  // Phase A (build 327, hans 홈 다이어트): 리캡류 동시 노출 방지 — 우선순위 1장만.
+  // 월말정산(말일·1일) > 주간리캡(월요일 오전) > 시즌결산(분기말 ±7일).
+  // 각 카드의 자체 게이트는 유지 (여긴 겹칠 때 한 장만 고르는 상위 슬롯).
+  const recapSlot = useMemo<'monthEnd' | 'weekly' | 'season'>(() => {
+    const now = new Date();
+    const day = now.getUTCDate();
+    const lastDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
+    if (day === lastDay || day === 1) return 'monthEnd';
+    if (now.getDay() === 1 && now.getHours() < 12) return 'weekly';
+    return 'season';
+  }, []);
 
   // build 291 i18n Phase D: 이전엔 syncToast.startsWith('동기화 실패') 로 tone 판정했지만
   // 실제 메시지가 '동기화 중에 문제가...' 라 조건이 항상 false (dead) + 번역 시 매칭 불가.
@@ -697,22 +648,12 @@ export default function DashboardPage() {
 
         {/* 신규 러너 모드에선 2~5 (리캡·스트릭·페이스메이커·이름헤더·4칩) 스킵 */}
         {!isNewRunner && (<>
-        {/* 2 주간 리캡 + 3 스트릭 경고 (둘 다 조건부, 자체 padding 없어 wrap) */}
-        <div className="mx-4 space-y-3">
-          <WeeklyRecapCard activities={activities} />
-          <StreakWarningCard
-            activities={activities}
-            weeklyStreak={streak}
-            weeklyGoal={weeklyRunGoal}
-            thisWeekRunDays={thisWeekRunDays}
-            freezeCount={freezes.count}
-            freezeUses={freezes.uses}
-            onFreezeUsed={loadFreezes}
-          />
-        </div>
-
-        {/* build 167 #10: 월말 정산 카드 (조건부 — 월말 3일 + 다음달 첫 7일) */}
-        <MonthEndRecapCard activities={activities} />
+        {/* Phase A: 리캡 슬롯 — 겹치는 날에도 1장만 (월말정산 > 주간 > 시즌).
+            스트릭 경고는 주간 목표 카드 옆으로 이동 (주간 그룹핑). */}
+        {recapSlot === 'weekly' && (
+          <div className="mx-4"><WeeklyRecapCard activities={activities} /></div>
+        )}
+        {recapSlot === 'monthEnd' && <MonthEndRecapCard activities={activities} />}
 
         {/* build 167 #11: Run of the Day — 어제 활동 중 자동 선정. 데이터 있을 때만 표시 */}
         <RunOfTheDayCard />
@@ -861,19 +802,45 @@ export default function DashboardPage() {
                 </Link>
               </div>
             )}
+
+            {/* Phase A (build 327): 월간 기본 챌린지 (42.195km/100P) 를 이달 목표 카드 안으로 —
+                "이번 달 진행" 정보가 두 카드로 흩어져 있던 중복 해소. embedded = 외곽 마진 제거. */}
+            {!isNewRunner && secondaryMounted && (
+              <div className="mt-4">
+                <MonthlyChallengeCard embedded />
+              </div>
+            )}
           </div>
         </div>
 
-        {/* 6.3 주간 목표 원탭 카드 (습관 코어 C2, 2026-07-11) — 신규 러너 모드에서도 렌더
-            (시작 가이드·이달 목표 아래). 미설정이면 [주 2회][주 3회][주 4회] 원탭, 설정자는 진행 도트. */}
-        <WeeklyGoalCard weeklyStreak={streak} />
+        {/* Phase A: 스트릭 경고를 주간 목표 카드 바로 위로 — 주간 정보 그룹핑 (경고+목표+스트릭) */}
+        {!isNewRunner && (
+          <div className="mx-4">
+            <StreakWarningCard
+              activities={activities}
+              weeklyStreak={streak}
+              weeklyGoal={weeklyRunGoal}
+              thisWeekRunDays={thisWeekRunDays}
+              freezeCount={freezes.count}
+              freezeUses={freezes.uses}
+              onFreezeUsed={loadFreezes}
+            />
+          </div>
+        )}
+        {/* 6.3 주간 목표 원탭 카드 (습관 코어 C2, 2026-07-11) — 신규 러너 모드에서도 렌더.
+            Phase A: 최장 스트릭·기록 갱신 문구를 이 카드로 흡수 (인라인 주간 스트릭 카드 제거). */}
+        <WeeklyGoalCard
+          weeklyStreak={streak}
+          maxStreak={maxStreak}
+          isRecordBreaking={isRecordBreaking}
+          weeksToRecord={weeksToRecord}
+        />
 
         {/* 신규 러너 모드에선 6.5~8 (도전·월드런·스토리·시즌·랭킹Hero·실시간) 스킵 */}
         {!isNewRunner && (<>
         {/* 6.5 이번 주 도전 (build 100) — build 143: 300ms defer (secondary) */}
         {secondaryMounted && <HomeChallengeCard />}
-        {/* 월드런 기본 챌린지 (매달 42.195km / 100P) — 월드투어 카드 위에 배치 (베이스라인 목표) */}
-        {secondaryMounted && <MonthlyChallengeCard />}
+        {/* Phase A: 월간 기본 챌린지는 이달 목표 카드 안으로 흡수 (월 진행 정보 단일 카드) */}
         {secondaryMounted && <HomeWorldMarathonCard />}
 
         {/* 6.7 친구 활동 스토리 — build 143: 300ms defer (secondary) */}
@@ -882,8 +849,8 @@ export default function DashboardPage() {
         {/* build 207 #15: SharePeriodEntry 제거 — HomeCalendarCard 안 "공유카드 만들기"로 통합.
             오늘/이번 주/이번 달 3옵션을 시트로 선택. */}
 
-        {/* 6.97 시즌 결산 (build 199 / Phase 3) — 분기말 ±7일에만 노출 */}
-        <SeasonRecapCard />
+        {/* 6.97 시즌 결산 (build 199 / Phase 3) — 분기말 ±7일 + 리캡 슬롯 배정 시에만 */}
+        {recapSlot === 'season' && <SeasonRecapCard />}
 
         {/* 7 랭킹 Hero — 활성화 핵심 (eager) */}
         <HomeRankingHero />
@@ -931,46 +898,8 @@ export default function DashboardPage() {
 
       {/* 신규 러너 모드에선 16~24 (스트릭·PB·차트류·요약칩) 스킵 — 25 최근 활동만 렌더 */}
       {!isNewRunner && (<>
-      {/* 16 주간 러닝 스트릭 (습관 코어 C1 — 일 단위에서 전환).
-          "🔥 N주 연속" + 이번 주 진행 (m/goal회) + 최장 연속 주. */}
-      <LazyMount minHeight={160}>
-      <div className="card p-5">
-        <div className="flex items-center gap-2 mb-3">
-          <Flame size={16} className="text-orange-500" />
-          <h3 className="text-base font-semibold text-[var(--foreground)]">{tt('주간 러닝 스트릭')}</h3>
-        </div>
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div>
-            <p className="text-3xl font-extrabold text-orange-500">
-              {streak}<span className="text-base align-baseline">{locale === 'en' ? 'w' : '주'}</span>
-            </p>
-            <p className="text-xs text-[var(--muted)] mt-0.5">{tt('연속 달성 주')}</p>
-          </div>
-          <div className="border-x border-[var(--card-border)]">
-            <p className="text-3xl font-extrabold text-emerald-600 tabular-nums">
-              {thisWeekRunDays}<span className="text-base text-[var(--muted)]">/{weeklyGoalEff}</span>
-            </p>
-            <p className="text-xs text-[var(--muted)] mt-0.5">{tt('이번 주 러닝')}</p>
-          </div>
-          <div>
-            <p className="text-3xl font-extrabold text-purple-500">
-              {maxStreak}<span className="text-base align-baseline">{locale === 'en' ? 'w' : '주'}</span>
-            </p>
-            <p className="text-xs text-[var(--muted)] mt-0.5">{tt('최장 연속 주')}</p>
-          </div>
-        </div>
-        {isRecordBreaking && maxStreak >= 2 && (
-          <p className="text-center text-xs font-bold text-orange-500 mt-3 achievement-shimmer rounded-lg py-1.5">
-            {tt('🔥 최장 기록 갱신 중!')}
-          </p>
-        )}
-        {weeksToRecord > 0 && weeksToRecord <= 3 && (
-          <p className="text-center text-xs font-semibold text-[var(--accent)] mt-3">
-            {locale === 'en' ? `${weeksToRecord} week${weeksToRecord === 1 ? '' : 's'} to your all-time record!` : `역대 최장 기록까지 ${weeksToRecord}주!`}
-          </p>
-        )}
-      </div>
-      </LazyMount>
+      {/* 16 주간 러닝 스트릭 — Phase A (build 327): 삭제. 연속 주·이번 주 진행·최장 기록이
+          전부 주간 목표 카드(WeeklyGoalCard)와 중복이라 그쪽으로 흡수. */}
 
       {/* 17 개인 베스트 — 올해/누적 탭 */}
       {personalBests && (() => {
@@ -1410,48 +1339,8 @@ export default function DashboardPage() {
       </div>
       </LazyMount>
 
-      {/* 24 요약 4칩 — 이번 주/이번 달/올해/누적 */}
-      <LazyMount minHeight={200}>
-      <div className="card p-5">
-        <h3 className="text-base font-bold text-[var(--foreground)] mb-4">{t('home.summaryTitle')}</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-[var(--card-border)]/30 rounded-xl p-4">
-            <p className="text-xs text-[var(--muted)] mb-1">{t('home.summaryWeek')}</p>
-            <p className="text-2xl font-extrabold text-[var(--accent)]">{toDisplayDistance(weekKm, unit).toFixed(1)}<span className="text-sm ml-1">{unitLabel(unit)}</span></p>
-            <p className="text-xs text-[var(--muted)] mt-1">{t('home.summaryRuns').replace('{n}', String(weekRuns))}</p>
-            {yoyComparison.week.last > 0.5 && (
-              <p className={`text-xs mt-1 ${yoyComparison.week.diff >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
-                {t('home.yoyLast').replace('{sign}', yoyComparison.week.diff >= 0 ? '+' : '').replace('{km}km', `${toDisplayDistance(yoyComparison.week.diff, unit).toFixed(0)}${unitLabel(unit)}`)}
-              </p>
-            )}
-          </div>
-          <div className="bg-[var(--card-border)]/30 rounded-xl p-4">
-            <p className="text-xs text-[var(--muted)] mb-1">{t('home.summaryMonth')}</p>
-            <p className="text-2xl font-extrabold text-green-600">{toDisplayDistance(monthlyDistance, unit).toFixed(1)}<span className="text-sm ml-1">{unitLabel(unit)}</span></p>
-            <p className="text-xs text-[var(--muted)] mt-1">{t('home.summaryMonthDays').replace('{days}', String(monthlyRunDays)).replace('{runs}', String(calendarActivities.length))}</p>
-            {yoyComparison.month.last > 0.5 && (
-              <p className={`text-xs mt-1 ${yoyComparison.month.diff >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
-                {t('home.yoyLast').replace('{sign}', yoyComparison.month.diff >= 0 ? '+' : '').replace('{km}km', `${toDisplayDistance(yoyComparison.month.diff, unit).toFixed(0)}${unitLabel(unit)}`)}
-              </p>
-            )}
-          </div>
-          <div className="bg-[var(--card-border)]/30 rounded-xl p-4">
-            <p className="text-xs text-[var(--muted)] mb-1">{t('home.summaryYear')}</p>
-            <p className="text-2xl font-extrabold text-purple-600">{toDisplayDistance(yearlyTotal, unit).toFixed(0)}<span className="text-sm ml-1">{unitLabel(unit)}</span></p>
-            {yearlyPrevTotal > 0 && (
-              <p className={`text-xs mt-1 ${yearlyTotal >= yearlyPrevTotal ? 'text-emerald-600' : 'text-rose-500'}`}>
-                {t('home.yoyLast').replace('{sign}', yearlyTotal >= yearlyPrevTotal ? '+' : '').replace('{km}km', `${toDisplayDistance(yearlyTotal - yearlyPrevTotal, unit).toFixed(0)}${unitLabel(unit)}`)}
-              </p>
-            )}
-          </div>
-          <div className="bg-[var(--card-border)]/30 rounded-xl p-4">
-            <p className="text-xs text-[var(--muted)] mb-1">{t('home.summaryAllTime')}</p>
-            <p className="text-2xl font-extrabold text-orange-600">{toDisplayDistance(totalKm, unit).toFixed(0)}<span className="text-sm ml-1">{unitLabel(unit)}</span></p>
-            <p className="text-xs text-[var(--muted)] mt-1">{t('home.summaryRuns').replace('{n}', String(totalRuns))}</p>
-          </div>
-        </div>
-      </div>
-      </LazyMount>
+      {/* 24 요약 4칩 — Phase A (build 327): 삭제. 주/월/년/통산 수치가 기간 상세 카드(#23)와
+          전부 중복 (이번 달은 상단 통계 그리드에도) — 기간 상세의 탭이 같은 정보를 더 깊게 제공. */}
       </>)}
 
       {/* 25 최근 활동 */}
