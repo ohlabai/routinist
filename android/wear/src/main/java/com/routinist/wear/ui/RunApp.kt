@@ -11,7 +11,9 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,25 +34,28 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.Canvas
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.routinist.wear.ExerciseRecordingService
 import com.routinist.wear.WorkoutManager
+import com.routinist.wear.WorkoutManager.RunGoal
 import kotlinx.coroutines.delay
 
 @Composable
@@ -73,12 +78,17 @@ fun RunApp() {
             when (state.phase) {
                 WorkoutManager.Phase.IDLE,
                 WorkoutManager.Phase.REQUESTING,
-                -> StartScreen(error = state.error) { permLauncher.launch(requiredPermissions()) }
+                -> StartScreen(
+                    goal = state.goal,
+                    error = state.error,
+                    onStart = { permLauncher.launch(requiredPermissions()) },
+                )
 
                 WorkoutManager.Phase.COUNTDOWN -> CountdownScreen { ExerciseRecordingService.start(context) }
 
                 WorkoutManager.Phase.ACTIVE,
                 WorkoutManager.Phase.PAUSED,
+                WorkoutManager.Phase.AUTO_PAUSED,
                 -> MetricsScreen(state)
 
                 WorkoutManager.Phase.ENDED -> SummaryScreen(state.summary) { WorkoutManager.reset() }
@@ -99,41 +109,149 @@ private fun requiredPermissions(): Array<String> {
     return perms.toTypedArray()
 }
 
+// ── 시작 화면 — v3: 목표 버튼 (애플워치 v14 친근 카피) ──────────
 @Composable
-private fun StartScreen(error: String?, onStart: () -> Unit) {
-    // v3 (hans): 애플워치처럼 "살아있는" 시작 화면 — 숨쉬는 새싹 + 하단 달리는 잔디 물결
+private fun StartScreen(goal: RunGoal, error: String?, onStart: () -> Unit) {
+    var showGoalSheet by remember { mutableStateOf(false) }
     val t = rememberInfiniteTransition(label = "intro")
     val bob by t.animateFloat(
         0f, 1f, infiniteRepeatable(tween(1800, easing = LinearEasing), RepeatMode.Reverse), label = "bob",
     )
+
+    if (showGoalSheet) {
+        GoalSheet(current = goal, onDone = { showGoalSheet = false })
+        return
+    }
+
     Box(Modifier.fillMaxSize()) {
         Column(
-            Modifier.fillMaxSize().padding(horizontal = 18.dp),
+            // 하단 패딩 — 목표 칩이 잔디 물결·라운드 곡면과 겹치지 않게 (v3 fix)
+            Modifier.fillMaxSize().padding(horizontal = 18.dp).padding(bottom = 30.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            SproutMark(Modifier.padding(bottom = (2 + bob * 3).dp), sizeDp = 30)
-            Text("루티니스트", color = Brand.EmeraldLight, fontSize = 22.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.height(3.dp))
-            Text("오늘도 달려볼까요?", color = Brand.Snow, fontSize = 13.sp)
+            SproutMark(Modifier.padding(bottom = (1 + bob * 3).dp), sizeDp = 24)
+            Text("루티니스트", color = Brand.EmeraldLight, fontSize = 20.sp, fontWeight = FontWeight.Black)
+            Spacer(Modifier.height(2.dp))
+            Text("오늘도 달려볼까요?", color = Brand.Snow, fontSize = 12.sp)
             if (error != null) {
                 Spacer(Modifier.height(4.dp))
                 Text(error, color = Brand.Heart, fontSize = 12.sp, textAlign = TextAlign.Center)
             }
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(8.dp))
             Button(
                 onClick = onStart,
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                modifier = Modifier.clip(RoundedCornerShape(24.dp)).background(Brand.CtaGradient),
+                // 라운드 화면 수직 예산 확보 — 기본(52dp)보다 낮은 40dp
+                modifier = Modifier.height(40.dp).clip(RoundedCornerShape(20.dp)).background(Brand.CtaGradient),
             ) {
-                Text("달리기 시작", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Brand.Ink)
+                Text("달리기 시작", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Brand.Ink)
+            }
+            Spacer(Modifier.height(7.dp))
+            // v3: 목표 칩 — 애플워치 v14 카피 ("오늘은 얼마쯤 달릴까?" / "오늘 목표 · 13km").
+            // Wear Button 은 최소 높이가 커서 라운드 하단에서 잘림 — 컴팩트 Box 칩 사용.
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Brand.InkTop)
+                    .clickable { showGoalSheet = true }
+                    .padding(horizontal = 12.dp, vertical = 5.dp),
+            ) {
+                Text(
+                    goalLabel(goal),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (goal.isSet) Brand.EmeraldSoft else Brand.Muted,
+                )
             }
         }
-        // 하단 잔디 물결 — 러닝 중 화면과 동일한 브랜드 모션 (애플워치 RunningGrassView 대응)
         GrassWave(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth(0.55f).padding(bottom = 10.dp),
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth(0.5f).padding(bottom = 6.dp),
             blades = 9,
         )
+    }
+}
+
+private fun goalLabel(goal: RunGoal): String = when {
+    goal.distanceM != null -> {
+        val km = goal.distanceM / 1000
+        if (km == km.toLong().toDouble()) "오늘 목표 · ${km.toLong()}km" else "오늘 목표 · ${"%.1f".format(km)}km"
+    }
+    goal.timeSec != null -> "오늘 목표 · ${goal.timeSec / 60}분"
+    else -> "오늘은 얼마쯤 달릴까?"
+}
+
+// ── v3: 목표 설정 시트 — 거리/시간 탭 + ±스텝퍼 (애플워치 v10/v14 문법) ──
+@Composable
+private fun GoalSheet(current: RunGoal, onDone: () -> Unit) {
+    var mode by remember { mutableStateOf(if (current.timeSec != null) 1 else 0) }  // 0=거리 1=시간
+    var km by remember { mutableFloatStateOf(((current.distanceM ?: 5000.0) / 1000).toFloat()) }
+    var min by remember { mutableIntStateOf((current.timeSec ?: 1800) / 60) }
+
+    Column(
+        Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        // 거리/시간 토글
+        Row(
+            Modifier.clip(RoundedCornerShape(16.dp)).background(Brand.InkTop),
+        ) {
+            listOf("거리", "시간").forEachIndexed { i, label ->
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (mode == i) Brand.Emerald else Color.Transparent)
+                        .clickable { mode = i }
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                ) {
+                    Text(
+                        label, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                        color = if (mode == i) Brand.Ink else Brand.Muted,
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+
+        // ± 스텝퍼 (거리 ±1km, 시간 ±5분 — 애플워치 v10 과 동일 스텝)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            StepBtn("−") { if (mode == 0) km = (km - 1f).coerceAtLeast(1f) else min = (min - 5).coerceAtLeast(5) }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    if (mode == 0) (if (km == km.toLong().toFloat()) "${km.toLong()}" else "%.1f".format(km)) else "$min",
+                    color = Brand.Snow, fontSize = 44.sp, fontWeight = FontWeight.Black,
+                )
+                Text(if (mode == 0) "km" else "분", color = Brand.Muted, fontSize = 13.sp)
+            }
+            StepBtn("+") { if (mode == 0) km = (km + 1f).coerceAtMost(50f) else min = (min + 5).coerceAtMost(300) }
+        }
+        Spacer(Modifier.height(12.dp))
+
+        Button(
+            onClick = {
+                WorkoutManager.setGoal(
+                    if (mode == 0) RunGoal(distanceM = km.toDouble() * 1000)
+                    else RunGoal(timeSec = min * 60),
+                )
+                onDone()
+            },
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+            modifier = Modifier.clip(RoundedCornerShape(22.dp)).background(Brand.CtaGradient),
+        ) {
+            Text("목표 설정", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Brand.Ink)
+        }
+    }
+}
+
+@Composable
+private fun StepBtn(label: String, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(containerColor = Brand.InkTop),
+        modifier = Modifier.size(44.dp),
+    ) {
+        Text(label, fontSize = 22.sp, fontWeight = FontWeight.Black, color = Brand.EmeraldLight)
     }
 }
 
@@ -155,37 +273,100 @@ private fun CountdownScreen(onDone: () -> Unit) {
     }
 }
 
+// ── v3: 심박존 색 (애플워치 v7 문법) ─────────────────────────────
+private fun zoneColor(zone: Int): Color = when (zone) {
+    1 -> Color(0xFF60A5FA)   // 편안 — 하늘
+    2 -> Brand.EmeraldLight  // 기본
+    3 -> Color(0xFFFBBF24)   // 지방연소↑ — 노랑
+    4 -> Color(0xFFFB923C)   // 고강도 — 주황
+    5 -> Color(0xFFF87171)   // 최대 — 빨강
+    else -> Brand.Muted
+}
+
 @Composable
 private fun MetricsScreen(state: WorkoutManager.RunState) {
-    val paused = state.phase == WorkoutManager.Phase.PAUSED
+    val userPaused = state.phase == WorkoutManager.Phase.PAUSED
+    val autoPaused = state.phase == WorkoutManager.Phase.AUTO_PAUSED
     val kmFraction = ((state.distanceMeters % 1000) / 1000.0).toFloat()
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        if (paused) {
-            Text("일시정지", color = Brand.Calorie, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        if (userPaused || autoPaused) {
+            Text(
+                if (autoPaused) "자동 일시정지" else "일시정지",
+                color = Brand.Calorie, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+            )
             Spacer(Modifier.height(2.dp))
         }
         Text(
             fmtTime(state.elapsedSec),
-            color = Brand.Snow, fontSize = 54.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.SansSerif,
+            color = Brand.Snow, fontSize = 54.sp, fontWeight = FontWeight.Black,
         )
         Spacer(Modifier.height(6.dp))
-        Canvas(Modifier.fillMaxWidth().height(6.dp).padding(horizontal = 24.dp)) { drawDistanceGauge(kmFraction) }
+
+        // v3: 목표 진행바 (설정 시) — 없으면 km 잔디 게이지
+        val gp = state.goalProgress
+        if (gp != null) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+                Box(Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(3.dp)).background(Brand.InkTop)) {
+                    Box(
+                        Modifier.fillMaxWidth(gp.toFloat()).height(6.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .let { m -> if (state.goalAchieved) m.background(Brand.Calorie) else m.background(Brand.CtaGradient) },
+                    )
+                }
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    if (state.goalAchieved) "달성!" else "${(gp * 100).toInt()}%",
+                    color = if (state.goalAchieved) Brand.Calorie else Brand.Muted,
+                    fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                )
+            }
+        } else {
+            Canvas(Modifier.fillMaxWidth().height(6.dp).padding(horizontal = 24.dp)) { drawDistanceGauge(kmFraction) }
+        }
         Spacer(Modifier.height(8.dp))
+
         Metric(fmtDistance(state.distanceMeters), "km", Brand.Distance)
-        Metric(fmtPace(state.paceSecPerKm), "/km", Brand.Pace)
-        Metric(if (state.heartRate > 0) state.heartRate.toInt().toString() else "--", "bpm", Brand.Heart)
+        // v3: 구간 페이스가 있으면 그것부터 (직전 KM — 애플워치 v7)
+        Metric(fmtPace(state.lastSplitSecPerKm ?: state.paceSecPerKm), if (state.lastSplitSecPerKm != null) "/km 구간" else "/km", Brand.Pace)
+
+        // v3: 심박 — 존 색상 + 존 칩
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                if (state.heartRate > 0) state.heartRate.toInt().toString() else "--",
+                color = zoneColor(state.hrZone), fontSize = 30.sp, fontWeight = FontWeight.Bold,
+            )
+            Spacer(Modifier.width(4.dp))
+            Text("bpm", color = Brand.Muted, fontSize = 13.sp, modifier = Modifier.padding(bottom = 4.dp))
+            if (state.hrZone > 0) {
+                Spacer(Modifier.width(6.dp))
+                Box(
+                    Modifier.padding(bottom = 3.dp).clip(RoundedCornerShape(8.dp))
+                        .background(zoneColor(state.hrZone).copy(alpha = 0.18f))
+                        .padding(horizontal = 6.dp, vertical = 1.dp),
+                ) {
+                    Text("Z${state.hrZone}", color = zoneColor(state.hrZone), fontSize = 11.sp, fontWeight = FontWeight.Black)
+                }
+            }
+        }
         Metric(state.calories.toInt().toString(), "kcal", Brand.Calorie)
+
+        // v3: 심박 스파크라인 (샘플 10개 이상)
+        if (state.hrSamples.size >= 10) {
+            Spacer(Modifier.height(4.dp))
+            HrSparkline(state.hrSamples, zoneColor(state.hrZone))
+        }
+
         Spacer(Modifier.height(4.dp))
-        if (!paused) GrassWave()
+        if (!userPaused && !autoPaused) GrassWave()
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = { WorkoutManager.togglePause() },
                 colors = ButtonDefaults.buttonColors(containerColor = Brand.InkTop),
-            ) { Text(if (paused) "재개" else "일시정지", fontSize = 13.sp, color = Brand.Snow) }
+            ) { Text(if (userPaused || autoPaused) "재개" else "일시정지", fontSize = 13.sp, color = Brand.Snow) }
             Button(
                 onClick = { WorkoutManager.end() },
                 colors = ButtonDefaults.buttonColors(containerColor = Brand.Heart),
@@ -193,6 +374,25 @@ private fun MetricsScreen(state: WorkoutManager.RunState) {
         }
         // 라운드 화면 하단 곡면 여백 — 버튼이 원 안쪽 탭 가능 영역에 들어오도록
         Spacer(Modifier.height(30.dp))
+    }
+}
+
+/** v3: 심박 스파크라인 — 최근 샘플 min-max 정규화 폴리라인 */
+@Composable
+private fun HrSparkline(samples: List<Float>, color: Color) {
+    Canvas(Modifier.fillMaxWidth().height(26.dp).padding(horizontal = 26.dp)) {
+        if (samples.size < 2) return@Canvas
+        val minV = samples.min()
+        val maxV = samples.max()
+        val range = (maxV - minV).coerceAtLeast(1f)
+        val stepX = size.width / (samples.size - 1)
+        val path = Path()
+        samples.forEachIndexed { i, v ->
+            val x = i * stepX
+            val y = size.height - ((v - minV) / range) * size.height
+            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        }
+        drawPath(path, color.copy(alpha = 0.85f), style = Stroke(width = 3f, cap = StrokeCap.Round))
     }
 }
 

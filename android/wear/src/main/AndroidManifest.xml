@@ -47,6 +47,16 @@
             android:exported="false"
             android:foregroundServiceType="health|location" />
 
+        <!-- v3: 폰 → 워치 컨텍스트 수신 (max_hr 등, /routinist/ctx) -->
+        <service
+            android:name=".CtxReceiverService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data android:scheme="wear" android:host="*" android:pathPrefix="/routinist/ctx" />
+            </intent-filter>
+        </service>
+
     </application>
 
 </manifest>

@@ -2,7 +2,11 @@ package com.routinist.wear
 
 import android.content.Context
 import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.speech.tts.TextToSpeech
+import androidx.concurrent.futures.await
 import androidx.health.services.client.ExerciseClient
 import androidx.health.services.client.ExerciseUpdateCallback
 import androidx.health.services.client.HealthServices
@@ -13,7 +17,6 @@ import androidx.health.services.client.data.ExerciseLapSummary
 import androidx.health.services.client.data.ExerciseState
 import androidx.health.services.client.data.ExerciseUpdate
 import androidx.health.services.client.data.LocationData
-import androidx.concurrent.futures.await
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -25,21 +28,23 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 
 /**
- * Galaxy Watch 러닝 엔진 (Wear OS Phase 3, 2026-07-26).
+ * Galaxy Watch 러닝 엔진 (Wear OS Phase 3 → v3, 2026-07-29).
  *
- * iOS RoutinistWatch/WorkoutManager 의 Android 대응물. HealthKit 대신 Health Services
- * ExerciseClient 로 라이브 메트릭(시간·거리·심박·칼로리·GPS)을 수집한다.
- *
- * ⚠️ 애플과 다른 핵심: Wear OS 에는 Health Connect 가 없다. 그래서 완주 시
- * HealthKit 저장 대신 [RunSender] 로 완주 데이터를 폰에 전송하고, 폰이 Health Connect 에
- * write → 기존 임포터가 읽는다. (구글 공식 피트니스 앱 가이드 구조)
- *
- * 프로세스 싱글턴(object) — [ExerciseRecordingService] 포그라운드 서비스가 수명을 유지하고
- * Compose UI 가 [state] 를 관찰한다.
+ * v1: ExerciseClient 라이브 메트릭 + Data Layer 완주 전송 (Supabase 직행, HC 우회)
+ * v3 (애플워치 v7~v9 이식):
+ *  - 자동 일시정지/재개 — Health Services 네이티브 (isAutoPauseAndResumeEnabled) + 음성
+ *  - 심박존 1~5 — maxHr 는 폰 watch_ctx 동기값 (CtxReceiverService) 폴백 190
+ *  - 목표 (거리/시간) — SharedPreferences 저장, 달성 시 음성+햅틱 1회
+ *  - km 구간 페이스 음성 ("이번 구간 5분 30초") + 심박 스파크라인 샘플
  */
 object WorkoutManager {
 
-    enum class Phase { IDLE, REQUESTING, COUNTDOWN, ACTIVE, PAUSED, ENDED }
+    enum class Phase { IDLE, REQUESTING, COUNTDOWN, ACTIVE, PAUSED, AUTO_PAUSED, ENDED }
+
+    /** 목표 — 거리(m) 또는 시간(초). 둘 다 null 이면 자유 러닝. */
+    data class RunGoal(val distanceM: Double? = null, val timeSec: Int? = null) {
+        val isSet: Boolean get() = distanceM != null || timeSec != null
+    }
 
     data class Summary(
         val distanceMeters: Double,
@@ -58,8 +63,34 @@ object WorkoutManager {
         val calories: Double = 0.0,
         val summary: Summary? = null,
         val error: String? = null,
+        // v3
+        val goal: RunGoal = RunGoal(),
+        val goalAchieved: Boolean = false,
+        val maxHr: Double = 190.0,
+        val lastSplitSecPerKm: Double? = null,
+        val hrSamples: List<Float> = emptyList(),
     ) {
         val paceSecPerKm: Double? get() = if (distanceMeters > 50) elapsedSec / (distanceMeters / 1000) else null
+
+        /** 심박존 1~5 (0 = 측정 전) — 애플워치와 동일 경계 (60/70/80/90%) */
+        val hrZone: Int get() {
+            if (heartRate <= 0) return 0
+            val pct = heartRate / maxHr
+            return when {
+                pct < 0.60 -> 1
+                pct < 0.70 -> 2
+                pct < 0.80 -> 3
+                pct < 0.90 -> 4
+                else -> 5
+            }
+        }
+
+        /** 목표 진행률 0~1 (미설정이면 null) */
+        val goalProgress: Double? get() = when {
+            goal.distanceM != null -> (distanceMeters / goal.distanceM).coerceIn(0.0, 1.0)
+            goal.timeSec != null -> (elapsedSec / goal.timeSec).coerceIn(0.0, 1.0)
+            else -> null
+        }
     }
 
     private val _state = MutableStateFlow(RunState())
@@ -69,8 +100,7 @@ object WorkoutManager {
     private var appContext: Context? = null
     private var exerciseClient: ExerciseClient? = null
 
-    // 경과시간 = 벽시계 - 누적 일시정지 (auto-pause off 이므로 수동 pause 만 보정).
-    // activeDurationCheckpoint 는 기기/합성별로 0 을 보내는 경우가 있어 신뢰하지 않음.
+    // 경과시간 = 벽시계 - 누적 일시정지 (수동+자동 공통 보정)
     @Volatile private var runStartWallMs: Long = 0
     @Volatile private var pausedAccumMs: Long = 0
     @Volatile private var pauseStartMs: Long = 0
@@ -80,9 +110,16 @@ object WorkoutManager {
     private val route = ArrayList<DoubleArray>()
 
     private var lastAnnouncedKm = 0
+    private var lastKmElapsedSec = 0.0
     private var startMs = 0L
     private var avgHrSum = 0.0
     private var avgHrCount = 0
+    private val hrBuffer = ArrayList<Float>()
+
+    private const val PREFS = "wear_workout"
+    private const val KEY_GOAL_DIST = "goal_distance_m"
+    private const val KEY_GOAL_TIME = "goal_time_sec"
+    const val KEY_MAX_HR = "ctx_max_hr"   // CtxReceiverService 가 기록
 
     // ── TTS ──────────────────────────────────────────────────────
     private var tts: TextToSpeech? = null
@@ -90,6 +127,8 @@ object WorkoutManager {
 
     fun initTts(context: Context) {
         appContext = context.applicationContext
+        loadGoal()
+        loadMaxHr()
         if (tts != null) return
         tts = TextToSpeech(appContext) { status ->
             ttsReady = status == TextToSpeech.SUCCESS
@@ -101,13 +140,12 @@ object WorkoutManager {
         if (ttsReady) tts?.speak(text, TextToSpeech.QUEUE_ADD, null, text)
     }
 
-    /** 카운트다운 음성 — 폰/애플워치와 동일 "삼 / 이 / 일" */
     fun speakCount(n: Int) {
         val words = arrayOf("", "일", "이", "삼")
         if (n in 1..3) speak(words[n])
     }
 
-    /** 1~99 한자어 수사 ("십일 킬로미터" 오독 방지) */
+    /** 1~99 한자어 수사 ("십일 킬로미터" 오독 방지 — 폰·애플워치와 동일) */
     private fun sinoKorean(n: Int): String {
         if (n !in 1..99) return n.toString()
         val d = arrayOf("", "일", "이", "삼", "사", "오", "육", "칠", "팔", "구")
@@ -119,29 +157,78 @@ object WorkoutManager {
         return sb.toString()
     }
 
-    // ── 상태 전이 ────────────────────────────────────────────────
-
-    /** Start 버튼 → 권한 확보 후 호출. UI 가 3-2-1 카운트다운을 그린다. */
-    fun requestCountdown() {
-        if (_state.value.phase != Phase.IDLE) return
-        _state.value = RunState(phase = Phase.COUNTDOWN)
+    // ── v3: 햅틱 ─────────────────────────────────────────────────
+    private fun haptic(ms: Long = 200) {
+        val ctx = appContext ?: return
+        try {
+            val vibrator: Vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                (ctx.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                ctx.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            }
+            vibrator.vibrate(VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE))
+        } catch (_: Exception) { /* 햅틱 실패는 무시 */ }
     }
 
-    /**
-     * 카운트다운 종료 → 포그라운드 서비스가 이 메서드를 호출해 실제 운동 시작.
-     * (ExerciseClient 는 health|location FGS 안에서 살아 있어야 화면 잠금에도 유지됨)
-     */
+    // ── v3: 목표 저장/로드 ───────────────────────────────────────
+    fun setGoal(goal: RunGoal) {
+        _state.value = _state.value.copy(goal = goal, goalAchieved = false)
+        appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)?.edit()?.apply {
+            if (goal.distanceM != null) putFloat(KEY_GOAL_DIST, goal.distanceM.toFloat()) else remove(KEY_GOAL_DIST)
+            if (goal.timeSec != null) putInt(KEY_GOAL_TIME, goal.timeSec) else remove(KEY_GOAL_TIME)
+            apply()
+        }
+    }
+
+    private fun loadGoal() {
+        val p = appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE) ?: return
+        val dist = if (p.contains(KEY_GOAL_DIST)) p.getFloat(KEY_GOAL_DIST, 0f).toDouble() else null
+        val time = if (p.contains(KEY_GOAL_TIME)) p.getInt(KEY_GOAL_TIME, 0) else null
+        _state.value = _state.value.copy(goal = RunGoal(dist, time))
+    }
+
+    /** CtxReceiverService 가 새 max_hr 를 받으면 호출 (또는 initTts 때 프리로드) */
+    fun loadMaxHr() {
+        val p = appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE) ?: return
+        val v = p.getFloat(KEY_MAX_HR, 0f)
+        if (v in 120f..230f) _state.value = _state.value.copy(maxHr = v.toDouble())
+    }
+
+    private fun checkGoal() {
+        val s = _state.value
+        if (s.goalAchieved || s.phase != Phase.ACTIVE || !s.goal.isSet) return
+        val done = (s.goal.distanceM != null && s.distanceMeters >= s.goal.distanceM)
+            || (s.goal.timeSec != null && s.elapsedSec >= s.goal.timeSec)
+        if (done) {
+            _state.value = _state.value.copy(goalAchieved = true)
+            haptic(400)
+            speak("목표 달성! 정말 대단해요.")
+        }
+    }
+
+    // ── 상태 전이 ────────────────────────────────────────────────
+
+    fun requestCountdown() {
+        if (_state.value.phase != Phase.IDLE) return
+        _state.value = _state.value.copy(phase = Phase.COUNTDOWN, error = null)
+    }
+
     fun beginExercise(context: Context) {
         appContext = context.applicationContext
         val client = HealthServices.getClient(context).exerciseClient
         exerciseClient = client
 
         route.clear()
+        hrBuffer.clear()
         lastAnnouncedKm = 0
+        lastKmElapsedSec = 0.0
         avgHrSum = 0.0; avgHrCount = 0
         pausedAccumMs = 0
         pauseStartMs = 0
         startMs = System.currentTimeMillis()
+        loadMaxHr()
+        _state.value = _state.value.copy(goalAchieved = false, lastSplitSecPerKm = null, hrSamples = emptyList())
 
         client.setUpdateCallback(callback)
 
@@ -153,7 +240,9 @@ object WorkoutManager {
                 DataType.DISTANCE_TOTAL,
                 DataType.CALORIES_TOTAL,
             ),
-            isAutoPauseAndResumeEnabled = false,
+            // v3: 자동 일시정지 — Health Services 네이티브 감지 (신호 대기 등).
+            // 상태 전이는 reflectState 의 AUTO_PAUSED 처리로 음성·타이머 보정.
+            isAutoPauseAndResumeEnabled = true,
             isGpsEnabled = true,
         )
         scope.launch {
@@ -177,6 +266,7 @@ object WorkoutManager {
                 if (s.phase == Phase.ACTIVE && runStartWallMs > 0) {
                     val elapsed = (System.currentTimeMillis() - runStartWallMs - pausedAccumMs) / 1000.0
                     _state.value = s.copy(elapsedSec = elapsed)
+                    checkGoal()   // 시간 목표는 틱에서 판정
                 }
                 delay(250)
             }
@@ -189,7 +279,7 @@ object WorkoutManager {
             runCatching {
                 when (_state.value.phase) {
                     Phase.ACTIVE -> client.pauseExerciseAsync().await()
-                    Phase.PAUSED -> client.resumeExerciseAsync().await()
+                    Phase.PAUSED, Phase.AUTO_PAUSED -> client.resumeExerciseAsync().await()
                     else -> {}
                 }
             }
@@ -201,11 +291,12 @@ object WorkoutManager {
         scope.launch { runCatching { client.endExerciseAsync().await() } }
     }
 
-    /** 요약 닫기 → 초기 화면 */
     fun reset() {
         ticker?.cancel(); ticker = null
         route.clear()
-        _state.value = RunState()
+        hrBuffer.clear()
+        // 목표·maxHr 는 유지 (다음 러닝에 이어짐 — 애플워치 v14 트레이드오프와 동일)
+        _state.value = RunState(goal = _state.value.goal, maxHr = _state.value.maxHr)
     }
 
     // ── ExerciseClient 콜백 ──────────────────────────────────────
@@ -222,11 +313,22 @@ object WorkoutManager {
 
             m.getData(DataType.HEART_RATE_BPM).lastOrNull()?.let { hr ->
                 val v = hr.value
-                if (v > 0) { avgHrSum += v; avgHrCount++ }
-                update(heartRate = v)
+                if (v > 0) {
+                    avgHrSum += v; avgHrCount++
+                    hrBuffer.add(v.toFloat())
+                    if (hrBuffer.size > 240) hrBuffer.removeAt(0)
+                }
+                _state.value = _state.value.copy(
+                    heartRate = v,
+                    hrSamples = ArrayList(hrBuffer),
+                )
             }
-            m.getData(DataType.DISTANCE_TOTAL)?.let { update(distanceMeters = it.total) }
-            m.getData(DataType.CALORIES_TOTAL)?.let { update(calories = it.total) }
+            m.getData(DataType.DISTANCE_TOTAL)?.let {
+                _state.value = _state.value.copy(distanceMeters = it.total)
+            }
+            m.getData(DataType.CALORIES_TOTAL)?.let {
+                _state.value = _state.value.copy(calories = it.total)
+            }
 
             val now = System.currentTimeMillis()
             m.getData(DataType.LOCATION).forEach { sample ->
@@ -235,6 +337,7 @@ object WorkoutManager {
             }
 
             announceKmIfNeeded()
+            checkGoal()   // 거리 목표는 거리 갱신에서 판정
             reflectState(update.exerciseStateInfo.state)
         }
 
@@ -243,27 +346,21 @@ object WorkoutManager {
         override fun onAvailabilityChanged(dataType: DataType<*, *>, availability: Availability) {}
     }
 
-    private fun update(
-        heartRate: Double = _state.value.heartRate,
-        distanceMeters: Double = _state.value.distanceMeters,
-        calories: Double = _state.value.calories,
-    ) {
-        _state.value = _state.value.copy(
-            heartRate = heartRate,
-            distanceMeters = distanceMeters,
-            calories = calories,
-        )
-    }
-
     private fun announceKmIfNeeded() {
-        val km = (_state.value.distanceMeters / 1000).toInt()
+        val s = _state.value
+        val km = (s.distanceMeters / 1000).toInt()
         if (km > lastAnnouncedKm) {
             lastAnnouncedKm = km
-            val pace = _state.value.paceSecPerKm
+            // v3: 구간 페이스 — 직전 km 경계 이후 걸린 시간 (애플워치 v7·폰 템플릿과 동일)
+            val splitSec = s.elapsedSec - lastKmElapsedSec
+            lastKmElapsedSec = s.elapsedSec
+            val split = if (splitSec > 60) splitSec else s.paceSecPerKm
+            if (split != null) _state.value = _state.value.copy(lastSplitSecPerKm = split)
+            haptic(120)
             var text = "${sinoKorean(km)} 킬로미터 통과."
-            if (pace != null) {
-                val t = Math.round(pace).toInt(); val mm = t / 60; val ss = t % 60
-                text += if (ss == 0) " 평균 페이스 $mm 분." else " 평균 페이스 $mm 분 $ss 초."
+            if (split != null) {
+                val t = Math.round(split).toInt(); val mm = t / 60; val ss = t % 60
+                text += if (ss == 0) " 이번 구간 $mm 분." else " 이번 구간 $mm 분 $ss 초."
             }
             text += " 잘하고 있어요."
             speak(text)
@@ -271,20 +368,29 @@ object WorkoutManager {
     }
 
     private fun reflectState(exState: ExerciseState) {
+        val cur = _state.value.phase
         when {
             exState.isEnded -> onEnded()
             exState == ExerciseState.ACTIVE -> {
-                if (_state.value.phase == Phase.PAUSED) {
-                    // 재개 — 일시정지했던 시간을 누적에서 보정
+                if (cur == Phase.PAUSED || cur == Phase.AUTO_PAUSED) {
                     if (pauseStartMs > 0) pausedAccumMs += System.currentTimeMillis() - pauseStartMs
                     pauseStartMs = 0
+                    if (cur == Phase.AUTO_PAUSED) speak("다시 시작합니다. 같이 가요.")
                     _state.value = _state.value.copy(phase = Phase.ACTIVE)
                 }
             }
-            exState == ExerciseState.USER_PAUSED || exState == ExerciseState.AUTO_PAUSED -> {
-                if (_state.value.phase == Phase.ACTIVE) {
-                    pauseStartMs = System.currentTimeMillis()
+            exState == ExerciseState.USER_PAUSED -> {
+                if (cur == Phase.ACTIVE || cur == Phase.AUTO_PAUSED) {
+                    if (pauseStartMs == 0L) pauseStartMs = System.currentTimeMillis()
                     _state.value = _state.value.copy(phase = Phase.PAUSED)
+                }
+            }
+            exState == ExerciseState.AUTO_PAUSED -> {
+                if (cur == Phase.ACTIVE) {
+                    pauseStartMs = System.currentTimeMillis()
+                    haptic(150)
+                    speak("자동 일시정지. 다시 움직이면 이어서 잴게요.")
+                    _state.value = _state.value.copy(phase = Phase.AUTO_PAUSED)
                 }
             }
             else -> {}
@@ -299,7 +405,6 @@ object WorkoutManager {
         val summary = Summary(s.distanceMeters, s.elapsedSec, avgHr, s.calories)
         _state.value = s.copy(phase = Phase.ENDED, summary = summary)
 
-        // 완주 데이터 → 폰으로 전송 (폰이 Health Connect 에 write)
         appContext?.let { ctx ->
             RunSender.send(
                 ctx,
@@ -316,7 +421,6 @@ object WorkoutManager {
             )
         }
         scope.launch { runCatching { exerciseClient?.clearUpdateCallbackAsync(callback)?.await() } }
-        // 서비스에게 종료 알림
         ExerciseRecordingService.stop(appContext)
     }
 }

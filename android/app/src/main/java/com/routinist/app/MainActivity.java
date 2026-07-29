@@ -9,8 +9,32 @@ import android.webkit.WebView;
 
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
+import com.google.android.gms.wearable.PutDataMapRequest;
+import com.google.android.gms.wearable.PutDataRequest;
+import com.google.android.gms.wearable.Wearable;
 
 public class MainActivity extends BridgeActivity {
+
+    // v3 (갤럭시워치): 폰 → 워치 컨텍스트 push — iOS WatchBridge 의 대응물.
+    // JS(watch-bridge.ts)가 CapacitorStorage.watch_ctx 에 심어둔 JSON(max_hr 등)을
+    // 앱 활성화 때마다 DataItem 으로 워치에 전달 (워치 CtxReceiverService 가 수신).
+    @Override
+    public void onResume() {
+        super.onResume();
+        try {
+            String json = getSharedPreferences("CapacitorStorage", MODE_PRIVATE)
+                .getString("watch_ctx", null);
+            if (json != null && !json.isEmpty()) {
+                PutDataMapRequest req = PutDataMapRequest.create("/routinist/ctx");
+                req.getDataMap().putString("json", json);
+                req.getDataMap().putLong("sentAt", System.currentTimeMillis()); // 변경 보장
+                PutDataRequest put = req.asPutDataRequest().setUrgent();
+                Wearable.getDataClient(this).putDataItem(put);
+            }
+        } catch (Exception ignored) {
+            // 워치 미페어링/Play services 부재 — 조용히 무시
+        }
+    }
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(WorkoutRoutePlugin.class);
