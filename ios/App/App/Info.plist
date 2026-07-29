@@ -25,6 +25,8 @@
 	<string>러닝 트래킹을 시작하면 잠금화면 상태에서도 경로가 계속 기록되도록 백그라운드 위치 권한을 사용합니다. 트래킹을 종료하면 즉시 중단됩니다.</string>
 	<key>NSMotionUsageDescription</key>
 	<string>걸음 데이터로 GPS 신호가 약한 구간의 거리를 보정합니다.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>

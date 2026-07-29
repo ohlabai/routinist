@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		19C2F3BAB1FE59195818706A /* ConnectivityStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 767F9162FE8C37C729B25210 /* ConnectivityStore.swift */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
+		310088C409A43085C57E17FA /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC7B93A5D355BE963857EA47 /* Foundation.framework */; };
 		3A13427D02448E5F929ADF6D /* StartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45412CF1BD03E402075B0539 /* StartView.swift */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
@@ -21,6 +22,7 @@
 		5DD7DCAE5220FBD0B2DE4536 /* RoutinistWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = B91063EFDD580330A7F26F8C /* RoutinistWidgets.swift */; };
 		5E0D0D6BDF219CF95F436336 /* RunIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89FF3ED4D62AD911570C7FE6 /* RunIntents.swift */; };
 		5FCF9EA95F2DFEC28C11D58B /* SessionPagingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21B2749A2F97E5336A146F17 /* SessionPagingView.swift */; };
+		656D1C77AFEE35C5A8A445B0 /* RoutinistLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B4A065F1216AE62DEEBFCA8 /* RoutinistLiveActivity.swift */; };
 		7AA500F0AB5F5EB8438FE01C /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 41BD6FFF8DD3564D271D9550 /* Foundation.framework */; };
 		8CDAE9394EDB11587E047448 /* WorkoutManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EDB835D691C932B97A15699 /* WorkoutManager.swift */; };
 		8D4669B73D18D73B50686693 /* RoutinistWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = BBF71DF048AB7910A3B04436 /* RoutinistWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -29,13 +31,22 @@
 		A1B2C3D420260505FAFA0002 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D420260505FAFA0001 /* GoogleService-Info.plist */; };
 		AA464224BEED90C938E787D1 /* PixelArt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A66BE129636BB35C571C9FD /* PixelArt.swift */; };
 		AD9708F9E85B21D622C4DD5C /* RoutinistWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C853828F10B353946C6AD25 /* RoutinistWatchApp.swift */; };
+		B576A8807DC369E0B30880DC /* RunActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2731EBE4F331F648780584F9 /* RunActivityAttributes.swift */; };
 		C0E658714DE598966FB2DBD2 /* CountdownView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9AFD58CC24CE005359EE162 /* CountdownView.swift */; };
+		C55692840DEFBBC8178AC985 /* RoutinistLiveActivity.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 8D5B12BDFC7142F46C8D27ED /* RoutinistLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		CC89EBA8B3E27ACFC10BFEFA /* RoutinistWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 430D97E3096BF78AF213E6A3 /* RoutinistWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E415645F668610801D9A3E1E /* WatchBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90E18CE625256E7E6D23C63F /* WatchBridge.swift */; };
 		FB0DCD6176A3DEF61ED11109 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6384B1BF79DC48242C7A7C47 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		18EDA0E334663163BDBFD15C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 70DC4BCCA2A9A37E1C884925;
+			remoteInfo = RoutinistLiveActivity;
+		};
 		D0C9F604398DA88BBBC44980 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
@@ -64,6 +75,17 @@
 			name = "Embed App Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		589B7A1EC512F77630AA0A0C /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				C55692840DEFBBC8178AC985 /* RoutinistLiveActivity.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AB38240554CBD3FAC8199711 /* Embed Watch Content */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -79,6 +101,7 @@
 
 /* Begin PBXFileReference section */
 		21B2749A2F97E5336A146F17 /* SessionPagingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SessionPagingView.swift; sourceTree = "<group>"; };
+		2731EBE4F331F648780584F9 /* RunActivityAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RunActivityAttributes.swift; path = "../CapApp-SPM/Sources/CapApp-SPM/RunActivityAttributes.swift"; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		3A9CCDC0649C0E438767B4D1 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		41BD6FFF8DD3564D271D9550 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS11.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
@@ -93,12 +116,15 @@
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		5A1F0A0E2D6B4C8E90FAB124 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
+		5B4A065F1216AE62DEEBFCA8 /* RoutinistLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RoutinistLiveActivity.swift; sourceTree = "<group>"; };
 		5EDB835D691C932B97A15699 /* WorkoutManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WorkoutManager.swift; sourceTree = "<group>"; };
+		5EE7C1D69A0A7C787B23375F /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		6384B1BF79DC48242C7A7C47 /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		6A62064EA6067EC47F14CCC4 /* RoutinistWatch.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = RoutinistWatch.entitlements; sourceTree = "<group>"; };
 		6C853828F10B353946C6AD25 /* RoutinistWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RoutinistWatchApp.swift; sourceTree = "<group>"; };
 		767F9162FE8C37C729B25210 /* ConnectivityStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConnectivityStore.swift; sourceTree = "<group>"; };
 		89FF3ED4D62AD911570C7FE6 /* RunIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RunIntents.swift; sourceTree = "<group>"; };
+		8D5B12BDFC7142F46C8D27ED /* RoutinistLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RoutinistLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		90E18CE625256E7E6D23C63F /* WatchBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchBridge.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		98FAEC2373783EBC2122FD02 /* SummaryView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SummaryView.swift; sourceTree = "<group>"; };
@@ -107,6 +133,7 @@
 		B91063EFDD580330A7F26F8C /* RoutinistWidgets.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RoutinistWidgets.swift; sourceTree = "<group>"; };
 		BBF71DF048AB7910A3B04436 /* RoutinistWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RoutinistWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C1BD5861ACAFB46E635A56DA /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		CC7B93A5D355BE963857EA47 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		E9AFD58CC24CE005359EE162 /* CountdownView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CountdownView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -116,6 +143,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		56D9246F55C26E1A96345896 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				310088C409A43085C57E17FA /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -172,6 +207,7 @@
 			isa = PBXGroup;
 			children = (
 				DAAECA4B2E1E95C14F12D91F /* watchOS */,
+				56B719304108C045F5288A82 /* iOS */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -185,6 +221,7 @@
 				3F8500D898586812C87E0BDB /* Frameworks */,
 				3E5CD398DF03378172768560 /* RoutinistWatch */,
 				0977CE1019B6C456EA12B222 /* RoutinistWidgets */,
+				FD87FF067419C1D6D5AAF4DE /* RoutinistLiveActivity */,
 			);
 			sourceTree = "<group>";
 		};
@@ -194,6 +231,7 @@
 				504EC3041FED79650016851F /* Routinist.app */,
 				BBF71DF048AB7910A3B04436 /* RoutinistWatch.app */,
 				430D97E3096BF78AF213E6A3 /* RoutinistWidgets.appex */,
+				8D5B12BDFC7142F46C8D27ED /* RoutinistLiveActivity.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -216,12 +254,31 @@
 			path = App;
 			sourceTree = "<group>";
 		};
+		56B719304108C045F5288A82 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				CC7B93A5D355BE963857EA47 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
 		DAAECA4B2E1E95C14F12D91F /* watchOS */ = {
 			isa = PBXGroup;
 			children = (
 				41BD6FFF8DD3564D271D9550 /* Foundation.framework */,
 			);
 			name = watchOS;
+			sourceTree = "<group>";
+		};
+		FD87FF067419C1D6D5AAF4DE /* RoutinistLiveActivity */ = {
+			isa = PBXGroup;
+			children = (
+				5B4A065F1216AE62DEEBFCA8 /* RoutinistLiveActivity.swift */,
+				5EE7C1D69A0A7C787B23375F /* Info.plist */,
+				2731EBE4F331F648780584F9 /* RunActivityAttributes.swift */,
+			);
+			name = RoutinistLiveActivity;
+			path = RoutinistLiveActivity;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -254,11 +311,13 @@
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
 				AB38240554CBD3FAC8199711 /* Embed Watch Content */,
+				589B7A1EC512F77630AA0A0C /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				221AC2C394B42CF1BF1B7DBA /* PBXTargetDependency */,
+				CAAB7C1EBDE6CB73F2252758 /* PBXTargetDependency */,
 			);
 			name = App;
 			packageProductDependencies = (
@@ -267,6 +326,23 @@
 			productName = App;
 			productReference = 504EC3041FED79650016851F /* Routinist.app */;
 			productType = "com.apple.product-type.application";
+		};
+		70DC4BCCA2A9A37E1C884925 /* RoutinistLiveActivity */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 898E85CED32441356C5492FB /* Build configuration list for PBXNativeTarget "RoutinistLiveActivity" */;
+			buildPhases = (
+				AAC06C8C86EA9A83BE093871 /* Sources */,
+				56D9246F55C26E1A96345896 /* Frameworks */,
+				CBFD98CDC8A8012EC36E30E3 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = RoutinistLiveActivity;
+			productName = RoutinistLiveActivity;
+			productReference = 8D5B12BDFC7142F46C8D27ED /* RoutinistLiveActivity.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 		DB31AAA28117E229F3BA31E4 /* RoutinistWidgets */ = {
 			isa = PBXNativeTarget;
@@ -320,6 +396,7 @@
 				504EC3031FED79650016851F /* App */,
 				2FA577DB5FA62B316D84180E /* RoutinistWatch */,
 				DB31AAA28117E229F3BA31E4 /* RoutinistWidgets */,
+				70DC4BCCA2A9A37E1C884925 /* RoutinistLiveActivity */,
 			);
 		};
 /* End PBXProject section */
@@ -343,6 +420,13 @@
 				504EC30D1FED79650016851F /* Main.storyboard in Resources */,
 				2FAD9763203C412B000D30F8 /* config.xml in Resources */,
 				A1B2C3D420260505FAFA0002 /* GoogleService-Info.plist in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CBFD98CDC8A8012EC36E30E3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -391,6 +475,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AAC06C8C86EA9A83BE093871 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				656D1C77AFEE35C5A8A445B0 /* RoutinistLiveActivity.swift in Sources */,
+				B576A8807DC369E0B30880DC /* RunActivityAttributes.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -399,6 +492,12 @@
 			name = RoutinistWatch;
 			target = 2FA577DB5FA62B316D84180E /* RoutinistWatch */;
 			targetProxy = D2C29B73EF42F42A24DC921A /* PBXContainerItemProxy */;
+		};
+		CAAB7C1EBDE6CB73F2252758 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = RoutinistLiveActivity;
+			target = 70DC4BCCA2A9A37E1C884925 /* RoutinistLiveActivity */;
+			targetProxy = 18EDA0E334663163BDBFD15C /* PBXContainerItemProxy */;
 		};
 		DB75F59845392A23B666B206 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -691,6 +790,57 @@
 			};
 			name = Debug;
 		};
+		DC2B901579A741807F5F47F8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 324;
+				DEVELOPMENT_TEAM = EHQP3GVR66;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = RoutinistLiveActivity/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.2.13;
+				PRODUCT_BUNDLE_IDENTIFIER = com.routinist.app.liveactivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		EA513D4EE69CC2D054E32BD6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 324;
+				DEVELOPMENT_TEAM = EHQP3GVR66;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = RoutinistLiveActivity/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.2.13;
+				PRODUCT_BUNDLE_IDENTIFIER = com.routinist.app.liveactivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -708,6 +858,15 @@
 			buildConfigurations = (
 				504EC3171FED79650016851F /* Debug */,
 				504EC3181FED79650016851F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		898E85CED32441356C5492FB /* Build configuration list for PBXNativeTarget "RoutinistLiveActivity" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DC2B901579A741807F5F47F8 /* Release */,
+				EA513D4EE69CC2D054E32BD6 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

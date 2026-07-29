@@ -203,7 +203,19 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         runOnMain { [weak self] in self?.ensureManagerOnMain() }
         // 앱 재시작(OS location relaunch / 사용자 재실행) 시 진행 중이던 세션 복원 —
         // getSnapshot() 이 active=true 를 반환해 JS 가 이어가기/폐기를 선택한다 (계약 §6).
-        stateQueue.async { [weak self] in self?.restorePersistedSession() }
+        stateQueue.async { [weak self] in
+            guard let self = self else { return }
+            self.restorePersistedSession()
+            if self.state == .idle {
+                // 복원할 세션 없음 — 크래시/강제종료로 잠금화면에 남은 activity 정리.
+                RunLiveActivity.endOrphans()
+            } else {
+                // 복원 세션 — 살아있는 activity 재입양 (프로세스가 죽어도 activity 는 OS 에
+                // 잔존). 백그라운드 relaunch 라 신규 request 가 실패하면 foreground 복귀
+                // 시 매니저가 재시도한다.
+                RunLiveActivity.sessionStarted(self.liveActivitySnapshot(now: Date()))
+            }
+        }
     }
 
     /// main thread 전용.
@@ -337,6 +349,7 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
             self.sessionVoice = Self.selectVoice(locale: locale, gender: voiceGender)
             self.startTrackingIfNeeded()
             self.persist(now: now)
+            RunLiveActivity.sessionStarted(self.liveActivitySnapshot(now: now))
             // build 303 후속: "출발!" — 세션 셋업이 끝난 뒤라 오디오 재구성에 잘리지 않는다.
             if self.voiceEnabled && !self.templates.start.isEmpty {
                 self.speak(self.templates.start)
@@ -360,6 +373,7 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
                 self.state = .paused
                 self.resetAutoPauseWindows()
                 self.persist(now: now)
+                RunLiveActivity.sessionUpdated(self.liveActivitySnapshot(now: now), force: true)
             }
             call.resolve(["ok": true])
         }
@@ -381,6 +395,7 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
                 // stale 복원 세션(트래킹 미가동) 이어가기 대응 — 이미 가동 중이면 no-op.
                 self.startTrackingIfNeeded()
                 self.persist(now: now)
+                RunLiveActivity.sessionUpdated(self.liveActivitySnapshot(now: now), force: true)
             }
             call.resolve(["ok": true])
         }
@@ -422,6 +437,7 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
             self.stopTracking()
             self.clearPersisted()
             self.resetSessionState()
+            RunLiveActivity.sessionEnded()
             // 2026-07-15: 세션 종료 시 오디오 세션 항상 해제 — 음악 ducking 잔존 안전망.
             self.deactivateAudioSessionIfIdle()
             call.resolve(summary)
@@ -606,6 +622,9 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
             persist(now: now)
         }
 
+        // Live Activity 는 백그라운드에서도 갱신 (잠금화면이 주 무대) — 스로틀은 매니저가.
+        RunLiveActivity.sessionUpdated(liveActivitySnapshot(now: now))
+
         // update 이벤트는 foreground 에서만 (계약 — 백그라운드에선 native 적산만).
         // 가시성 판정은 UIApplication.applicationState 를 main thread 에서 읽는다.
         DispatchQueue.main.async { [weak self] in
@@ -666,6 +685,21 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
     private static func paceSecPerKm(distanceM: Double, seconds: Double) -> Double? {
         guard distanceM >= Tuning.minDistanceForPaceM, seconds > 0 else { return nil }
         return seconds / (distanceM / 1000.0)
+    }
+
+    /// Live Activity 로 밀 현재 세션 스냅샷 (stateQueue 전용).
+    private func liveActivitySnapshot(now: Date) -> RunLiveActivity.Snapshot {
+        let totalDistance = gpsDistanceM + gapFillDistanceM
+        let activeSec = currentActiveSec(now: now)
+        return RunLiveActivity.Snapshot(
+            distanceM: totalDistance,
+            activeSec: activeSec,
+            paceSecPerKm: Self.paceSecPerKm(distanceM: totalDistance, seconds: activeSec),
+            stateRaw: state.rawValue,
+            startedAtMs: startedAtMs,
+            locale: localeCode,
+            now: now
+        )
     }
 
     private func currentActiveSec(now: Date) -> Double {
@@ -868,6 +902,7 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         resetAutoPauseWindows()
         speak(templates.autoPause)
         persist(now: now)
+        RunLiveActivity.sessionUpdated(liveActivitySnapshot(now: now), force: true)
     }
 
     private func exitAutoPause(now: Date) {
@@ -879,6 +914,7 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         pedDistAtAnchor = pedometerDistanceM
         speak(templates.autoResume)
         persist(now: now)
+        RunLiveActivity.sessionUpdated(liveActivitySnapshot(now: now), force: true)
     }
 
     private func resetAutoPauseWindows() {

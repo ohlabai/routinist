@@ -46,6 +46,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // watch v9: 웹 레이어가 Preferences 로 심어둔 워치 컨텍스트 (max_hr·이달 챌린지) 를
         // WCSession applicationContext 로 워치에 push. 웹 키 = CapacitorStorage.watch_ctx (JSON).
         WatchBridge.shared.pushContextIfPossible()
+        // Live Activity 시뮬레이터 캡처용 (-liveactivity-preview) — DEBUG 전용, 릴리즈 no-op.
+        RunLiveActivityDebug.startPreviewIfRequested()
     }
     func applicationWillTerminate(_ application: UIApplication) {}
 
