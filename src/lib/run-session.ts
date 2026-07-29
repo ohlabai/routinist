@@ -66,6 +66,8 @@ export interface RunSessionSummary {
   distanceM: number;
   gpsDistanceM: number;
   pedometerDistanceM: number;
+  /** build 327 (Android): GPS 공백 gap-fill 로 적산된 거리 (distanceM 에 포함, 진단용). */
+  gapFilledM?: number;
   /** pause 제외 실동작 시간. */
   activeSec: number;
   elapsedSec: number;

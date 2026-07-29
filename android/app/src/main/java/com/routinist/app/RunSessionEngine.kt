@@ -65,6 +65,11 @@ object RunSessionEngine {
     private const val AUTO_RESUME_HOLD_SEC = 3.0
     private const val GPS_GOOD_ACCURACY_M = 20.0
     private const val GPS_LOST_SEC = 10.0
+    // build 327 (강도균 "km 안 올라감" 신고): GPS 공백 gap-fill 속도 캡.
+    // 공백 직전 EMA 속도를 이 범위로 clamp 해 직선거리와 함께 min() — 진짜 이동은 회복,
+    // 글리치 순간이동은 (공백초 × 상한) 이상 못 더해 안전. iOS pedometer gap-fill 의 대응물.
+    private const val GAP_FILL_MAX_SPEED_MPS = 4.2   // ≈ 4'00"/km — 러닝 상한
+    private const val GAP_FILL_DEFAULT_SPEED_MPS = 2.5
     private const val UPDATE_INTERVAL_MS = 1000L
     private const val PERSIST_EVERY_TICKS = 10
     private const val RESTORE_MAX_AGE_SEC = 30.0 * 60
@@ -116,6 +121,8 @@ object RunSessionEngine {
     private var templates = VoiceTemplates("", "", "", "")
 
     private var gpsDistanceM = 0.0
+    // build 327 진단: GPS 공백 gap-fill 로 적산된 거리 (gpsDistanceM 에 이미 포함, 관측용)
+    private var gapFilledM = 0.0
     private val route = mutableListOf<DoubleArray>()   // [lng, lat, tsMs]
     private var lastEmittedRouteIndex = 0
     private var lastPersistedRouteCount = 0
@@ -261,6 +268,7 @@ object RunSessionEngine {
                 put("distanceM", gpsDistanceM)
                 put("gpsDistanceM", gpsDistanceM)
                 put("pedometerDistanceM", 0.0)
+                put("gapFilledM", gapFilledM)   // build 327 진단 — GPS 공백 gap-fill 적산분
                 put("activeSec", Math.round(activeSec).toDouble())
                 put("elapsedSec", Math.round((nowMs - startedAtMs) / 1000.0).toDouble())
                 put("autoPausedSec", Math.round(accumulatedAutoPausedSec).toDouble())
@@ -488,9 +496,22 @@ object RunSessionEngine {
             if (dtSec <= 0) continue   // 중복/역행 timestamp
             val dist = loc.distanceTo(currentAnchor).toDouble()
 
-            // GPS 공백(10s+) 후 복귀: 속도/점프 게이트가 무의미한 구간 — 거리 미적산 재앵커만.
-            // (iOS 는 여기서 pedometer gap-fill — Android 는 융합 소스가 없어 생략.)
+            // GPS 공백(10s+) 후 복귀 — build 327 (강도균·이승우 신고) 재설계:
+            // ① 거리: 예전엔 통째 미적산 → 화면꺼짐/타 앱 GPS 경합으로 공백이 길면 실제 뛴
+            //    km 가 유실 (4.49km/73분 사례). 직선거리를 "공백 직전 EMA 속도(러닝 상한 캡)"
+            //    로 제한해 적산 — 직선거리는 실제 경로의 하한이라 과대적산 없음.
+            // ② 경로: append 는 유지하되 지도 직선(하늘 나는 선)은 렌더러가 ts 간격으로
+            //    세그먼트를 끊어 해결 (RouteMap/ShareCard build 327).
             if (dtSec >= GPS_LOST_SEC) {
+                if (state == State.RUNNING && hasMovedThisSession) {
+                    val cap = (emaSpeed ?: GAP_FILL_DEFAULT_SPEED_MPS)
+                        .coerceIn(0.0, GAP_FILL_MAX_SPEED_MPS)
+                    val fill = minOf(dist, dtSec * cap)
+                    if (fill > 0) {
+                        gpsDistanceM += fill
+                        gapFilledM += fill
+                    }
+                }
                 adoptAnchor(loc, appendToRoute = state == State.RUNNING)
                 continue
             }
@@ -904,6 +925,7 @@ object RunSessionEngine {
         state = State.IDLE
         startedAtMs = 0.0
         gpsDistanceM = 0.0
+        gapFilledM = 0.0
         route.clear()
         lastEmittedRouteIndex = 0
         lastPersistedRouteCount = 0

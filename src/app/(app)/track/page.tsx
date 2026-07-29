@@ -922,6 +922,7 @@ function TrackPageImpl() {
             distance_m: Math.round(summary.distanceM),
             gps_m: Math.round(summary.gpsDistanceM),
             pedometer_m: Math.round(summary.pedometerDistanceM),
+            gap_filled_m: Math.round(summary.gapFilledM ?? 0),   // build 327 진단
             active_s: Math.round(summary.activeSec),
             elapsed_s: Math.round(summary.elapsedSec),
             auto_paused_s: Math.round(summary.autoPausedSec),

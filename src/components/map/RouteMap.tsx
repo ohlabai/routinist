@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { loadGoogleMaps, API_KEY } from '@/lib/google-maps';
+import { splitRouteByGaps } from '@/lib/route-segments';
 import type { GeoJSONLineString } from '@/types';
 
 interface RouteMapProps {
@@ -31,14 +32,19 @@ export default function RouteMap({ routeData, height = '240px' }: RouteMapProps)
       gestureHandling: 'greedy',
     });
 
-    new google.maps.Polyline({
-      path,
-      geodesic: true,
-      strokeColor: '#3B82F6',
-      strokeOpacity: 1.0,
-      strokeWeight: 4,
-      map,
-    });
+    // build 327: GPS 공백 지점에서 폴리라인 분리 — 공백 전후를 직선으로 잇던
+    // "하늘 나는 선" 제거 (이승우 신고). 세그먼트별 Polyline.
+    const segments = splitRouteByGaps(routeData.coordinates);
+    for (const seg of segments) {
+      new google.maps.Polyline({
+        path: seg.map(([lng, lat]) => ({ lat, lng })),
+        geodesic: true,
+        strokeColor: '#3B82F6',
+        strokeOpacity: 1.0,
+        strokeWeight: 4,
+        map,
+      });
+    }
 
     const bounds = new google.maps.LatLngBounds();
     path.forEach((p) => bounds.extend(p));

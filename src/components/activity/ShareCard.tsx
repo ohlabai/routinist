@@ -7,6 +7,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
 import { fetchRandomQuote, isFallbackQuote, type DailyQuote } from '@/lib/quotes-data';
 import { detectRegionLabel } from '@/lib/region-from-gps';
+import { isRouteGap } from '@/lib/route-segments';
 import { getCurrentLocale, ttl, useI18n } from '@/lib/i18n';
 import { captureCanvasAnimation } from '@/lib/canvas-to-video';
 import { getSupabase } from '@/lib/supabase';
@@ -325,13 +326,15 @@ function drawCard(
       ctx.globalAlpha = segmentAlpha;
 
       // 1) 이 cluster 의 모든 경로 그림자
+      // build 327: GPS 공백 지점은 lineTo 대신 moveTo — "하늘 나는 직선" 제거
       for (const route of activeCluster.routes) {
         if (route.length < 2) continue;
         ctx.beginPath();
-        route.forEach(([lng, lat], i) => {
+        route.forEach((pt, i) => {
+          const [lng, lat] = pt;
           const x = offsetX + (lng - minLng) * scale;
           const y = offsetY + scaledH - (lat - minLat) * scale;
-          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          if (i === 0 || isRouteGap(route[i - 1], pt)) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         });
         ctx.strokeStyle = hasMedia ?'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.35)';
         ctx.lineWidth = 14;
@@ -391,7 +394,8 @@ function drawCard(
         sliced.forEach(([lng, lat], i) => {
           const x = offsetX + (lng - minLng) * scale;
           const y = offsetY + scaledH - (lat - minLat) * scale;
-          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          // build 327: sliced 는 [lng,lat] 2-tuple — 거리 기반 공백 판정만 적용
+          if (i === 0 || isRouteGap(sliced[i - 1], sliced[i])) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         });
         ctx.strokeStyle = hasMedia ?'#ffffff' : theme.routeColor;
         ctx.lineWidth = 7;
@@ -588,11 +592,13 @@ function drawCard(
     }
 
     // 그림자 (배경사진 위에서도 또렷하게) — 전체 라인을 흐리게 깔아두면 미리보기가 안정됨.
+    // build 327: GPS 공백 지점은 moveTo — "하늘 나는 직선" 제거
     ctx.beginPath();
-    coordsAll.forEach(([lng, lat], i) => {
+    coordsAll.forEach((pt, i) => {
+      const [lng, lat] = pt;
       const x = offsetX + (lng - minLng) * scale;
       const y = offsetY + scaledH - (lat - minLat) * scale;
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      if (i === 0 || isRouteGap(coordsAll[i - 1], pt)) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     });
     ctx.strokeStyle = hasMedia ?'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.35)';
     ctx.lineWidth = 16;
@@ -602,10 +608,11 @@ function drawCard(
 
     // 경로 본체 — routeProgress 비율만큼만
     ctx.beginPath();
-    coords.forEach(([lng, lat], i) => {
+    coords.forEach((pt, i) => {
+      const [lng, lat] = pt;
       const x = offsetX + (lng - minLng) * scale;
       const y = offsetY + scaledH - (lat - minLat) * scale;
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      if (i === 0 || isRouteGap(coords[i - 1], pt)) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     });
     ctx.strokeStyle = hasMedia ?'#ffffff' : theme.routeColor;
     ctx.lineWidth = 8;
