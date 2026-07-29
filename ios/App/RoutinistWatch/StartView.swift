@@ -27,8 +27,8 @@ struct StartView: View {
                 workout.requestAuthorizationAndStart()
             } label: {
                 VStack(spacing: 9) {
-                    // 달리는 잔디 애니메이션 — 물결이 오른쪽으로 달림
-                    RunningGrassView()
+                    // v16: 잔디 픽셀 퍼레이드 — 사람·동물들이 차례로 달려간다
+                    GrassParadeView()
                         .frame(height: 40)
                         .padding(.horizontal, 14)
                     Text("달리기 시작")

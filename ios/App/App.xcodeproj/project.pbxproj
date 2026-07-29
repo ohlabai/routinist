@@ -33,6 +33,7 @@
 		AD9708F9E85B21D622C4DD5C /* RoutinistWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C853828F10B353946C6AD25 /* RoutinistWatchApp.swift */; };
 		B576A8807DC369E0B30880DC /* RunActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2731EBE4F331F648780584F9 /* RunActivityAttributes.swift */; };
 		C0E658714DE598966FB2DBD2 /* CountdownView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9AFD58CC24CE005359EE162 /* CountdownView.swift */; };
+		C1CA62FE4FEB478E0C2AE45C /* PixelParade.swift in Sources */ = {isa = PBXBuildFile; fileRef = 710F8A50AA0FBABB40B23603 /* PixelParade.swift */; };
 		C55692840DEFBBC8178AC985 /* RoutinistLiveActivity.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 8D5B12BDFC7142F46C8D27ED /* RoutinistLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		CC89EBA8B3E27ACFC10BFEFA /* RoutinistWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 430D97E3096BF78AF213E6A3 /* RoutinistWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E415645F668610801D9A3E1E /* WatchBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90E18CE625256E7E6D23C63F /* WatchBridge.swift */; };
@@ -122,6 +123,7 @@
 		6384B1BF79DC48242C7A7C47 /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		6A62064EA6067EC47F14CCC4 /* RoutinistWatch.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = RoutinistWatch.entitlements; sourceTree = "<group>"; };
 		6C853828F10B353946C6AD25 /* RoutinistWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RoutinistWatchApp.swift; sourceTree = "<group>"; };
+		710F8A50AA0FBABB40B23603 /* PixelParade.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PixelParade.swift; sourceTree = "<group>"; };
 		767F9162FE8C37C729B25210 /* ConnectivityStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConnectivityStore.swift; sourceTree = "<group>"; };
 		89FF3ED4D62AD911570C7FE6 /* RunIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RunIntents.swift; sourceTree = "<group>"; };
 		8D5B12BDFC7142F46C8D27ED /* RoutinistLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RoutinistLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -198,6 +200,7 @@
 				E9AFD58CC24CE005359EE162 /* CountdownView.swift */,
 				767F9162FE8C37C729B25210 /* ConnectivityStore.swift */,
 				89FF3ED4D62AD911570C7FE6 /* RunIntents.swift */,
+				710F8A50AA0FBABB40B23603 /* PixelParade.swift */,
 			);
 			name = RoutinistWatch;
 			path = RoutinistWatch;
@@ -462,6 +465,7 @@
 				C0E658714DE598966FB2DBD2 /* CountdownView.swift in Sources */,
 				19C2F3BAB1FE59195818706A /* ConnectivityStore.swift in Sources */,
 				5E0D0D6BDF219CF95F436336 /* RunIntents.swift in Sources */,
+				C1CA62FE4FEB478E0C2AE45C /* PixelParade.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
