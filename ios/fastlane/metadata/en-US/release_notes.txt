@@ -1,24 +1,23 @@
-v1.2.13 — Apple Watch app, one-tap cheers, original photo view
+v1.2.14 — Live run card on your Lock Screen, watch stability, refreshed home
 
-[Apple Watch app is here ⌚]
-• Start a run right from your wrist - time, distance, pace and heart rate live.
-• Finished runs save to Apple Health and flow into Routinist on your iPhone automatically.
-• Leave your phone at home - the watch records on its own.
+[Your run, right on the Lock Screen]
+• While you run, time, distance and pace show live on the Lock Screen - no need to unlock.
+• On devices with Dynamic Island, your distance stays visible at the top of the screen.
+• A grass gauge grows one cell for every kilometer.
 
-[Faster cheers]
-• Tap the cheer button to send a heart instantly. Hold it to pick another emoji.
-• Multiple PBs from one run now arrive as a single bundled notification.
+[Apple Watch stability ⌚]
+• Fixed an issue where a run would not start right after the countdown on some devices.
+• Location permission is now requested before the run starts, making your first run smoother.
 
-[Original photo view]
-• Tap a shared card to see the clean photo without the stats. Hold to peek.
-• Your own photos can be saved in their original form.
-• Tap the share card preview to pick a background photo right away.
+[A lighter home screen]
+• Duplicate cards are merged and regrouped: Now → This week → This month → Together → My records.
+• All seven charts moved to a dedicated Stats page, one tap away from home.
+• Friends, neighborhood and catch-up rankings now live in a single competition hub.
 
-[Friend requests]
-• Adding a friend now follows request → accept everywhere, with a clear "requested" state.
+[Run tracking]
+• Fixed routes drawing a straight line across GPS signal gaps - applies to past runs too.
+• Leaving a run now always saves it (only runs under 50m are discarded).
 
-[Voice guidance]
-• Clearer number pronunciation for distances beyond 10km.
-
-[Sync]
-• Health data now refreshes automatically every 6 hours - no manual refresh needed.
+[Running together]
+• Runner discovery now recommends by neighborhood and similar pace, with reasons shown.
+• Send a friend request directly from a pacemaker card.
