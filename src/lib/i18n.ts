@@ -1420,6 +1420,11 @@ const EXTRAS_EN: Record<string, string> = {
   // Phase B: /stats 페이지 (build 327)
   '내 기록 통계': 'My stats',
   '개인 베스트 · 추이 차트 · 기간별 비교': 'Personal bests · trends · period compare',
+  // Phase C: 홈 그룹 라벨 + 경쟁 허브 (build 327)
+  '함께 달리기': 'Run together',
+  '내 기록': 'My records',
+  '동네': 'Local',
+  '쫓는 사람': 'Chasers',
   '지역을 자동 등록했어요': 'Region auto-registered',
   '확인': 'OK',
   '내 정보': 'My profile',

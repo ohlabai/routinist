@@ -24,12 +24,9 @@ import WeeklyRecapCard from '@/components/home/WeeklyRecapCard';
 import HomeCalendarCard from '@/components/home/HomeCalendarCard';
 import { syncHealthData, isNativeApp } from '@/lib/health-sync';
 import WinnerPredictionWidget from '@/components/home/WinnerPredictionWidget';
-import TodayLocalTop from '@/components/home/TodayLocalTop';
 // RoutinePhotoCarousel 제거 — 소셜 탭 포토 갤러리와 중복 (build 100)
-import FriendsLeaderboard from '@/components/home/FriendsLeaderboard';
 import OnThisDayCard from '@/components/home/OnThisDayCard';
 import LiveRunningIndicator from '@/components/home/LiveRunningIndicator';
-import RankNeighbors from '@/components/home/RankNeighbors';
 import HomeMapPreview from '@/components/home/HomeMapPreview';
 import HomeChallengeCard from '@/components/home/HomeChallengeCard';
 import WeeklyGoalCard from '@/components/home/WeeklyGoalCard';
@@ -43,6 +40,7 @@ import RunOfTheDayCard from '@/components/home/RunOfTheDayCard';
 import MonthlyRivalCard from '@/components/home/MonthlyRivalCard';
 import BadgeCelebration from '@/components/home/BadgeCelebration';
 import HomeFriendStories from '@/components/home/HomeFriendStories';
+import CompetitionHub from '@/components/home/CompetitionHub';
 import FreshnessBadge from '@/components/FreshnessBadge';
 import AppToast from '@/components/AppToast';
 import Link from 'next/link';
@@ -52,6 +50,15 @@ import {
 } from 'lucide-react';
 import { useDistanceUnit, toDisplayDistance, unitLabel, paceUnitLabel, formatPaceForUnit } from '@/lib/units';
 
+
+// Phase C: 홈 그룹 라벨 — 작고 조용하게, 그룹 경계만 보이게.
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="px-5 pt-3 pb-0.5 text-[11px] font-extrabold tracking-[0.18em] uppercase text-[var(--muted)]/80">
+      {children}
+    </p>
+  );
+}
 
 export default function DashboardPage() {
   const { t, tt, locale } = useI18n();
@@ -402,29 +409,21 @@ export default function DashboardPage() {
           → 7 랭킹Hero (활성화 hero) → 8 LiveRunning → 9 캘린더 → 10 지역배너
           → 11 Friends → 12 Predict → 13 LocalTop → 14 Neighbors → 15 OnThisDay */}
       <div className="space-y-3 pt-1">
-        {/* build 169 #7: PTR 온보딩 힌트가 최상단 자리. (이전엔 HealthConnect 배너가 가장 위에 있어
-            첫 진입 시 시각적 노이즈가 컸음 — 사용자 신고). HealthKit 진입점은 시작 가이드 안에 통합. */}
+        {/* Phase C (build 327, hans UX 리뷰): 5그룹 재배치 —
+            지금(헤더·그리드·랭킹히어로) → 이번 주 → 이번 달 → 함께 달리기 → 내 기록.
+            그룹 라벨(SectionLabel)로 경계 표시, 경쟁 3표면은 CompetitionHub 탭으로 통합. */}
         <PullDownOnboardingHint />
 
-        {/* 1.5 신규 가입자 onboarding 가이드 (build 100) — 가입 7일 이내 + 5회 미만일 때만 노출.
-            App Store 2.5.1 요건 충족: 안에 "Apple Health 연동" 진입 항목 포함. */}
+        {/* 신규 가입자 onboarding 가이드 — 가입 7일 이내 + 5회 미만.
+            App Store 2.5.1 요건: 안에 "Apple Health 연동" 진입 항목 포함. */}
         <HomeOnboardingCard />
 
-        {/* 신규 러너 모드에선 2~5 (리캡·스트릭·페이스메이커·이름헤더·4칩) 스킵 */}
         {!isNewRunner && (<>
-        {/* Phase A: 리캡 슬롯 — 겹치는 날에도 1장만 (월말정산 > 주간 > 시즌).
-            스트릭 경고는 주간 목표 카드 옆으로 이동 (주간 그룹핑). */}
+        {/* Phase A: 리캡 슬롯 — 겹치는 날에도 1장만 (월말정산 > 주간 > 시즌) */}
         {recapSlot === 'weekly' && (
           <div className="mx-4"><WeeklyRecapCard activities={activities} /></div>
         )}
         {recapSlot === 'monthEnd' && <MonthEndRecapCard activities={activities} />}
-
-        {/* build 167 #11: Run of the Day — 어제 활동 중 자동 선정. 데이터 있을 때만 표시 */}
-        <RunOfTheDayCard />
-
-        {/* build 280: 이달의 라이벌 — Duolingo Leagues 식 1:1 랜덤 매칭.
-            모르는 사용자 매칭이 친한 사람보다 동기 부여 효과 큼 (anonymous accountability). */}
-        <MonthlyRivalCard />
 
         {/* 4 {이름}님의 N월 헤더 */}
         <div className="mx-4 flex items-center justify-between pt-1">
@@ -503,10 +502,40 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* 랭킹 Hero — 활성화 핵심 (eager). Phase C: 그리드 바로 아래로 승격 */}
+        <HomeRankingHero />
+        {secondaryMounted && <LiveRunningIndicator />}
         </>)}
 
-        {/* 6 달리기 시작 — build 208 #6-2: sticky header 우상단 START 칩으로 이동. 기존 큰 카드 제거. */}
+        {/* ── 이번 주 ── */}
+        <SectionLabel>{tt('이번 주')}</SectionLabel>
+        {/* Phase A: 스트릭 경고를 주간 목표 카드 바로 위로 — 주간 정보 그룹핑 (경고+목표+스트릭) */}
+        {!isNewRunner && (
+          <div className="mx-4">
+            <StreakWarningCard
+              activities={activities}
+              weeklyStreak={streak}
+              weeklyGoal={weeklyRunGoal}
+              thisWeekRunDays={thisWeekRunDays}
+              freezeCount={freezes.count}
+              freezeUses={freezes.uses}
+              onFreezeUsed={loadFreezes}
+            />
+          </div>
+        )}
+        {/* 6.3 주간 목표 원탭 카드 (습관 코어 C2, 2026-07-11) — 신규 러너 모드에서도 렌더.
+            Phase A: 최장 스트릭·기록 갱신 문구를 이 카드로 흡수 (인라인 주간 스트릭 카드 제거). */}
+        <WeeklyGoalCard
+          weeklyStreak={streak}
+          maxStreak={maxStreak}
+          isRecordBreaking={isRecordBreaking}
+          weeksToRecord={weeksToRecord}
+        />
+        {!isNewRunner && secondaryMounted && <HomeChallengeCard />}
 
+        {/* ── 이번 달 ── */}
+        <SectionLabel>{tt('이번 달')}</SectionLabel>
         {/* 6.1 이달 목표 */}
         <div className={`mx-4 card p-5 relative overflow-hidden ${goalKm > 0 && goalProgress >= 100 ? 'goal-achieved' : ''}`}>
           {goalKm > 0 && goalProgress >= 100 && (
@@ -577,61 +606,25 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Phase A: 스트릭 경고를 주간 목표 카드 바로 위로 — 주간 정보 그룹핑 (경고+목표+스트릭) */}
-        {!isNewRunner && (
-          <div className="mx-4">
-            <StreakWarningCard
-              activities={activities}
-              weeklyStreak={streak}
-              weeklyGoal={weeklyRunGoal}
-              thisWeekRunDays={thisWeekRunDays}
-              freezeCount={freezes.count}
-              freezeUses={freezes.uses}
-              onFreezeUsed={loadFreezes}
-            />
-          </div>
-        )}
-        {/* 6.3 주간 목표 원탭 카드 (습관 코어 C2, 2026-07-11) — 신규 러너 모드에서도 렌더.
-            Phase A: 최장 스트릭·기록 갱신 문구를 이 카드로 흡수 (인라인 주간 스트릭 카드 제거). */}
-        <WeeklyGoalCard
-          weeklyStreak={streak}
-          maxStreak={maxStreak}
-          isRecordBreaking={isRecordBreaking}
-          weeksToRecord={weeksToRecord}
-        />
-
-        {/* 신규 러너 모드에선 6.5~8 (도전·월드런·스토리·시즌·랭킹Hero·실시간) 스킵 */}
         {!isNewRunner && (<>
-        {/* 6.5 이번 주 도전 (build 100) — build 143: 300ms defer (secondary) */}
-        {secondaryMounted && <HomeChallengeCard />}
-        {/* Phase A: 월간 기본 챌린지는 이달 목표 카드 안으로 흡수 (월 진행 정보 단일 카드) */}
+        {/* 이달의 페이스메이커 — 월 단위 1:1 매칭이라 이번 달 그룹 */}
+        <MonthlyRivalCard />
         {secondaryMounted && <HomeWorldMarathonCard />}
-
-        {/* 6.7 친구 활동 스토리 — build 143: 300ms defer (secondary) */}
-        {secondaryMounted && <HomeFriendStories />}
-
-        {/* build 207 #15: SharePeriodEntry 제거 — HomeCalendarCard 안 "공유카드 만들기"로 통합.
-            오늘/이번 주/이번 달 3옵션을 시트로 선택. */}
-
-        {/* 6.97 시즌 결산 (build 199 / Phase 3) — 분기말 ±7일 + 리캡 슬롯 배정 시에만 */}
         {recapSlot === 'season' && <SeasonRecapCard />}
-
-        {/* 7 랭킹 Hero — 활성화 핵심 (eager) */}
-        <HomeRankingHero />
-
-        {/* 8 실시간 러닝 — build 143: 300ms defer (secondary) */}
-        {secondaryMounted && <LiveRunningIndicator />}
         </>)}
 
-        {/* 9 월 캘린더 */}
+        {/* 월 캘린더 (잔디) */}
         <div className="mx-4"><HomeCalendarCard /></div>
 
-        {/* 신규 러너 모드에선 9.5~15 (미니맵·지역배너·소셜 묶음) 스킵 */}
         {!isNewRunner && (<>
-        {/* 9.5 미니맵 — build 137: LazyMount 제거 (사용자 피드백: "지도 안 보임"). 즉시 마운트.
-            SVG polyline 자체는 가볍고 fetchRoutesForUser 는 LIMIT 7 로 빠름. */}
-        <HomeMapPreview />
-
+        {/* ── 함께 달리기 ── */}
+        <SectionLabel>{tt('함께 달리기')}</SectionLabel>
+        {secondaryMounted && <HomeFriendStories />}
+        {/* Phase C: 친구 리더보드·동네 TOP·쫓는사람 → 탭 하나로 통합 */}
+        <LazyMount minHeight={220} rootMargin="300px"><CompetitionHub /></LazyMount>
+        <LazyMount minHeight={200} rootMargin="300px"><WinnerPredictionWidget /></LazyMount>
+        {/* Run of the Day — 어제의 러너 구경 (소셜 성격이라 함께 그룹) */}
+        <RunOfTheDayCard />
         {/* 10 지역 미설정 배너 (조건부) */}
         {profile && !profile.region_gu && !profile.country_code && (
           <Link href="/profile/edit" className="mx-4 block card p-3 bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-950/30 dark:to-green-950/30 border-0">
@@ -646,15 +639,13 @@ export default function DashboardPage() {
           </Link>
         )}
 
-        {/* 11~15 below-the-fold 소셜 묶음 */}
-        <LazyMount minHeight={180} rootMargin="300px"><FriendsLeaderboard /></LazyMount>
-        <LazyMount minHeight={200} rootMargin="300px"><WinnerPredictionWidget /></LazyMount>
-        <LazyMount minHeight={160} rootMargin="300px"><TodayLocalTop /></LazyMount>
-        <LazyMount minHeight={120} rootMargin="300px"><RankNeighbors /></LazyMount>
+        {/* ── 내 기록 ── */}
+        <SectionLabel>{tt('내 기록')}</SectionLabel>
+        {/* 미니맵 — LazyMount 없이 즉시 (사용자 신고: "지도 안 보임") */}
+        <HomeMapPreview />
         <LazyMount minHeight={140} rootMargin="300px"><OnThisDayCard /></LazyMount>
         </>)}
       </div>
-
       {/* ========== ② 통계 차트 묶음 ==========
           16 스트릭 → 17 PB → 18 일별30일 → 19 12주 → 20 페이스 → 21 요일 → 22 시간대
           → 23 기간별 상세 (+히스토리 링크) → 24 요약 4칩 → 25 최근 활동 */}
