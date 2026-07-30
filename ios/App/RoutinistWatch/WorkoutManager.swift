@@ -301,7 +301,20 @@ final class WorkoutManager: NSObject, ObservableObject {
     #endif
 
     // ── 권한 ──────────────────────────────────────────────────
-    private var typesToShare: Set<HKSampleType> { [HKObjectType.workoutType()] }
+    // ⚠️ 2026-07-30 (hans 12.29km 유실 진범): share 에 workoutType 만 있으면
+    // HKLiveWorkoutBuilder 가 라이브 화면엔 거리·심박을 보여주면서도 **저장은 거리 없는
+    // 워크아웃**으로 한다 (수집 타입별 share 권한 필요). 폰 동기화에선 totalDistance nil
+    // → 0km 로 보여 조용히 버려짐. 경로(workoutRoute) share 도 없어서 v13 지도 저장도
+    // 실패하고 있었음. 수집·저장하는 모든 타입을 share 에 포함할 것.
+    private var typesToShare: Set<HKSampleType> {
+        [
+            HKObjectType.workoutType(),
+            HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning)!,
+            HKQuantityType.quantityType(forIdentifier: .heartRate)!,
+            HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)!,
+            HKSeriesType.workoutRoute(),
+        ]
+    }
     private var typesToRead: Set<HKObjectType> {
         [
             HKQuantityType.quantityType(forIdentifier: .heartRate)!,
