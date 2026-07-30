@@ -803,6 +803,15 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
         newest_nil_at: new Date(distanceNilNewestMs).toISOString(),
       });
     }
+    // 홈 경고 배너 플래그 — 자동 동기화도 세팅하므로 사용자가 놓칠 수 없게 (hans:
+    // 권한이 빠지면 앱 쓰는 의미가 없다 → 의무 안내). 정상 동기화가 확인되면 자동 해제.
+    try {
+      if (distancePermissionSuspected) {
+        localStorage.setItem('health_perm_warning', '1');
+      } else if (allWorkouts.length > 0 && distanceNilCount === 0) {
+        localStorage.removeItem('health_perm_warning');
+      }
+    } catch { /* storage 불가 환경 무시 */ }
 
     // 누락 detection — 받아온 워크아웃 N건 중 새로 저장된 건 + 중복 건 합이 N 보다 작으면 어딘가에서 빠짐
     const accounted = syncedCount + dupCount + upgradedCount + walkingFiltered + tooShortFiltered;

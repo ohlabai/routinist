@@ -2,84 +2,29 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CAPACITOR_DEBUG</key>
+	<key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>ko</string>
-	<key>CFBundleLocalizations</key>
-	<array>
-		<string>ko</string>
-		<string>en</string>
-	</array>
 	<key>CFBundleDisplayName</key>
-        <string>Routinist</string>
-	<key>NSHealthShareUsageDescription</key>
-	<string>Apple 건강(Apple Health)에서 러닝·걷기 운동 세션, 거리, 시간, 칼로리, 평균 심박, 페이스 데이터를 읽어 일별·주간·월간 통계, 개인 최고 기록(PB), 캘린더 잔디, 지역 랭킹 분석을 제공합니다. 러닝 기록은 사용자 동의가 있을 때에만 가져오며 제3자에게 공유되지 않습니다.</string>
-	<key>NSHealthUpdateUsageDescription</key>
-	<string>앱 내에서 직접 기록한 러닝(GPS 트래킹) 세션을 Apple 건강(Apple Health)에 저장하여 다른 건강·피트니스 앱과 동일한 데이터를 공유할 수 있도록 합니다.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>현재 위치를 기반으로 지역 랭킹을 매칭하고 내 시/구를 자동으로 선택합니다. GPS 러닝 트래킹 시 실시간 경로를 기록합니다.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>러닝 트래킹을 시작하면 잠금화면 상태에서도 경로가 계속 기록되도록 백그라운드 위치 권한을 사용합니다. 트래킹을 종료하면 즉시 중단됩니다.</string>
-	<key>NSMotionUsageDescription</key>
-	<string>걸음 데이터로 GPS 신호가 약한 구간의 거리를 보정합니다.</string>
-	<key>NSSupportsLiveActivities</key>
-	<true/>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>location</string>
-		<string>audio</string>
-	</array>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>달리기 인증 사진과 캘린더 사진을 업로드하기 위해 사진 라이브러리에 접근합니다. 선택한 사진만 업로드되며 자동 스캔하지 않습니다.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>러닝 공유 카드를 사진 앨범에 저장하기 위해 사진 라이브러리에 추가 권한이 필요합니다.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>달리기 인증 사진을 카메라로 촬영하여 루틴포토에 공유하기 위해 카메라에 접근합니다.</string>
+	<string>Routinist</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>ko</string>
+		<string>en</string>
+	</array>
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
-	<key>CFBundleVersion</key>
-	<string>$(CURRENT_PROJECT_VERSION)</string>
-	<key>LSRequiresIPhoneOS</key>
-	<true/>
-	<key>UILaunchStoryboardName</key>
-	<string>LaunchScreen</string>
-	<key>UIMainStoryboardFile</key>
-	<string>Main</string>
-	<key>UIRequiredDeviceCapabilities</key>
-	<array>
-		<string>arm64</string>
-	</array>
-	<key>UIDeviceFamily</key>
-	<array>
-		<integer>1</integer>
-		<integer>2</integer>
-	</array>
-	<key>UISupportedInterfaceOrientations</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-	</array>
-	<key>UISupportedInterfaceOrientations~ipad</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>UIViewControllerBasedStatusBarAppearance</key>
-	<true/>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -99,10 +44,12 @@
 			</array>
 		</dict>
 	</array>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
-		<!-- 토스 결제창에서 카카오페이/네이버페이/페이코/삼성페이 등 외부 앱 자동 전환용. -->
-		<!-- canOpenURL 차단 회피 — 미등록 시 결제창에서 외부 앱 호출 실패. -->
 		<string>kakaotalk</string>
 		<string>kakaopay</string>
 		<string>kakaolink</string>
@@ -128,5 +75,56 @@
 		<string>smartwall</string>
 		<string>itmss</string>
 	</array>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>달리기 인증 사진을 카메라로 촬영하여 루틴포토에 공유하기 위해 카메라에 접근합니다.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>꼭 위의 모두 켜기를 눌러주세요! 항목이 하나라도 꺼져 있으면 워치·건강 러닝 기록이 앱에 들어오지 않아요. Apple 건강에서 러닝·걷기 운동 세션, 거리, 시간, 칼로리, 평균 심박, 페이스 데이터를 읽어 일별·주간·월간 통계, 개인 최고 기록(PB), 캘린더 잔디, 지역 랭킹 분석을 제공합니다. 러닝 기록은 사용자 동의가 있을 때에만 가져오며 제3자에게 공유되지 않습니다.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>앱 내에서 직접 기록한 러닝(GPS 트래킹) 세션을 Apple 건강(Apple Health)에 저장하여 다른 건강·피트니스 앱과 동일한 데이터를 공유할 수 있도록 합니다.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>러닝 트래킹을 시작하면 잠금화면 상태에서도 경로가 계속 기록되도록 백그라운드 위치 권한을 사용합니다. 트래킹을 종료하면 즉시 중단됩니다.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>현재 위치를 기반으로 지역 랭킹을 매칭하고 내 시/구를 자동으로 선택합니다. GPS 러닝 트래킹 시 실시간 경로를 기록합니다.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>걸음 데이터로 GPS 신호가 약한 구간의 거리를 보정합니다.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>러닝 공유 카드를 사진 앨범에 저장하기 위해 사진 라이브러리에 추가 권한이 필요합니다.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>달리기 인증 사진과 캘린더 사진을 업로드하기 위해 사진 라이브러리에 접근합니다. 선택한 사진만 업로드되며 자동 스캔하지 않습니다.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>audio</string>
+	</array>
+	<key>UIDeviceFamily</key>
+	<array>
+		<integer>1</integer>
+		<integer>2</integer>
+	</array>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>arm64</string>
+	</array>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<true/>
 </dict>
 </plist>

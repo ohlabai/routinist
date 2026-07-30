@@ -33,36 +33,34 @@ struct ParadeFrame: View {
     let tick: Int
     /// 기린(10행) 기준 셀 크기 — 작은 동물은 바닥 정렬로 자연히 작아짐
     private let maxRows = 10
-    /// 러너 사이 간격 (틱)
-    private let gapTicks = 6
+    /// 행진 대열에서 러너 사이 간격 (셀)
+    private let gapCells = 5
+    /// 행진 속도 (틱당 셀) — 대열이라 균일 속도. 다리 템포·바운스는 동물별 유지.
+    private let trainSpeed = 1.4
 
-    /// 결정적 스케줄: 각 러너의 (진입~퇴장) 틱 길이 → 전체 사이클에서 현재 러너 탐색.
-    /// ViewBuilder 제약 (제어문 불가) 때문에 body 밖 헬퍼로 분리.
-    private func currentRunner(cols: Int) -> (runner: ParadeRunner, local: Int)? {
-        let spans: [Int] = PARADE_RUNNERS.map { r in
-            Int(ceil(Double(cols + r.width) / r.stepCells)) + gapTicks
-        }
-        let total = spans.reduce(0, +)
-        guard total > 0 else { return nil }
-        let cur = ((tick % total) + total) % total
+    /// 2026-07-30 (hans): 한 마리씩 → **줄지어 행진**. 14마리가 열차처럼 이어 달리고
+    /// 대열 전체가 순환한다 (마지막 말 뒤에 다시 남자). 화면엔 항상 2~3마리가 보임.
+    /// 각 러너의 대열 내 시작 좌표 (셀) — 결정적이라 프레임마다 재계산해도 동일.
+    private var trainStarts: [Int] {
+        var starts: [Int] = []
         var acc = 0
-        for (i, span) in spans.enumerated() {
-            if cur < acc + span {
-                return (PARADE_RUNNERS[i], cur - acc)
-            }
-            acc += span
+        for r in PARADE_RUNNERS {
+            starts.append(acc)
+            acc += r.width + gapCells
         }
-        return nil
+        return starts
     }
 
     var body: some View {
         GeometryReader { geo in
             let cell = geo.size.height / CGFloat(maxRows)
             let cols = max(8, Int(geo.size.width / cell))
-            let found = currentRunner(cols: cols)
+            let starts = trainStarts
+            let cycle = Double((PARADE_RUNNERS.last?.width ?? 0) + gapCells + (starts.last ?? 0))
+            let p = (Double(tick) * trainSpeed).truncatingRemainder(dividingBy: cycle)
 
             ZStack(alignment: .topLeading) {
-                // 바닥 잔디 라인 — 러너가 밟고 달리는 지면
+                // 바닥 잔디 라인 — 러너들이 밟고 달리는 지면
                 HStack(spacing: cell * 0.5) {
                     ForEach(0..<cols, id: \.self) { _ in
                         RoundedRectangle(cornerRadius: cell * 0.2)
@@ -73,16 +71,20 @@ struct ParadeFrame: View {
                 .frame(maxWidth: .infinity)
                 .offset(y: geo.size.height - cell * 0.4)
 
-                if let f = found, f.local < Int(ceil(Double(cols + f.runner.width) / f.runner.stepCells)) {
-                    let r = f.runner
-                    let xCells = -Double(r.width) + Double(f.local) * r.stepCells
-                    let frameIdx = (f.local / max(1, r.legEvery)) % 2
-                    let hop = r.bounce == 1 && frameIdx == 0 ? -cell * 0.9 : 0
-                    SpriteView(grid: r.frames[frameIdx], cell: cell)
-                        .offset(x: CGFloat(xCells) * cell,
-                                y: geo.size.height - CGFloat(r.height) * cell - cell * 0.4 + hop)
-                        // 셀 단위 점프를 부드럽게 — 픽셀 마퀴 특유의 리듬은 유지
-                        .animation(.linear(duration: 0.12), value: f.local)
+                ForEach(0..<PARADE_RUNNERS.count, id: \.self) { i in
+                    let r = PARADE_RUNNERS[i]
+                    // 대열 좌표 → 화면 좌표: 오른쪽으로 행진, cycle 을 돌아 다시 왼쪽 진입
+                    let raw = (Double(starts[i]) + p).truncatingRemainder(dividingBy: cycle)
+                    let xCells = raw - Double(r.width)
+                    if xCells < Double(cols) && raw > 0 {
+                        let frameIdx = (tick / max(1, r.legEvery)) % 2
+                        let hop = r.bounce == 1 && frameIdx == 0 ? -cell * 0.9 : 0
+                        SpriteView(grid: r.frames[frameIdx], cell: cell)
+                            .offset(x: CGFloat(xCells) * cell,
+                                    y: geo.size.height - CGFloat(r.height) * cell - cell * 0.4 + hop)
+                            // 셀 단위 점프를 부드럽게 — 픽셀 마퀴 특유의 리듬은 유지
+                            .animation(.linear(duration: 0.12), value: tick)
+                    }
                 }
             }
         }

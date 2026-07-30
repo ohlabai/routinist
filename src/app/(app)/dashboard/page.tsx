@@ -295,8 +295,20 @@ export default function DashboardPage() {
   // 실제 메시지가 '동기화 중에 문제가...' 라 조건이 항상 false (dead) + 번역 시 매칭 불가.
   // → tone 을 메시지와 함께 구조적으로 저장.
   const [syncToast, setSyncToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
+  // 건강 거리권한 경고 — health-sync 가 세팅하는 플래그 (자동 sync 가 늦게 세팅할 수
+  // 있어 mount 후 15s 재확인 + 새로고침 때마다 갱신)
+  const [healthPermWarning, setHealthPermWarning] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      try { setHealthPermWarning(localStorage.getItem('health_perm_warning') === '1'); } catch {}
+    };
+    check();
+    const t = setTimeout(check, 15000);
+    return () => clearTimeout(t);
+  }, []);
 
   const handleRefresh = useCallback(async () => {
+    try { setHealthPermWarning(localStorage.getItem('health_perm_warning') === '1'); } catch {}
     let toast = '';
     let toastTone: 'ok' | 'warn' = 'ok';
     const en = getCurrentLocale() === 'en';
@@ -421,6 +433,27 @@ export default function DashboardPage() {
         {/* Phase C (build 327, hans UX 리뷰): 5그룹 재배치 —
             지금(헤더·그리드·랭킹히어로) → 이번 주 → 이번 달 → 함께 달리기 → 내 기록.
             그룹 라벨(SectionLabel)로 경계 표시, 경쟁 3표면은 CompetitionHub 탭으로 통합. */}
+        {/* 건강 거리권한 경고 — 워치·건강 러닝이 조용히 유실되는 상태라 최상단 고정,
+            권한이 복구돼 정상 동기화가 확인되면 자동으로 사라진다 (dismiss 없음 — 의무). */}
+        {healthPermWarning && (
+          <a
+            href="x-apple-health://"
+            className="mx-4 block card p-3.5 border-amber-300/70 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/30"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">⚠️</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-extrabold text-amber-800 dark:text-amber-200">
+                  {tt('건강 권한이 꺼져 있어요 — 워치 러닝이 안 들어와요')}
+                </p>
+                <p className="text-xs text-amber-700/80 dark:text-amber-300/70 mt-0.5">
+                  {tt('건강 앱 → 프로필 → 앱 및 서비스 → Routinist → 모두 켜기')}
+                </p>
+              </div>
+              <ChevronRight size={16} className="text-amber-600 shrink-0" />
+            </div>
+          </a>
+        )}
         {/* 잔디 픽셀 퍼레이드 — 워치 시작화면과 세트. 사람·동물들이 차례로 달려간다 */}
         <PixelParadeStrip height={30} className="-mb-1" />
         <PullDownOnboardingHint />
