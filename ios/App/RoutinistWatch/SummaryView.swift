@@ -20,6 +20,21 @@ struct SummaryView: View {
                 Text("완주! 🎉")
                     .font(.system(size: 30, weight: .heavy, design: .rounded))
 
+                // 2026-07-30 (hans): 페이스 동물 축하 — 오늘의 페이스에 어울리는 블록동물이
+                // 제자리 달리기하며 축하 (웹 완료시트·공유카드와 같은 사다리).
+                if let s = workout.summary {
+                    let match = paceAnimalMatch(paceSecPerKm: s.paceSecPerKm)
+                    HStack(spacing: 9) {
+                        ParadeRunnerInPlace(runner: match.runner, height: 30)
+                        Text(match.copy)
+                            .font(.system(size: 14, weight: .heavy, design: .rounded))
+                            .foregroundStyle(emerald)
+                            .minimumScaleFactor(0.75)
+                            .lineLimit(2)
+                    }
+                    .padding(.vertical, 2)
+                }
+
                 // v12: 다른 운동 앱이 세션을 가져가 종료된 경우 — 이유 안내 (버그 아님을 명확히)
                 if workout.endedExternally {
                     Text("다른 운동 앱이 시작되면서 러닝이 종료됐어요. 여기까지 기록은 저장했어요.")

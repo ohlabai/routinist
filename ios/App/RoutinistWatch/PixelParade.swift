@@ -389,3 +389,74 @@ let PARADE_RUNNERS: [ParadeRunner] = [
     ],
     ]),
 ]
+// MARK: - 페이스 → 동물 매칭 (웹 src/lib/pace-animal.ts 와 동일 사다리 — 양쪽 동시 수정)
+
+struct PaceAnimalMatch {
+    let runner: ParadeRunner
+    let copy: String
+}
+
+/// 평균 페이스(초/km)에 어울리는 동물 + 축하 카피. nil/0 은 거북이.
+func paceAnimalMatch(paceSecPerKm: Double?) -> PaceAnimalMatch {
+    func runner(_ name: String) -> ParadeRunner {
+        PARADE_RUNNERS.first { $0.name == name } ?? PARADE_RUNNERS[0]
+    }
+    guard let pace = paceSecPerKm, pace > 0, pace.isFinite else {
+        return PaceAnimalMatch(runner: runner("turtle"), copy: "거북이처럼 꾸준히 완주했어요!")
+    }
+    let ladder: [(Double, String, String)] = [
+        (240, "cheetah", "치타처럼 질주했어요!"),
+        (280, "horse", "말처럼 힘차게 달렸어요!"),
+        (320, "dog", "강아지처럼 신나게 달렸어요!"),
+        (360, "rabbit", "토끼처럼 가볍게 뛰었어요!"),
+        (400, "cat", "고양이처럼 사뿐사뿐 달렸어요!"),
+        (440, "monkey", "원숭이처럼 경쾌하게 달렸어요!"),
+        (480, "chicken", "총총총, 닭처럼 부지런히 달렸어요!"),
+        (540, "elephant", "코끼리처럼 묵직하게 완주했어요!"),
+    ]
+    for (maxPace, name, copy) in ladder where pace < maxPace {
+        return PaceAnimalMatch(runner: runner(name), copy: copy)
+    }
+    return PaceAnimalMatch(runner: runner("turtle"), copy: "거북이처럼 꾸준히 완주했어요!")
+}
+
+/// 제자리 달리기 — 요약 화면 축하용 (2프레임 다리 교차, 동물별 템포)
+struct ParadeRunnerInPlace: View {
+    let runner: ParadeRunner
+    var height: CGFloat = 30
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.12)) { context in
+            let tick = Int(context.date.timeIntervalSinceReferenceDate / 0.12)
+            let frame = (tick / max(1, runner.legEvery)) % 2
+            let cell = height / CGFloat(runner.height)
+            SpriteFixedView(grid: runner.frames[frame], cell: cell)
+                .offset(y: runner.bounce == 1 && frame == 0 ? -cell : 0)
+        }
+        .frame(height: height)
+    }
+}
+
+/// SpriteView 는 파일 내 private — 요약 화면용 공개 렌더러
+struct SpriteFixedView: View {
+    let grid: [[Int]]
+    let cell: CGFloat
+
+    var body: some View {
+        let rows = grid.count
+        let cols = grid.first?.count ?? 1
+        ZStack(alignment: .topLeading) {
+            ForEach(0..<rows, id: \.self) { y in
+                ForEach(0..<cols, id: \.self) { x in
+                    if let c = GrassPalette.color(grid[y][x]) {
+                        RoundedRectangle(cornerRadius: cell * 0.22)
+                            .fill(c)
+                            .frame(width: cell * 0.92, height: cell * 0.92)
+                            .offset(x: CGFloat(x) * cell, y: CGFloat(y) * cell)
+                    }
+                }
+            }
+        }
+        .frame(width: CGFloat(cols) * cell, height: CGFloat(rows) * cell, alignment: .topLeading)
+    }
+}
