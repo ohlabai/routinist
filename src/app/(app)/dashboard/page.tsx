@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
 import PullToRefresh from '@/components/PullToRefresh';
-import { PixelParadeStrip } from '@/components/PixelSprite';
+import { PixelParadeStrip, PixelSprite } from '@/components/PixelSprite';
+import { PIXEL_RUNNER_BY_NAME } from '@/lib/pixel-sprites';
 import {
   getWeeklyStreak,
   getMaxWeeklyStreak,
@@ -52,12 +53,19 @@ import {
 import { useDistanceUnit, toDisplayDistance, unitLabel, paceUnitLabel, formatPaceForUnit } from '@/lib/units';
 
 
-// Phase C: 홈 그룹 라벨 — 작고 조용하게, 그룹 경계만 보이게.
-function SectionLabel({ children }: { children: React.ReactNode }) {
+// Phase C: 홈 그룹 라벨 → 2026-07-30 (hans): 기간 구분을 더 또렷하게 —
+// 블록동물 + 한글 라벨 + DAY/WEEK/MONTH 서브라벨 + 우측 구분선 + 넉넉한 상단 여백.
+function SectionLabel({ children, en, animal }: { children: React.ReactNode; en?: string; animal?: string }) {
+  const runner = animal ? PIXEL_RUNNER_BY_NAME[animal] : null;
   return (
-    <p className="px-5 pt-3 pb-0.5 text-[11px] font-extrabold tracking-[0.18em] uppercase text-[var(--muted)]/80">
-      {children}
-    </p>
+    <div className="px-5 pt-6 pb-1 flex items-center gap-2">
+      {runner && <PixelSprite grid={runner.frames[0]} height={15} className="shrink-0 opacity-90" />}
+      <p className="text-[11px] font-extrabold tracking-[0.18em] uppercase text-[var(--muted)]/80 whitespace-nowrap">
+        {children}
+        {en && <span className="ml-1.5 text-[var(--muted)]/45">{en}</span>}
+      </p>
+      <div className="flex-1 h-px bg-[var(--card-border)]/70" />
+    </div>
   );
 }
 
@@ -461,6 +469,8 @@ export default function DashboardPage() {
           )}
         </div>
 
+        {/* ── 오늘 ── (2026-07-30 hans: day/week/month 구분 강화) */}
+        <SectionLabel en="DAY" animal="cheetah">{tt('오늘')}</SectionLabel>
         {/* 5 오늘/이달 stats. build 154: activities 로딩 중엔 "0.0" 대신 dim 점 표시.
             build 260: 4-column → 2×2 grid 로 재구성. 한 칸만 text-2xl 로 작아져 어색했던 문제 해결.
             모든 셀 text-3xl 통일, 셀 너비 2배 → 페이스 "48'50" 자릿수 안전. 좌우 대칭 정돈.
@@ -509,10 +519,12 @@ export default function DashboardPage() {
         {/* 랭킹 Hero — 활성화 핵심 (eager). Phase C: 그리드 바로 아래로 승격 */}
         <HomeRankingHero />
         {secondaryMounted && <LiveRunningIndicator />}
+        {/* Today BestRun — 일간 콘텐츠라 오늘 그룹 (2026-07-30 hans 재배치) */}
+        <RunOfTheDayCard />
         </>)}
 
         {/* ── 이번 주 ── */}
-        <SectionLabel>{tt('이번 주')}</SectionLabel>
+        <SectionLabel en="WEEK" animal="rabbit">{tt('이번 주')}</SectionLabel>
         {/* Phase A: 스트릭 경고를 주간 목표 카드 바로 위로 — 주간 정보 그룹핑 (경고+목표+스트릭) */}
         {!isNewRunner && (
           <div className="mx-4">
@@ -536,9 +548,15 @@ export default function DashboardPage() {
           weeksToRecord={weeksToRecord}
         />
         {!isNewRunner && secondaryMounted && <HomeChallengeCard />}
+        {/* 주간 콘텐츠 재배치 (2026-07-30 hans): 경쟁 허브 (친구·동네·내 주변 러너 = 전부
+            주간 랭킹) + 이번 주 우승자 맞히기를 함께 그룹에서 이번 주 그룹으로. */}
+        {!isNewRunner && (<>
+        <LazyMount minHeight={220} rootMargin="300px"><CompetitionHub /></LazyMount>
+        <LazyMount minHeight={200} rootMargin="300px"><WinnerPredictionWidget /></LazyMount>
+        </>)}
 
         {/* ── 이번 달 ── */}
-        <SectionLabel>{tt('이번 달')}</SectionLabel>
+        <SectionLabel en="MONTH" animal="elephant">{tt('이번 달')}</SectionLabel>
         {/* 6.1 이달 목표 */}
         <div className={`mx-4 card p-5 relative overflow-hidden ${goalKm > 0 && goalProgress >= 100 ? 'goal-achieved' : ''}`}>
           {goalKm > 0 && goalProgress >= 100 && (
@@ -620,14 +638,9 @@ export default function DashboardPage() {
         <div className="mx-4"><HomeCalendarCard /></div>
 
         {!isNewRunner && (<>
-        {/* ── 함께 달리기 ── */}
-        <SectionLabel>{tt('함께 달리기')}</SectionLabel>
+        {/* ── 함께 달리기 ── (경쟁허브·우승자맞히기는 이번 주로, BestRun 은 오늘로 이동) */}
+        <SectionLabel en="TOGETHER" animal="dog">{tt('함께 달리기')}</SectionLabel>
         {secondaryMounted && <HomeFriendStories />}
-        {/* Phase C: 친구 리더보드·동네 TOP·쫓는사람 → 탭 하나로 통합 */}
-        <LazyMount minHeight={220} rootMargin="300px"><CompetitionHub /></LazyMount>
-        <LazyMount minHeight={200} rootMargin="300px"><WinnerPredictionWidget /></LazyMount>
-        {/* Run of the Day — 어제의 러너 구경 (소셜 성격이라 함께 그룹) */}
-        <RunOfTheDayCard />
         {/* 10 지역 미설정 배너 (조건부) */}
         {profile && !profile.region_gu && !profile.country_code && (
           <Link href="/profile/edit" className="mx-4 block card p-3 bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-950/30 dark:to-green-950/30 border-0">
@@ -643,7 +656,7 @@ export default function DashboardPage() {
         )}
 
         {/* ── 내 기록 ── */}
-        <SectionLabel>{tt('내 기록')}</SectionLabel>
+        <SectionLabel en="MY RECORDS" animal="turtle">{tt('내 기록')}</SectionLabel>
         {/* 미니맵 — LazyMount 없이 즉시 (사용자 신고: "지도 안 보임") */}
         <HomeMapPreview />
         <LazyMount minHeight={140} rootMargin="300px"><OnThisDayCard /></LazyMount>
