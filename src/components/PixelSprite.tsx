@@ -121,6 +121,61 @@ export function PixelParadeStrip({
   );
 }
 
+/** 두 프레임 다리 교차를 CSS 로만 — 타이머 없이 저비용 (행렬용 느린 템포 0.6s) */
+function MarchRunner({ name, height }: { name: string; height: number }) {
+  const runner = PIXEL_RUNNER_BY_NAME[name];
+  if (!runner) return null;
+  return (
+    <span className="relative inline-block align-bottom" style={{ height }}>
+      <span style={{ animation: 'pixel-legs-a 0.6s steps(1) infinite' }} className="block">
+        <PixelSprite grid={runner.frames[0]} height={height} />
+      </span>
+      <span
+        className="absolute left-0 top-0"
+        style={{ animation: 'pixel-legs-b 0.6s steps(1) infinite' }}
+      >
+        <PixelSprite grid={runner.frames[1]} height={height} />
+      </span>
+    </span>
+  );
+}
+
+/**
+ * 느린 픽셀 행진 (2026-07-30 hans): 동물들이 줄 서서 아주 천천히 차례차례 걸어간다.
+ * 홈 섹션 구분 단락용 — 산만하지 않게 균일·저속 (한 바퀴 ~70s), CSS 애니메이션만 사용.
+ * phaseSec 로 섹션마다 시작 지점을 어긋나게 해 같은 동물이 동시에 보이지 않게.
+ */
+export function PixelMarchStrip({
+  height = 14,
+  phaseSec = 0,
+  className = '',
+}: {
+  height?: number;
+  phaseSec?: number;
+  className?: string;
+}) {
+  const row = (key: string) => (
+    <span key={key} className="inline-flex items-end shrink-0" style={{ gap: height * 0.9 }}>
+      {PIXEL_RUNNERS.map((r) => (
+        <MarchRunner key={`${key}-${r.name}`} name={r.name} height={height} />
+      ))}
+      {/* 대열 끝과 처음 사이 간격 (이음새) */}
+      <span style={{ width: height * 0.9 }} />
+    </span>
+  );
+  return (
+    <div className={`relative overflow-hidden ${className}`} style={{ height: height + 2 }} aria-hidden>
+      <div
+        className="absolute bottom-0 left-0 inline-flex items-end will-change-transform"
+        style={{ animation: `pixel-march 70s linear infinite`, animationDelay: `-${phaseSec}s` }}
+      >
+        {row('a')}
+        {row('b')}
+      </div>
+    </div>
+  );
+}
+
 /** 달려가는 로딩 인디케이터 — 스피너 대체용. 렌더마다 랜덤 동물 */
 export function PixelRunnerLoader({
   height = 28,

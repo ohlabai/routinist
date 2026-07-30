@@ -245,3 +245,22 @@ body {
     opacity: 0;
   }
 }
+
+/* 느린 픽셀 행진 (PixelMarchStrip) — 대열 절반만큼 이동 후 이음새 없이 반복 (오른쪽 행진) */
+@keyframes pixel-march {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+/* 다리 2프레임 교차 — 타이머 없이 CSS steps */
+@keyframes pixel-legs-a {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+@keyframes pixel-legs-b {
+  0%, 49% { opacity: 0; }
+  50%, 100% { opacity: 1; }
+}
