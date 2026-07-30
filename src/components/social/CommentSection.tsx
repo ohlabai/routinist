@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/components/AuthProvider';
-import { fetchComments, addComment, deleteComment, fetchCheers, toggleCheer, hasCheered } from '@/lib/comment-data';
-import { Heart, Send, Trash2 } from 'lucide-react';
+import { fetchComments, addComment, deleteComment } from '@/lib/comment-data';
+import { Send, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import type { ActivityComment } from '@/types';
 import AppLogo from '@/components/AppLogo';
+import CheerButton from '@/components/social/CheerButton';
 
 interface CommentSectionProps {
   activityId: string;
@@ -16,29 +17,14 @@ interface CommentSectionProps {
 export default function CommentSection({ activityId, activityOwnerId }: CommentSectionProps) {
   const { user } = useAuth();
   const [comments, setComments] = useState<ActivityComment[]>([]);
-  const [cheerCount, setCheerCount] = useState(0);
-  const [cheered, setCheered] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [sending, setSending] = useState(false);
 
   const loadData = useCallback(async () => {
-    const [commentsData, cheersData, hasCheeredData] = await Promise.all([
-      fetchComments(activityId),
-      fetchCheers(activityId),
-      hasCheered(activityId),
-    ]);
-    setComments(commentsData);
-    setCheerCount(cheersData.length);
-    setCheered(hasCheeredData);
+    setComments(await fetchComments(activityId));
   }, [activityId]);
 
   useEffect(() => { loadData(); }, [loadData]);
-
-  const handleCheer = async () => {
-    const result = await toggleCheer(activityId);
-    setCheered(result);
-    setCheerCount((prev) => prev + (result ? 1 : -1));
-  };
 
   const handleSubmit = async () => {
     if (!newComment.trim() || sending) return;
@@ -73,18 +59,17 @@ export default function CommentSection({ activityId, activityOwnerId }: CommentS
 
   return (
     <div className="space-y-4">
-      {/* 응원 버튼 */}
-      <button
-        onClick={handleCheer}
-        className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all text-sm font-semibold ${
-          cheered
-            ? 'bg-red-50 dark:bg-red-500/10 text-red-500'
-            : 'bg-[var(--card)] text-[var(--muted)]'
-        }`}
-      >
-        <Heart size={18} fill={cheered ? 'currentColor' : 'none'} />
-        응원 {cheerCount > 0 && cheerCount}
-      </button>
+      {/* 응원 버튼 — 통일 폼 (2026-07-30 hans): 원탭 무제한 + 픽셀 하트 버스트.
+          이전의 activity_cheers 좋아요 토글은 사람 응원(user_cheers)으로 단일화. */}
+      {user && user.id !== activityOwnerId && (
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-extrabold text-[var(--foreground)]">이 러너에게 응원 보내기</p>
+            <p className="text-xs text-[var(--muted)] mt-0.5">하트는 몇 번이든 눌러도 돼요</p>
+          </div>
+          <CheerButton toUserId={activityOwnerId} context="activity" />
+        </div>
+      )}
 
       {/* 댓글 목록 */}
       {comments.length > 0 && (

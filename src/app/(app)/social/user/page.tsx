@@ -397,13 +397,12 @@ function UserProfileContent() {
         </div>
       </div>
 
-      {/* build 274: 응원 보내기 카드 — 친구/쪽지/마일리지 위쪽. emoji picker 5종.
-          CheerButton 컴포넌트는 같은 emoji 주 1회 제한 + optimistic UI. */}
+      {/* 응원 보내기 카드 — 통일 폼 (2026-07-30): 원탭 무제한 + 픽셀 하트 버스트 */}
       {user && !isMe && (
         <div className="card p-4 flex items-center gap-3">
           <div className="flex-1 min-w-0">
             <p className="text-sm font-extrabold text-[var(--foreground)]">{tt('응원 보내기')}</p>
-            <p className="text-xs text-[var(--muted)] mt-0.5">{tt('매주 한 번씩 이모지로 응원해보세요')}</p>
+            <p className="text-xs text-[var(--muted)] mt-0.5">{tt('하트는 몇 번이든 눌러도 돼요')}</p>
           </div>
           <CheerButton toUserId={profile.id} context="profile" />
         </div>

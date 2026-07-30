@@ -365,17 +365,8 @@ function ActivityDetail() {
         )}
       </div>
 
-      {/* build 276: 활동 owner 에게 직접 응원 — user_cheers (emoji picker).
-          activity_cheers (CommentSection 안 좋아요-식 응원) 와 별도. 본인 활동 X. */}
-      {activity.user_id !== user?.id && user && (
-        <div className="card p-4 flex items-center gap-3">
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-extrabold text-[var(--foreground)]">{tt('이 러너에게 응원 보내기')}</p>
-            <p className="text-xs text-[var(--muted)] mt-0.5">{tt('매주 한 번씩 이모지로 응원해보세요')}</p>
-          </div>
-          <CheerButton toUserId={activity.user_id} context="profile" />
-        </div>
-      )}
+      {/* 2026-07-30 (hans 통일): 별도 응원 카드 제거 — 응원 버튼은 아래 응원&댓글
+          카드 (CommentSection) 안으로 합쳐져 모든 화면이 같은 폼을 쓴다. */}
 
       {/* 응원 + 댓글 — 게스트에겐 숨기고 가입 CTA 로 대체 (read-only) */}
       {!isGuest ? (

@@ -1977,7 +1977,7 @@ const EXTRAS_EN: Record<string, string> = {
 '이달 러닝': 'runs this month',
 '통산 km': 'total km',
 '응원 보내기': 'Send a cheer',
-'매주 한 번씩 이모지로 응원해보세요': 'Cheer with an emoji once a week',
+'하트는 몇 번이든 눌러도 돼요': 'Tap the heart as many times as you like',
 '내 정보 편집': 'Edit my profile',
 '친구 신청': 'Add Friend',
 '신청 보냄': 'Request Sent',

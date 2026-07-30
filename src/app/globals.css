@@ -230,3 +230,18 @@ body {
     transform: translateX(100vw);
   }
 }
+
+/* 응원 버스트 (CheerButton) — 픽셀 하트가 흩날리며 사라짐 */
+@keyframes cheer-fly {
+  0% {
+    transform: translate(-50%, -50%) scale(0.5) rotate(0deg);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.05) rotate(var(--rot));
+    opacity: 0;
+  }
+}
