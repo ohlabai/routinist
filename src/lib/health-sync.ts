@@ -548,6 +548,11 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     let upgradedCount = 0;
     let walkingFiltered = 0;
     let tooShortFiltered = 0;
+    // 2026-07-30 (hans 12.29km 유실 진단): iOS 16+ 는 '걷기+달리기 거리' 읽기 권한이
+    // 거부되면 HKWorkout.totalDistance 가 nil 로 온다 → 멀쩡한 러닝이 전부 0km 로 보여
+    // too_short 에서 조용히 버려짐. nil 카운트를 분리 추적해 권한 문제를 표면화한다.
+    let distanceNilCount = 0;
+    let distanceNilNewestMs = 0;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const toInsert: Record<string, any>[] = [];
     // upgrade: 기존 gps 행을 health_kit 데이터로 덮어쓰기 (id 보존 → 사진/메모 유지)
@@ -563,7 +568,16 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
         : null;
       const activityType = workout._type === 'walking' ? 'walking' : 'running';
 
-      if (distanceKm < 0.1) { tooShortFiltered++; continue; }
+      if (distanceKm < 0.1) {
+        tooShortFiltered++;
+        // totalDistance 자체가 없는 running 워크아웃 = 거리 읽기 권한 거부 신호.
+        if (workout.totalDistance == null && activityType === 'running') {
+          distanceNilCount++;
+          const nilMs = new Date(workout.startDate).getTime();
+          if (nilMs > distanceNilNewestMs) distanceNilNewestMs = nilMs;
+        }
+        continue;
+      }
       if (activityType === 'walking' && distanceKm < 0.5) { walkingFiltered++; continue; }
 
       const workoutMs = new Date(workout.startDate).getTime();
@@ -767,17 +781,28 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     }
 
     const elapsedMs = Date.now() - t0;
+    // 최근 7일 안에 거리 nil 러닝이 있으면 권한 문제가 "지금" 진행 중 — 사용자 안내 발동.
+    const distancePermissionSuspected =
+      distanceNilCount > 0 && distanceNilNewestMs > Date.now() - 7 * 86400_000;
     logClientInfo('health-sync', 'sync complete', {
       total_workouts: allWorkouts.length,
       duplicates_skipped: dupCount,
       upgraded_from_gps: upgradedCount,
       walking_filtered: walkingFiltered,
       too_short: tooShortFiltered,
+      distance_nil: distanceNilCount,
+      distance_permission_suspected: distancePermissionSuspected,
       candidates: toInsert.length,
       inserted: syncedCount,
       insert_errors: insertErrors,
       elapsed_ms: elapsedMs,
     });
+    if (distancePermissionSuspected) {
+      logClientWarn('health-sync', 'distance read permission suspected missing', {
+        distance_nil: distanceNilCount,
+        newest_nil_at: new Date(distanceNilNewestMs).toISOString(),
+      });
+    }
 
     // 누락 detection — 받아온 워크아웃 N건 중 새로 저장된 건 + 중복 건 합이 N 보다 작으면 어딘가에서 빠짐
     const accounted = syncedCount + dupCount + upgradedCount + walkingFiltered + tooShortFiltered;
@@ -816,6 +841,12 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
       message = en
         ? `Corrected ${upgradedCount} GPS distance${upgradedCount === 1 ? '' : 's'} to ${deviceLabel} data ✨`
         : `${upgradedCount}건 GPS 거리를 ${deviceLabel} 기준으로 보정했어요 ✨`;
+    } else if (toInsert.length === 0 && distancePermissionSuspected && !isAndroid) {
+      // 러닝이 읽히긴 하는데 거리가 전부 비어 있음 — 권한 안내가 없으면 영원히 조용히 유실됨.
+      success = false;
+      message = en
+        ? `Some runs have no distance — the 'Walking + Running Distance' read permission looks off.\nHealth app → Profile → Apps & Services → Routinist → turn everything on, then sync again.`
+        : `거리가 비어 있는 러닝이 있어요 — '걷기+달리기 거리' 읽기 권한이 꺼져 있는 것 같아요.\n건강 앱 → 프로필 → 앱 및 서비스 → Routinist 에서 모두 켠 뒤 다시 동기화해주세요.`;
     } else if (toInsert.length === 0) {
       message = ttl('최신 상태예요. 오늘도 가볍게 한 바퀴? 👟');
     } else {
