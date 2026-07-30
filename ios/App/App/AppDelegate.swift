@@ -28,7 +28,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             try AVAudioSession.sharedInstance().setCategory(
                 .playback,
                 mode: .spokenAudio,
-                options: [.mixWithOthers, .duckOthers]
+                // 2026-07-30: interruptSpokenAudio — 말 콘텐츠 앱은 일시정지→안내 후 자동재개
+                options: [.mixWithOthers, .duckOthers, .interruptSpokenAudioAndMixWithOthers]
             )
         } catch {
             NSLog("[AppDelegate] AVAudioSession setCategory failed: \(error)")

@@ -494,7 +494,8 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
             guard let self = self else { return }
             do {
                 try AVAudioSession.sharedInstance().setCategory(
-                    .playback, mode: .spokenAudio, options: [.duckOthers, .mixWithOthers])
+                    .playback, mode: .spokenAudio,
+                    options: [.duckOthers, .mixWithOthers, .interruptSpokenAudioAndMixWithOthers])
                 try AVAudioSession.sharedInstance().setActive(true)
             } catch {
                 NSLog("[RunSession] speakText AVAudioSession activate failed: \(error)")
@@ -1058,8 +1059,12 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
                 // 실주행 fix (295): WKWebView (카운트다운 beep 의 WebAudio) 가 오디오 세션
                 // 카테고리를 바꿔놓으면 ambient + 무음스위치 조합에서 TTS 가 통째로 무음이 된다.
                 // 발화 직전마다 카테고리를 재선점 — .playback 은 무음 스위치를 무시한다.
+                // 2026-07-30: .interruptSpokenAudioAndMixWithOthers 추가 (애플 운동앱 문법) —
+                // 팟캐스트·오디오북 등 "말 콘텐츠" 앱은 잠시 일시정지됐다가 안내 후 자동 재개
+                // (덕킹으로 말이 겹치는 것보다 안 놓침). 음악·유튜브는 기존대로 덕킹.
                 try AVAudioSession.sharedInstance().setCategory(
-                    .playback, mode: .spokenAudio, options: [.duckOthers, .mixWithOthers])
+                    .playback, mode: .spokenAudio,
+                    options: [.duckOthers, .mixWithOthers, .interruptSpokenAudioAndMixWithOthers])
                 try AVAudioSession.sharedInstance().setActive(true)
             } catch {
                 NSLog("[RunSession] AVAudioSession activate failed: \(error)")
@@ -1077,14 +1082,24 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         }
     }
 
-    private func deactivateAudioSessionIfIdle() {
+    private func deactivateAudioSessionIfIdle(attempt: Int = 0) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self, !self.synthesizer.isSpeaking else { return }
             do {
                 // 다른 앱(음악 등) 오디오 ducking 원복 — 발화 큐가 빌 때만.
                 try AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
             } catch {
-                NSLog("[RunSession] AVAudioSession deactivate failed: \(error)")
+                // 2026-07-30 (hans): didFinish 직후엔 synthesizer 내부 플레이어가 아직 세션을
+                // 붙잡고 있어 isBusy(560030580) 실패가 잦다 — 여기서 포기하면 시스템이 스스로
+                // 놓아줄 때까지 3~4초 유튜브/음악이 작아진 채 남는다. 짧은 백오프로 재시도해
+                // 즉시 원복 (0.15/0.3/0.6/1.2s — 보통 첫 재시도에 성공).
+                if attempt < 4 {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15 * pow(2.0, Double(attempt))) { [weak self] in
+                        self?.deactivateAudioSessionIfIdle(attempt: attempt + 1)
+                    }
+                } else {
+                    NSLog("[RunSession] AVAudioSession deactivate failed after retries: \(error)")
+                }
             }
         }
     }
