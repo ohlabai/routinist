@@ -47,7 +47,7 @@ function getCategories(tt: (ko: string) => string, locale: 'ko' | 'en'): Categor
     { key: 'likes', label: tt('좋아요'), description: locale === 'en' ? 'When someone likes your photo or note' : '내 사진·한 줄에 좋아요가 도착했을 때', Icon: Heart },
     { key: 'friend_overtake', label: locale === 'en' ? 'Friend overtake' : '친구 추월', description: locale === 'en' ? 'When a friend passes your km, or you pass theirs' : '친구가 내 km 를 추월하거나 내가 추월했을 때', Icon: Users },
     { key: 'friend_live_run', label: locale === 'en' ? 'Friend running now' : '친구 라이브 러닝', description: locale === 'en' ? 'When a friend starts a live run (once a day per friend)' : '친구가 지금 달리기를 시작했을 때 (친구당 하루 1회)', Icon: MapPin },
-    { key: 'friend_pb', label: tt('친구 신기록'), description: locale === 'en' ? 'When a friend sets a new personal best' : '친구가 개인 최고 기록을 세웠을 때', Icon: Trophy },
+    // friend_pb (친구 신기록) — 2026-08-01 hans 지시로 알림 자체 폐기 (DB 트리거 DROP). 토글도 제거.
     { key: 'course_progress', label: tt('월드런 진행'), description: locale === 'en' ? 'Halfway and 90% milestones on your world run course' : '진행 중인 월드런 코스 절반·90% 도달 소식', Icon: TrendingUp },
     { key: 'course_complete', label: tt('월드런 완주'), description: locale === 'en' ? 'When you finish a world run course' : '월드런 코스를 완주했을 때', Icon: Flag },
     { key: 'world_chase', label: tt('월드런 추격'), description: locale === 'en' ? 'When a friend is closing in on you on a course' : '같은 코스에서 친구가 바짝 따라붙었을 때', Icon: Globe },
@@ -82,7 +82,7 @@ const DEFAULTS: Record<CategoryKey, boolean> = {
   social_rival: true,
   // build 291: producer 존재하는데 토글이 없던 카테고리 — 기본 ON (should_send_push 기본 TRUE 와 일치).
   friend_live_run: true,
-  friend_pb: true,
+  friend_pb: true,   // 폐기된 카테고리 (producer 없음) — 과거 저장값 병합 호환용으로 키만 유지
   course_progress: true,
   course_complete: true,
   club_course_start: true,
