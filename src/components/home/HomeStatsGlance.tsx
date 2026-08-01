@@ -4,11 +4,13 @@
 // Phase B 에서 /stats 로 전부 이관했더니 홈에서 추이가 안 보인다는 피드백 —
 // 서버 조회 없이 activities 로컬 계산 가능한 ① 최근 30일 일별 추이 ② 요일 패턴만 홈에 복원.
 // 깊은 분석 (PB·12주·페이스·시간대·기간비교) 은 계속 /stats.
-// 원칙: 텍스트 최소 (제목 + 인사이트 한 줄), 큰 틱 글씨, 단일 emerald 색상 (크기=강조).
+// 2026-08-01 2차 (hans): 요일 패턴은 7각형 레이더로 (막대보다 낫다는 피드백) + 글씨 추가 상향.
+// 원칙: 텍스트 최소 (제목 + 인사이트 한 줄), 데이터 성격에 맞는 폼 — 추이=막대, 주기=레이더.
 
 import { useMemo } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  RadarChart, PolarGrid, PolarAngleAxis, Radar,
 } from 'recharts';
 import { useUserData } from '@/components/UserDataProvider';
 import { useI18n } from '@/lib/i18n';
@@ -64,22 +66,22 @@ export default function HomeStatsGlance() {
     background: 'var(--card-bg)',
     border: '1px solid var(--card-border)',
     borderRadius: 14,
-    fontSize: 14,
+    fontSize: 15,
   };
 
   return (
     <>
-      {/* 최근 30일 추이 */}
+      {/* 최근 30일 추이 — 시간 흐름 위 양(magnitude) = 막대 */}
       {daily30Total > 0 && (
         <div className="mx-4 card p-5">
           <div className="flex items-baseline justify-between mb-3">
-            <h3 className="text-lg font-bold text-[var(--foreground)]">{tt('최근 30일')}</h3>
-            <p className="text-base font-extrabold tabular-nums text-[var(--accent)]">
-              {daily30Total.toFixed(1)}<span className="text-sm font-bold text-[var(--muted)]"> km</span>
+            <h3 className="text-xl font-extrabold text-[var(--foreground)]">{tt('최근 30일')}</h3>
+            <p className="text-lg font-extrabold tabular-nums text-[var(--accent)]">
+              {daily30Total.toFixed(1)}<span className="text-base font-bold text-[var(--muted)]"> km</span>
             </p>
           </div>
-          <ResponsiveContainer width="100%" height={170}>
-            <BarChart data={daily} margin={{ top: 4, right: 0, left: -18, bottom: 0 }}>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={daily} margin={{ top: 4, right: 0, left: -14, bottom: 0 }}>
               <defs>
                 <linearGradient id="homeDailyGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#34D399" />
@@ -87,8 +89,8 @@ export default function HomeStatsGlance() {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 12, fill: 'var(--muted)' }} axisLine={false} tickLine={false} interval={6} />
-              <YAxis tick={{ fontSize: 12, fill: 'var(--muted)' }} axisLine={false} tickLine={false} width={34} />
+              <XAxis dataKey="label" tick={{ fontSize: 13, fill: 'var(--muted)' }} axisLine={false} tickLine={false} interval={6} />
+              <YAxis tick={{ fontSize: 13, fill: 'var(--muted)' }} axisLine={false} tickLine={false} width={36} />
               <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${v}km`]} cursor={{ fill: 'var(--card-border)', opacity: 0.3 }} />
               <Bar dataKey="distance" fill="url(#homeDailyGrad)" radius={chartStyle.barRadius} animationDuration={chartStyle.animationDuration} />
             </BarChart>
@@ -96,37 +98,33 @@ export default function HomeStatsGlance() {
         </div>
       )}
 
-      {/* 요일 패턴 */}
+      {/* 요일 패턴 — 주기 데이터 = 7각형 레이더 (2026-08-01 hans: 레이더가 좋다) */}
       {maxDay && (
         <div className="mx-4 card p-5">
-          <div className="flex items-baseline justify-between mb-3">
-            <h3 className="text-lg font-bold text-[var(--foreground)]">{tt('요일 패턴')}</h3>
-            <p className="text-sm font-semibold text-[var(--muted)]">
+          <div className="flex items-baseline justify-between mb-1">
+            <h3 className="text-xl font-extrabold text-[var(--foreground)]">{tt('요일 패턴')}</h3>
+            <p className="text-base font-semibold text-[var(--muted)]">
               {en
                 ? <>mostly <span className="text-[var(--accent)] font-extrabold">{maxDay.day}</span></>
                 : <>주로 <span className="text-[var(--accent)] font-extrabold">{maxDay.day}요일</span></>}
             </p>
           </div>
-          <ResponsiveContainer width="100%" height={150}>
-            <BarChart data={byDay} margin={{ top: 16, right: 0, left: -18, bottom: 0 }}>
-              <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" vertical={false} />
-              <XAxis dataKey="day" tick={{ fontSize: 13, fill: 'var(--muted)', fontWeight: 600 }} axisLine={false} tickLine={false} interval={0} />
-              <YAxis tick={{ fontSize: 12, fill: 'var(--muted)' }} axisLine={false} tickLine={false} width={30} allowDecimals={false} />
-              <Tooltip contentStyle={tooltipStyle} formatter={(v) => [en ? `${v} runs` : `${v}회`]} cursor={{ fill: 'var(--card-border)', opacity: 0.3 }} />
-              <Bar
+          <ResponsiveContainer width="100%" height={230}>
+            <RadarChart data={byDay} margin={{ top: 10, right: 24, bottom: 10, left: 24 }}>
+              <PolarGrid stroke="var(--card-border)" strokeDasharray={chartStyle.gridDash} />
+              <PolarAngleAxis dataKey="day" tick={{ fontSize: 15, fill: 'var(--muted)', fontWeight: 700 }} />
+              <Radar
+                name={tt('러닝 횟수')}
                 dataKey="count"
-                radius={chartStyle.barRadius}
+                stroke="#10B981"
+                fill="#10B981"
+                fillOpacity={0.22}
+                strokeWidth={2.5}
+                dot={{ r: 4, fill: '#10B981' }}
                 animationDuration={chartStyle.animationDuration}
-                label={{
-                  position: 'top', fontSize: 12, fontWeight: 700, fill: 'var(--muted)',
-                  formatter: (v: unknown) => (typeof v === 'number' && v > 0 && v === maxDayCount ? String(v) : ''),
-                }}
-              >
-                {byDay.map((d) => (
-                  <Cell key={d.day} fill={d.count === maxDayCount ? '#059669' : '#6EE7B7'} />
-                ))}
-              </Bar>
-            </BarChart>
+              />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v) => [en ? `${v} runs` : `${v}회`]} />
+            </RadarChart>
           </ResponsiveContainer>
         </div>
       )}

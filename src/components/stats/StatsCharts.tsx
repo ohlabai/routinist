@@ -24,6 +24,7 @@ import { dataCache, onCacheInvalidated } from '@/lib/data-cache';
 import {
   BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   RadarChart, PolarGrid, PolarAngleAxis, Radar, Legend,
+  PieChart, Pie, Cell, ScatterChart, Scatter, ZAxis,
 } from 'recharts';
 import LazyMount from '@/components/LazyMount';
 import { useI18n } from '@/lib/i18n';
@@ -215,6 +216,26 @@ export default function StatsCharts() {
     { label: '저녁 (18~24시)', count: hourStats.slice(18, 24).reduce((s, h) => s + h.runCount, 0) },
   ];
   const maxHourGroup = hourGroups.reduce((m, g) => g.count > m.count ? g : m, hourGroups[0]);
+  const hourTotal = hourGroups.reduce((s, g) => s + g.count, 0);
+
+  // 거리 × 페이스 버블 (2026-08-01 hans: 다양한 그래프 폼) — 최근 6개월 러닝 산점도.
+  // x=거리, y=페이스(위=빠름), 버블 크기=달린 시간. 상관·아웃라이어가 한눈에.
+  const bubbleData = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 180);
+    const cutStr = toLocalDateStr(cutoff);
+    return activities
+      .filter(a => a.activity_type !== 'walking'
+        && a.pace_avg_sec_per_km && a.pace_avg_sec_per_km > 0
+        && Number(a.distance_km) >= 1
+        && a.activity_date >= cutStr)
+      .map(a => ({
+        km: Number(Number(a.distance_km).toFixed(2)),
+        pace: a.pace_avg_sec_per_km as number,
+        durMin: Math.round((a.duration_seconds ?? 0) / 60),
+        date: a.activity_date,
+      }));
+  }, [activities]);
   const maxDay = dayStats.reduce(
     (m, d) => d.runCount > m.runCount ? d : m,
     dayStats[0] || { day: '-', runCount: 0, avgDistance: 0 }
@@ -268,18 +289,18 @@ export default function StatsCharts() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Trophy size={16} className="text-yellow-500" />
-              <h3 className="text-lg font-bold text-[var(--foreground)]">{tt('개인 베스트')}</h3>
+              <h3 className="text-xl font-extrabold text-[var(--foreground)]">{tt('개인 베스트')}</h3>
             </div>
             <div className="flex items-center gap-1 bg-[var(--card-border)]/30 rounded-lg p-0.5">
               <button
                 onClick={() => setPbScope('year')}
-                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${pbScope === 'year' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)]'}`}
+                className={`px-2.5 py-1 rounded-md text-sm font-bold transition ${pbScope === 'year' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)]'}`}
               >
                 {year}
               </button>
               <button
                 onClick={() => setPbScope('all')}
-                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${pbScope === 'all' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)]'}`}
+                className={`px-2.5 py-1 rounded-md text-sm font-bold transition ${pbScope === 'all' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)]'}`}
               >
                 {tt('누적')}
               </button>
@@ -291,30 +312,30 @@ export default function StatsCharts() {
             <div className="grid grid-cols-2 gap-3">
               {pb.longestRun && (
                 <div className="bg-[var(--card-border)]/30 rounded-xl p-3">
-                  <p className="text-sm text-[var(--muted)] mb-1">{tt('최장 거리')}</p>
-                  <p className="text-2xl font-extrabold text-[var(--foreground)]">{toDisplayDistance(pb.longestRun.distance_km, unit).toFixed(2)}{unitLabel(unit)}</p>
-                  <p className="text-xs text-[var(--muted)]">{pb.longestRun.date}</p>
+                  <p className="text-base text-[var(--muted)] mb-1">{tt('최장 거리')}</p>
+                  <p className="text-3xl font-extrabold tracking-tight text-[var(--foreground)]">{toDisplayDistance(pb.longestRun.distance_km, unit).toFixed(2)}{unitLabel(unit)}</p>
+                  <p className="text-sm text-[var(--muted)]">{pb.longestRun.date}</p>
                 </div>
               )}
               {pb.fastestPace && (
                 <div className="bg-[var(--card-border)]/30 rounded-xl p-3">
-                  <p className="text-sm text-[var(--muted)] mb-1">{tt('최빠 페이스')}</p>
-                  <p className="text-2xl font-extrabold text-[var(--foreground)]">{formatPaceForUnit(pb.fastestPace.pace, unit)}{paceUnitLabel(unit)}</p>
-                  <p className="text-xs text-[var(--muted)]">{pb.fastestPace.date} ({toDisplayDistance(pb.fastestPace.distance_km, unit).toFixed(1)}{unitLabel(unit)})</p>
+                  <p className="text-base text-[var(--muted)] mb-1">{tt('최빠 페이스')}</p>
+                  <p className="text-3xl font-extrabold tracking-tight text-[var(--foreground)]">{formatPaceForUnit(pb.fastestPace.pace, unit)}{paceUnitLabel(unit)}</p>
+                  <p className="text-sm text-[var(--muted)]">{pb.fastestPace.date} ({toDisplayDistance(pb.fastestPace.distance_km, unit).toFixed(1)}{unitLabel(unit)})</p>
                 </div>
               )}
               {pb.longestDuration && (
                 <div className="bg-[var(--card-border)]/30 rounded-xl p-3">
-                  <p className="text-sm text-[var(--muted)] mb-1">{tt('최장 시간')}</p>
-                  <p className="text-2xl font-extrabold text-[var(--foreground)]">{formatDuration(pb.longestDuration.duration)}</p>
-                  <p className="text-xs text-[var(--muted)]">{pb.longestDuration.date}</p>
+                  <p className="text-base text-[var(--muted)] mb-1">{tt('최장 시간')}</p>
+                  <p className="text-3xl font-extrabold tracking-tight text-[var(--foreground)]">{formatDuration(pb.longestDuration.duration)}</p>
+                  <p className="text-sm text-[var(--muted)]">{pb.longestDuration.date}</p>
                 </div>
               )}
               {pb.mostCalories && pb.mostCalories.calories > 0 && (
                 <div className="bg-[var(--card-border)]/30 rounded-xl p-3">
-                  <p className="text-sm text-[var(--muted)] mb-1">{tt('최다 칼로리')}</p>
-                  <p className="text-2xl font-extrabold text-[var(--foreground)]">{pb.mostCalories.calories}kcal</p>
-                  <p className="text-xs text-[var(--muted)]">{pb.mostCalories.date}</p>
+                  <p className="text-base text-[var(--muted)] mb-1">{tt('최다 칼로리')}</p>
+                  <p className="text-3xl font-extrabold tracking-tight text-[var(--foreground)]">{pb.mostCalories.calories}kcal</p>
+                  <p className="text-sm text-[var(--muted)]">{pb.mostCalories.date}</p>
                 </div>
               )}
             </div>
@@ -328,8 +349,8 @@ export default function StatsCharts() {
       <LazyMount minHeight={260}>
       <div className="card p-5">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-bold text-[var(--foreground)]">{tt('일별 거리 추이')}</h3>
-          <span className="text-sm text-[var(--muted)]">{locale === 'en' ? `Last 30 days · ${daily30Total.toFixed(1)}km total` : `최근 30일 · 총 ${daily30Total.toFixed(1)}km`}</span>
+          <h3 className="text-xl font-extrabold text-[var(--foreground)]">{tt('일별 거리 추이')}</h3>
+          <span className="text-base text-[var(--muted)]">{locale === 'en' ? `Last 30 days · ${daily30Total.toFixed(1)}km total` : `최근 30일 · 총 ${daily30Total.toFixed(1)}km`}</span>
         </div>
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={dailyData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
@@ -342,14 +363,14 @@ export default function StatsCharts() {
             <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" vertical={false} />
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 12, fill: 'var(--muted)' }}
+              tick={{ fontSize: 13, fill: 'var(--muted)' }}
               axisLine={false}
               tickLine={false}
               interval={4}
             />
-            <YAxis tick={{ fontSize: chartStyle.tickFontSize, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 13, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
             <Tooltip
-              contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 13 }}
+              contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 15 }}
               formatter={(value) => [`${value}km`]}
               cursor={{ fill: 'var(--card-border)', opacity: 0.3 }}
             />
@@ -364,7 +385,7 @@ export default function StatsCharts() {
         <LazyMount minHeight={240}>
         <div className="card p-5">
           <div className="flex items-baseline justify-between mb-3">
-            <h3 className="text-lg font-bold text-[var(--foreground)]">{tt('최근 12주 러닝')}</h3>
+            <h3 className="text-xl font-extrabold text-[var(--foreground)]">{tt('최근 12주 러닝')}</h3>
             {(() => {
               const nowMs = Date.now();
               const _12wMs = 12 * 7 * 24 * 60 * 60 * 1000;
@@ -379,12 +400,12 @@ export default function StatsCharts() {
               const diff = thisSum - lastSum;
               if (lastSum < 0.5 && thisSum < 0.5) return null;
               if (lastSum < 0.5) {
-                return <span className="text-xs font-semibold text-emerald-600">{tt('전년 동기 첫 기록 🎉')}</span>;
+                return <span className="text-sm font-bold text-emerald-600">{tt('전년 동기 첫 기록 🎉')}</span>;
               }
               const sign = diff >= 0 ? '+' : '';
               const color = diff >= 0 ? 'text-emerald-600' : 'text-rose-500';
               return (
-                <span className={`text-xs font-semibold ${color}`}>
+                <span className={`text-sm font-bold ${color}`}>
                   {locale === 'en' ? `vs last year ${sign}${diff.toFixed(0)}km` : `전년 동기 ${sign}${diff.toFixed(0)}km`}
                 </span>
               );
@@ -399,10 +420,10 @@ export default function StatsCharts() {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 12, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 12, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 13, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 13, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
               <Tooltip
-                contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 12 }}
+                contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 15 }}
                 formatter={(value) => [`${value}km`]}
                 cursor={{ fill: 'var(--card-border)', opacity: 0.3 }}
               />
@@ -417,7 +438,7 @@ export default function StatsCharts() {
       {paceTrend.some(p => p.avgPace !== null) && (
         <LazyMount minHeight={260}>
         <div className="card p-5">
-          <h3 className="text-lg font-bold text-[var(--foreground)] mb-3">{tt('페이스 추이 (최근 12개월)')}</h3>
+          <h3 className="text-xl font-extrabold text-[var(--foreground)] mb-3">{tt('페이스 추이 (최근 12개월)')}</h3>
           <ResponsiveContainer width="100%" height={180}>
             <AreaChart data={paceTrend.filter(p => p.avgPace !== null)} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
               <defs>
@@ -427,22 +448,73 @@ export default function StatsCharts() {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 12, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="month" tick={{ fontSize: 13, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
               <YAxis
-                tick={{ fontSize: 12, fill: 'var(--muted)' }}
+                tick={{ fontSize: 13, fill: 'var(--muted)' }}
                 reversed
                 domain={['dataMin - 20', 'dataMax + 20']}
                 tickFormatter={(v: number) => `${Math.floor(v / 60)}'${String(Math.round(v % 60)).padStart(2, '0')}"`}
                 axisLine={false} tickLine={false}
               />
               <Tooltip
-                contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 12 }}
+                contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 15 }}
                 formatter={(value) => [formatPace(Number(value)), tt('평균 페이스')]}
               />
               <Area type="monotone" dataKey="avgPace" stroke="#10B981" strokeWidth={2.5} fill="url(#statsPaceGrad)" dot={{ r: 4, fill: '#10B981' }} animationDuration={chartStyle.animationDuration} />
             </AreaChart>
           </ResponsiveContainer>
-          <p className="text-sm text-[var(--muted)] mt-2 text-center">{tt('위로 갈수록 빠른 페이스')}</p>
+          <p className="text-base text-[var(--muted)] mt-2 text-center">{tt('위로 갈수록 빠른 페이스')}</p>
+        </div>
+        </LazyMount>
+      )}
+
+      {/* 거리 × 페이스 버블 (2026-08-01 hans: 다양한 폼) — 러닝 하나 = 버블 하나 */}
+      {bubbleData.length >= 5 && (
+        <LazyMount minHeight={280}>
+        <div className="card p-5">
+          <div className="flex items-baseline justify-between mb-1">
+            <h3 className="text-xl font-extrabold text-[var(--foreground)]">{tt('거리 × 페이스')}</h3>
+            <span className="text-base text-[var(--muted)]">{locale === 'en' ? 'Last 6 months' : '최근 6개월'}</span>
+          </div>
+          <p className="text-sm text-[var(--muted)] mb-2">
+            {locale === 'en' ? 'One bubble per run — bigger = longer time, higher = faster' : '러닝 하나가 버블 하나 — 클수록 오래, 위일수록 빠르게'}
+          </p>
+          <ResponsiveContainer width="100%" height={230}>
+            <ScatterChart margin={{ top: 10, right: 10, left: -6, bottom: 0 }}>
+              <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" />
+              <XAxis
+                type="number"
+                dataKey="km"
+                name="km"
+                unit="km"
+                tick={{ fontSize: 13, fill: 'var(--muted)' }}
+                axisLine={false} tickLine={false}
+                domain={['dataMin - 0.5', 'dataMax + 0.5']}
+              />
+              <YAxis
+                type="number"
+                dataKey="pace"
+                name="pace"
+                reversed
+                tick={{ fontSize: 13, fill: 'var(--muted)' }}
+                tickFormatter={(v: number) => `${Math.floor(v / 60)}'${String(Math.round(v % 60)).padStart(2, '0')}"`}
+                axisLine={false} tickLine={false}
+                domain={['dataMin - 15', 'dataMax + 15']}
+                width={52}
+              />
+              <ZAxis type="number" dataKey="durMin" range={[60, 400]} />
+              <Tooltip
+                contentStyle={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 15 }}
+                formatter={(value, name) => {
+                  if (name === 'pace') return [formatPace(Number(value)), tt('페이스')];
+                  if (name === 'km') return [`${value}km`, tt('거리')];
+                  return [`${value}${locale === 'en' ? 'min' : '분'}`, tt('시간')];
+                }}
+                cursor={{ strokeDasharray: '3 3' }}
+              />
+              <Scatter data={bubbleData} fill="#10B981" fillOpacity={0.55} animationDuration={chartStyle.animationDuration} />
+            </ScatterChart>
+          </ResponsiveContainer>
         </div>
         </LazyMount>
       )}
@@ -454,20 +526,20 @@ export default function StatsCharts() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Calendar size={16} className="text-blue-500" />
-              <h3 className="text-lg font-bold text-[var(--foreground)]">{tt('요일별 러닝 패턴')}</h3>
+              <h3 className="text-xl font-extrabold text-[var(--foreground)]">{tt('요일별 러닝 패턴')}</h3>
             </div>
             <div className="flex items-center gap-1 bg-[var(--card-border)]/30 rounded-lg p-0.5">
               <button
                 onClick={() => setDayScope('year')}
-                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${dayScope === 'year' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)]'}`}
+                className={`px-2.5 py-1 rounded-md text-sm font-bold transition ${dayScope === 'year' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)]'}`}
               >{year}</button>
               <button
                 onClick={() => setDayScope('all')}
-                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${dayScope === 'all' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)]'}`}
+                className={`px-2.5 py-1 rounded-md text-sm font-bold transition ${dayScope === 'all' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)]'}`}
               >{tt('누적')}</button>
             </div>
           </div>
-          <p className="text-sm text-[var(--muted)] mb-3">
+          <p className="text-base text-[var(--muted)] mb-3">
             {locale === 'en' ? (
               <>You mostly run on <span className="font-semibold text-[var(--accent)]">{maxDay.day}</span> ({maxDay.runCount} runs)</>
             ) : (
@@ -477,16 +549,16 @@ export default function StatsCharts() {
           <ResponsiveContainer width="100%" height={220}>
             <RadarChart data={dayStats}>
               <PolarGrid stroke="var(--card-border)" strokeDasharray={chartStyle.gridDash} />
-              <PolarAngleAxis dataKey="day" tick={{ fontSize: 13, fill: 'var(--muted)', fontWeight: 600 }} />
+              <PolarAngleAxis dataKey="day" tick={{ fontSize: 15, fill: 'var(--muted)', fontWeight: 700 }} />
               <Radar name={tt('러닝 횟수')} dataKey="runCount" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.2} strokeWidth={2.5} dot={{ r: 4, fill: '#3B82F6' }} animationDuration={chartStyle.animationDuration} />
             </RadarChart>
           </ResponsiveContainer>
           <div className="grid grid-cols-7 gap-1 mt-3 text-center">
             {dayStats.map(d => (
               <div key={d.day}>
-                <p className="text-xs text-[var(--muted)]">{d.day}</p>
-                <p className="text-lg font-extrabold text-[var(--foreground)]">{d.runCount}</p>
-                <p className="text-xs text-[var(--muted)]">{d.avgDistance}km</p>
+                <p className="text-sm font-semibold text-[var(--muted)]">{d.day}</p>
+                <p className="text-xl font-extrabold text-[var(--foreground)]">{d.runCount}</p>
+                <p className="text-sm text-[var(--muted)]">{d.avgDistance}km</p>
               </div>
             ))}
           </div>
@@ -501,45 +573,76 @@ export default function StatsCharts() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Clock size={16} className="text-orange-500" />
-              <h3 className="text-lg font-bold text-[var(--foreground)]">{tt('시간대별 러닝 분포')}</h3>
+              <h3 className="text-xl font-extrabold text-[var(--foreground)]">{tt('시간대별 러닝 분포')}</h3>
             </div>
             <div className="flex items-center gap-1 bg-[var(--card-border)]/30 rounded-lg p-0.5">
               <button
                 onClick={() => setHourScope('year')}
-                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${hourScope === 'year' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)]'}`}
+                className={`px-2.5 py-1 rounded-md text-sm font-bold transition ${hourScope === 'year' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)]'}`}
               >{year}</button>
               <button
                 onClick={() => setHourScope('all')}
-                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${hourScope === 'all' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)]'}`}
+                className={`px-2.5 py-1 rounded-md text-sm font-bold transition ${hourScope === 'all' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)]'}`}
               >{tt('누적')}</button>
             </div>
           </div>
-          <p className="text-sm text-[var(--muted)] mb-3">
+          <p className="text-base text-[var(--muted)] mb-3">
             {locale === 'en' ? (
               <>You mostly run in the <span className="font-semibold text-[var(--accent)]">{maxHourGroup.label}</span></>
             ) : (
               <>주로 <span className="font-semibold text-[var(--accent)]">{maxHourGroup.label}</span>에 달려요</>
             )}
           </p>
-          <div className="space-y-2">
-            {hourGroups.map((g, i) => {
-              const maxCount = Math.max(...hourGroups.map(g => g.count), 1);
-              const barWidth = (g.count / maxCount) * 100;
-              const colors = ['#6366F1', '#F59E0B', '#EF4444', '#8B5CF6'];
-              return (
-                <div key={g.label} className="flex items-center gap-2">
-                  <span className="w-28 text-base font-medium text-[var(--foreground)] flex-shrink-0">{g.label}</span>
-                  <div className="flex-1 h-5 bg-[var(--card-border)] rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full"
-                      style={{ width: `${Math.max(barWidth, 2)}%`, backgroundColor: colors[i] }}
-                    />
+          {/* 2026-08-01 (hans 다양한 폼): 구성비 데이터 = 도넛. 색+라벨+횟수 병기 (색 단독 식별 금지) */}
+          {(() => {
+            const HOUR_COLORS = ['#6366F1', '#F59E0B', '#EF4444', '#8B5CF6'];
+            return (
+              <div className="flex items-center gap-4">
+                <div className="relative w-44 h-44 shrink-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={hourGroups}
+                        dataKey="count"
+                        nameKey="label"
+                        innerRadius={54}
+                        outerRadius={80}
+                        paddingAngle={3}
+                        strokeWidth={0}
+                        animationDuration={chartStyle.animationDuration}
+                      >
+                        {hourGroups.map((g, i) => (
+                          <Cell key={g.label} fill={HOUR_COLORS[i]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 15 }}
+                        formatter={(v) => [locale === 'en' ? `${v} runs` : `${v}회`]}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <p className="text-xl font-extrabold text-[var(--foreground)]">{maxHourGroup.label.split(' ')[0]}</p>
+                    <p className="text-sm font-semibold text-[var(--muted)]">{locale === 'en' ? `${hourTotal} runs` : `총 ${hourTotal}회`}</p>
                   </div>
-                  <span className="text-base font-bold text-[var(--foreground)] w-10 text-right tabular-nums">{locale === 'en' ? g.count : `${g.count}회`}</span>
                 </div>
-              );
-            })}
-          </div>
+                <div className="flex-1 min-w-0 space-y-2.5">
+                  {hourGroups.map((g, i) => (
+                    <div key={g.label} className="flex items-center gap-2.5">
+                      <span className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: HOUR_COLORS[i] }} />
+                      <span className="flex-1 text-base font-medium text-[var(--foreground)] truncate">{g.label}</span>
+                      <span className="text-base font-extrabold tabular-nums text-[var(--foreground)]">
+                        {locale === 'en' ? g.count : `${g.count}회`}
+                      </span>
+                      <span className="w-11 text-right text-sm tabular-nums text-[var(--muted)]">
+                        {hourTotal > 0 ? `${Math.round((g.count / hourTotal) * 100)}%` : ''}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>
         </LazyMount>
       )}
@@ -548,8 +651,8 @@ export default function StatsCharts() {
       <LazyMount minHeight={420}>
       <div className="card p-5">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-bold text-[var(--foreground)]">{tt('기간별 상세 통계')}</h3>
-          <Link href="/history" className="text-xs font-bold text-emerald-600 inline-flex items-center gap-0.5 active:scale-95 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30">
+          <h3 className="text-xl font-extrabold text-[var(--foreground)]">{tt('기간별 상세 통계')}</h3>
+          <Link href="/history" className="text-sm font-bold text-emerald-600 inline-flex items-center gap-0.5 active:scale-95 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30">
             {tt('히스토리')} <ChevronRight size={12} />
           </Link>
         </div>
@@ -584,7 +687,7 @@ export default function StatsCharts() {
               '전년'
             );
             return (
-              <p className={`text-sm mt-1 font-semibold ${color}`}>
+              <p className={`text-base mt-1 font-semibold ${color}`}>
                 {periodLabel} {sign}{toDisplayDistance(diff, unit).toFixed(1)}{unitLabel(unit)} ({sign}{pct.toFixed(0)}%)
               </p>
             );
@@ -596,7 +699,7 @@ export default function StatsCharts() {
             <button
               key={opt.id}
               onClick={() => setPeriodMode(opt.id)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-base font-bold whitespace-nowrap transition-all ${
                 periodMode === opt.id ? 'bg-[var(--accent)] text-white' : 'bg-[var(--card-border)]/50 text-[var(--muted)]'
               }`}
             >
@@ -608,7 +711,7 @@ export default function StatsCharts() {
         <div className="flex gap-2 mb-3">
           <button
             onClick={() => setChartType('bar')}
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-semibold ${
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-base font-bold ${
               chartType === 'bar' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--card-border)]/50 text-[var(--muted)]'
             }`}
           >
@@ -616,7 +719,7 @@ export default function StatsCharts() {
           </button>
           <button
             onClick={() => setChartType('line')}
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-semibold ${
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-base font-bold ${
               chartType === 'line' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--card-border)]/50 text-[var(--muted)]'
             }`}
           >
@@ -639,10 +742,10 @@ export default function StatsCharts() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: chartStyle.tickFontSize, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: chartStyle.tickFontSize, fill: 'var(--muted)' }} unit="km" axisLine={false} tickLine={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 13, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 13, fill: 'var(--muted)' }} unit="km" axisLine={false} tickLine={false} />
                 <Tooltip
-                  contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 13 }}
+                  contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 15 }}
                   formatter={(value) => [`${value}km`]}
                   cursor={{ fill: 'var(--card-border)', opacity: 0.3 }}
                 />
@@ -661,10 +764,10 @@ export default function StatsCharts() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: chartStyle.tickFontSize, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: chartStyle.tickFontSize, fill: 'var(--muted)' }} unit="km" axisLine={false} tickLine={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 13, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 13, fill: 'var(--muted)' }} unit="km" axisLine={false} tickLine={false} />
                 <Tooltip
-                  contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 13 }}
+                  contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 15 }}
                   formatter={(value) => [`${value}km`]}
                 />
                 {hasDetailPrev && (
