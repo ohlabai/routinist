@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
 import PullToRefresh from '@/components/PullToRefresh';
-import { PixelMarchStrip } from '@/components/PixelSprite';
 import {
   getWeeklyStreak,
   getMaxWeeklyStreak,
@@ -52,20 +51,16 @@ import {
 import { useDistanceUnit, toDisplayDistance, unitLabel, paceUnitLabel, formatPaceForUnit } from '@/lib/units';
 
 
-// 홈 그룹 라벨 v3 (2026-07-30 hans 2차): 구분 단락에서 동물들이 줄 서서 아주 천천히
-// 행진 — 최상단 퍼레이드는 산만해서 제거하고 여기로. phase 로 섹션마다 대열 위치를
-// 어긋나게 (같은 동물이 여러 단락에 동시에 안 보이게).
-function SectionLabel({ children, en, phase = 0 }: { children: React.ReactNode; en?: string; phase?: number }) {
+// 홈 그룹 라벨 v4 (2026-08-01 hans): 동물 행진 제거 ("정신없고 산만") — 미니멀로.
+// 작은 캡스 라벨 + DAY/WEEK/MONTH 서브라벨 + 헤어라인. 움직이는 요소 없음.
+function SectionLabel({ children, en }: { children: React.ReactNode; en?: string }) {
   return (
-    <div className="px-5 pt-6 pb-1 flex items-center gap-2.5">
-      <p className="text-[11px] font-extrabold tracking-[0.18em] uppercase text-[var(--muted)]/80 whitespace-nowrap shrink-0">
+    <div className="px-5 pt-7 pb-1.5 flex items-center gap-2.5">
+      <p className="text-[11px] font-extrabold tracking-[0.18em] uppercase text-[var(--muted)]/75 whitespace-nowrap">
         {children}
-        {en && <span className="ml-1.5 text-[var(--muted)]/45">{en}</span>}
+        {en && <span className="ml-1.5 font-bold text-[var(--muted)]/40">{en}</span>}
       </p>
-      <div className="flex-1 min-w-0 relative">
-        <PixelMarchStrip height={13} phaseSec={phase} className="opacity-80" />
-        <div className="absolute bottom-0 inset-x-0 h-px bg-[var(--card-border)]/60" />
-      </div>
+      <div className="flex-1 h-px bg-[var(--card-border)]/60" />
     </div>
   );
 }
@@ -471,7 +466,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ── 오늘 ── (2026-07-30 hans: day/week/month 구분 강화) */}
-        <SectionLabel en="DAY" phase={0}>{tt('오늘')}</SectionLabel>
+        <SectionLabel en="DAY">{tt('오늘')}</SectionLabel>
         {/* 5 오늘/이달 stats. build 154: activities 로딩 중엔 "0.0" 대신 dim 점 표시.
             build 260: 4-column → 2×2 grid 로 재구성. 한 칸만 text-2xl 로 작아져 어색했던 문제 해결.
             모든 셀 text-3xl 통일, 셀 너비 2배 → 페이스 "48'50" 자릿수 안전. 좌우 대칭 정돈.
@@ -525,7 +520,7 @@ export default function DashboardPage() {
         </>)}
 
         {/* ── 이번 주 ── */}
-        <SectionLabel en="WEEK" phase={14}>{tt('이번 주')}</SectionLabel>
+        <SectionLabel en="WEEK">{tt('이번 주')}</SectionLabel>
         {/* Phase A: 스트릭 경고를 주간 목표 카드 바로 위로 — 주간 정보 그룹핑 (경고+목표+스트릭) */}
         {!isNewRunner && (
           <div className="mx-4">
@@ -557,7 +552,7 @@ export default function DashboardPage() {
         </>)}
 
         {/* ── 이번 달 ── */}
-        <SectionLabel en="MONTH" phase={28}>{tt('이번 달')}</SectionLabel>
+        <SectionLabel en="MONTH">{tt('이번 달')}</SectionLabel>
         {/* 6.1 이달 목표 */}
         <div className={`mx-4 card p-5 relative overflow-hidden ${goalKm > 0 && goalProgress >= 100 ? 'goal-achieved' : ''}`}>
           {goalKm > 0 && goalProgress >= 100 && (
@@ -640,7 +635,7 @@ export default function DashboardPage() {
 
         {!isNewRunner && (<>
         {/* ── 함께 달리기 ── (경쟁허브·우승자맞히기는 이번 주로, BestRun 은 오늘로 이동) */}
-        <SectionLabel en="TOGETHER" phase={42}>{tt('함께 달리기')}</SectionLabel>
+        <SectionLabel en="TOGETHER">{tt('함께 달리기')}</SectionLabel>
         {secondaryMounted && <HomeFriendStories />}
         {/* 10 지역 미설정 배너 (조건부) */}
         {profile && !profile.region_gu && !profile.country_code && (
@@ -657,7 +652,7 @@ export default function DashboardPage() {
         )}
 
         {/* ── 내 기록 ── */}
-        <SectionLabel en="MY RECORDS" phase={56}>{tt('내 기록')}</SectionLabel>
+        <SectionLabel en="MY RECORDS">{tt('내 기록')}</SectionLabel>
         {/* 미니맵 — LazyMount 없이 즉시 (사용자 신고: "지도 안 보임") */}
         <HomeMapPreview />
         <LazyMount minHeight={140} rootMargin="300px"><OnThisDayCard /></LazyMount>

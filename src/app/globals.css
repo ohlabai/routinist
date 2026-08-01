@@ -81,6 +81,12 @@ body {
   border-radius: 20px;
   padding: 20px;
   transition: background-color 0.3s, border-color 0.3s;
+  /* 2026-08-01 세련화: 라이트 모드에 아주 은은한 레이어드 그림자 — 보더 의존을 줄이고
+     깊이감으로 위계 표현 (최신 iOS 카드 문법). 다크 모드는 그림자가 탁해져 제외. */
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 4px 14px -8px rgb(15 23 42 / 0.08);
+}
+.dark .card {
+  box-shadow: none;
 }
 
 /* Recharts 반응형 텍스트 — build 67: 가독성 살짝 업 */
