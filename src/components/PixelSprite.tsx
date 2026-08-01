@@ -3,10 +3,13 @@
 /**
  * 잔디 픽셀 스프라이트 렌더러 — 워치 퍼레이드(PixelParade.swift)와 동일 그리드 데이터.
  * AppLogo.tsx 의 SVG rect 방식을 따른다. 데이터 원본: src/lib/pixel-sprites.ts (코드젠).
+ *
+ * 2026-08-01 hans: 모바일 UI 에서 "걸어다니는 동물" 전면 제거 ("정신없고 산만") —
+ * 애니메이션 컴포넌트 (PixelRunnerAnimated·PixelParadeStrip·PixelMarchStrip·PixelRunnerLoader) 삭제.
+ * 동물은 정지 배지로만 사용 (페이스 동물 등). 움직이는 동물 재제안 금지.
  */
 
-import { useEffect, useState } from 'react';
-import { PIXEL_RUNNERS, PIXEL_RUNNER_BY_NAME, type PixelRunnerDef, type SpriteGrid } from '@/lib/pixel-sprites';
+import { PIXEL_RUNNERS, PIXEL_RUNNER_BY_NAME, type SpriteGrid } from '@/lib/pixel-sprites';
 
 const COLORS: Record<number, string> = {
   1: '#4ade80',
@@ -52,8 +55,8 @@ export function PixelSprite({
   );
 }
 
-/** 제자리 달리기 — 2프레임 다리 교차 (legEvery × 120ms 주기, 동물별 템포) */
-export function PixelRunnerAnimated({
+/** 이름으로 정지 스프라이트 — 페이스 동물 배지 등 (공유카드 캔버스와 동일 프레임 0) */
+export function PixelRunnerStatic({
   name,
   height = 40,
   className = '',
@@ -63,131 +66,5 @@ export function PixelRunnerAnimated({
   className?: string;
 }) {
   const runner = PIXEL_RUNNER_BY_NAME[name] ?? PIXEL_RUNNERS[0];
-  const [frame, setFrame] = useState(0);
-
-  useEffect(() => {
-    const ms = Math.max(1, runner.legEvery) * 120;
-    const id = setInterval(() => setFrame((f) => (f + 1) % 2), ms);
-    return () => clearInterval(id);
-  }, [runner]);
-
-  const hop = runner.bounce === 1 && frame === 0 ? -height * 0.08 : 0;
-  return (
-    <span style={{ display: 'inline-block', transform: `translateY(${hop}px)`, transition: 'transform 0.12s linear' }}>
-      <PixelSprite grid={runner.frames[frame]} height={height} className={className} />
-    </span>
-  );
-}
-
-/**
- * 퍼레이드 띠 — 워치 시작 버튼과 동일 컨셉: 남자→여자→…→말 이 차례로 화면을 가로질러 달림.
- * CSS transform 애니메이션 1마리씩, animation 종료 시 다음 러너로 교체.
- */
-export function PixelParadeStrip({
-  height = 34,
-  className = '',
-}: {
-  height?: number;
-  className?: string;
-}) {
-  const [idx, setIdx] = useState(() => Math.floor(Math.random() * PIXEL_RUNNERS.length));
-  const runner = PIXEL_RUNNERS[idx];
-  // 워치와 동일 감각: stepCells 가 클수록 빨리 가로지름 (치타 ~2s, 거북이 ~8s)
-  const duration = 7 / runner.stepCells;
-
-  return (
-    <div className={`relative overflow-hidden ${className}`} style={{ height }} aria-hidden>
-      {/* 바닥 잔디 지면 라인 */}
-      <div
-        className="absolute bottom-0 left-0 right-0"
-        style={{
-          height: Math.max(2, height * 0.07),
-          backgroundImage: 'repeating-linear-gradient(90deg, rgba(22,163,74,0.45) 0 6px, transparent 6px 11px)',
-        }}
-      />
-      <div
-        key={idx}
-        className="absolute bottom-0 will-change-transform"
-        style={{
-          paddingBottom: Math.max(2, height * 0.07),
-          animation: `pixel-parade-run ${duration}s linear`,
-          left: 0,
-        }}
-        onAnimationEnd={() => setIdx((i) => (i + 1) % PIXEL_RUNNERS.length)}
-      >
-        <PixelRunnerAnimated name={runner.name} height={height * 0.86} />
-      </div>
-    </div>
-  );
-}
-
-/** 두 프레임 다리 교차를 CSS 로만 — 타이머 없이 저비용 (행렬용 느린 템포 0.6s) */
-function MarchRunner({ name, height }: { name: string; height: number }) {
-  const runner = PIXEL_RUNNER_BY_NAME[name];
-  if (!runner) return null;
-  return (
-    <span className="relative inline-block align-bottom" style={{ height }}>
-      <span style={{ animation: 'pixel-legs-a 0.6s steps(1) infinite' }} className="block">
-        <PixelSprite grid={runner.frames[0]} height={height} />
-      </span>
-      <span
-        className="absolute left-0 top-0"
-        style={{ animation: 'pixel-legs-b 0.6s steps(1) infinite' }}
-      >
-        <PixelSprite grid={runner.frames[1]} height={height} />
-      </span>
-    </span>
-  );
-}
-
-/**
- * 느린 픽셀 행진 (2026-07-30 hans): 동물들이 줄 서서 아주 천천히 차례차례 걸어간다.
- * 홈 섹션 구분 단락용 — 산만하지 않게 균일·저속 (한 바퀴 ~70s), CSS 애니메이션만 사용.
- * phaseSec 로 섹션마다 시작 지점을 어긋나게 해 같은 동물이 동시에 보이지 않게.
- */
-export function PixelMarchStrip({
-  height = 14,
-  phaseSec = 0,
-  className = '',
-}: {
-  height?: number;
-  phaseSec?: number;
-  className?: string;
-}) {
-  const row = (key: string) => (
-    <span key={key} className="inline-flex items-end shrink-0" style={{ gap: height * 0.9 }}>
-      {PIXEL_RUNNERS.map((r) => (
-        <MarchRunner key={`${key}-${r.name}`} name={r.name} height={height} />
-      ))}
-      {/* 대열 끝과 처음 사이 간격 (이음새) */}
-      <span style={{ width: height * 0.9 }} />
-    </span>
-  );
-  return (
-    <div className={`relative overflow-hidden ${className}`} style={{ height: height + 2 }} aria-hidden>
-      <div
-        className="absolute bottom-0 left-0 inline-flex items-end will-change-transform"
-        style={{ animation: `pixel-march 70s linear infinite`, animationDelay: `-${phaseSec}s` }}
-      >
-        {row('a')}
-        {row('b')}
-      </div>
-    </div>
-  );
-}
-
-/** 달려가는 로딩 인디케이터 — 스피너 대체용. 렌더마다 랜덤 동물 */
-export function PixelRunnerLoader({
-  height = 28,
-  className = '',
-}: {
-  height?: number;
-  className?: string;
-}) {
-  const [name] = useState(() => PIXEL_RUNNERS[Math.floor(Math.random() * PIXEL_RUNNERS.length)].name);
-  return (
-    <span className={`inline-flex items-end gap-0 ${className}`}>
-      <PixelRunnerAnimated name={name} height={height} />
-    </span>
-  );
+  return <PixelSprite grid={runner.frames[0]} height={height} className={className} />;
 }

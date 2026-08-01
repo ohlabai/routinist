@@ -20,7 +20,7 @@ import { syncPBsFromActivity } from '@/lib/best-splits';
 import { correctDistanceWithHealthKit, isLiveDistanceAvailable } from '@/lib/live-distance';
 import { useI18n } from '@/lib/i18n';
 import { paceAnimal } from '@/lib/pace-animal';
-import { PixelRunnerAnimated } from '@/components/PixelSprite';
+import { PixelRunnerStatic } from '@/components/PixelSprite';
 import { logClientInfo, logClientWarn } from '@/lib/error-logger';
 
 interface Props {
@@ -328,10 +328,10 @@ export default function TrackSummarySheet({ finalState, userId, nativeEngine, on
                 <p className="text-2xl font-extrabold tabular-nums">{formatPace(avgPaceSec)}</p>
               </div>
             </div>
-            {/* 페이스 동물 배지 — 잔디 픽셀 동물이 오늘의 페이스를 축하 (워치 퍼레이드와 세트) */}
+            {/* 페이스 동물 배지 — 정지 스프라이트 (2026-08-01 hans: 움직이는 동물 금지) */}
             {avgPaceSec != null && avgPaceSec > 0 && (
               <div className="mt-4 pt-3 border-t border-emerald-500/10 flex items-center justify-center gap-2.5">
-                <PixelRunnerAnimated name={paceAnimal(avgPaceSec).name} height={28} />
+                <PixelRunnerStatic name={paceAnimal(avgPaceSec).name} height={28} />
                 <p className="text-sm font-bold text-emerald-600">{tt(paceAnimal(avgPaceSec).copy)}</p>
               </div>
             )}

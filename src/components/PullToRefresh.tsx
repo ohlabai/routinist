@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { PixelRunnerLoader } from '@/components/PixelSprite';
 
 interface Props {
   onRefresh: () => Promise<void>;
@@ -94,8 +93,17 @@ export default function PullToRefresh({ onRefresh, children }: Props) {
       >
         {refreshing ? (
           <div className="flex flex-col items-center gap-1.5">
-            {/* 잔디 픽셀 동물이 제자리 달리기 — 스피너 대체 (매번 랜덤 동물) */}
-            <PixelRunnerLoader height={26} />
+            {/* 미니멀 링 스피너 — 풀 진행 링과 동일한 시각 언어 (2026-08-01: 동물 로더 제거) */}
+            <svg viewBox="0 0 36 36" className="w-7 h-7 animate-spin">
+              <circle cx="18" cy="18" r="15" fill="none"
+                      stroke="currentColor" strokeWidth="3"
+                      className="text-emerald-100 dark:text-emerald-950/50" />
+              <circle cx="18" cy="18" r="15" fill="none"
+                      stroke="currentColor" strokeWidth="3"
+                      strokeDasharray="28 66.2"
+                      strokeLinecap="round"
+                      className="text-emerald-500" />
+            </svg>
             <span className="text-xs font-medium text-emerald-600">새로고침 중…</span>
           </div>
         ) : pullDistance > 0 ? (

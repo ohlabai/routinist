@@ -45,7 +45,7 @@ import FreshnessBadge from '@/components/FreshnessBadge';
 import AppToast from '@/components/AppToast';
 import Link from 'next/link';
 import {
-  ChevronRight, Flag, MapPin, Zap,
+  ChevronRight, MapPin, Zap,
   BarChart3,
 } from 'lucide-react';
 import { useDistanceUnit, toDisplayDistance, unitLabel, paceUnitLabel, formatPaceForUnit } from '@/lib/units';
@@ -472,20 +472,21 @@ export default function DashboardPage() {
             모든 셀 text-3xl 통일, 셀 너비 2배 → 페이스 "48'50" 자릿수 안전. 좌우 대칭 정돈.
             행 사이 구분선 (divide-y) 으로 시각적 그루핑 (오늘 vs 이달). */}
         <div className="mx-4 card p-5">
-          <div className="grid grid-cols-2 gap-x-6 divide-y divide-[var(--card-border)]/40 text-center tabular-nums">
+          {/* divide-y 는 grid 에서 2번 셀(우상단)에도 윗선을 그림 — 아래 행에만 명시적 border-t */}
+          <div className="grid grid-cols-2 gap-x-6 text-center tabular-nums">
             <div className="pb-4 min-w-0">
               {userDataLoading && activities.length === 0 ? (
-                <p className="text-3xl font-extrabold text-[var(--accent)] opacity-30">···</p>
+                <p className="text-3xl font-extrabold tracking-tight text-[var(--accent)] opacity-30">···</p>
               ) : (
-                <p className="text-3xl font-extrabold text-[var(--accent)]">{toDisplayDistance(todayKm, unit).toFixed(1)}</p>
+                <p className="text-3xl font-extrabold tracking-tight text-[var(--accent)]">{toDisplayDistance(todayKm, unit).toFixed(1)}</p>
               )}
               <p className="text-sm font-medium text-[var(--muted)] mt-1">{t('home.todayKm').replace(/km$/, unitLabel(unit))}</p>
             </div>
             <div className="pb-4 min-w-0">
               {userDataLoading && activities.length === 0 ? (
-                <p className="text-3xl font-extrabold text-[var(--foreground)] opacity-30">···</p>
+                <p className="text-3xl font-extrabold tracking-tight text-[var(--foreground)] opacity-30">···</p>
               ) : (
-                <p className="text-3xl font-extrabold text-[var(--foreground)]">
+                <p className="text-3xl font-extrabold tracking-tight text-[var(--foreground)]">
                   {todayPaceSec ? formatPaceForUnit(todayPaceSec, unit) : recentPace ? formatPaceForUnit(recentPace.pace, unit) : '-'}
                 </p>
               )}
@@ -493,19 +494,21 @@ export default function DashboardPage() {
                 {todayPaceSec ? t('home.todayPace') : recentPace ? t('home.recentPace') : t('home.todayPace')}
               </p>
             </div>
-            <div className="pt-4 min-w-0">
+            {/* 2026-08-01 세련화: 셀마다 다른 색 (green/lime) → 오늘 거리만 emerald, 나머지 중립.
+                색은 위계 신호 하나로 절제 — 최신 미니멀 문법. */}
+            <div className="pt-4 min-w-0 border-t border-[var(--card-border)]/40">
               {userDataLoading && activities.length === 0 && !profileMonthCacheValid ? (
-                <p className="text-3xl font-extrabold text-green-600 opacity-30">···</p>
+                <p className="text-3xl font-extrabold tracking-tight text-[var(--foreground)] opacity-30">···</p>
               ) : (
-                <p className="text-3xl font-extrabold text-green-600">{toDisplayDistance(monthlyDistance, unit).toFixed(1)}</p>
+                <p className="text-3xl font-extrabold tracking-tight text-[var(--foreground)]">{toDisplayDistance(monthlyDistance, unit).toFixed(1)}</p>
               )}
               <p className="text-sm font-medium text-[var(--muted)] mt-1">{t('home.monthKm').replace(/km$/, unitLabel(unit))}</p>
             </div>
-            <div className="pt-4 min-w-0">
+            <div className="pt-4 min-w-0 border-t border-[var(--card-border)]/40">
               {userDataLoading && activities.length === 0 && !profileMonthCacheValid ? (
-                <p className="text-3xl font-extrabold text-lime-600 dark:text-lime-500 opacity-30">···</p>
+                <p className="text-3xl font-extrabold tracking-tight text-[var(--foreground)] opacity-30">···</p>
               ) : (
-                <p className="text-3xl font-extrabold text-lime-600 dark:text-lime-500">{monthlyRunDays}</p>
+                <p className="text-3xl font-extrabold tracking-tight text-[var(--foreground)]">{monthlyRunDays}</p>
               )}
               <p className="text-sm font-medium text-[var(--muted)] mt-1">{t('home.monthDays')}</p>
             </div>
@@ -567,24 +570,25 @@ export default function DashboardPage() {
             </div>
             {goalKm > 0 ? (
               <>
-                <div className="bg-[var(--card-border)] rounded-full h-5 overflow-hidden relative mb-2">
+                {/* 2026-08-01 세련화: 굵은 바 안 흰 글씨·깃발 아이콘 → 큰 % 숫자 + 얇은 바.
+                    파란 그라데이션은 브랜드 밖 색이라 emerald 단일 그라데이션으로. */}
+                <div className="flex items-baseline justify-between mb-2">
+                  <p className="text-2xl font-extrabold tracking-tight tabular-nums text-[var(--accent)]">
+                    {goalProgress.toFixed(0)}<span className="text-base font-bold">%</span>
+                  </p>
+                  <span className="text-xs text-[var(--muted)]" dangerouslySetInnerHTML={{
+                    __html: t('home.goalLabel').replace('{km}', `<span class='font-semibold text-[var(--foreground)]'>${goalKm}km</span>`)
+                  }} />
+                </div>
+                <div className="bg-[var(--card-border)]/60 rounded-full h-2.5 overflow-hidden mb-2">
                   <div
-                    className={`h-full rounded-full transition-all duration-1000 ease-out relative ${
+                    className={`h-full rounded-full transition-all duration-1000 ease-out ${
                       goalProgress >= 100
-                        ? 'bg-gradient-to-r from-green-400 to-green-500'
-                        : 'bg-gradient-to-r from-[var(--accent)] to-blue-400'
+                        ? 'bg-gradient-to-r from-emerald-400 to-emerald-500'
+                        : 'bg-gradient-to-r from-emerald-500 to-emerald-400'
                     }`}
                     style={{ width: `${goalProgress}%` }}
-                  >
-                    {goalProgress > 10 && (
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-base font-bold text-white">
-                        {goalProgress.toFixed(0)}%
-                      </span>
-                    )}
-                  </div>
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                    <Flag size={10} className={goalProgress >= 100 ? 'text-green-500' : 'text-[var(--muted)]'} />
-                  </div>
+                  />
                 </div>
                 {goalProgress >= 100 ? (
                   <div className="mt-2 flex items-center justify-center gap-1 text-green-600 font-bold">
@@ -595,12 +599,9 @@ export default function DashboardPage() {
                     <span className="confetti-emoji">🎊</span>
                   </div>
                 ) : (
-                  <div className="flex justify-between items-center text-xs text-[var(--muted)]">
-                    <span dangerouslySetInnerHTML={{
-                      __html: t('home.goalLabel').replace('{km}', `<span class='font-semibold text-[var(--foreground)]'>${goalKm}km</span>`)
-                    }} />
-                    <span>{t('home.goalRemaining').replace('{remain}', goalRemaining.toFixed(1)).replace('{daily}', dailyNeeded.toFixed(1))}</span>
-                  </div>
+                  <p className="text-xs text-[var(--muted)] text-right">
+                    {t('home.goalRemaining').replace('{remain}', goalRemaining.toFixed(1)).replace('{daily}', dailyNeeded.toFixed(1))}
+                  </p>
                 )}
               </>
             ) : (
@@ -661,7 +662,8 @@ export default function DashboardPage() {
       {/* ========== ② 통계 차트 묶음 ==========
           16 스트릭 → 17 PB → 18 일별30일 → 19 12주 → 20 페이스 → 21 요일 → 22 시간대
           → 23 기간별 상세 (+히스토리 링크) → 24 요약 4칩 → 25 최근 활동 */}
-      <div className="p-4 space-y-4">
+      {/* 상단 그룹(space-y-3)과 리듬 통일 */}
+      <div className="p-4 pt-3 space-y-3">
 
       {/* 신규 러너 모드에선 16~24 (스트릭·PB·차트류·요약칩) 스킵 — 25 최근 활동만 렌더 */}
       {!isNewRunner && (<>
@@ -717,7 +719,7 @@ export default function DashboardPage() {
               <Link
                 key={a.id}
                 href={`/activity?id=${a.id}`}
-                className="flex items-center gap-3 p-3 rounded-xl hover:bg-[var(--card-border)]/50 transition-colors"
+                className="flex items-center gap-3 p-3 rounded-xl hover:bg-[var(--card-border)]/50 active:bg-[var(--card-border)]/40 transition-colors"
               >
                 <div className="w-9 h-9 rounded-lg bg-[var(--accent)]/10 flex items-center justify-center text-[var(--accent)]">
                   {a.source === 'gps' ? <MapPin size={16} /> : <Zap size={16} />}
