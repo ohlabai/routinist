@@ -16,6 +16,7 @@ import type { Activity } from '@/types';
 import CommentSection from '@/components/social/CommentSection';
 import CheerButton from '@/components/social/CheerButton';
 import ShareCard from '@/components/activity/ShareCard';
+import HrZonesCard from '@/components/activity/HrZonesCard';
 import BestSplitsCard from '@/components/activity/BestSplitsCard';
 import KmSplitsCard from '@/components/activity/KmSplitsCard';
 import { Share2, Sparkles } from 'lucide-react';
@@ -313,6 +314,9 @@ function ActivityDetail() {
           </div>
         )}
       </div>
+
+      {/* 심박존 Zone1~5 (회원 요청, 2026-08-01) — 데이터 있을 때만 렌더 (내부 게이트) */}
+      {activity.activity_type !== 'walking' && <HrZonesCard activity={activity} />}
 
       {/* 2026-07-19: 구간별 페이스 — 완주 요약 시트 직행 전환으로 시트의 km splits 를 이관. */}
       {activity.route_data && activity.activity_type === 'running' && (

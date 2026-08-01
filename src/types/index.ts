@@ -132,6 +132,8 @@ export interface Activity {
   heart_rate_max?: number | null;
   active_energy_kcal?: number | null;
   activity_type?: 'running' | 'walking' | null;
+  // 심박존 Zone1~5 (2026-08-01, 회원 요청) — 존별 체류 초. 클라이언트(HK)가 계산·캐시.
+  hr_zones?: { z: number[]; max_hr: number; src?: string; computed_at?: string } | null;
 }
 
 export interface UserMonthlyGoal {

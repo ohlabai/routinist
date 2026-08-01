@@ -40,6 +40,7 @@ import RunOfTheDayCard from '@/components/home/RunOfTheDayCard';
 import MonthlyRivalCard from '@/components/home/MonthlyRivalCard';
 import BadgeCelebration from '@/components/home/BadgeCelebration';
 import HomeFriendStories from '@/components/home/HomeFriendStories';
+import HomeStatsGlance from '@/components/home/HomeStatsGlance';
 import CompetitionHub from '@/components/home/CompetitionHub';
 import FreshnessBadge from '@/components/FreshnessBadge';
 import AppToast from '@/components/AppToast';
@@ -656,6 +657,9 @@ export default function DashboardPage() {
         <SectionLabel en="MY RECORDS">{tt('내 기록')}</SectionLabel>
         {/* 미니맵 — LazyMount 없이 즉시 (사용자 신고: "지도 안 보임") */}
         <HomeMapPreview />
+        {/* 2026-08-01 (hans): 그래프 복원 — 30일 추이·요일 패턴은 홈에서 바로.
+            서버 조회 없음 (activities 로컬 계산). 깊은 분석은 아래 /stats 진입 카드. */}
+        <LazyMount minHeight={200} rootMargin="300px"><HomeStatsGlance /></LazyMount>
         <LazyMount minHeight={140} rootMargin="300px"><OnThisDayCard /></LazyMount>
         </>)}
       </div>

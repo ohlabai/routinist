@@ -268,7 +268,7 @@ export default function StatsCharts() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Trophy size={16} className="text-yellow-500" />
-              <h3 className="text-base font-semibold text-[var(--foreground)]">{tt('개인 베스트')}</h3>
+              <h3 className="text-lg font-bold text-[var(--foreground)]">{tt('개인 베스트')}</h3>
             </div>
             <div className="flex items-center gap-1 bg-[var(--card-border)]/30 rounded-lg p-0.5">
               <button
@@ -291,28 +291,28 @@ export default function StatsCharts() {
             <div className="grid grid-cols-2 gap-3">
               {pb.longestRun && (
                 <div className="bg-[var(--card-border)]/30 rounded-xl p-3">
-                  <p className="text-xs text-[var(--muted)] mb-1">{tt('최장 거리')}</p>
+                  <p className="text-sm text-[var(--muted)] mb-1">{tt('최장 거리')}</p>
                   <p className="text-2xl font-extrabold text-[var(--foreground)]">{toDisplayDistance(pb.longestRun.distance_km, unit).toFixed(2)}{unitLabel(unit)}</p>
                   <p className="text-xs text-[var(--muted)]">{pb.longestRun.date}</p>
                 </div>
               )}
               {pb.fastestPace && (
                 <div className="bg-[var(--card-border)]/30 rounded-xl p-3">
-                  <p className="text-xs text-[var(--muted)] mb-1">{tt('최빠 페이스')}</p>
+                  <p className="text-sm text-[var(--muted)] mb-1">{tt('최빠 페이스')}</p>
                   <p className="text-2xl font-extrabold text-[var(--foreground)]">{formatPaceForUnit(pb.fastestPace.pace, unit)}{paceUnitLabel(unit)}</p>
                   <p className="text-xs text-[var(--muted)]">{pb.fastestPace.date} ({toDisplayDistance(pb.fastestPace.distance_km, unit).toFixed(1)}{unitLabel(unit)})</p>
                 </div>
               )}
               {pb.longestDuration && (
                 <div className="bg-[var(--card-border)]/30 rounded-xl p-3">
-                  <p className="text-xs text-[var(--muted)] mb-1">{tt('최장 시간')}</p>
+                  <p className="text-sm text-[var(--muted)] mb-1">{tt('최장 시간')}</p>
                   <p className="text-2xl font-extrabold text-[var(--foreground)]">{formatDuration(pb.longestDuration.duration)}</p>
                   <p className="text-xs text-[var(--muted)]">{pb.longestDuration.date}</p>
                 </div>
               )}
               {pb.mostCalories && pb.mostCalories.calories > 0 && (
                 <div className="bg-[var(--card-border)]/30 rounded-xl p-3">
-                  <p className="text-xs text-[var(--muted)] mb-1">{tt('최다 칼로리')}</p>
+                  <p className="text-sm text-[var(--muted)] mb-1">{tt('최다 칼로리')}</p>
                   <p className="text-2xl font-extrabold text-[var(--foreground)]">{pb.mostCalories.calories}kcal</p>
                   <p className="text-xs text-[var(--muted)]">{pb.mostCalories.date}</p>
                 </div>
@@ -328,8 +328,8 @@ export default function StatsCharts() {
       <LazyMount minHeight={260}>
       <div className="card p-5">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-base font-semibold text-[var(--foreground)]">{tt('일별 거리 추이')}</h3>
-          <span className="text-xs text-[var(--muted)]">{locale === 'en' ? `Last 30 days · ${daily30Total.toFixed(1)}km total` : `최근 30일 · 총 ${daily30Total.toFixed(1)}km`}</span>
+          <h3 className="text-lg font-bold text-[var(--foreground)]">{tt('일별 거리 추이')}</h3>
+          <span className="text-sm text-[var(--muted)]">{locale === 'en' ? `Last 30 days · ${daily30Total.toFixed(1)}km total` : `최근 30일 · 총 ${daily30Total.toFixed(1)}km`}</span>
         </div>
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={dailyData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
@@ -342,7 +342,7 @@ export default function StatsCharts() {
             <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" vertical={false} />
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 10, fill: 'var(--muted)' }}
+              tick={{ fontSize: 12, fill: 'var(--muted)' }}
               axisLine={false}
               tickLine={false}
               interval={4}
@@ -364,7 +364,7 @@ export default function StatsCharts() {
         <LazyMount minHeight={240}>
         <div className="card p-5">
           <div className="flex items-baseline justify-between mb-3">
-            <h3 className="text-base font-bold text-[var(--foreground)]">{tt('최근 12주 러닝')}</h3>
+            <h3 className="text-lg font-bold text-[var(--foreground)]">{tt('최근 12주 러닝')}</h3>
             {(() => {
               const nowMs = Date.now();
               const _12wMs = 12 * 7 * 24 * 60 * 60 * 1000;
@@ -399,8 +399,8 @@ export default function StatsCharts() {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 12, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 12, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
               <Tooltip
                 contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 12 }}
                 formatter={(value) => [`${value}km`]}
@@ -417,7 +417,7 @@ export default function StatsCharts() {
       {paceTrend.some(p => p.avgPace !== null) && (
         <LazyMount minHeight={260}>
         <div className="card p-5">
-          <h3 className="text-base font-bold text-[var(--foreground)] mb-3">{tt('페이스 추이 (최근 12개월)')}</h3>
+          <h3 className="text-lg font-bold text-[var(--foreground)] mb-3">{tt('페이스 추이 (최근 12개월)')}</h3>
           <ResponsiveContainer width="100%" height={180}>
             <AreaChart data={paceTrend.filter(p => p.avgPace !== null)} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
               <defs>
@@ -427,9 +427,9 @@ export default function StatsCharts() {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="month" tick={{ fontSize: 12, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
               <YAxis
-                tick={{ fontSize: 11, fill: 'var(--muted)' }}
+                tick={{ fontSize: 12, fill: 'var(--muted)' }}
                 reversed
                 domain={['dataMin - 20', 'dataMax + 20']}
                 tickFormatter={(v: number) => `${Math.floor(v / 60)}'${String(Math.round(v % 60)).padStart(2, '0')}"`}
@@ -442,7 +442,7 @@ export default function StatsCharts() {
               <Area type="monotone" dataKey="avgPace" stroke="#10B981" strokeWidth={2.5} fill="url(#statsPaceGrad)" dot={{ r: 4, fill: '#10B981' }} animationDuration={chartStyle.animationDuration} />
             </AreaChart>
           </ResponsiveContainer>
-          <p className="text-xs text-[var(--muted)] mt-2 text-center">{tt('위로 갈수록 빠른 페이스')}</p>
+          <p className="text-sm text-[var(--muted)] mt-2 text-center">{tt('위로 갈수록 빠른 페이스')}</p>
         </div>
         </LazyMount>
       )}
@@ -454,7 +454,7 @@ export default function StatsCharts() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Calendar size={16} className="text-blue-500" />
-              <h3 className="text-base font-semibold text-[var(--foreground)]">{tt('요일별 러닝 패턴')}</h3>
+              <h3 className="text-lg font-bold text-[var(--foreground)]">{tt('요일별 러닝 패턴')}</h3>
             </div>
             <div className="flex items-center gap-1 bg-[var(--card-border)]/30 rounded-lg p-0.5">
               <button
@@ -467,7 +467,7 @@ export default function StatsCharts() {
               >{tt('누적')}</button>
             </div>
           </div>
-          <p className="text-xs text-[var(--muted)] mb-3">
+          <p className="text-sm text-[var(--muted)] mb-3">
             {locale === 'en' ? (
               <>You mostly run on <span className="font-semibold text-[var(--accent)]">{maxDay.day}</span> ({maxDay.runCount} runs)</>
             ) : (
@@ -485,7 +485,7 @@ export default function StatsCharts() {
             {dayStats.map(d => (
               <div key={d.day}>
                 <p className="text-xs text-[var(--muted)]">{d.day}</p>
-                <p className="text-base font-bold text-[var(--foreground)]">{d.runCount}</p>
+                <p className="text-lg font-extrabold text-[var(--foreground)]">{d.runCount}</p>
                 <p className="text-xs text-[var(--muted)]">{d.avgDistance}km</p>
               </div>
             ))}
@@ -501,7 +501,7 @@ export default function StatsCharts() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Clock size={16} className="text-orange-500" />
-              <h3 className="text-base font-semibold text-[var(--foreground)]">{tt('시간대별 러닝 분포')}</h3>
+              <h3 className="text-lg font-bold text-[var(--foreground)]">{tt('시간대별 러닝 분포')}</h3>
             </div>
             <div className="flex items-center gap-1 bg-[var(--card-border)]/30 rounded-lg p-0.5">
               <button
@@ -514,7 +514,7 @@ export default function StatsCharts() {
               >{tt('누적')}</button>
             </div>
           </div>
-          <p className="text-xs text-[var(--muted)] mb-3">
+          <p className="text-sm text-[var(--muted)] mb-3">
             {locale === 'en' ? (
               <>You mostly run in the <span className="font-semibold text-[var(--accent)]">{maxHourGroup.label}</span></>
             ) : (
@@ -528,14 +528,14 @@ export default function StatsCharts() {
               const colors = ['#6366F1', '#F59E0B', '#EF4444', '#8B5CF6'];
               return (
                 <div key={g.label} className="flex items-center gap-2">
-                  <span className="w-24 text-sm text-[var(--foreground)] flex-shrink-0">{g.label}</span>
+                  <span className="w-28 text-base font-medium text-[var(--foreground)] flex-shrink-0">{g.label}</span>
                   <div className="flex-1 h-5 bg-[var(--card-border)] rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full"
                       style={{ width: `${Math.max(barWidth, 2)}%`, backgroundColor: colors[i] }}
                     />
                   </div>
-                  <span className="text-sm font-semibold text-[var(--foreground)] w-8 text-right">{locale === 'en' ? g.count : `${g.count}회`}</span>
+                  <span className="text-base font-bold text-[var(--foreground)] w-10 text-right tabular-nums">{locale === 'en' ? g.count : `${g.count}회`}</span>
                 </div>
               );
             })}
@@ -548,7 +548,7 @@ export default function StatsCharts() {
       <LazyMount minHeight={420}>
       <div className="card p-5">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-base font-bold text-[var(--foreground)]">{tt('기간별 상세 통계')}</h3>
+          <h3 className="text-lg font-bold text-[var(--foreground)]">{tt('기간별 상세 통계')}</h3>
           <Link href="/history" className="text-xs font-bold text-emerald-600 inline-flex items-center gap-0.5 active:scale-95 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30">
             {tt('히스토리')} <ChevronRight size={12} />
           </Link>
@@ -561,7 +561,7 @@ export default function StatsCharts() {
         </div>
 
         <div className="text-center mb-3">
-          <p className="text-3xl font-extrabold text-[var(--accent)]">{toDisplayDistance(detailTotal, unit).toFixed(1)} {unitLabel(unit)}</p>
+          <p className="text-4xl font-extrabold tracking-tight text-[var(--accent)]">{toDisplayDistance(detailTotal, unit).toFixed(1)} {unitLabel(unit)}</p>
           {hasDetailPrev && detailPrevTotal > 0 && (() => {
             const diff = detailTotal - detailPrevTotal;
             const pct = ((detailTotal / detailPrevTotal - 1) * 100);
