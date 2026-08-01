@@ -50,11 +50,11 @@ export default function HrZonesCard({ activity }: { activity: Activity }) {
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
           <HeartPulse size={18} className="text-red-500" />
-          <h3 className="text-base font-bold text-[var(--foreground)]">{tt('심박 영역')}</h3>
+          <h3 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">{tt('심박 영역')}</h3>
         </div>
-        <span className="text-sm text-[var(--muted)]">{en ? `Max HR ${zones.max_hr}` : `최대심박 ${zones.max_hr} 기준`}</span>
+        <span className="text-base text-[var(--muted)]">{en ? `Max HR ${zones.max_hr}` : `최대심박 ${zones.max_hr} 기준`}</span>
       </div>
-      <p className="text-sm text-[var(--muted)] mb-4">
+      <p className="text-lg text-[var(--muted)] mb-4">
         {en
           ? <>Mostly in <span className="font-bold text-[var(--foreground)]">Zone {maxZoneIdx + 1} · {ZONE_DESC_EN[maxZoneIdx]}</span></>
           : <>주로 <span className="font-bold text-[var(--foreground)]">영역 {maxZoneIdx + 1} · {ZONE_DESC_KO[maxZoneIdx]}</span> 강도로 달렸어요</>}
@@ -64,22 +64,22 @@ export default function HrZonesCard({ activity }: { activity: Activity }) {
           const pct = total > 0 ? (sec / total) * 100 : 0;
           return (
             <div key={i} className="flex items-center gap-2.5">
-              <span className="w-16 shrink-0 text-sm font-bold text-[var(--foreground)] leading-tight">
+              <span className="w-20 shrink-0 text-base font-bold text-[var(--foreground)] leading-tight">
                 {en ? `Zone ${i + 1}` : `영역 ${i + 1}`}
-                <span className="block text-[11px] font-medium text-[var(--muted)]">
+                <span className="block text-[13px] font-medium text-[var(--muted)]">
                   {en ? ZONE_DESC_EN[i] : ZONE_DESC_KO[i]}
                 </span>
               </span>
-              <div className="flex-1 h-4 bg-[var(--card-border)]/50 rounded-full overflow-hidden">
+              <div className="flex-1 h-5 bg-[var(--card-border)]/50 rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full transition-[width] duration-700 ease-out"
                   style={{ width: sec > 0 ? `${Math.max(pct, 2)}%` : 0, backgroundColor: ZONE_COLORS[i] }}
                 />
               </div>
-              <span className="w-14 shrink-0 text-right text-sm font-semibold tabular-nums text-[var(--foreground)]">
+              <span className="w-16 shrink-0 text-right text-lg font-bold tabular-nums text-[var(--foreground)]">
                 {fmtMin(sec, en)}
               </span>
-              <span className="w-10 shrink-0 text-right text-xs tabular-nums text-[var(--muted)]">
+              <span className="w-11 shrink-0 text-right text-sm tabular-nums text-[var(--muted)]">
                 {sec > 0 ? `${Math.round(pct)}%` : ''}
               </span>
             </div>

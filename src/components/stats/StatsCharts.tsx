@@ -289,7 +289,7 @@ export default function StatsCharts() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Trophy size={16} className="text-yellow-500" />
-              <h3 className="text-xl font-extrabold text-[var(--foreground)]">{tt('개인 베스트')}</h3>
+              <h3 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">{tt('개인 베스트')}</h3>
             </div>
             <div className="flex items-center gap-1 bg-[var(--card-border)]/30 rounded-lg p-0.5">
               <button
@@ -312,30 +312,30 @@ export default function StatsCharts() {
             <div className="grid grid-cols-2 gap-3">
               {pb.longestRun && (
                 <div className="bg-[var(--card-border)]/30 rounded-xl p-3">
-                  <p className="text-base text-[var(--muted)] mb-1">{tt('최장 거리')}</p>
+                  <p className="text-lg text-[var(--muted)] mb-1">{tt('최장 거리')}</p>
                   <p className="text-3xl font-extrabold tracking-tight text-[var(--foreground)]">{toDisplayDistance(pb.longestRun.distance_km, unit).toFixed(2)}{unitLabel(unit)}</p>
-                  <p className="text-sm text-[var(--muted)]">{pb.longestRun.date}</p>
+                  <p className="text-base text-[var(--muted)]">{pb.longestRun.date}</p>
                 </div>
               )}
               {pb.fastestPace && (
                 <div className="bg-[var(--card-border)]/30 rounded-xl p-3">
-                  <p className="text-base text-[var(--muted)] mb-1">{tt('최빠 페이스')}</p>
+                  <p className="text-lg text-[var(--muted)] mb-1">{tt('최빠 페이스')}</p>
                   <p className="text-3xl font-extrabold tracking-tight text-[var(--foreground)]">{formatPaceForUnit(pb.fastestPace.pace, unit)}{paceUnitLabel(unit)}</p>
-                  <p className="text-sm text-[var(--muted)]">{pb.fastestPace.date} ({toDisplayDistance(pb.fastestPace.distance_km, unit).toFixed(1)}{unitLabel(unit)})</p>
+                  <p className="text-base text-[var(--muted)]">{pb.fastestPace.date} ({toDisplayDistance(pb.fastestPace.distance_km, unit).toFixed(1)}{unitLabel(unit)})</p>
                 </div>
               )}
               {pb.longestDuration && (
                 <div className="bg-[var(--card-border)]/30 rounded-xl p-3">
-                  <p className="text-base text-[var(--muted)] mb-1">{tt('최장 시간')}</p>
+                  <p className="text-lg text-[var(--muted)] mb-1">{tt('최장 시간')}</p>
                   <p className="text-3xl font-extrabold tracking-tight text-[var(--foreground)]">{formatDuration(pb.longestDuration.duration)}</p>
-                  <p className="text-sm text-[var(--muted)]">{pb.longestDuration.date}</p>
+                  <p className="text-base text-[var(--muted)]">{pb.longestDuration.date}</p>
                 </div>
               )}
               {pb.mostCalories && pb.mostCalories.calories > 0 && (
                 <div className="bg-[var(--card-border)]/30 rounded-xl p-3">
-                  <p className="text-base text-[var(--muted)] mb-1">{tt('최다 칼로리')}</p>
+                  <p className="text-lg text-[var(--muted)] mb-1">{tt('최다 칼로리')}</p>
                   <p className="text-3xl font-extrabold tracking-tight text-[var(--foreground)]">{pb.mostCalories.calories}kcal</p>
-                  <p className="text-sm text-[var(--muted)]">{pb.mostCalories.date}</p>
+                  <p className="text-base text-[var(--muted)]">{pb.mostCalories.date}</p>
                 </div>
               )}
             </div>
@@ -349,8 +349,8 @@ export default function StatsCharts() {
       <LazyMount minHeight={260}>
       <div className="card p-5">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-xl font-extrabold text-[var(--foreground)]">{tt('일별 거리 추이')}</h3>
-          <span className="text-base text-[var(--muted)]">{locale === 'en' ? `Last 30 days · ${daily30Total.toFixed(1)}km total` : `최근 30일 · 총 ${daily30Total.toFixed(1)}km`}</span>
+          <h3 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">{tt('일별 거리 추이')}</h3>
+          <span className="text-lg text-[var(--muted)]">{locale === 'en' ? `Last 30 days · ${daily30Total.toFixed(1)}km total` : `최근 30일 · 총 ${daily30Total.toFixed(1)}km`}</span>
         </div>
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={dailyData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
@@ -363,14 +363,14 @@ export default function StatsCharts() {
             <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" vertical={false} />
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 13, fill: 'var(--muted)' }}
+              tick={{ fontSize: 14, fill: 'var(--muted)' }}
               axisLine={false}
               tickLine={false}
               interval={4}
             />
-            <YAxis tick={{ fontSize: 13, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 14, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
             <Tooltip
-              contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 15 }}
+              contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 16 }}
               formatter={(value) => [`${value}km`]}
               cursor={{ fill: 'var(--card-border)', opacity: 0.3 }}
             />
@@ -385,7 +385,7 @@ export default function StatsCharts() {
         <LazyMount minHeight={240}>
         <div className="card p-5">
           <div className="flex items-baseline justify-between mb-3">
-            <h3 className="text-xl font-extrabold text-[var(--foreground)]">{tt('최근 12주 러닝')}</h3>
+            <h3 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">{tt('최근 12주 러닝')}</h3>
             {(() => {
               const nowMs = Date.now();
               const _12wMs = 12 * 7 * 24 * 60 * 60 * 1000;
@@ -400,12 +400,12 @@ export default function StatsCharts() {
               const diff = thisSum - lastSum;
               if (lastSum < 0.5 && thisSum < 0.5) return null;
               if (lastSum < 0.5) {
-                return <span className="text-sm font-bold text-emerald-600">{tt('전년 동기 첫 기록 🎉')}</span>;
+                return <span className="text-base font-bold text-emerald-600">{tt('전년 동기 첫 기록 🎉')}</span>;
               }
               const sign = diff >= 0 ? '+' : '';
               const color = diff >= 0 ? 'text-emerald-600' : 'text-rose-500';
               return (
-                <span className={`text-sm font-bold ${color}`}>
+                <span className={`text-base font-bold ${color}`}>
                   {locale === 'en' ? `vs last year ${sign}${diff.toFixed(0)}km` : `전년 동기 ${sign}${diff.toFixed(0)}km`}
                 </span>
               );
@@ -420,10 +420,10 @@ export default function StatsCharts() {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 13, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 13, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 14, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 14, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
               <Tooltip
-                contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 15 }}
+                contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 16 }}
                 formatter={(value) => [`${value}km`]}
                 cursor={{ fill: 'var(--card-border)', opacity: 0.3 }}
               />
@@ -438,7 +438,7 @@ export default function StatsCharts() {
       {paceTrend.some(p => p.avgPace !== null) && (
         <LazyMount minHeight={260}>
         <div className="card p-5">
-          <h3 className="text-xl font-extrabold text-[var(--foreground)] mb-3">{tt('페이스 추이 (최근 12개월)')}</h3>
+          <h3 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)] mb-3">{tt('페이스 추이 (최근 12개월)')}</h3>
           <ResponsiveContainer width="100%" height={180}>
             <AreaChart data={paceTrend.filter(p => p.avgPace !== null)} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
               <defs>
@@ -448,22 +448,22 @@ export default function StatsCharts() {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 13, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="month" tick={{ fontSize: 14, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
               <YAxis
-                tick={{ fontSize: 13, fill: 'var(--muted)' }}
+                tick={{ fontSize: 14, fill: 'var(--muted)' }}
                 reversed
                 domain={['dataMin - 20', 'dataMax + 20']}
                 tickFormatter={(v: number) => `${Math.floor(v / 60)}'${String(Math.round(v % 60)).padStart(2, '0')}"`}
                 axisLine={false} tickLine={false}
               />
               <Tooltip
-                contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 15 }}
+                contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 16 }}
                 formatter={(value) => [formatPace(Number(value)), tt('평균 페이스')]}
               />
               <Area type="monotone" dataKey="avgPace" stroke="#10B981" strokeWidth={2.5} fill="url(#statsPaceGrad)" dot={{ r: 4, fill: '#10B981' }} animationDuration={chartStyle.animationDuration} />
             </AreaChart>
           </ResponsiveContainer>
-          <p className="text-base text-[var(--muted)] mt-2 text-center">{tt('위로 갈수록 빠른 페이스')}</p>
+          <p className="text-lg text-[var(--muted)] mt-2 text-center">{tt('위로 갈수록 빠른 페이스')}</p>
         </div>
         </LazyMount>
       )}
@@ -473,10 +473,10 @@ export default function StatsCharts() {
         <LazyMount minHeight={280}>
         <div className="card p-5">
           <div className="flex items-baseline justify-between mb-1">
-            <h3 className="text-xl font-extrabold text-[var(--foreground)]">{tt('거리 × 페이스')}</h3>
-            <span className="text-base text-[var(--muted)]">{locale === 'en' ? 'Last 6 months' : '최근 6개월'}</span>
+            <h3 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">{tt('거리 × 페이스')}</h3>
+            <span className="text-lg text-[var(--muted)]">{locale === 'en' ? 'Last 6 months' : '최근 6개월'}</span>
           </div>
-          <p className="text-sm text-[var(--muted)] mb-2">
+          <p className="text-lg text-[var(--muted)] mb-2">
             {locale === 'en' ? 'One bubble per run — bigger = longer time, higher = faster' : '러닝 하나가 버블 하나 — 클수록 오래, 위일수록 빠르게'}
           </p>
           <ResponsiveContainer width="100%" height={230}>
@@ -487,7 +487,7 @@ export default function StatsCharts() {
                 dataKey="km"
                 name="km"
                 unit="km"
-                tick={{ fontSize: 13, fill: 'var(--muted)' }}
+                tick={{ fontSize: 14, fill: 'var(--muted)' }}
                 axisLine={false} tickLine={false}
                 domain={['dataMin - 0.5', 'dataMax + 0.5']}
               />
@@ -496,7 +496,7 @@ export default function StatsCharts() {
                 dataKey="pace"
                 name="pace"
                 reversed
-                tick={{ fontSize: 13, fill: 'var(--muted)' }}
+                tick={{ fontSize: 14, fill: 'var(--muted)' }}
                 tickFormatter={(v: number) => `${Math.floor(v / 60)}'${String(Math.round(v % 60)).padStart(2, '0')}"`}
                 axisLine={false} tickLine={false}
                 domain={['dataMin - 15', 'dataMax + 15']}
@@ -504,7 +504,7 @@ export default function StatsCharts() {
               />
               <ZAxis type="number" dataKey="durMin" range={[60, 400]} />
               <Tooltip
-                contentStyle={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 15 }}
+                contentStyle={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 16 }}
                 formatter={(value, name) => {
                   if (name === 'pace') return [formatPace(Number(value)), tt('페이스')];
                   if (name === 'km') return [`${value}km`, tt('거리')];
@@ -526,7 +526,7 @@ export default function StatsCharts() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Calendar size={16} className="text-blue-500" />
-              <h3 className="text-xl font-extrabold text-[var(--foreground)]">{tt('요일별 러닝 패턴')}</h3>
+              <h3 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">{tt('요일별 러닝 패턴')}</h3>
             </div>
             <div className="flex items-center gap-1 bg-[var(--card-border)]/30 rounded-lg p-0.5">
               <button
@@ -539,7 +539,7 @@ export default function StatsCharts() {
               >{tt('누적')}</button>
             </div>
           </div>
-          <p className="text-base text-[var(--muted)] mb-3">
+          <p className="text-lg text-[var(--muted)] mb-3">
             {locale === 'en' ? (
               <>You mostly run on <span className="font-semibold text-[var(--accent)]">{maxDay.day}</span> ({maxDay.runCount} runs)</>
             ) : (
@@ -549,16 +549,16 @@ export default function StatsCharts() {
           <ResponsiveContainer width="100%" height={220}>
             <RadarChart data={dayStats}>
               <PolarGrid stroke="var(--card-border)" strokeDasharray={chartStyle.gridDash} />
-              <PolarAngleAxis dataKey="day" tick={{ fontSize: 15, fill: 'var(--muted)', fontWeight: 700 }} />
+              <PolarAngleAxis dataKey="day" tick={{ fontSize: 17, fill: 'var(--foreground)', fontWeight: 700 }} />
               <Radar name={tt('러닝 횟수')} dataKey="runCount" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.2} strokeWidth={2.5} dot={{ r: 4, fill: '#3B82F6' }} animationDuration={chartStyle.animationDuration} />
             </RadarChart>
           </ResponsiveContainer>
           <div className="grid grid-cols-7 gap-1 mt-3 text-center">
             {dayStats.map(d => (
               <div key={d.day}>
-                <p className="text-sm font-semibold text-[var(--muted)]">{d.day}</p>
-                <p className="text-xl font-extrabold text-[var(--foreground)]">{d.runCount}</p>
-                <p className="text-sm text-[var(--muted)]">{d.avgDistance}km</p>
+                <p className="text-base font-semibold text-[var(--muted)]">{d.day}</p>
+                <p className="text-2xl font-extrabold text-[var(--foreground)]">{d.runCount}</p>
+                <p className="text-base text-[var(--muted)]">{d.avgDistance}km</p>
               </div>
             ))}
           </div>
@@ -573,7 +573,7 @@ export default function StatsCharts() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Clock size={16} className="text-orange-500" />
-              <h3 className="text-xl font-extrabold text-[var(--foreground)]">{tt('시간대별 러닝 분포')}</h3>
+              <h3 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">{tt('시간대별 러닝 분포')}</h3>
             </div>
             <div className="flex items-center gap-1 bg-[var(--card-border)]/30 rounded-lg p-0.5">
               <button
@@ -586,7 +586,7 @@ export default function StatsCharts() {
               >{tt('누적')}</button>
             </div>
           </div>
-          <p className="text-base text-[var(--muted)] mb-3">
+          <p className="text-lg text-[var(--muted)] mb-3">
             {locale === 'en' ? (
               <>You mostly run in the <span className="font-semibold text-[var(--accent)]">{maxHourGroup.label}</span></>
             ) : (
@@ -616,25 +616,25 @@ export default function StatsCharts() {
                         ))}
                       </Pie>
                       <Tooltip
-                        contentStyle={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 15 }}
+                        contentStyle={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 16 }}
                         formatter={(v) => [locale === 'en' ? `${v} runs` : `${v}회`]}
                       />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <p className="text-xl font-extrabold text-[var(--foreground)]">{maxHourGroup.label.split(' ')[0]}</p>
-                    <p className="text-sm font-semibold text-[var(--muted)]">{locale === 'en' ? `${hourTotal} runs` : `총 ${hourTotal}회`}</p>
+                    <p className="text-2xl font-extrabold text-[var(--foreground)]">{maxHourGroup.label.split(' ')[0]}</p>
+                    <p className="text-base font-semibold text-[var(--muted)]">{locale === 'en' ? `${hourTotal} runs` : `총 ${hourTotal}회`}</p>
                   </div>
                 </div>
                 <div className="flex-1 min-w-0 space-y-2.5">
                   {hourGroups.map((g, i) => (
                     <div key={g.label} className="flex items-center gap-2.5">
                       <span className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: HOUR_COLORS[i] }} />
-                      <span className="flex-1 text-base font-medium text-[var(--foreground)] truncate">{g.label}</span>
-                      <span className="text-base font-extrabold tabular-nums text-[var(--foreground)]">
+                      <span className="flex-1 text-lg font-medium text-[var(--foreground)] truncate">{g.label}</span>
+                      <span className="text-lg font-extrabold tabular-nums text-[var(--foreground)]">
                         {locale === 'en' ? g.count : `${g.count}회`}
                       </span>
-                      <span className="w-11 text-right text-sm tabular-nums text-[var(--muted)]">
+                      <span className="w-11 text-right text-base tabular-nums text-[var(--muted)]">
                         {hourTotal > 0 ? `${Math.round((g.count / hourTotal) * 100)}%` : ''}
                       </span>
                     </div>
@@ -651,7 +651,7 @@ export default function StatsCharts() {
       <LazyMount minHeight={420}>
       <div className="card p-5">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-xl font-extrabold text-[var(--foreground)]">{tt('기간별 상세 통계')}</h3>
+          <h3 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">{tt('기간별 상세 통계')}</h3>
           <Link href="/history" className="text-sm font-bold text-emerald-600 inline-flex items-center gap-0.5 active:scale-95 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30">
             {tt('히스토리')} <ChevronRight size={12} />
           </Link>
@@ -687,7 +687,7 @@ export default function StatsCharts() {
               '전년'
             );
             return (
-              <p className={`text-base mt-1 font-semibold ${color}`}>
+              <p className={`text-lg mt-1 font-semibold ${color}`}>
                 {periodLabel} {sign}{toDisplayDistance(diff, unit).toFixed(1)}{unitLabel(unit)} ({sign}{pct.toFixed(0)}%)
               </p>
             );
@@ -742,10 +742,10 @@ export default function StatsCharts() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 13, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 13, fill: 'var(--muted)' }} unit="km" axisLine={false} tickLine={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 14, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 14, fill: 'var(--muted)' }} unit="km" axisLine={false} tickLine={false} />
                 <Tooltip
-                  contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 15 }}
+                  contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 16 }}
                   formatter={(value) => [`${value}km`]}
                   cursor={{ fill: 'var(--card-border)', opacity: 0.3 }}
                 />
@@ -764,10 +764,10 @@ export default function StatsCharts() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 13, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 13, fill: 'var(--muted)' }} unit="km" axisLine={false} tickLine={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 14, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 14, fill: 'var(--muted)' }} unit="km" axisLine={false} tickLine={false} />
                 <Tooltip
-                  contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 15 }}
+                  contentStyle={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 16 }}
                   formatter={(value) => [`${value}km`]}
                 />
                 {hasDetailPrev && (

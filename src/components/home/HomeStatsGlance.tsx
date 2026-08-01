@@ -66,7 +66,7 @@ export default function HomeStatsGlance() {
     background: 'var(--card-bg)',
     border: '1px solid var(--card-border)',
     borderRadius: 14,
-    fontSize: 15,
+    fontSize: 16,
   };
 
   return (
@@ -75,9 +75,9 @@ export default function HomeStatsGlance() {
       {daily30Total > 0 && (
         <div className="mx-4 card p-5">
           <div className="flex items-baseline justify-between mb-3">
-            <h3 className="text-xl font-extrabold text-[var(--foreground)]">{tt('최근 30일')}</h3>
-            <p className="text-lg font-extrabold tabular-nums text-[var(--accent)]">
-              {daily30Total.toFixed(1)}<span className="text-base font-bold text-[var(--muted)]"> km</span>
+            <h3 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">{tt('최근 30일')}</h3>
+            <p className="text-xl font-extrabold tabular-nums text-[var(--accent)]">
+              {daily30Total.toFixed(1)}<span className="text-lg font-bold text-[var(--muted)]"> km</span>
             </p>
           </div>
           <ResponsiveContainer width="100%" height={180}>
@@ -89,8 +89,8 @@ export default function HomeStatsGlance() {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 13, fill: 'var(--muted)' }} axisLine={false} tickLine={false} interval={6} />
-              <YAxis tick={{ fontSize: 13, fill: 'var(--muted)' }} axisLine={false} tickLine={false} width={36} />
+              <XAxis dataKey="label" tick={{ fontSize: 14, fill: 'var(--muted)' }} axisLine={false} tickLine={false} interval={6} />
+              <YAxis tick={{ fontSize: 14, fill: 'var(--muted)' }} axisLine={false} tickLine={false} width={36} />
               <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${v}km`]} cursor={{ fill: 'var(--card-border)', opacity: 0.3 }} />
               <Bar dataKey="distance" fill="url(#homeDailyGrad)" radius={chartStyle.barRadius} animationDuration={chartStyle.animationDuration} />
             </BarChart>
@@ -102,17 +102,17 @@ export default function HomeStatsGlance() {
       {maxDay && (
         <div className="mx-4 card p-5">
           <div className="flex items-baseline justify-between mb-1">
-            <h3 className="text-xl font-extrabold text-[var(--foreground)]">{tt('요일 패턴')}</h3>
-            <p className="text-base font-semibold text-[var(--muted)]">
+            <h3 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">{tt('요일 패턴')}</h3>
+            <p className="text-lg font-semibold text-[var(--muted)]">
               {en
                 ? <>mostly <span className="text-[var(--accent)] font-extrabold">{maxDay.day}</span></>
                 : <>주로 <span className="text-[var(--accent)] font-extrabold">{maxDay.day}요일</span></>}
             </p>
           </div>
-          <ResponsiveContainer width="100%" height={230}>
+          <ResponsiveContainer width="100%" height={250}>
             <RadarChart data={byDay} margin={{ top: 10, right: 24, bottom: 10, left: 24 }}>
               <PolarGrid stroke="var(--card-border)" strokeDasharray={chartStyle.gridDash} />
-              <PolarAngleAxis dataKey="day" tick={{ fontSize: 15, fill: 'var(--muted)', fontWeight: 700 }} />
+              <PolarAngleAxis dataKey="day" tick={{ fontSize: 17, fill: 'var(--foreground)', fontWeight: 700 }} />
               <Radar
                 name={tt('러닝 횟수')}
                 dataKey="count"
