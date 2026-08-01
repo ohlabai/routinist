@@ -5,7 +5,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Bell, Trophy, Users, Award, MessageSquare, TrendingUp, Megaphone, Flag, Save, Heart, UserPlus, Globe, AlarmClock, CalendarDays, MapPin } from 'lucide-react';
+import { ArrowLeft, Bell, Trophy, Users, Award, MessageSquare, TrendingUp, Megaphone, Flag, Save, Heart, UserPlus, AlarmClock, CalendarDays, MapPin } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import AppToast from '@/components/AppToast';
@@ -50,12 +50,12 @@ function getCategories(tt: (ko: string) => string, locale: 'ko' | 'en'): Categor
     // friend_pb (친구 신기록) — 2026-08-01 hans 지시로 알림 자체 폐기 (DB 트리거 DROP). 토글도 제거.
     { key: 'course_progress', label: tt('월드런 진행'), description: locale === 'en' ? 'Halfway and 90% milestones on your world run course' : '진행 중인 월드런 코스 절반·90% 도달 소식', Icon: TrendingUp },
     { key: 'course_complete', label: tt('월드런 완주'), description: locale === 'en' ? 'When you finish a world run course' : '월드런 코스를 완주했을 때', Icon: Flag },
-    { key: 'world_chase', label: tt('월드런 추격'), description: locale === 'en' ? 'When a friend is closing in on you on a course' : '같은 코스에서 친구가 바짝 따라붙었을 때', Icon: Globe },
+    // world_chase — 2026-08-01 폐기 (크론 미등록 死코드, hans 지시로 함수째 DROP)
     { key: 'club_course_start', label: tt('클럽 마라톤 시작'), description: locale === 'en' ? 'When your club starts a new course together' : '우리 클럽이 새 코스를 함께 시작했을 때', Icon: Flag },
     { key: 'club_course_complete', label: tt('클럽 마라톤 완주'), description: locale === 'en' ? 'When your club finishes a course together' : '우리 클럽이 코스를 함께 완주했을 때', Icon: Award },
     { key: 'idle_reminder', label: tt('러닝 리마인더'), description: locale === 'en' ? 'A gentle nudge when you have been away for a while' : '한동안 달리지 않았을 때 살짝 보내는 안부', Icon: AlarmClock },
     { key: 'streak_risk', label: locale === 'en' ? 'Streak at risk' : '연속 기록 알림', description: locale === 'en' ? 'A weekend heads-up when your weekly streak needs one more run' : '주간 연속 기록이 끊기기 전 주말에 살짝 알려드려요', Icon: AlarmClock },
-    { key: 'weekly_recap', label: locale === 'en' ? 'Weekly recap' : '주간 리포트', description: locale === 'en' ? 'Your last week in numbers, every Monday' : '월요일마다 받아보는 지난주 러닝 요약', Icon: CalendarDays },
+    // weekly_recap — 2026-08-01 hans 지시로 폐기 (DB 함수 DROP)
     { key: 'month_end_recap', label: tt('월말 결산'), description: locale === 'en' ? 'Your monthly running recap at month-end' : '월말에 받아보는 이달의 내 러닝 요약', Icon: CalendarDays },
     { key: 'first_place_month', label: locale === 'en' ? 'Monthly 1st place' : '월간 1위 달성', description: locale === 'en' ? 'When you reach #1 in your ranking scope this month' : '이번 달 내 랭킹 범위에서 1위에 올랐을 때', Icon: Trophy },
     { key: 'pb_distance', label: locale === 'en' ? 'New longest run' : '최장 거리 신기록', description: locale === 'en' ? 'When you set a new personal longest distance' : '내 최장 거리 기록을 갱신했을 때', Icon: Trophy },
@@ -87,11 +87,11 @@ const DEFAULTS: Record<CategoryKey, boolean> = {
   course_complete: true,
   club_course_start: true,
   club_course_complete: true,
-  world_chase: true,
+  world_chase: true,   // 폐기 (2026-08-01) — 저장값 병합 호환용 키만 유지
   idle_reminder: true,
   month_end_recap: true,
   // build 297: 알림 종단 리뷰 — 끌 수 없던 카테고리. 기본 ON (should_send_push 기본 TRUE 와 일치).
-  weekly_recap: true,
+  weekly_recap: true,  // 폐기 (2026-08-01) — 저장값 병합 호환용 키만 유지
   streak_risk: true,
   referral: true,
   first_place_month: true,
