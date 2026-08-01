@@ -49,6 +49,10 @@ struct SummaryView: View {
                     if s.avgHeartRate > 0 {
                         summaryRow(label: "평균 심박", value: String(format: "%.0f", s.avgHeartRate), unit: "bpm", color: .red)
                     }
+                    // v19 (zone1~5 회원 요청): 존별 체류 시간 분포 — 1분 이상 측정됐을 때만
+                    if s.zoneSeconds.reduce(0, +) >= 60 {
+                        zoneBreakdown(s.zoneSeconds)
+                    }
                     if s.calories > 0 {
                         summaryRow(label: "칼로리", value: String(format: "%.0f", s.calories), unit: "kcal", color: .orange)
                     }
@@ -73,6 +77,46 @@ struct SummaryView: View {
             .padding(.horizontal, 4)
         }
         .navigationBarBackButtonHidden(true)
+    }
+
+    private static let zoneColors: [Color] = [.blue, .green, .yellow, .orange, .red]
+
+    /// v19: 심박 영역 1~5 체류 시간 — 색 라벨 + 비례 바 + 시간
+    private func zoneBreakdown(_ secs: [Double]) -> some View {
+        let total = max(1, secs.reduce(0, +))
+        return VStack(alignment: .leading, spacing: 4) {
+            Text("심박 영역")
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .foregroundStyle(.secondary)
+            ForEach(0..<5, id: \.self) { i in
+                HStack(spacing: 6) {
+                    Text("영역 \(i + 1)")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundStyle(Self.zoneColors[i])
+                        .frame(width: 48, alignment: .leading)
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color.white.opacity(0.10))
+                            Capsule().fill(Self.zoneColors[i])
+                                .frame(width: secs[i] > 0
+                                       ? max(4, geo.size.width * CGFloat(secs[i] / total))
+                                       : 0)
+                        }
+                    }
+                    .frame(height: 7)
+                    Text(formatZoneTime(secs[i]))
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .frame(width: 40, alignment: .trailing)
+                }
+            }
+        }
+    }
+
+    private func formatZoneTime(_ s: Double) -> String {
+        let m = Int(s) / 60
+        return m > 0 ? "\(m)분" : (s > 0 ? "\(Int(s))초" : "-")
     }
 
     private func summaryRow(label: String, value: String, unit: String?, color: Color) -> some View {

@@ -28,13 +28,36 @@ final class WorkoutManager: NSObject, ObservableObject {
 
     private static var audioConfigured = false
 
+    // v19: 릴레이가 "안 들리는 성공" 이 되지 않게 — 폰이 spoken:true 라고 답할 때만 릴레이 인정.
+    // 폰에 이어폰이 없거나(주머니 스피커) 세션 활성화 실패면 워치가 직접 말한다.
+    // 한 번 불가 판정이면 잠시 릴레이를 쉬어 카운트다운 등 연속 발화의 왕복 지연 제거.
+    private var relayDisabledUntil = Date.distantPast
+
     func speak(_ text: String) {
         // v13 (hans: "이어폰에서 나게"): iPhone 이 접근 가능하면 폰에 릴레이 —
-        // 음악 듣는 그 이어폰 (폰에 연결된) 에서 발화 + 음악 덕킹. 실패 시 워치 로컬 폴백.
-        if WCSession.isSupported(), WCSession.default.isReachable {
-            WCSession.default.sendMessage(["voice": text], replyHandler: nil) { [weak self] _ in
-                Task { @MainActor in self?.speakLocally(text) }
-            }
+        // 음악 듣는 그 이어폰 (폰에 연결된) 에서 발화 + 음악 덕킹.
+        // ⚠️ v18 무음 진범: reply 없는 sendMessage 는 "전달됨 = 성공" — 폰이 백그라운드라
+        // 소리를 못 내거나 주머니 스피커로 나가도 워치 폴백이 영영 안 탔다.
+        if Date() >= relayDisabledUntil, WCSession.isSupported(), WCSession.default.isReachable {
+            WCSession.default.sendMessage(
+                ["voice": text],
+                replyHandler: { [weak self] reply in
+                    Task { @MainActor in
+                        guard let self else { return }
+                        if (reply["spoken"] as? Bool) != true {
+                            // 폰이 못 말함 (이어폰 없음 등) → 워치가 직접 + 3분간 릴레이 휴식
+                            self.relayDisabledUntil = Date().addingTimeInterval(180)
+                            self.speakLocally(text)
+                        }
+                    }
+                },
+                errorHandler: { [weak self] _ in
+                    Task { @MainActor in
+                        self?.relayDisabledUntil = Date().addingTimeInterval(60)
+                        self?.speakLocally(text)
+                    }
+                }
+            )
             return
         }
         speakLocally(text)
@@ -144,6 +167,24 @@ final class WorkoutManager: NSObject, ObservableObject {
 
     // ── 심박 존 (v7) — 최대심박 = 220 - 나이 (HealthKit 생년월일, 실패 시 190) ──
     @Published var maxHeartRate: Double = 190
+
+    // v19 (zone1~5 회원 요청): 존별 누적 체류 시간 — HR 샘플 간격을 현재 존에 적산.
+    // 요약 화면 존 분포 바의 데이터. active 아닐 때는 앵커를 끊어 일시정지 시간 제외.
+    @Published var zoneSeconds: [Double] = [0, 0, 0, 0, 0]
+    private var lastZoneTickAt: Date?
+
+    private func accumulateZoneTime() {
+        guard phase == .active, currentZone > 0 else {
+            lastZoneTickAt = nil
+            return
+        }
+        let now = Date()
+        if let last = lastZoneTickAt {
+            // 샘플 공백 상한 30s — 백그라운드 수집 공백이 한 존에 통째로 적산되는 것 방지
+            zoneSeconds[currentZone - 1] += min(now.timeIntervalSince(last), 30)
+        }
+        lastZoneTickAt = now
+    }
 
     /// 현재 심박 존 1~5 (0 = 측정 전)
     var currentZone: Int {
@@ -264,6 +305,7 @@ final class WorkoutManager: NSObject, ObservableObject {
         let elapsedSeconds: TimeInterval
         let avgHeartRate: Double
         let calories: Double
+        var zoneSeconds: [Double] = [0, 0, 0, 0, 0]   // v19: 존 분포
         var paceSecPerKm: Double? {
             distanceMeters > 50 ? elapsedSeconds / (distanceMeters / 1000) : nil
         }
@@ -291,7 +333,8 @@ final class WorkoutManager: NSObject, ObservableObject {
         } else if args.contains("-uipreview-paused") {
             phase = .paused; elapsedSeconds = 1264; distanceMeters = 4230; heartRate = 121; activeCalories = 231
         } else if args.contains("-uipreview-summary") {
-            summary = WorkoutSummary(distanceMeters: 5012, elapsedSeconds: 1650, avgHeartRate: 152, calories: 320)
+            summary = WorkoutSummary(distanceMeters: 5012, elapsedSeconds: 1650, avgHeartRate: 152, calories: 320,
+                                     zoneSeconds: [95, 320, 660, 430, 145])
             phase = .ended
         } else if args.contains("-uipreview-countdown") {
             phase = .countdown
@@ -486,6 +529,8 @@ final class WorkoutManager: NSObject, ObservableObject {
         heartRate = 0
         activeCalories = 0
         hrSamples = []
+        zoneSeconds = [0, 0, 0, 0, 0]
+        lastZoneTickAt = nil
         summary = nil
         lastAnnouncedKm = 0
         lastKmElapsedSec = 0
@@ -513,6 +558,7 @@ final class WorkoutManager: NSObject, ObservableObject {
                 hrSamples.append(heartRate)
                 if hrSamples.count > 240 { hrSamples.removeFirst(hrSamples.count - 240) }
             }
+            accumulateZoneTime()   // v19: 존 체류 시간 적산
         case HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning):
             distanceMeters = statistics.sumQuantity()?.doubleValue(for: .meter()) ?? distanceMeters
             // v6~7: km 마일스톤 — 햅틱 + 구간 페이스 음성 (폰 템플릿과 동일:
@@ -605,7 +651,8 @@ extension WorkoutManager: HKWorkoutSessionDelegate {
                                 distanceMeters: self.distanceMeters,
                                 elapsedSeconds: self.elapsedSeconds,
                                 avgHeartRate: avgHr,
-                                calories: self.activeCalories
+                                calories: self.activeCalories,
+                                zoneSeconds: self.zoneSeconds
                             )
                             self.phase = .ended
                         }

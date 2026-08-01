@@ -48,16 +48,18 @@ struct MetricsView: View {
 
     private let emerald = Color(red: 0.20, green: 0.83, blue: 0.60)
 
+    private static let zoneColors: [Color] = [.blue, .green, .yellow, .orange, .red]
+
     var body: some View {
         // v10 (Apple 운동앱 실측 문법): 각 지표가 화면 폭을 거의 채우는 초대형 숫자,
         // 라벨은 값 오른쪽 아주 작은 2줄. 야외 직사광에서 흘끗 봐도 읽히게.
-        // 2026-07-30 (hans): 심박 행 제거 — 심박은 다음 페이지(심박존)에 있으니
-        // 여기선 시간·거리·페이스 3개만 더 크게. 힐끗만 봐도 파악되는 글씨가 우선.
+        // v19 (2026-08-01, 회원 요청): 심박 행 복원 — 존 색 숫자 + 영역 칩을 메인 화면에.
+        // 4행이 들어가도록 v10 스케일 (64/58/52/52) 로 재조정.
         VStack(alignment: .leading, spacing: 2) {
             // 시간 — hero, 0.01초 단위
             TimelineView(.animation(minimumInterval: 0.03, paused: workout.phase != .active)) { ctx in
                 Text(formatElapsedCenti(workout.displayElapsed(at: ctx.date)))
-                    .font(.system(size: 74, weight: .heavy, design: .rounded))
+                    .font(.system(size: 64, weight: .heavy, design: .rounded))
                     .monospacedDigit()
                     .minimumScaleFactor(0.5)
                     .lineLimit(1)
@@ -65,12 +67,12 @@ struct MetricsView: View {
             }
 
             // 거리
-            bigMetric(String(format: "%.2f", workout.distanceMeters / 1000), unit: "km", color: emerald, size: 68)
+            bigMetric(String(format: "%.2f", workout.distanceMeters / 1000), unit: "km", color: emerald, size: 58)
 
             // 페이스 — 직전 KM 우선, 라벨 2줄 (Apple 문법)
             HStack(alignment: .center, spacing: 6) {
                 Text(formatPace(workout.lastSplitPaceSecPerKm ?? workout.paceSecPerKm))
-                    .font(.system(size: 62, weight: .heavy, design: .rounded))
+                    .font(.system(size: 52, weight: .heavy, design: .rounded))
                     .monospacedDigit()
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
@@ -81,6 +83,33 @@ struct MetricsView: View {
                 }
                 .font(.system(size: 15, weight: .bold, design: .rounded))
                 .foregroundStyle(.secondary)
+            }
+
+            // 심박 — 존 색 숫자 + 영역 1~5 칩 (자세한 그래프는 다음 페이지)
+            HStack(alignment: .center, spacing: 6) {
+                Text(workout.heartRate > 0 ? String(format: "%.0f", workout.heartRate) : "--")
+                    .font(.system(size: 52, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(1)
+                    .foregroundStyle(workout.currentZone > 0 ? Self.zoneColors[workout.currentZone - 1] : .white)
+                VStack(alignment: .leading, spacing: 2) {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(.red)
+                    if workout.currentZone > 0 {
+                        Text("영역 \(workout.currentZone)")
+                            .font(.system(size: 12, weight: .heavy, design: .rounded))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(Self.zoneColors[workout.currentZone - 1].opacity(0.85)))
+                            .foregroundStyle(workout.currentZone >= 3 ? .black : .white)
+                    } else {
+                        Text("bpm")
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
 
             if workout.phase == .paused {
