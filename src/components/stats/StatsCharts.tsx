@@ -30,6 +30,7 @@ import LazyMount from '@/components/LazyMount';
 import { useI18n } from '@/lib/i18n';
 import { ChevronRight, Trophy, Clock, Calendar, BarChart3, TrendingUp } from 'lucide-react';
 import { chartStyle } from '@/lib/chart-theme';
+import HrStatsCards from './HrStatsCards';
 import { toLocalDateStr } from '@/lib/kst';
 import { useDistanceUnit, toDisplayDistance, unitLabel, paceUnitLabel, formatPaceForUnit } from '@/lib/units';
 
@@ -518,6 +519,9 @@ export default function StatsCharts() {
         </div>
         </LazyMount>
       )}
+
+      {/* 심박 추이 + 심박 영역 분석 (2026-08-02 hans — /stats 전용, 홈 미노출) */}
+      <HrStatsCards />
 
       {/* 요일별 패턴 — 올해/누적 토글 */}
       {dayStats.length > 0 && dayStats.some(d => d.runCount > 0) && (

@@ -51,6 +51,7 @@ object WorkoutManager {
         val elapsedSec: Double,
         val avgHr: Double,
         val calories: Double,
+        val zoneSeconds: DoubleArray = DoubleArray(5),   // v4: 존 체류 (애플 v19 이식)
     ) {
         val paceSecPerKm: Double? get() = if (distanceMeters > 50) elapsedSec / (distanceMeters / 1000) else null
     }
@@ -121,6 +122,20 @@ object WorkoutManager {
     private const val KEY_GOAL_TIME = "goal_time_sec"
     const val KEY_MAX_HR = "ctx_max_hr"   // CtxReceiverService 가 기록
 
+    // ── v4: 존별 체류 시간 (애플워치 v19 이식) ──
+    private val zoneSeconds = DoubleArray(5)
+    private var lastZoneTickMs = 0L
+
+    private fun accumulateZone() {
+        val st = _state.value
+        if (st.phase != Phase.ACTIVE || st.hrZone <= 0) { lastZoneTickMs = 0L; return }
+        val now = System.currentTimeMillis()
+        if (lastZoneTickMs > 0) {
+            zoneSeconds[st.hrZone - 1] += ((now - lastZoneTickMs) / 1000.0).coerceAtMost(30.0)
+        }
+        lastZoneTickMs = now
+    }
+
     // ── TTS ──────────────────────────────────────────────────────
     private var tts: TextToSpeech? = null
     private var ttsReady = false
@@ -137,6 +152,13 @@ object WorkoutManager {
     }
 
     private fun speak(text: String) {
+        // v4 (애플 v19 이식): 폰에 이어폰이 있으면 폰이 발화 (ack 왕복), 1.2초 내 ack 없으면 워치 로컬.
+        VoiceRelay.speakViaPhoneOrLocal(appContext, text) { local ->
+            if (local && ttsReady) tts?.speak(text, TextToSpeech.QUEUE_ADD, null, text)
+        }
+    }
+
+    private fun speakLocal(text: String) {
         if (ttsReady) tts?.speak(text, TextToSpeech.QUEUE_ADD, null, text)
     }
 
@@ -295,6 +317,8 @@ object WorkoutManager {
         ticker?.cancel(); ticker = null
         route.clear()
         hrBuffer.clear()
+        zoneSeconds.fill(0.0)
+        lastZoneTickMs = 0L
         // 목표·maxHr 는 유지 (다음 러닝에 이어짐 — 애플워치 v14 트레이드오프와 동일)
         _state.value = RunState(goal = _state.value.goal, maxHr = _state.value.maxHr)
     }
@@ -322,6 +346,7 @@ object WorkoutManager {
                     heartRate = v,
                     hrSamples = ArrayList(hrBuffer),
                 )
+                accumulateZone()   // v4: 존 체류 적산
             }
             m.getData(DataType.DISTANCE_TOTAL)?.let {
                 _state.value = _state.value.copy(distanceMeters = it.total)
@@ -402,7 +427,7 @@ object WorkoutManager {
         ticker?.cancel(); ticker = null
         val s = _state.value
         val avgHr = if (avgHrCount > 0) avgHrSum / avgHrCount else 0.0
-        val summary = Summary(s.distanceMeters, s.elapsedSec, avgHr, s.calories)
+        val summary = Summary(s.distanceMeters, s.elapsedSec, avgHr, s.calories, zoneSeconds.copyOf())
         _state.value = s.copy(phase = Phase.ENDED, summary = summary)
 
         appContext?.let { ctx ->

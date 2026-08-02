@@ -63,6 +63,9 @@ dependencies {
     // Wearable Data Layer — 완주 데이터를 폰으로 전송
     implementation "com.google.android.gms:play-services-wearable:20.0.1"
 
+    // 컴플리케이션 (워치페이스 런처) — 2026-08-02
+    implementation "androidx.wear.watchface:watchface-complications-data-source-ktx:1.2.1"
+
     // Compose for Wear OS
     def composeBom = platform("androidx.compose:compose-bom:2026.06.01")
     implementation composeBom

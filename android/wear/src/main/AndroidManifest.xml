@@ -42,6 +42,23 @@
         </activity>
 
         <!-- ExerciseClient 를 감싸는 health|location 포그라운드 서비스 -->
+        <!-- 컴플리케이션 (워치페이스 런처) — 2026-08-02 -->
+        <service
+            android:name=".RoutinistComplicationService"
+            android:exported="true"
+            android:label="Routinist"
+            android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter>
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
+            </intent-filter>
+            <meta-data
+                android:name="android.support.wearable.complications.SUPPORTED_TYPES"
+                android:value="SHORT_TEXT" />
+            <meta-data
+                android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
+                android:value="0" />
+        </service>
+
         <service
             android:name=".ExerciseRecordingService"
             android:exported="false"

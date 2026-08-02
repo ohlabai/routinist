@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -427,6 +428,12 @@ private fun SummaryScreen(summary: WorkoutManager.Summary?, onDone: () -> Unit) 
                 Metric(fmtTime(summary.elapsedSec), "", Brand.Snow)
                 Metric(fmtPace(summary.paceSecPerKm), "/km", Brand.Pace)
                 Metric(if (summary.avgHr > 0) summary.avgHr.toInt().toString() else "--", "bpm", Brand.Heart)
+                // v4 (애플 v19 이식): 존별 체류 분포 — 1분 이상 측정 시
+                if (summary.zoneSeconds.sum() >= 60) {
+                    Spacer(Modifier.height(6.dp))
+                    ZoneBreakdown(summary.zoneSeconds)
+                    Spacer(Modifier.height(2.dp))
+                }
                 Metric(summary.calories.toInt().toString(), "kcal", Brand.Calorie)
             }
             Spacer(Modifier.height(6.dp))
@@ -440,6 +447,29 @@ private fun SummaryScreen(summary: WorkoutManager.Summary?, onDone: () -> Unit) 
             Spacer(Modifier.height(30.dp))
         }
         if (confetti < 1f) Confetti(Modifier.fillMaxSize(), confetti)
+    }
+}
+
+/** v4: 심박 영역 1~5 체류 분포 (요약) — 애플워치 SummaryView 와 동일 문법 */
+@Composable
+private fun ZoneBreakdown(zones: DoubleArray) {
+    val colors = listOf(Color(0xFF3B82F6), Color(0xFF22C55E), Color(0xFFEAB308), Color(0xFFF97316), Color(0xFFEF4444))
+    val total = zones.sum().coerceAtLeast(1.0)
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text("심박 영역", color = Brand.Muted, fontSize = 11.sp)
+        zones.forEachIndexed { i, sec ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text("영역 ${i + 1}", color = colors[i], fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.width(38.dp))
+                Box(Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(3.dp)).background(Color.White.copy(alpha = 0.10f))) {
+                    Box(Modifier.fillMaxHeight()
+                        .fillMaxWidth(fraction = if (sec > 0) (sec / total).toFloat().coerceIn(0.03f, 1f) else 0f)
+                        .clip(RoundedCornerShape(3.dp)).background(colors[i]))
+                }
+                Text(if (sec >= 60) "${(sec / 60).toInt()}분" else if (sec > 0) "${sec.toInt()}초" else "-",
+                    color = Brand.Muted, fontSize = 9.sp, modifier = Modifier.width(28.dp), textAlign = TextAlign.End)
+            }
+        }
     }
 }
 

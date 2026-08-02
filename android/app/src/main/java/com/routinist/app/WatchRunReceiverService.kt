@@ -1,14 +1,19 @@
 package com.routinist.app
 
 import android.content.Context
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
+import android.speech.tts.TextToSpeech
 import com.google.android.gms.tasks.Tasks
 import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataMapItem
+import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.Wearable
 import com.google.android.gms.wearable.WearableListenerService
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.Locale
 import java.util.zip.GZIPInputStream
 
 /**
@@ -22,6 +27,56 @@ import java.util.zip.GZIPInputStream
  * 읽어 기존 activities insert 플로우로 저장한다. (WebView 와 동일 프로세스 → 큐 공유됨)
  */
 class WatchRunReceiverService : WearableListenerService() {
+
+    /**
+     * 워치 음성 릴레이 (2026-08-02, 애플워치 v13/v19 이식):
+     * /routinist/voice {id,text} — 폰에 이어폰/BT 오디오가 연결돼 있을 때만
+     * TTS 발화 + /routinist/voice-ack {id} 회신. 라우트 없으면 무응답 → 워치가 로컬 발화.
+     */
+    override fun onMessageReceived(event: MessageEvent) {
+        if (event.path != "/routinist/voice") { super.onMessageReceived(event); return }
+        try {
+            val obj = JSONObject(String(event.data))
+            val id = obj.optLong("id")
+            val text = obj.optString("text")
+            if (text.isEmpty()) return
+            if (!headphoneRouteAvailable()) return   // 주머니 스피커 발화 방지 — 워치 폴백에 맡김
+            speakRelayed(text)
+            Wearable.getMessageClient(this)
+                .sendMessage(event.sourceNodeId, "/routinist/voice-ack", id.toString().toByteArray())
+        } catch (_: Exception) { /* 릴레이 실패 = 워치 폴백 (1.2s) */ }
+    }
+
+    private fun headphoneRouteAvailable(): Boolean {
+        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        return am.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any {
+            it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+            it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+            it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
+            it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+            it.type == AudioDeviceInfo.TYPE_USB_HEADSET ||
+            it.type == AudioDeviceInfo.TYPE_BLE_HEADSET
+        }
+    }
+
+    private fun speakRelayed(text: String) {
+        synchronized(WatchRunReceiverService::class.java) {
+            val existing = sharedTts
+            if (existing != null && ttsReady) {
+                existing.speak(text, TextToSpeech.QUEUE_ADD, null, text)
+                return
+            }
+            if (existing == null) {
+                sharedTts = TextToSpeech(applicationContext) { status ->
+                    ttsReady = status == TextToSpeech.SUCCESS
+                    if (ttsReady) {
+                        sharedTts?.language = Locale.KOREAN
+                        sharedTts?.speak(text, TextToSpeech.QUEUE_ADD, null, text)
+                    }
+                }
+            }
+        }
+    }
 
     override fun onDataChanged(dataEvents: DataEventBuffer) {
         for (event in dataEvents) {
@@ -82,6 +137,9 @@ class WatchRunReceiverService : WearableListenerService() {
 
     companion object {
         private const val KEY = "watch_pending_runs"
+        // 릴레이 TTS — 서비스 인스턴스가 짧게 살다 죽어도 엔진 재초기화 비용 절약
+        @Volatile private var sharedTts: TextToSpeech? = null
+        @Volatile private var ttsReady = false
     }
 }
 
