@@ -10,7 +10,9 @@ v1.2.14 — All-new Apple Watch ⌚ · Lock Screen live card · Bigger, cleaner 
 • We raised text sizes across the entire app, down to the calendar numbers.
 
 [Home]
+• Calendar now marks Sundays & Korean holidays in red, Saturdays in blue — with holiday names.
 • Five charts right on Home — last 30 days, pace trend, distance×pace, weekly rhythm, time of day.
+• Time-of-day analysis refined into five bands: dawn, morning, afternoon, evening and night.
 • WorldRun and the monthly full-course challenge merged into one card.
 
 [Analysis]
