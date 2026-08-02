@@ -403,7 +403,7 @@ export default function DashboardPage() {
           1 HealthKit → 2 주간Recap → 3 스트릭경고 → 4 이름헤더 → 5 4칩 → 6 이달목표
           → 7 랭킹Hero (활성화 hero) → 8 LiveRunning → 9 캘린더 → 10 지역배너
           → 11 Friends → 12 Predict → 13 LocalTop → 14 Neighbors → 15 OnThisDay */}
-      <div className="space-y-3 pt-1">
+      <div className="space-y-4 pt-1">
         {/* Phase C (build 327, hans UX 리뷰): 5그룹 재배치 —
             지금(헤더·그리드·랭킹히어로) → 이번 주 → 이번 달 → 함께 달리기 → 내 기록.
             그룹 라벨(SectionLabel)로 경계 표시, 경쟁 3표면은 CompetitionHub 탭으로 통합. */}
@@ -492,6 +492,8 @@ export default function DashboardPage() {
         <RunOfTheDayCard />
         </>)}
 
+        {/* ── 주간 섹션 (2026-08-02: 라벨 대신 넓은 여백으로 구분) ── */}
+        <div className="h-3" aria-hidden />
         {/* Phase A: 스트릭 경고를 주간 목표 카드 바로 위로 — 주간 정보 그룹핑 (경고+목표+스트릭) */}
         {!isNewRunner && (
           <div className="mx-4">
@@ -522,6 +524,8 @@ export default function DashboardPage() {
         <LazyMount minHeight={200} rootMargin="300px"><WinnerPredictionWidget /></LazyMount>
         </>)}
 
+        {/* ── 월간 섹션 ── */}
+        <div className="h-3" aria-hidden />
         {/* 6.1 이달 목표 */}
         <div className={`mx-4 card p-5 relative overflow-hidden ${goalKm > 0 && goalProgress >= 100 ? 'goal-achieved' : ''}`}>
           {goalKm > 0 && goalProgress >= 100 && (
@@ -601,6 +605,8 @@ export default function DashboardPage() {
         {/* 월 캘린더 (잔디) */}
         <div className="mx-4"><HomeCalendarCard /></div>
 
+        {/* ── 함께 달리기 섹션 ── */}
+        <div className="h-3" aria-hidden />
         {!isNewRunner && (<>
         {secondaryMounted && <HomeFriendStories />}
         {/* 10 지역 미설정 배너 (조건부) */}
@@ -617,6 +623,8 @@ export default function DashboardPage() {
           </Link>
         )}
 
+        {/* ── 내 기록 섹션 ── */}
+        <div className="h-3" aria-hidden />
         {/* 미니맵 — LazyMount 없이 즉시 (사용자 신고: "지도 안 보임") */}
         <HomeMapPreview />
         {/* 2026-08-01 (hans): 그래프 복원 — 30일 추이·요일 패턴은 홈에서 바로.
@@ -628,8 +636,8 @@ export default function DashboardPage() {
       {/* ========== ② 통계 차트 묶음 ==========
           16 스트릭 → 17 PB → 18 일별30일 → 19 12주 → 20 페이스 → 21 요일 → 22 시간대
           → 23 기간별 상세 (+히스토리 링크) → 24 요약 4칩 → 25 최근 활동 */}
-      {/* 상단 그룹(space-y-3)과 리듬 통일 */}
-      <div className="p-4 pt-3 space-y-3">
+      {/* 상단 그룹과 리듬 통일 (2026-08-02 hans: 카드 간격 확대) */}
+      <div className="p-4 pt-2 space-y-4">
 
       {/* 신규 러너 모드에선 16~24 (스트릭·PB·차트류·요약칩) 스킵 — 25 최근 활동만 렌더 */}
       {!isNewRunner && (<>
