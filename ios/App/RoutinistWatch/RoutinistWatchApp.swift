@@ -12,7 +12,9 @@ struct RoutinistWatchApp: App {
         #if DEBUG
         WorkoutManager.shared.applyUIPreviewIfRequested()
         #endif
-        // v11: UI 재실행 시 진행 중 워크아웃 세션 재접속 (있을 때만)
+        // v20: 종료 직후 UI 가 죽었어도 미확인 완주 요약을 되살림 (15분 내)
+        WorkoutManager.shared.restorePendingSummaryIfNeeded()
+        // v11: UI 재실행 시 진행 중 워크아웃 세션 재접속 (있을 때만 — 요약 복원 시 no-op)
         WorkoutManager.shared.recoverSessionIfNeeded()
     }
 

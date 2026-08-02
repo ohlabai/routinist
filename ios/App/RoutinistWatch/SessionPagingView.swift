@@ -31,6 +31,12 @@ struct SessionPagingView: View {
                     .tabViewStyle(.page)
             }
         }
+        // 2026-08-02 hans: 다시 달리기 (수동·자동 재개) 후 컨트롤에 머물지 말고
+        // 기록 화면으로 — 달리기 시작했으면 보이는 건 메트릭이어야 한다.
+        // (watchOS 9 타겟: onChange 는 1-param 형만)
+        .onChange(of: workout.phase) { newPhase in
+            if newPhase == .active { selection = .metrics }
+        }
         .navigationBarBackButtonHidden(true)
     }
 
@@ -266,36 +272,42 @@ struct HeartSparkline: View {
 struct ControlsView: View {
     @EnvironmentObject var workout: WorkoutManager
 
+    private let emerald = Color(red: 0.20, green: 0.83, blue: 0.60)
+
     var body: some View {
+        // 2026-08-02 hans: 부드러운 러닝 언어 — 종료(빨강 X) 는 부정 신호라
+        // "완주" (에메랄드 + 체커기) 로, 일시정지/재개는 "잠시 쉼" / "다시 달리기" 로.
         VStack(spacing: 8) {
             HStack(spacing: 10) {
                 VStack(spacing: 5) {
                     Button {
                         workout.endWorkout()
                     } label: {
-                        Image(systemName: "xmark")
+                        Image(systemName: "flag.checkered")
                             .font(.system(size: 24, weight: .heavy))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 18)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(.red.opacity(0.85))
-                    Text("종료")
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .tint(emerald)
+                    Text("완주")
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
                 }
                 VStack(spacing: 5) {
                     Button {
                         workout.togglePause()
                     } label: {
-                        Image(systemName: workout.phase == .paused ? "arrow.clockwise" : "pause")
+                        Image(systemName: workout.phase == .paused ? "figure.run" : "pause.fill")
                             .font(.system(size: 24, weight: .heavy))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 18)
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(.yellow.opacity(0.9))
-                    Text(workout.phase == .paused ? "재개" : "일시정지")
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                    Text(workout.phase == .paused ? "다시 달리기" : "잠시 쉼")
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .minimumScaleFactor(0.8)
+                        .lineLimit(1)
                 }
             }
             // 화면 잠금 (물·소매 오터치 방지) — Apple 운동앱의 물잠금 문법

@@ -516,11 +516,52 @@ final class WorkoutManager: NSObject, ObservableObject {
         pedometer.stopUpdates()
         stopLocationUpdates()
         isAutoPaused = false
+        // v20 (hans: "종료 누르면 바로 첫화면"): 요약을 HK 콜백에 묶지 않는다 —
+        // finishWorkout 이 느리거나 그 사이 손목을 내려 watchOS 가 UI 를 죽이면
+        // 축하 화면 없이 시작 화면으로 떨어졌다. 종료 즉시 로컬 값으로 요약 표시,
+        // HK 저장은 뒤에서 진행 (완료되면 평균 심박만 정밀값으로 갱신).
+        let avgHr = hrSamples.isEmpty ? 0 : hrSamples.reduce(0, +) / Double(hrSamples.count)
+        summary = WorkoutSummary(
+            distanceMeters: distanceMeters,
+            elapsedSeconds: elapsedSeconds,
+            avgHeartRate: avgHr,
+            calories: activeCalories,
+            zoneSeconds: zoneSeconds
+        )
+        persistPendingSummary()
+        phase = .ended
+        speak("완주! 오늘도 잘 달렸어요.")
         session?.end()
+    }
+
+    // ── v20: 요약 영속 — UI 가 죽었다 깨어나도 축하·기록 화면을 되찾는다 ──
+    private func persistPendingSummary() {
+        guard let s = summary else { return }
+        UserDefaults.standard.set([
+            "d": s.distanceMeters, "e": s.elapsedSeconds, "h": s.avgHeartRate,
+            "c": s.calories, "z": s.zoneSeconds, "ts": Date().timeIntervalSince1970,
+        ] as [String: Any], forKey: "pendingSummary")
+    }
+
+    /// 앱 재시작 시 15분 내의 미확인 요약이 있으면 복원 (완료 탭 = reset 이 지움)
+    func restorePendingSummaryIfNeeded() {
+        guard phase == .idle, summary == nil,
+              let o = UserDefaults.standard.dictionary(forKey: "pendingSummary"),
+              let ts = o["ts"] as? TimeInterval,
+              Date().timeIntervalSince1970 - ts < 900 else { return }
+        summary = WorkoutSummary(
+            distanceMeters: o["d"] as? Double ?? 0,
+            elapsedSeconds: o["e"] as? Double ?? 0,
+            avgHeartRate: o["h"] as? Double ?? 0,
+            calories: o["c"] as? Double ?? 0,
+            zoneSeconds: o["z"] as? [Double] ?? [0, 0, 0, 0, 0]
+        )
+        phase = .ended
     }
 
     /// 요약 닫기 → 초기 화면 복귀
     func reset() {
+        UserDefaults.standard.removeObject(forKey: "pendingSummary")   // v20: 요약 확인 완료
         session = nil
         builder = nil
         phase = .idle
@@ -647,13 +688,16 @@ extension WorkoutManager: HKWorkoutSessionDelegate {
                             let avgHr = self.builder?
                                 .statistics(for: HKQuantityType.quantityType(forIdentifier: .heartRate)!)?
                                 .averageQuantity()?.doubleValue(for: hrUnit) ?? 0
+                            // v20: endWorkout 이 이미 로컬 요약을 띄웠으면 심박만 정밀값으로 갱신.
+                            // (외부 종료 등 endWorkout 을 안 거친 경로는 여기서 최초 생성)
                             self.summary = WorkoutSummary(
                                 distanceMeters: self.distanceMeters,
                                 elapsedSeconds: self.elapsedSeconds,
-                                avgHeartRate: avgHr,
+                                avgHeartRate: avgHr > 0 ? avgHr : (self.summary?.avgHeartRate ?? 0),
                                 calories: self.activeCalories,
                                 zoneSeconds: self.zoneSeconds
                             )
+                            self.persistPendingSummary()
                             self.phase = .ended
                         }
                     }

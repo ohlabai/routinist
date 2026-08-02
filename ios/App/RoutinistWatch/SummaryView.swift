@@ -17,8 +17,14 @@ struct SummaryView: View {
     private var scrollContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                Text("완주! 🎉")
-                    .font(.system(size: 30, weight: .heavy, design: .rounded))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("완주! 🎉")
+                        .font(.system(size: 30, weight: .heavy, design: .rounded))
+                    // 2026-08-02 hans: 종료 직후 따뜻한 한 줄
+                    Text("오늘도 잘 달렸어요")
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.secondary)
+                }
 
                 // 2026-07-30 (hans): 페이스 동물 축하 — 오늘의 페이스에 어울리는 블록동물이
                 // 제자리 달리기하며 축하 (웹 완료시트·공유카드와 같은 사다리).
