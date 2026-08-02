@@ -33,31 +33,18 @@ struct ParadeFrame: View {
     let tick: Int
     /// 기린(10행) 기준 셀 크기 — 작은 동물은 바닥 정렬로 자연히 작아짐
     private let maxRows = 10
-    /// 행진 대열에서 러너 사이 간격 (셀)
-    private let gapCells = 5
-    /// 행진 속도 (틱당 셀) — 대열이라 균일 속도. 다리 템포·바운스는 동물별 유지.
-    private let trainSpeed = 1.4
 
-    /// 2026-07-30 (hans): 한 마리씩 → **줄지어 행진**. 14마리가 열차처럼 이어 달리고
-    /// 대열 전체가 순환한다 (마지막 말 뒤에 다시 남자). 화면엔 항상 2~3마리가 보임.
-    /// 각 러너의 대열 내 시작 좌표 (셀) — 결정적이라 프레임마다 재계산해도 동일.
-    private var trainStarts: [Int] {
-        var starts: [Int] = []
-        var acc = 0
-        for r in PARADE_RUNNERS {
-            starts.append(acc)
-            acc += r.width + gapCells
-        }
-        return starts
-    }
+    /// 트랙 길이 (셀) — 전체 폭 대비 넉넉히 잡아 화면엔 늘 2~3마리만 보이게.
+    /// 2026-08-03 (hans): 균일 대열 → **동물별 실제 속도** (stepCells 부활).
+    /// 거북이·코끼리는 느릿느릿 기어가고 치타·말·토끼가 자연스럽게 **추월**한다.
+    /// 순환 트랙이라 속도 차이만으로 만남·추월이 계속 생긴다 (별도 연출 코드 불필요).
+    private let trackCells = 220.0
 
     var body: some View {
         GeometryReader { geo in
             let cell = geo.size.height / CGFloat(maxRows)
             let cols = max(8, Int(geo.size.width / cell))
-            let starts = trainStarts
-            let cycle = Double((PARADE_RUNNERS.last?.width ?? 0) + gapCells + (starts.last ?? 0))
-            let p = (Double(tick) * trainSpeed).truncatingRemainder(dividingBy: cycle)
+            let n = PARADE_RUNNERS.count
 
             ZStack(alignment: .topLeading) {
                 // 바닥 잔디 라인 — 러너들이 밟고 달리는 지면
@@ -71,10 +58,12 @@ struct ParadeFrame: View {
                 .frame(maxWidth: .infinity)
                 .offset(y: geo.size.height - cell * 0.4)
 
-                ForEach(0..<PARADE_RUNNERS.count, id: \.self) { i in
+                ForEach(0..<n, id: \.self) { i in
                     let r = PARADE_RUNNERS[i]
-                    // 대열 좌표 → 화면 좌표: 오른쪽으로 행진, cycle 을 돌아 다시 왼쪽 진입
-                    let raw = (Double(starts[i]) + p).truncatingRemainder(dividingBy: cycle)
+                    // 시작 위상 균등 분산 + 자기 속도로 전진. 결정적 계산이라 프레임 간 일관.
+                    let start = trackCells * Double(i) / Double(n)
+                    let raw = (start + Double(tick) * r.stepCells * 0.55)
+                        .truncatingRemainder(dividingBy: trackCells)
                     let xCells = raw - Double(r.width)
                     if xCells < Double(cols) && raw > 0 {
                         let frameIdx = (tick / max(1, r.legEvery)) % 2
@@ -84,6 +73,8 @@ struct ParadeFrame: View {
                                     y: geo.size.height - CGFloat(r.height) * cell - cell * 0.4 + hop)
                             // 셀 단위 점프를 부드럽게 — 픽셀 마퀴 특유의 리듬은 유지
                             .animation(.linear(duration: 0.12), value: tick)
+                            // 빠른 동물이 앞을 지나가게 — 추월 장면의 앞뒤 관계
+                            .zIndex(r.stepCells)
                     }
                 }
             }
