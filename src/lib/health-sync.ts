@@ -398,6 +398,20 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     if (auth.denied.length > 0) {
       logClientWarn('health-sync', 'partial authorization', { denied: auth.denied });
     }
+    // 2026-08-02 (hans 안드 실기기 진단): Android 에서 distance 미승인이면 워크아웃은
+    // 읽혀도 거리가 전부 0 → 전건 too_short 스킵 + 걷기 폴백에서 SecurityException 원문
+    // 노출. 이 상태는 동기화해봐야 무의미 — 바로 사람 말로 재승인 경로를 안내하고 끝낸다.
+    // (한번 거부된 권한은 requestAuthorization 이 다시 안 띄울 수 있어 '권한 관리' 가 정경로)
+    if (getPlatform() === 'android' && auth.denied.includes('distance')) {
+      return {
+        success: false,
+        message: getCurrentLocale() === 'en'
+          ? "Health Connect 'Distance' permission is off — allow it in Manage permissions on the Connect screen 🙏"
+          : "Health Connect 에서 '거리' 권한이 꺼져 있어요.\n연결 화면 아래 '권한 관리'에서 거리를 허용해 주세요 🙏",
+        synced: 0,
+        authDenied: true,
+      };
+    }
 
     const { Health } = await import('@capgo/capacitor-health');
 
@@ -866,8 +880,19 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
   } catch (error) {
     const message = error instanceof Error ? error.message : ttl('알 수 없는 오류');
     logClientError('health-sync', 'sync 예외', { err: message });
+    const perm = humanizeHealthPermissionError(message);
+    if (perm) return { success: false, message: perm, synced: 0, authDenied: true };
     return { success: false, message: `${ttl('동기화 중에 문제가 생겼어요')}\n${message}`, synced: 0 };
   }
+}
+
+// 2026-08-02 (hans 안드 실기기): Health Connect 권한 SecurityException 원문이
+// 사용자 화면에 그대로 노출됐다 — 권한 계열 에러는 사람 말 + 재승인 경로로 치환.
+function humanizeHealthPermissionError(raw: string): string | null {
+  if (!/SecurityException|permission\.health|Caller requires/i.test(raw)) return null;
+  return getCurrentLocale() === 'en'
+    ? 'Health Connect permission is off — allow it in Manage permissions on the Connect screen 🙏'
+    : "Health Connect 권한이 꺼져 있어요 (한동안 안 쓰면 자동으로 꺼지기도 해요).\n연결 화면 아래 '권한 관리'에서 다시 허용해 주세요 🙏";
 }
 
 // 워크아웃이 없을 때만 폴백 — 거리 데이터 일별 합산.
@@ -975,6 +1000,9 @@ async function syncViaDistance(
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : ttl('알 수 없는 오류');
+    logClientWarn('health-sync', 'distance fallback 예외', { err: message });
+    const perm = humanizeHealthPermissionError(message);
+    if (perm) return { success: false, message: perm, synced: 0, authDenied: true };
     return { success: false, message: `${ttl('거리 합산 중에 문제가 생겼어요')}\n${message}`, synced: 0 };
   }
 }
