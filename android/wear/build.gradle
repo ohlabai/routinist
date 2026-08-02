@@ -13,7 +13,7 @@ android {
         targetSdkVersion 34                           // Wear OS 5
         // versionCode 는 폰과 반드시 달라야 함 (같은 앱, 다른 폼팩터 APK).
         // 폰 build 324 → 워치는 1_000_000 오프셋 스킴으로 충돌 방지.
-        versionCode 1000324
+        versionCode 1000325   // v4: 존분포·음성릴레이·컴플리케이션·부드러운 언어
         versionName "1.2.13"
     }
 
