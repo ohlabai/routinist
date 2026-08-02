@@ -15,7 +15,9 @@ android {
         //      (코드 동일, versionCode 만 +1). iOS 와 무관한 Android 단독 증가.
         // 328: 2026-08-02 대형 웹 사이클 — 토스 타이포 스케일·P0/P1 세련화·홈 그래프·심박존 카드
         //      + Health Connect 거리권한 안내 fix. versionName 1.2.15 (iOS 다음 사이클과 정렬).
-        versionCode 328
+        // 329: 328 심사 중 대체 (hans "회수하고 모두 탑승") — 오후 2차분: 예측 적중 푸시·
+        //      월드런 통합·친구활동 카드·페이스 그래프·댓글 알림 fix·시스템 테마 기본값.
+        versionCode 329
         versionName "1.2.15"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
