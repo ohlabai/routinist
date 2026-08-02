@@ -242,12 +242,12 @@ export default function HomeCalendarCard() {
           <ChevronLeft size={18} />
         </button>
         <div className="flex items-baseline gap-2">
-          <span className="text-base font-bold text-[var(--foreground)]">
+          <span className="text-lg font-extrabold text-[var(--foreground)]">
             {locale === 'en'
               ? new Date(year, month - 1, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' })
               : `${year}년 ${month}월`}
           </span>
-          <span className="text-xs text-[var(--muted)]">
+          <span className="text-sm text-[var(--muted)]">
             {locale === 'en' ? `${totalKm.toFixed(1)}km · ${runDays} days` : `${totalKm.toFixed(1)}km · ${runDays}일`}
           </span>
         </div>
@@ -282,7 +282,7 @@ export default function HomeCalendarCard() {
             key={`p-${d}`}
             className="aspect-square rounded-md flex items-center justify-center bg-gray-50 dark:bg-zinc-900/40 opacity-40"
           >
-            <span className="text-[10px] text-[var(--muted)]">{d}</span>
+            <span className="text-[13px] font-medium text-[var(--muted)]">{d}</span>
           </div>
         ))}
 
@@ -324,11 +324,11 @@ export default function HomeCalendarCard() {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
                 </>
               )}
-              <span className={`absolute top-0.5 left-1/2 -translate-x-1/2 text-[11px] font-bold leading-none ${textWhite ? 'text-white drop-shadow' : 'text-[var(--foreground)]'}`}>
+              <span className={`absolute top-0.5 left-1/2 -translate-x-1/2 text-[13px] font-bold leading-none ${textWhite ? 'text-white drop-shadow' : 'text-[var(--foreground)]'}`}>
                 {day}
               </span>
               {km > 0 && (
-                <span className={`absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[8px] font-semibold leading-none whitespace-nowrap ${textWhite ? 'text-white/95 drop-shadow' : 'text-[var(--muted)]'}`}>
+                <span className={`absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[10px] font-semibold leading-none whitespace-nowrap ${textWhite ? 'text-white/95 drop-shadow' : 'text-[var(--muted)]'}`}>
                   {km.toFixed(1)}
                 </span>
               )}
@@ -396,7 +396,7 @@ export default function HomeCalendarCard() {
       )}
 
       {/* 범례 — build 152: "사진 등록 →" 링크 제거 (사용자 피드백, 별도 페이지에서 돌아오는 메뉴 없음). */}
-      <div className="flex items-center gap-1 mt-3 text-[10px] text-[var(--muted)]">
+      <div className="flex items-center gap-1 mt-3 text-xs text-[var(--muted)]">
         <span className="w-2.5 h-2.5 rounded bg-green-200" />
         <span className="w-2.5 h-2.5 rounded bg-green-400" />
         <span className="w-2.5 h-2.5 rounded bg-green-500" />
