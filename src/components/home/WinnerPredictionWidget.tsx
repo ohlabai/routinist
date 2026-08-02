@@ -136,7 +136,14 @@ export default function WinnerPredictionWidget() {
           <p className="text-xs text-[var(--muted)] mt-0.5">
             {(isClosed
               ? (locale === 'en' ? 'Closed — results Sunday midnight' : '마감됨 — 일요일 자정 결과 공개')
-              : timeLabel)} · {locale === 'en' ? `${round.total_picks} picks` : `${round.total_picks}명 참여`}
+              : timeLabel)}
+            {/* 참여 적을 땐 "1명 참여"가 초라함 (2026-08-02 hans) — 3명부터 숫자 노출,
+                그 전엔 열려 있으면 선점 유도, 마감이면 생략 */}
+            {round.total_picks >= 3
+              ? ` · ${locale === 'en' ? `${round.total_picks} picks` : `${round.total_picks}명 참여`}`
+              : (!isClosed && !round.my_pick
+                  ? ` · ${locale === 'en' ? 'be the first to pick 🎯' : '첫 픽 찬스 🎯'}`
+                  : '')}
           </p>
         </div>
         {round.my_pick && (

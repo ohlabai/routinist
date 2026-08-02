@@ -473,9 +473,10 @@ export default function DashboardPage() {
             모든 셀 text-3xl 통일, 셀 너비 2배 → 페이스 "48'50" 자릿수 안전. 좌우 대칭 정돈.
             행 사이 구분선 (divide-y) 으로 시각적 그루핑 (오늘 vs 이달). */}
         <div className="mx-4 card p-5">
-          {/* divide-y 는 grid 에서 2번 셀(우상단)에도 윗선을 그림 — 아래 행에만 명시적 border-t */}
+          {/* 2026-08-02 hans P0-4: DAY 섹션은 오늘 지표만 — 이달 km·일수는 MONTH 의
+              이달 목표 카드 서브라인으로 이동 (섹션 라벨과 내용 일치). */}
           <div className="grid grid-cols-2 gap-x-6 text-center tabular-nums">
-            <div className="pb-4 min-w-0">
+            <div className="min-w-0">
               {userDataLoading && activities.length === 0 ? (
                 <p className="text-3xl font-extrabold tracking-tight text-[var(--accent)] opacity-30">···</p>
               ) : (
@@ -483,7 +484,7 @@ export default function DashboardPage() {
               )}
               <p className="text-sm font-medium text-[var(--muted)] mt-1">{t('home.todayKm').replace(/km$/, unitLabel(unit))}</p>
             </div>
-            <div className="pb-4 min-w-0">
+            <div className="min-w-0">
               {userDataLoading && activities.length === 0 ? (
                 <p className="text-3xl font-extrabold tracking-tight text-[var(--foreground)] opacity-30">···</p>
               ) : (
@@ -494,24 +495,6 @@ export default function DashboardPage() {
               <p className="text-sm font-medium text-[var(--muted)] mt-1">
                 {todayPaceSec ? t('home.todayPace') : recentPace ? t('home.recentPace') : t('home.todayPace')}
               </p>
-            </div>
-            {/* 2026-08-01 세련화: 셀마다 다른 색 (green/lime) → 오늘 거리만 emerald, 나머지 중립.
-                색은 위계 신호 하나로 절제 — 최신 미니멀 문법. */}
-            <div className="pt-4 min-w-0 border-t border-[var(--card-border)]/40">
-              {userDataLoading && activities.length === 0 && !profileMonthCacheValid ? (
-                <p className="text-3xl font-extrabold tracking-tight text-[var(--foreground)] opacity-30">···</p>
-              ) : (
-                <p className="text-3xl font-extrabold tracking-tight text-[var(--foreground)]">{toDisplayDistance(monthlyDistance, unit).toFixed(1)}</p>
-              )}
-              <p className="text-sm font-medium text-[var(--muted)] mt-1">{t('home.monthKm').replace(/km$/, unitLabel(unit))}</p>
-            </div>
-            <div className="pt-4 min-w-0 border-t border-[var(--card-border)]/40">
-              {userDataLoading && activities.length === 0 && !profileMonthCacheValid ? (
-                <p className="text-3xl font-extrabold tracking-tight text-[var(--foreground)] opacity-30">···</p>
-              ) : (
-                <p className="text-3xl font-extrabold tracking-tight text-[var(--foreground)]">{monthlyRunDays}</p>
-              )}
-              <p className="text-sm font-medium text-[var(--muted)] mt-1">{t('home.monthDays')}</p>
             </div>
           </div>
         </div>
@@ -563,12 +546,18 @@ export default function DashboardPage() {
             <div className="absolute inset-0 achievement-shimmer pointer-events-none" />
           )}
           <div className="relative">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-1">
               <h3 className="text-base font-semibold text-[var(--foreground)]">{t('home.monthGoal').replace('{month}', monthLabel)}</h3>
               <Link href="/goals" className="text-sm text-[var(--accent)] font-semibold flex items-center gap-0.5">
                 {t('home.set')} <ChevronRight size={14} />
               </Link>
             </div>
+            {/* P0-4 (2026-08-02): DAY 그리드에서 이관한 이달 누적 — 목표 유무와 무관하게 표시 */}
+            <p className="text-sm text-[var(--muted)] mb-3 tabular-nums">
+              {locale === 'en'
+                ? `${toDisplayDistance(monthlyDistance, unit).toFixed(1)}${unitLabel(unit)} · ${monthlyRunDays} day${monthlyRunDays === 1 ? '' : 's'} this month`
+                : `이달 ${toDisplayDistance(monthlyDistance, unit).toFixed(1)}${unitLabel(unit)} · ${monthlyRunDays}일 달림`}
+            </p>
             {goalKm > 0 ? (
               <>
                 {/* 2026-08-01 세련화: 굵은 바 안 흰 글씨·깃발 아이콘 → 큰 % 숫자 + 얇은 바.

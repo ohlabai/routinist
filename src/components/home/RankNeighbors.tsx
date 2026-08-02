@@ -103,8 +103,8 @@ export default function RankNeighbors() {
         <span className="text-xs text-[var(--muted)] ml-auto">{locale === 'en' ? 'Since Monday' : '월요일 기준'}</span>
       </div>
 
-      {/* 따라잡기 타겟 (바로 앞) */}
-      {target && (
+      {/* 따라잡기 타겟 (바로 앞) — 10km 이내일 때만 (2026-08-02 hans: 격차 큰데 자극 문구는 어색) */}
+      {target && kmToTarget > 0 && kmToTarget < 10 && (
         <div className="mb-2 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 flex items-center gap-2">
           <span className="text-sm">🎯</span>
           <p className="text-xs font-semibold text-[var(--foreground)] flex-1">
@@ -130,7 +130,7 @@ export default function RankNeighbors() {
             href={r.is_me ? '/profile' : `/social/user?id=${r.user_id}`}
             className={`flex items-center gap-2 px-2 py-1.5 rounded-lg ${
               r.is_me ? 'bg-gradient-to-r from-emerald-100 to-emerald-200/70 dark:from-emerald-950/40 dark:to-emerald-900/40 ring-2 ring-emerald-300 dark:ring-emerald-700' : ''
-            }`}
+            } ${!r.is_me && r.weekly_km <= 0 ? 'opacity-55' : ''}`}
           >
             <span className={`w-6 text-center text-xs font-bold ${r.rank_position <= 3 ? 'text-amber-500' : 'text-[var(--muted)]'}`}>
               {r.rank_position}
@@ -149,14 +149,16 @@ export default function RankNeighbors() {
               {r.display_name}{r.is_me ? (locale === 'en' ? ' (You)' : ' (나)') : ''}
             </span>
             <span className="text-xs text-[var(--muted)] font-semibold">
-              {r.weekly_km.toFixed(1)}km
+              {/* 이번 주 미달림 러너는 0.0km 대신 부드럽게 (2026-08-02 hans) */}
+              {r.weekly_km > 0 ? `${r.weekly_km.toFixed(1)}km` : (locale === 'en' ? 'no runs yet' : '아직 기록 없음')}
             </span>
           </Link>
         ))}
       </div>
 
-      {/* 나를 쫓는 사람 */}
-      {chaser && kmFromChaser >= 0 && (
+      {/* 나를 쫓는 사람 — 진짜 붙었을 때만 (5km 이내 + 상대가 이번 주 달렸을 때).
+          2026-08-02 hans: 49.8km 차이에도 빨간 경고가 떠서 긴장 장치가 우스워짐 */}
+      {chaser && chaser.weekly_km > 0 && kmFromChaser >= 0 && kmFromChaser < 5 && (
         <div className="mt-2 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/20 flex items-center gap-2">
           <span className="text-sm">⚠️</span>
           <p className="text-xs font-semibold text-[var(--foreground)] flex-1">
