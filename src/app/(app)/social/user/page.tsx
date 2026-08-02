@@ -14,14 +14,17 @@
 import { useEffect, useState, Suspense, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, UserPlus, Check, MapPin, MessageCircle, Gift, Trophy, Award, Edit3 } from 'lucide-react';
+import { ArrowLeft, UserPlus, Check, MapPin, Map as MapIcon, Gift, Trophy, Award, Edit3, ChevronRight as ChevronRightIcon } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthProvider';
 import { followUser, unfollowUser, isFollowing } from '@/lib/social-data';
 import { sendFriendRequest, getFriendshipStatus, cancelFriendRequest, type FriendshipStatus } from '@/lib/friend-requests-data';
 import CheerButton from '@/components/social/CheerButton';
 import ProfileChatBox from '@/components/social/ProfileChatBox';
-import { getOrCreateConversation, blockUser, unblockUser, isBlocked } from '@/lib/message-data';
+import { blockUser, unblockUser, isBlocked } from '@/lib/message-data';
+import { getReceivedCheerCounts, type ReceivedCheerCounts } from '@/lib/cheer-data';
+import { useUserData } from '@/components/UserDataProvider';
+import { startOfWeekStr } from '@/lib/kst';
 import { PUBLIC_PROFILE_FIELDS } from '@/lib/profile-fields';
 import type { Profile } from '@/types';
 import AppLogo from '@/components/AppLogo';
@@ -163,6 +166,51 @@ function UserProfileContent() {
   // build 290: 차단 상태 (Apple 1.2 — 사용자 차단 진입점)
   const [blockedByMe, setBlockedByMe] = useState(false);
   const [blockToggling, setBlockToggling] = useState(false);
+
+  // 2026-08-03 hans 프로필 개선: 받은 응원 ❤️ + 함께 아는 친구/같은 클럽
+  const [cheerCounts, setCheerCounts] = useState<ReceivedCheerCounts | null>(null);
+  const [mutualFriends, setMutualFriends] = useState<number | null>(null);
+  const [commonClub, setCommonClub] = useState<string | null>(null);
+  useEffect(() => {
+    if (!userId) return;
+    let mounted = true;
+    getReceivedCheerCounts(userId)
+      .then(c => { if (mounted) setCheerCounts(c); })
+      .catch(() => {});
+    if (user && user.id !== userId) {
+      (async () => {
+        try {
+          const supabase = getSupabase();
+          const [mine, theirs] = await Promise.all([
+            supabase.from('follows').select('following_id').eq('follower_id', user.id),
+            supabase.from('follows').select('following_id').eq('follower_id', userId),
+          ]);
+          if (!mounted) return;
+          const myIds = new Set((mine.data ?? []).map((r: { following_id: string }) => r.following_id));
+          const shared = (theirs.data ?? [])
+            .filter((r: { following_id: string }) => myIds.has(r.following_id) && r.following_id !== user.id && r.following_id !== userId);
+          setMutualFriends(shared.length);
+        } catch { /* RLS 등으로 못 읽으면 라인 자체를 숨김 */ }
+        try {
+          const supabase = getSupabase();
+          const [mine, theirs] = await Promise.all([
+            supabase.from('club_members').select('club_id, clubs(name)').eq('user_id', user.id),
+            supabase.from('club_members').select('club_id').eq('user_id', userId),
+          ]);
+          if (!mounted) return;
+          const theirClubIds = new Set((theirs.data ?? []).map((r: { club_id: string }) => r.club_id));
+          const common = (mine.data ?? []).find((r: { club_id: string }) => theirClubIds.has(r.club_id)) as
+            | { club_id: string; clubs: { name: string } | { name: string }[] | null }
+            | undefined;
+          if (common?.clubs) {
+            const club = Array.isArray(common.clubs) ? common.clubs[0] : common.clubs;
+            setCommonClub(club?.name ?? null);
+          }
+        } catch { /* 조용히 생략 */ }
+      })();
+    }
+    return () => { mounted = false; };
+  }, [userId, user]);
 
   useEffect(() => {
     if (!user || user.id === userId) return;
@@ -341,6 +389,17 @@ function UserProfileContent() {
   const isMe = user?.id === userId;
   const regionLabel = [profile.region_si, profile.region_gu].filter(Boolean).join(' ');
 
+  // 2026-08-03 hans #5: 러너 연차 — running_since(러닝 시작) 우선, 없으면 가입일
+  const tenureLabel = (() => {
+    const base = (profile as { running_since?: string | null }).running_since || profile.created_at;
+    if (!base) return null;
+    const months = Math.floor((Date.now() - new Date(base).getTime()) / (30.44 * 24 * 3600 * 1000));
+    if (months < 1) return locale === 'en' ? 'New runner 🌱' : '새싹 러너 🌱';
+    if (months < 12) return locale === 'en' ? `Running for ${months} mo` : `러닝 ${months}개월차`;
+    const years = Math.floor(months / 12);
+    return locale === 'en' ? `Running for ${years} yr+` : `러닝 ${years}년차`;
+  })();
+
   return (
     <div className="max-w-lg mx-auto pb-12 bg-[var(--background)] min-h-screen">
       {/* Sticky Header */}
@@ -374,14 +433,37 @@ function UserProfileContent() {
                 size={16}
               />
             </h1>
-            {regionLabel && (
+            {(regionLabel || tenureLabel) && (
               <p className="text-xs text-[var(--muted)] flex items-center gap-1 mt-1">
-                <MapPin size={12} /> {regionLabel}
+                {regionLabel && <><MapPin size={12} /> {regionLabel}</>}
+                {regionLabel && tenureLabel && <span className="opacity-50">·</span>}
+                {tenureLabel}
+              </p>
+            )}
+            {/* 받은 응원 ❤️ (hans #3) — 응원 보낼 동기 부여 */}
+            {(cheerCounts?.total ?? 0) > 0 && (
+              <p className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/30 text-xs font-bold text-rose-500">
+                ❤️ {cheerCounts!.total.toLocaleString()}
+                <span className="font-medium text-rose-400/80">{tt('받은 응원')}</span>
               </p>
             )}
             {profile.bio && <p className="text-sm text-[var(--muted)] mt-1 line-clamp-2">{profile.bio}</p>}
           </div>
         </div>
+
+        {/* 함께 아는 친구 · 같은 클럽 (hans #4) — 연결감 한 줄 */}
+        {!isMe && ((mutualFriends ?? 0) > 0 || commonClub) && (
+          <p className="text-xs text-[var(--muted)] mt-3 flex items-center gap-1.5">
+            <span>🤝</span>
+            {(mutualFriends ?? 0) > 0 && (
+              <span>{locale === 'en' ? `${mutualFriends} mutual friends` : `함께 아는 친구 ${mutualFriends}명`}</span>
+            )}
+            {(mutualFriends ?? 0) > 0 && commonClub && <span className="opacity-50">·</span>}
+            {commonClub && (
+              <span>{locale === 'en' ? `Both in ${commonClub}` : `${commonClub} 클럽 함께`}</span>
+            )}
+          </p>
+        )}
 
         <div className="grid grid-cols-3 gap-3 text-center mt-5 pt-5 border-t border-[var(--card-border)]">
           <div>
@@ -453,22 +535,14 @@ function UserProfileContent() {
               </button>
             );
           })()}
-          <button
-            onClick={async () => {
-              if (!user) return;
-              try {
-                const conv = await getOrCreateConversation(userId);
-                router.push(`/messages/chat?id=${conv.id}`);
-              } catch (e) {
-                logClientWarn('UserProfile', '쪽지 시작 실패', { userId, err: String(e) });
-                setToast({ text: tt('쪽지를 시작할 수 없어요'), tone: 'warn' });
-              }
-            }}
+          {/* 2026-08-03 hans #6: 쪽지 → 지도. 인라인 응원 챗이 쪽지 역할을 흡수 (전체 대화 링크로 연결) */}
+          <Link
+            href={`/map?userId=${userId}`}
             className="flex flex-col items-center justify-center gap-1 py-3 rounded-2xl bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 text-sm font-semibold active:scale-95 transition"
           >
-            <MessageCircle size={20} />
-            <span className="text-xs">{tt('쪽지')}</span>
-          </button>
+            <MapIcon size={20} />
+            <span className="text-xs">{tt('지도')}</span>
+          </Link>
           <Link
             href={`/mileage/gift`}
             className="flex flex-col items-center justify-center gap-1 py-3 rounded-2xl bg-pink-50 dark:bg-pink-950/30 text-pink-700 dark:text-pink-300 text-sm font-semibold active:scale-95 transition"
@@ -478,6 +552,35 @@ function UserProfileContent() {
           </Link>
         </div>
       ))}
+
+      {/* 이번 주 나와 비교 (2026-08-03 hans #1) — 페이스메이커 늬앙스 */}
+      {user && !isMe && <CompareWeekCard theirName={profile.display_name ?? ''} theirActivities={activities} />}
+
+      {/* 최근 러닝 3건 (2026-08-03 hans #2) — "요즘 뭐 뛰었나" 한눈에 */}
+      {activities.length > 0 && (
+        <div className="card p-4">
+          <h3 className="text-base font-semibold text-[var(--foreground)] mb-2">{tt('최근 러닝')}</h3>
+          <div className="divide-y divide-[var(--card-border)]/50">
+            {activities.slice(0, 3).map(a => (
+              <Link key={a.id} href={`/activity?id=${a.id}`} className="flex items-center gap-3 py-2.5 active:opacity-70 transition">
+                <span className="w-14 shrink-0 text-sm font-semibold text-[var(--muted)]">
+                  {(() => {
+                    const [, m, d] = a.activity_date.split('-').map(Number);
+                    return locale === 'en' ? `${m}/${d}` : `${m}/${d}`;
+                  })()}
+                </span>
+                <span className="flex-1 text-base font-extrabold text-[var(--foreground)] tabular-nums">
+                  {Number(a.distance_km).toFixed(2)} km
+                </span>
+                <span className="text-sm text-[var(--muted)] tabular-nums">
+                  {a.pace_avg_sec_per_km ? formatPace(a.pace_avg_sec_per_km) : ''}
+                </span>
+                <ChevronRightIcon size={15} className="text-[var(--muted)] shrink-0" />
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 친구 이번 주 회고 (build 130) */}
       <FriendWeeklyRecap userId={profile.id} />
@@ -734,6 +837,54 @@ export default function UserProfilePage() {
 }
 
 // ── 친구 이번 주 회고 (build 130) ─────────────
+// 2026-08-03 hans #1: 이번 주 나 vs 이 러너 미니 비교 — 경쟁 장치와 자연 연결.
+// 톤은 페이스메이커(동반) 늬앙스: "따라잡기" 압박보다 "같이 달리기" 권유.
+function CompareWeekCard({ theirName, theirActivities }: { theirName: string; theirActivities: { activity_date: string; distance_km: number | string }[] }) {
+  const { tt, locale } = useI18n();
+  const { activities: myActivities } = useUserData();
+  const weekStart = startOfWeekStr();
+  const sum = (list: { activity_date: string; distance_km: number | string }[]) =>
+    list.filter(a => a.activity_date >= weekStart).reduce((s, a) => s + Number(a.distance_km), 0);
+  const mine = sum(myActivities);
+  const theirs = sum(theirActivities);
+  if (mine <= 0 && theirs <= 0) return null; // 둘 다 이번 주 0 이면 비교 무의미
+
+  const max = Math.max(mine, theirs);
+  const diff = Math.abs(mine - theirs);
+  const message = (() => {
+    if (diff < 0.05) return locale === 'en' ? "It's a dead heat this week!" : '이번 주는 완전 동률이에요!';
+    if (mine > theirs) {
+      return locale === 'en'
+        ? `You're ${diff.toFixed(1)}km ahead this week`
+        : `이번 주 내가 ${diff.toFixed(1)}km 앞서 달리고 있어요`;
+    }
+    return locale === 'en'
+      ? `${theirName} is ${diff.toFixed(1)}km ahead — join the run!`
+      : `${theirName}님이 ${diff.toFixed(1)}km 앞서 있어요 — 오늘 같이 달려볼까요?`;
+  })();
+
+  const Row = ({ label, km, cls }: { label: string; km: number; cls: string }) => (
+    <div className="flex items-center gap-2.5">
+      <span className="w-16 shrink-0 text-sm font-semibold text-[var(--foreground)] truncate">{label}</span>
+      <div className="flex-1 h-3.5 rounded-full bg-[var(--card-border)]/40 overflow-hidden">
+        <div className={`h-full rounded-full ${cls} transition-all duration-700`} style={{ width: `${max > 0 ? Math.max((km / max) * 100, km > 0 ? 4 : 0) : 0}%` }} />
+      </div>
+      <span className="w-16 shrink-0 text-right text-sm font-extrabold tabular-nums text-[var(--foreground)]">{km.toFixed(1)}km</span>
+    </div>
+  );
+
+  return (
+    <div className="card p-4">
+      <h3 className="text-base font-semibold text-[var(--foreground)] mb-1">{tt('이번 주 함께 달리기')}</h3>
+      <p className="text-xs text-[var(--muted)] mb-3">{message}</p>
+      <div className="space-y-2">
+        <Row label={tt('나')} km={mine} cls="bg-gradient-to-r from-emerald-400 to-emerald-500" />
+        <Row label={theirName} km={theirs} cls="bg-gradient-to-r from-sky-400 to-sky-500" />
+      </div>
+    </div>
+  );
+}
+
 function FriendWeeklyRecap({ userId }: { userId: string }) {
   const { tt, locale } = useI18n();
   const [recap, setRecap] = useState<{ week_km: number; week_runs: number; week_longest: number; week_avg_pace: number | null; month_km: number; month_runs: number } | null>(null);
