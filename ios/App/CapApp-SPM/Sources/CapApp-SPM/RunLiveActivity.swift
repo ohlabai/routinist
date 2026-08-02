@@ -25,6 +25,7 @@ enum RunLiveActivity {
         var startedAtMs: Double
         var locale: String
         var now: Date
+        var heartRate: Double? = nil   // v22: 워치 미러 심박 (폰 러닝 nil)
     }
 
     /// 세션 시작/복원 — 살아있는 activity 가 있으면 입양, 없으면 신규 request.
@@ -175,7 +176,8 @@ private final class RunLiveActivityController {
             timerBasis: snapshot.stateRaw == "running"
                 ? snapshot.now.addingTimeInterval(-snapshot.activeSec) : nil,
             paceSecPerKm: snapshot.paceSecPerKm,
-            sessionState: snapshot.stateRaw
+            sessionState: snapshot.stateRaw,
+            heartRate: snapshot.heartRate
         )
     }
 }

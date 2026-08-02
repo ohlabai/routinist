@@ -294,7 +294,7 @@ private fun MetricsScreen(state: WorkoutManager.RunState) {
     ) {
         if (userPaused || autoPaused) {
             Text(
-                if (autoPaused) "자동 일시정지" else "일시정지",
+                if (autoPaused) "자동 일시정지" else "잠시 쉬는 중",
                 color = Brand.Calorie, fontSize = 13.sp, fontWeight = FontWeight.Bold,
             )
             Spacer(Modifier.height(2.dp))
@@ -366,11 +366,11 @@ private fun MetricsScreen(state: WorkoutManager.RunState) {
             Button(
                 onClick = { WorkoutManager.togglePause() },
                 colors = ButtonDefaults.buttonColors(containerColor = Brand.InkTop),
-            ) { Text(if (userPaused || autoPaused) "재개" else "일시정지", fontSize = 13.sp, color = Brand.Snow) }
+            ) { Text(if (userPaused || autoPaused) "다시 달리기" else "잠시 쉼", fontSize = 13.sp, color = Brand.Snow) }
             Button(
                 onClick = { WorkoutManager.end() },
-                colors = ButtonDefaults.buttonColors(containerColor = Brand.Heart),
-            ) { Text("종료", fontSize = 13.sp, color = Color.White, fontWeight = FontWeight.Bold) }
+                colors = ButtonDefaults.buttonColors(containerColor = Brand.Emerald),
+            ) { Text("완주", fontSize = 13.sp, color = Color.White, fontWeight = FontWeight.Bold) }
         }
         // 라운드 화면 하단 곡면 여백 — 버튼이 원 안쪽 탭 가능 영역에 들어오도록
         Spacer(Modifier.height(30.dp))
@@ -418,7 +418,7 @@ private fun SummaryScreen(summary: WorkoutManager.Summary?, onDone: () -> Unit) 
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             SproutMark(sizeDp = 26)
-            Text("완주!", color = Brand.EmeraldLight, fontSize = 24.sp, fontWeight = FontWeight.Black)
+            Text("완주! 오늘도 잘 달렸어요", color = Brand.EmeraldLight, fontSize = 20.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(8.dp))
             if (summary != null) {
                 Text(fmtDistance(summary.distanceMeters), color = Brand.Distance, fontSize = 44.sp, fontWeight = FontWeight.Black)

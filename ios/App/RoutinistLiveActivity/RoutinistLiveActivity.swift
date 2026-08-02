@@ -131,6 +131,18 @@ private struct LockScreenView: View {
                         .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .foregroundColor(.white.opacity(0.7))
                         .monospacedDigit()
+                    // v22 미러 고도화: 워치 심박 (폰 러닝은 nil → 미표시)
+                    if let hr = state.heartRate, hr > 0 {
+                        HStack(spacing: 3) {
+                            Image(systemName: "heart.fill")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(.red)
+                            Text("\(Int(hr))")
+                                .font(.system(size: 15, weight: .bold, design: .rounded))
+                                .foregroundColor(.white.opacity(0.85))
+                                .monospacedDigit()
+                        }
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
@@ -169,6 +181,17 @@ struct RunLiveActivityWidget: Widget {
                             .font(.system(size: 14, weight: .semibold, design: .rounded))
                             .foregroundColor(.white.opacity(0.7))
                             .monospacedDigit()
+                        if let hr = context.state.heartRate, hr > 0 {
+                            HStack(spacing: 2) {
+                                Image(systemName: "heart.fill")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(.red)
+                                Text("\(Int(hr))")
+                                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                                    .foregroundColor(.white.opacity(0.85))
+                                    .monospacedDigit()
+                            }
+                        }
                     }
                     .padding(.trailing, 4)
                 }

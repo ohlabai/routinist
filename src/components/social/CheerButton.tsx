@@ -13,7 +13,7 @@ import { useI18n } from '@/lib/i18n';
 
 interface Props {
   toUserId: string;
-  context?: 'ranking' | 'profile' | 'home_hero' | 'activity';
+  context?: 'ranking' | 'profile' | 'home_hero' | 'activity' | 'club';
   size?: 'sm' | 'md';
 }
 

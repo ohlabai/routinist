@@ -24,14 +24,17 @@ public struct RunActivityAttributes: ActivityAttributes {
         public var paceSecPerKm: Double?
         /// running | paused | autoPaused (SessionState.rawValue).
         public var sessionState: String
+        /// v22 미러 고도화 (2026-08-02): 워치 러닝의 실시간 심박 — 폰 GPS 러닝은 nil.
+        public var heartRate: Double?
 
         public init(distanceM: Double, activeSec: Double, timerBasis: Date?,
-                    paceSecPerKm: Double?, sessionState: String) {
+                    paceSecPerKm: Double?, sessionState: String, heartRate: Double? = nil) {
             self.distanceM = distanceM
             self.activeSec = activeSec
             self.timerBasis = timerBasis
             self.paceSecPerKm = paceSecPerKm
             self.sessionState = sessionState
+            self.heartRate = heartRate
         }
     }
 

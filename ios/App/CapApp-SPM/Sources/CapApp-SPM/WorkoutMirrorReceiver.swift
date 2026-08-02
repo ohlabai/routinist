@@ -24,6 +24,7 @@ public final class WorkoutMirrorReceiver: NSObject {
     private var lastElapsed: Double = 0
     private var lastDistance: Double = 0
     private var lastPace: Double?
+    private var lastHeartRate: Double?
 
     /// AppDelegate didFinishLaunching 에서 1회 — 백그라운드 launch 가 핸들러에 닿도록 최대한 일찍.
     public func register() {
@@ -41,6 +42,7 @@ public final class WorkoutMirrorReceiver: NSObject {
         lastElapsed = 0
         lastDistance = 0
         lastPace = nil
+        lastHeartRate = nil
         // 10초 창구 안에서 즉시 LA 시작 — 지표는 워치 첫 페이로드가 곧바로 채운다
         RunLiveActivity.sessionStarted(snapshot(state: stateRaw(mirrored.state)))
     }
@@ -57,7 +59,8 @@ public final class WorkoutMirrorReceiver: NSObject {
             stateRaw: state,
             startedAtMs: startedAtMs,
             locale: "ko",
-            now: Date()
+            now: Date(),
+            heartRate: lastHeartRate
         )
     }
 
@@ -101,6 +104,7 @@ extension WorkoutMirrorReceiver: HKWorkoutSessionDelegate {
             if let e = obj["e"] as? Double { lastElapsed = e }
             if let d = obj["d"] as? Double { lastDistance = d }
             if let p = obj["p"] as? Double { lastPace = p > 0 ? p : nil }
+            if let h = obj["h"] as? Double { lastHeartRate = h > 0 ? h : nil }
         }
         // 첫 페이로드에서 시작 시각을 실제값으로 보정
         startedAtMs = min(startedAtMs, (Date().timeIntervalSince1970 - lastElapsed) * 1000)

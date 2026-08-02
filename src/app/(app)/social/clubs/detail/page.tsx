@@ -22,9 +22,10 @@ import {
 import {
   fetchClubChallenges, createClubChallenge, deleteClubChallenge, getClubChallengeProgress,
   fetchClubEvents, createClubEvent, deleteClubEvent, rsvpClubEvent,
-  fetchActivityCheers, toggleCheer, fetchClubWeeklyMvp, CHEER_EMOJIS,
-  type ClubChallenge, type ChallengeProgress, type ClubEvent, type CheerEmoji, type CheerAgg, type WeeklyMvp,
+  fetchClubWeeklyMvp,
+  type ClubChallenge, type ChallengeProgress, type ClubEvent, type WeeklyMvp,
 } from '@/lib/club-activation';
+import CheerButton from '@/components/social/CheerButton';
 import InviteQRCard from '@/components/clubs/InviteQRCard';
 import MultiUserTimeSeriesChart, { type CompareUser } from '@/components/charts/MultiUserTimeSeriesChart';
 import ClubWorldRunPanel from '@/components/clubs/ClubWorldRunPanel';
@@ -112,9 +113,7 @@ function ClubDetail() {
   // 주간 MVP
   const [weeklyMvp, setWeeklyMvp] = useState<WeeklyMvp[]>([]);
 
-  // 응원 이모지
-  const [cheersMap, setCheersMap] = useState<Map<string, CheerAgg[]>>(new Map());
-  const [cheerOpen, setCheerOpen] = useState<string | null>(null);
+  // 응원 — 2026-08-02 통일: 이모지 토글(activity_cheers) 폐기 → CheerButton (user_cheers 원탭)
 
   // 초대 QR
   const [qrOpen, setQrOpen] = useState(false);
@@ -479,45 +478,6 @@ function ClubDetail() {
       else next.add(memberId);
       return next;
     });
-  };
-
-  // ========== 응원 이모지 (활동 탭 진입 시 + activities 로드 후) ==========
-  useEffect(() => {
-    if (activeTab !== 'activity' || activities.length === 0) return;
-    const ids = activities.map(a => a.id).filter(Boolean) as string[];
-    fetchActivityCheers(ids).then(setCheersMap).catch(() => {});
-  }, [activeTab, activities]);
-
-  const handleToggleCheer = async (activityId: string, emoji: CheerEmoji) => {
-    if (!user) return;
-    const cheerList = cheersMap.get(activityId) ?? [];
-    const existing = cheerList.find(c => c.emoji === emoji);
-    const currentlyCheered = existing?.cheered_by_me ?? false;
-    // optimistic
-    setCheersMap(prev => {
-      const next = new Map(prev);
-      const list = [...(next.get(activityId) ?? [])];
-      const idx = list.findIndex(c => c.emoji === emoji);
-      if (idx >= 0) {
-        list[idx] = {
-          ...list[idx],
-          total: list[idx].total + (currentlyCheered ? -1 : 1),
-          cheered_by_me: !currentlyCheered,
-        };
-        if (list[idx].total <= 0) list.splice(idx, 1);
-      } else {
-        list.push({ activity_id: activityId, emoji, total: 1, cheered_by_me: true });
-      }
-      next.set(activityId, list);
-      return next;
-    });
-    try { await toggleCheer(activityId, user.id, emoji, currentlyCheered); }
-    catch {
-      if (activities.length > 0) {
-        const ids = activities.map(a => a.id).filter(Boolean) as string[];
-        fetchActivityCheers(ids).then(setCheersMap).catch(() => {});
-      }
-    }
   };
 
   const handleSubmitComment = async (postId: string) => {
@@ -1418,9 +1378,7 @@ function ClubDetail() {
             </div>
           ) : (
             activities.map((a: any) => {
-              const cheers = cheersMap.get(a.id) ?? [];
               const isMine = a.user_id === user?.id;
-              const showCheerBar = cheerOpen === a.id;
               return (
                 <div key={a.id} className="card p-4">
                   <Link href={`/activity?id=${a.id}`} className="flex items-center gap-3">
@@ -1445,48 +1403,11 @@ function ClubDetail() {
                     </div>
                   </Link>
 
-                  {/* 응원 이모지 바 */}
-                  <div className="mt-3 pt-3 border-t border-[var(--card-border)] flex items-center gap-1.5 flex-wrap">
-                    {cheers.map(c => (
-                      <button
-                        key={c.emoji}
-                        onClick={() => !isMine && handleToggleCheer(a.id, c.emoji as CheerEmoji)}
-                        disabled={isMine}
-                        className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-sm font-semibold transition-all ${
-                          c.cheered_by_me ? 'bg-emerald-100 border-2 border-emerald-400' : 'bg-[var(--card-border)]/30'
-                        } ${isMine ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
-                      >
-                        <span>{c.emoji}</span>
-                        <span className="text-xs">{c.total}</span>
-                      </button>
-                    ))}
-                    {!isMine && (
-                      <button
-                        onClick={() => setCheerOpen(showCheerBar ? null : a.id)}
-                        className="px-2.5 py-1 rounded-full bg-[var(--card-border)]/30 text-[var(--muted)] text-sm active:scale-95 transition"
-                      >
-                        {tt('+ 응원')}
-                      </button>
-                    )}
-                    {isMine && cheers.length === 0 && (
-                      <span className="text-xs text-[var(--muted)]">{tt('내 활동은 클럽원의 응원을 받을 수 있어요')}</span>
-                    )}
-                  </div>
-                  {showCheerBar && !isMine && (
-                    <div className="mt-2 flex gap-1.5">
-                      {CHEER_EMOJIS.map(em => {
-                        const existing = cheers.find(c => c.emoji === em);
-                        const active = existing?.cheered_by_me;
-                        return (
-                          <button
-                            key={em}
-                            onClick={() => { handleToggleCheer(a.id, em); setCheerOpen(null); }}
-                            className={`flex-1 py-2 rounded-lg text-2xl transition-all active:scale-90 ${active ? 'bg-emerald-100 ring-2 ring-emerald-400' : 'bg-[var(--card-border)]/30 hover:bg-[var(--card-border)]/60'}`}
-                          >
-                            {em}
-                          </button>
-                        );
-                      })}
+                  {/* 응원 — 앱 공통 CheerButton (원탭 ❤️ · 꾹 누르면 픽커, 2026-08-02 통일) */}
+                  {!isMine && (
+                    <div className="mt-3 pt-3 border-t border-[var(--card-border)] flex items-center justify-between">
+                      <span className="text-sm text-[var(--muted)]">{tt('응원을 보내보세요')}</span>
+                      <CheerButton toUserId={a.user_id} context="club" size="sm" />
                     </div>
                   )}
                 </div>
