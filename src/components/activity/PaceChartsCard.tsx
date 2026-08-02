@@ -131,7 +131,7 @@ export default function PaceChartsCard({ routeData }: Props) {
           <Tooltip
             contentStyle={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 14, fontSize: 15 }}
             formatter={(value) => [fmtPace(Number(value)), tt('페이스')]}
-            labelFormatter={(label: number) => axis === 'km' ? `${label}km` : `${label}${en ? ' min' : '분'}`}
+            labelFormatter={(label) => axis === 'km' ? `${label}km` : `${label}${en ? ' min' : '분'}`}
           />
           <Area
             type="monotone"
