@@ -1,23 +1,23 @@
-v1.2.14 — Live run card on your Lock Screen, watch stability, refreshed home
+v1.2.14 — All-new Apple Watch ⌚ · Lock Screen live card · Bigger, cleaner UI
 
-[Your run, right on the Lock Screen]
-• While you run, time, distance and pace show live on the Lock Screen - no need to unlock.
-• On devices with Dynamic Island, your distance stays visible at the top of the screen.
-• A grass gauge grows one cell for every kilometer.
+[Apple Watch]
+• Start a run on your watch and a live card appears on your iPhone Lock Screen — time, distance, pace and heart rate.
+• Voice cues now always play: through your phone's earbuds when connected, otherwise right on the watch.
+• Tap Finish and the celebration screen appears instantly, with pace animal and HR zone breakdown.
+• Heart rate and zones are back on the running screen.
 
-[Apple Watch stability ⌚]
-• Fixed an issue where a run would not start right after the countdown on some devices.
-• Location permission is now requested before the run starts, making your first run smoother.
+[Bigger text]
+• We raised text sizes across the entire app, down to the calendar numbers.
 
-[A lighter home screen]
-• Duplicate cards are merged and regrouped: Now → This week → This month → Together → My records.
-• All seven charts moved to a dedicated Stats page, one tap away from home.
-• Friends, neighborhood and catch-up rankings now live in a single competition hub.
+[Home]
+• Five charts right on Home — last 30 days, pace trend, distance×pace, weekly rhythm, time of day.
+• WorldRun and the monthly full-course challenge merged into one card.
 
-[Run tracking]
-• Fixed routes drawing a straight line across GPS signal gaps - applies to past runs too.
-• Leaving a run now always saves it (only runs under 50m are discarded).
+[Analysis]
+• Pace graph and HR zone card on every run detail.
+• HR trend and zone analysis in My Stats.
+• Running Coach now predicts race times (5K to Full) and tracks weekly training load.
 
-[Running together]
-• Runner discovery now recommends by neighborhood and similar pace, with reasons shown.
-• Send a friend request directly from a pacemaker card.
+[More]
+• Display mode now follows your system setting — dark mode ready.
+• Winner-prediction rewards now notify you (+50P), plus many fixes.
