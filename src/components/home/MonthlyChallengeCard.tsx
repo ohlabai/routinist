@@ -15,7 +15,9 @@ import {
 } from '@/lib/monthly-challenge';
 import AppToast from '@/components/AppToast';
 
-export default function MonthlyChallengeCard({ embedded = false }: { embedded?: boolean }) {
+// flat (2026-08-02 hans "너무 복잡"): 월드런 허브 카드 안에서 카드-속-카드 크롬 없이
+// 한 줄 제목 + 진행바 + (미참가 시) CTA 하나만 — 버튼 1개 규칙.
+export default function MonthlyChallengeCard({ embedded = false, flat = false }: { embedded?: boolean; flat?: boolean }) {
   const { user } = useAuth();
   const { locale } = useI18n();
   const [data, setData] = useState<MonthlyChallenge | null>(null);
@@ -75,7 +77,89 @@ export default function MonthlyChallengeCard({ embedded = false }: { embedded?: 
   const remain = Math.max(0, data.target_km - data.progress_km);
   const completed = !!data.completed_at;
 
-  const wrapCls = embedded ? '' : 'mx-4 mt-3';
+  const wrapCls = embedded || flat ? '' : 'mx-4 mt-3';
+
+  // ── flat 모드: 제목줄 + 진행바 + 상태/CTA 하나 (월드런 허브 카드 내장용) ──
+  if (flat) {
+    return (
+      <div>
+        <div className="flex items-baseline justify-between mb-1">
+          <span className="text-sm font-extrabold text-[var(--foreground)]">
+            {completed ? '🎉 ' : '🔥 '}
+            {locale === 'en' ? 'Monthly full course · 42.195km' : '이달의 풀코스 · 42.195km'}
+          </span>
+          <span className="text-xs font-bold tabular-nums text-[var(--muted)] flex-shrink-0 ml-2">
+            {data.progress_km.toFixed(1)} / {data.target_km}km
+          </span>
+        </div>
+        <div className="h-2.5 rounded-full bg-[var(--card-border)]/40 overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${
+              completed
+                ? 'bg-gradient-to-r from-amber-400 to-amber-500'
+                : 'bg-gradient-to-r from-emerald-500 to-emerald-400'
+            }`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        {completed ? (
+          <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mt-1.5">
+            {locale === 'en' ? 'Full course done this month — amazing! 🔥' : '이달 풀코스 완주, 대단해요! 🔥'}
+          </p>
+        ) : data.joined ? (
+          <p className="text-xs font-semibold text-[var(--muted)] mt-1.5">
+            {locale === 'en'
+              ? `${pct.toFixed(0)}% · ${remain.toFixed(1)}km to go · ${data.days_left}d left`
+              : `${pct.toFixed(0)}% · 남은 ${remain.toFixed(1)}km · ${data.days_left}일 남음`}
+          </p>
+        ) : (
+          <button
+            onClick={() => setConfirming(true)}
+            className="w-full mt-2.5 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-sm font-extrabold active:scale-[0.99] shadow-md shadow-emerald-500/25 inline-flex items-center justify-center gap-1.5"
+          >
+            <Flame size={15} />
+            {locale === 'en' ? `Join · ${data.entry_fee}P` : `도전하기 · ${data.entry_fee}P`}
+          </button>
+        )}
+
+        {confirming && (
+          <div className="fixed inset-0 z-[80] bg-black/65 flex items-center justify-center p-4"
+            onClick={() => !joining && setConfirming(false)}>
+            <div className="w-full max-w-sm bg-[var(--background)] rounded-3xl p-5 shadow-2xl" onClick={e => e.stopPropagation()}>
+              <div className="flex flex-col items-center gap-2 mb-4">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-50 dark:from-emerald-900/40 dark:to-emerald-950/40 flex items-center justify-center">
+                  <Coins size={24} className="text-emerald-600" />
+                </div>
+                <h3 className="text-base font-extrabold text-center">
+                  🔥 {locale === 'en' ? 'Monthly Full Course' : '이달의 풀코스 챌린지'}
+                </h3>
+                <p className="text-sm text-[var(--muted)] text-center leading-relaxed">
+                  {locale === 'en' ? 'Entry ' : '참가비 '}
+                  <span className="font-extrabold text-emerald-700 dark:text-emerald-400">{data.entry_fee}{locale === 'en' ? 'P' : ' 마일리지'}</span>
+                  {locale === 'en'
+                    ? ` — run 42.195km before this month ends. This month's runs already count!`
+                    : ` 차감하고 이달 안에 42.195km 도전!`}
+                  {locale !== 'en' && <><br />이번 달에 달린 거리도 함께 쌓여요.</>}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setConfirming(false)} disabled={joining}
+                  className="flex-1 py-3 rounded-xl bg-[var(--card-border)]/30 font-semibold text-sm disabled:opacity-50">
+                  {locale === 'en' ? 'Cancel' : '취소'}
+                </button>
+                <button onClick={handleJoin} disabled={joining}
+                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-extrabold text-sm disabled:opacity-50 active:scale-95 inline-flex items-center justify-center gap-1">
+                  {joining ? <Loader2 size={14} className="animate-spin" /> : <Flame size={14} />}
+                  {locale === 'en' ? 'Go!' : '출발! 🚀'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2400} />}
+      </div>
+    );
+  }
 
   return (
     <div className={wrapCls}>

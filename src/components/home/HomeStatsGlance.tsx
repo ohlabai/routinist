@@ -12,6 +12,7 @@ import Link from 'next/link';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   RadarChart, PolarGrid, PolarAngleAxis, Radar,
+  AreaChart, Area, ScatterChart, Scatter, ZAxis,
 } from 'recharts';
 import { useUserData } from '@/components/UserDataProvider';
 import { useI18n } from '@/lib/i18n';
@@ -60,6 +61,42 @@ export default function HomeStatsGlance() {
   }, [activities, en]);
   const maxDayCount = Math.max(...byDay.map(d => d.count));
   const maxDay = byDay.find(d => d.count === maxDayCount && maxDayCount > 0);
+
+  // ③ 페이스 추이 — 최근 12개월 월별 가중평균 (총시간/총거리, 로컬 계산)
+  const paceTrend = useMemo(() => {
+    const agg = new Map<string, { sec: number; km: number }>();
+    runningOnly(activities).forEach(a => {
+      if (!a.duration_seconds || !a.distance_km || Number(a.distance_km) < 0.3) return;
+      const ym = a.activity_date.slice(0, 7);
+      const cur = agg.get(ym) ?? { sec: 0, km: 0 };
+      cur.sec += a.duration_seconds;
+      cur.km += Number(a.distance_km);
+      agg.set(ym, cur);
+    });
+    const months = [...agg.keys()].sort().slice(-12);
+    return months
+      .map(ym => {
+        const { sec, km } = agg.get(ym)!;
+        return { month: en ? ym.slice(2) : `${Number(ym.slice(5))}월`, pace: km > 0 ? Math.round(sec / km) : 0 };
+      })
+      .filter(m => m.pace > 0);
+  }, [activities, en]);
+
+  // ④ 거리 × 페이스 버블 — 최근 6개월 러닝 분포 (버블 크기 = 시간)
+  const bubble = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 180);
+    const cutStr = toLocalDateStr(cutoff);
+    return runningOnly(activities)
+      .filter(a => a.pace_avg_sec_per_km && a.pace_avg_sec_per_km > 0 && Number(a.distance_km) >= 1 && a.activity_date >= cutStr)
+      .map(a => ({
+        km: Number(Number(a.distance_km).toFixed(2)),
+        pace: a.pace_avg_sec_per_km as number,
+        durMin: Math.round((a.duration_seconds ?? 0) / 60),
+      }));
+  }, [activities]);
+
+  const fmtPace = (v: number) => `${Math.floor(v / 60)}'${String(Math.round(v % 60)).padStart(2, '0')}"`;
 
   if (daily30Total <= 0 && !maxDay) return null; // 데이터 없으면 통째로 생략 (신규 유저)
 
@@ -132,6 +169,70 @@ export default function HomeStatsGlance() {
               />
               <Tooltip contentStyle={tooltipStyle} formatter={(v) => [en ? `${v} runs` : `${v}회`]} />
             </RadarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* 페이스 추이 — 최근 12개월 (hans: 홈 하단 그래프 추가) */}
+      {paceTrend.length >= 3 && (
+        <div className="mx-4 card p-5">
+          <div className="flex items-baseline justify-between mb-3">
+            <Link href="/stats" className="flex items-center gap-1">
+              <h3 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">{tt('페이스 추이')}</h3>
+              <span className="text-sm font-bold text-[var(--muted)]">›</span>
+            </Link>
+            <p className="text-base font-semibold text-[var(--muted)]">{en ? 'higher = faster' : '위로 갈수록 빠름'}</p>
+          </div>
+          <ResponsiveContainer width="100%" height={170}>
+            <AreaChart data={paceTrend} margin={{ top: 4, right: 4, left: -6, bottom: 0 }}>
+              <defs>
+                <linearGradient id="homePaceGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10B981" stopOpacity={0.28} />
+                  <stop offset="100%" stopColor="#10B981" stopOpacity={0.04} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" vertical={false} />
+              <XAxis dataKey="month" tick={{ fontSize: 13, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+              <YAxis
+                reversed
+                domain={['dataMin - 15', 'dataMax + 15']}
+                tickFormatter={fmtPace}
+                tick={{ fontSize: 13, fill: 'var(--muted)' }}
+                axisLine={false} tickLine={false} width={52}
+              />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v) => [fmtPace(Number(v)), tt('평균 페이스')]} />
+              <Area type="monotone" dataKey="pace" stroke="#10B981" strokeWidth={2.5} fill="url(#homePaceGrad)" dot={{ r: 4, fill: '#10B981' }} animationDuration={chartStyle.animationDuration} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* 거리 × 페이스 버블 — 최근 6개월 (hans: 홈 하단 그래프 추가) */}
+      {bubble.length >= 5 && (
+        <div className="mx-4 card p-5">
+          <div className="flex items-baseline justify-between mb-3">
+            <Link href="/stats" className="flex items-center gap-1">
+              <h3 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">{tt('거리 × 페이스')}</h3>
+              <span className="text-sm font-bold text-[var(--muted)]">›</span>
+            </Link>
+            <p className="text-base font-semibold text-[var(--muted)]">{en ? 'last 6 months' : '최근 6개월'}</p>
+          </div>
+          <ResponsiveContainer width="100%" height={190}>
+            <ScatterChart margin={{ top: 8, right: 8, left: -6, bottom: 0 }}>
+              <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" />
+              <XAxis type="number" dataKey="km" unit="km" domain={['dataMin - 0.5', 'dataMax + 0.5']} tick={{ fontSize: 13, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+              <YAxis type="number" dataKey="pace" reversed domain={['dataMin - 15', 'dataMax + 15']} tickFormatter={fmtPace} tick={{ fontSize: 13, fill: 'var(--muted)' }} axisLine={false} tickLine={false} width={52} />
+              <ZAxis type="number" dataKey="durMin" range={[50, 320]} />
+              <Tooltip
+                contentStyle={tooltipStyle}
+                formatter={(value, name) => {
+                  if (name === 'pace') return [fmtPace(Number(value)), tt('페이스')];
+                  if (name === 'km') return [`${value}km`, tt('거리')];
+                  return [`${value}${en ? 'min' : '분'}`, tt('시간')];
+                }}
+              />
+              <Scatter data={bubble} fill="#10B981" fillOpacity={0.55} animationDuration={chartStyle.animationDuration} />
+            </ScatterChart>
           </ResponsiveContainer>
         </div>
       )}

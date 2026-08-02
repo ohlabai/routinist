@@ -38,7 +38,7 @@ export default function HomeWorldMarathonCard() {
   const headerStatus = active.length > 0
     ? `${tt('진행 중')} · ${active.length}`
     : allCompleted
-      ? (locale === 'en' ? `${lastCompleted!.name} completed! 🎉` : `${lastCompleted!.name} 완주! 🎉`)
+      ? (locale === 'en' ? `${lastCompleted!.name} done — pick a new course! 🌍` : `${lastCompleted!.name} 완주! 새 코스에 도전해봐요 🌍`)
       : (locale === 'en' ? 'Start with this month’s base course' : '이달의 기본 코스부터 시작해요');
 
   return (
@@ -60,7 +60,7 @@ export default function HomeWorldMarathonCard() {
       </Link>
 
       {/* 기본 코스 — 매달 풀코스 거리 42.195km (월드런 최소 요건, hans 통합 지시) */}
-      <MonthlyChallengeCard embedded />
+      <MonthlyChallengeCard flat />
 
       {/* 진행 중 코스 */}
       {active.length > 0 && (
@@ -94,16 +94,8 @@ export default function HomeWorldMarathonCard() {
         </Link>
       )}
 
-      {/* 전부 완주 → 새 코스 도전 CTA (2026-07-20 hans: 완주 후 루프) */}
-      {allCompleted && (
-        <Link
-          href="/ranking?tab=world"
-          className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 text-white text-sm font-extrabold shadow-sm shadow-emerald-500/25 active:scale-95 transition"
-        >
-          <Globe size={15} />
-          {locale === 'en' ? 'Start a new course' : '새 코스 도전하기'}
-        </Link>
-      )}
+      {/* 2026-08-02 hans "버튼 하나로 심플하게": 새 코스 CTA 버튼 제거 —
+          완주 상태는 헤더 문구가 새 코스를 유도하고, 카드 탭(>) = 월드탭 진입. */}
     </div>
   );
 }
