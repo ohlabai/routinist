@@ -45,6 +45,13 @@ struct StartView: View {
                     .overlay(RoundedRectangle(cornerRadius: 24).stroke(GrassPalette.mid.opacity(0.55), lineWidth: 1.5))
             )
             .disabled(workout.phase == .requesting)
+            // v21: 시스템 건강 시트는 디폴트 OFF (애플 정책) — 직전에 "모두 허용" 안내.
+            // 일부만 켜면 거리·심박이 저장 안 되는 사태의 예방책. (hans: 문구 최소로)
+            .alert("건강 접근", isPresented: $workout.pendingAuthPrimer) {
+                Button("확인") { workout.confirmAuthPrimer() }
+            } message: {
+                Text("'모든 데이터'를 켜 주세요 🙏")
+            }
 
             // v14 (hans): "목표 없음" 대신 친근한 초대 카피 — 누르면 목표 설정
             Button {
