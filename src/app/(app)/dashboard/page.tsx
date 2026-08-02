@@ -51,19 +51,8 @@ import {
 import { useDistanceUnit, toDisplayDistance, unitLabel, paceUnitLabel, formatPaceForUnit } from '@/lib/units';
 
 
-// 홈 그룹 라벨 v4 (2026-08-01 hans): 동물 행진 제거 ("정신없고 산만") — 미니멀로.
-// 작은 캡스 라벨 + DAY/WEEK/MONTH 서브라벨 + 헤어라인. 움직이는 요소 없음.
-function SectionLabel({ children, en }: { children: React.ReactNode; en?: string }) {
-  return (
-    <div className="px-5 pt-7 pb-1.5 flex items-center gap-2.5">
-      <p className="text-[13px] font-extrabold tracking-[0.18em] uppercase text-[var(--muted)]/75 whitespace-nowrap">
-        {children}
-        {en && <span className="ml-1.5 font-bold text-[var(--muted)]/40">{en}</span>}
-      </p>
-      <div className="flex-1 h-px bg-[var(--card-border)]/60" />
-    </div>
-  );
-}
+// 홈 그룹 라벨 — v5 (2026-08-02 hans): 일·주·월 구분 라벨 자체를 제거 ("빼도 될 거 같애").
+// v4 미니멀 캡스 라벨도 삭제 — 카드 순서(오늘→주→월→함께→기록)가 곧 구분.
 
 export default function DashboardPage() {
   const { t, tt, locale } = useI18n();
@@ -465,8 +454,6 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* ── 오늘 ── (2026-07-30 hans: day/week/month 구분 강화) */}
-        <SectionLabel en="DAY">{tt('오늘')}</SectionLabel>
         {/* 5 오늘/이달 stats. build 154: activities 로딩 중엔 "0.0" 대신 dim 점 표시.
             build 260: 4-column → 2×2 grid 로 재구성. 한 칸만 text-2xl 로 작아져 어색했던 문제 해결.
             모든 셀 text-3xl 통일, 셀 너비 2배 → 페이스 "48'50" 자릿수 안전. 좌우 대칭 정돈.
@@ -505,8 +492,6 @@ export default function DashboardPage() {
         <RunOfTheDayCard />
         </>)}
 
-        {/* ── 이번 주 ── */}
-        <SectionLabel en="WEEK">{tt('이번 주')}</SectionLabel>
         {/* Phase A: 스트릭 경고를 주간 목표 카드 바로 위로 — 주간 정보 그룹핑 (경고+목표+스트릭) */}
         {!isNewRunner && (
           <div className="mx-4">
@@ -537,8 +522,6 @@ export default function DashboardPage() {
         <LazyMount minHeight={200} rootMargin="300px"><WinnerPredictionWidget /></LazyMount>
         </>)}
 
-        {/* ── 이번 달 ── */}
-        <SectionLabel en="MONTH">{tt('이번 달')}</SectionLabel>
         {/* 6.1 이달 목표 */}
         <div className={`mx-4 card p-5 relative overflow-hidden ${goalKm > 0 && goalProgress >= 100 ? 'goal-achieved' : ''}`}>
           {goalKm > 0 && goalProgress >= 100 && (
@@ -619,8 +602,6 @@ export default function DashboardPage() {
         <div className="mx-4"><HomeCalendarCard /></div>
 
         {!isNewRunner && (<>
-        {/* ── 함께 달리기 ── (경쟁허브·우승자맞히기는 이번 주로, BestRun 은 오늘로 이동) */}
-        <SectionLabel en="TOGETHER">{tt('함께 달리기')}</SectionLabel>
         {secondaryMounted && <HomeFriendStories />}
         {/* 10 지역 미설정 배너 (조건부) */}
         {profile && !profile.region_gu && !profile.country_code && (
@@ -636,8 +617,6 @@ export default function DashboardPage() {
           </Link>
         )}
 
-        {/* ── 내 기록 ── */}
-        <SectionLabel en="MY RECORDS">{tt('내 기록')}</SectionLabel>
         {/* 미니맵 — LazyMount 없이 즉시 (사용자 신고: "지도 안 보임") */}
         <HomeMapPreview />
         {/* 2026-08-01 (hans): 그래프 복원 — 30일 추이·요일 패턴은 홈에서 바로.
