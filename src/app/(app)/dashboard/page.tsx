@@ -31,7 +31,6 @@ import HomeMapPreview from '@/components/home/HomeMapPreview';
 import HomeChallengeCard from '@/components/home/HomeChallengeCard';
 import WeeklyGoalCard from '@/components/home/WeeklyGoalCard';
 import HomeWorldMarathonCard from '@/components/home/HomeWorldMarathonCard';
-import MonthlyChallengeCard from '@/components/home/MonthlyChallengeCard';
 import CourseCompletionModal from '@/components/world/CourseCompletionModal';
 import HomeOnboardingCard from '@/components/home/HomeOnboardingCard';
 import PullDownOnboardingHint from '@/components/home/PullDownOnboardingHint';
@@ -604,13 +603,8 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Phase A (build 327): 월간 기본 챌린지 (42.195km/100P) 를 이달 목표 카드 안으로 —
-                "이번 달 진행" 정보가 두 카드로 흩어져 있던 중복 해소. embedded = 외곽 마진 제거. */}
-            {!isNewRunner && secondaryMounted && (
-              <div className="mt-4">
-                <MonthlyChallengeCard embedded />
-              </div>
-            )}
+            {/* 기본 챌린지 (42.195km) — 2026-08-02 hans: 월드런과 같은 메뉴이므로
+                HomeWorldMarathonCard(월드런 허브) 안으로 통합 이동. 여기선 제거. */}
           </div>
         </div>
 

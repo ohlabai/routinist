@@ -17,6 +17,7 @@ import CommentSection from '@/components/social/CommentSection';
 import CheerButton from '@/components/social/CheerButton';
 import ShareCard from '@/components/activity/ShareCard';
 import HrZonesCard from '@/components/activity/HrZonesCard';
+import PaceChartsCard from '@/components/activity/PaceChartsCard';
 import BestSplitsCard from '@/components/activity/BestSplitsCard';
 import KmSplitsCard from '@/components/activity/KmSplitsCard';
 import { Share2, Sparkles } from 'lucide-react';
@@ -268,6 +269,11 @@ function ActivityDetail() {
       {/* 지도 (GPS 데이터가 있을 때) */}
       {activity.route_data && (
         <RouteMap routeData={activity.route_data} height="240px" />
+      )}
+
+      {/* 페이스 그래프 — 거리/시간 축 토글 (2026-08-02 hans: 지도 아래 전문성 차트) */}
+      {activity.route_data && activity.activity_type === 'running' && (
+        <PaceChartsCard routeData={activity.route_data} />
       )}
 
       {/* 핵심 통계 */}

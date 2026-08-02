@@ -1,6 +1,9 @@
 'use client';
 
 // build 215 #4: 홈 메인에 진행 중인 월드 마라톤 카드 — 현재 진행률 + 클릭 시 상세 페이지로.
+// 2026-08-02 (hans): 월드런 허브로 통합 — "월드런의 최소 요건 = 매달 42.195km" 이므로
+// 기본 챌린지(MonthlyChallengeCard)를 이 카드 안으로 흡수. 홈 목표 카드의 중복 노출 제거.
+// 코스가 없어도 기본 챌린지가 항상 보임 = 월드런 입문 퍼널.
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -8,6 +11,7 @@ import { Globe, ChevronRight, Trophy } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { fetchMyCourses, type MyCourse } from '@/lib/world-data';
 import { useI18n } from '@/lib/i18n';
+import MonthlyChallengeCard from './MonthlyChallengeCard';
 
 export default function HomeWorldMarathonCard() {
   const { user } = useAuth();
@@ -25,80 +29,43 @@ export default function HomeWorldMarathonCard() {
     return () => { cancelled = true; };
   }, [user]);
 
-  if (loading || courses.length === 0) return null;
+  if (loading) return null;
 
-  // 진행 중인 코스 (완주 안 한 것) 우선 / 모두 완주했으면 가장 최근 완주 1건
   const active = courses.filter(c => !c.completed_at);
-  // 완주만 있는 경우 — 가장 최근 완주 코스 (started_at 기준 정렬은 fetch_my_courses 순서 신뢰)
-  const lastCompleted = courses.find(c => !!c.completed_at) ?? courses[0];
+  const lastCompleted = courses.find(c => !!c.completed_at);
+  const allCompleted = courses.length > 0 && active.length === 0;
 
-  // ── 진행 중인 코스가 하나도 없음 = 전부 완주 → "새 도전 추천" 상태 ──
-  // (2026-07-20 hans: 홈 월드런 카드가 완주 후에도 계속 "완주!" 만 보여줘서
-  //  다음 도전으로 이어지는 루프가 없었음. 완주 = 축하 + 새 코스 CTA 로 전환.)
-  if (active.length === 0) {
-    return (
-      <div className="mx-4 mt-3">
-        <Link
-          href="/ranking?tab=world"
-          className="block rounded-2xl bg-gradient-to-br from-amber-50 via-white to-emerald-50/50 dark:from-amber-950/20 dark:via-zinc-900 dark:to-emerald-950/20 border border-amber-200/70 dark:border-amber-900/40 p-4 shadow-sm active:scale-[0.99] transition"
-        >
-          <div className="flex items-center gap-2 mb-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
-              <Trophy size={18} className="text-amber-500" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[12px] font-extrabold tracking-widest uppercase text-amber-600 dark:text-amber-400">
-                {locale === 'en' ? 'WorldRun Challenge' : '월드런 챌린지'}
-              </p>
-              <p className="text-sm font-extrabold text-[var(--foreground)] truncate">
-                {locale === 'en'
-                  ? `${lastCompleted.name} completed! 🎉`
-                  : `${lastCompleted.name} 완주! 🎉`}
-              </p>
-            </div>
-            <ChevronRight size={16} className="text-[var(--muted)]" />
-          </div>
-
-          <p className="text-xs font-semibold text-[var(--muted)] mb-3 leading-relaxed">
-            {locale === 'en'
-              ? 'Ready for the next stage? Pick a new course and keep the streak going.'
-              : '다음 무대는 어디로 떠나볼까요? 새로운 월드런에 도전해봐요 🌍'}
-          </p>
-
-          <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 text-white text-sm font-extrabold shadow-sm shadow-emerald-500/25">
-            <Globe size={15} />
-            {locale === 'en' ? 'Start a new course' : '새 코스 도전하기'}
-          </span>
-        </Link>
-      </div>
-    );
-  }
-
-  const display = active;
+  const headerStatus = active.length > 0
+    ? `${tt('진행 중')} · ${active.length}`
+    : allCompleted
+      ? (locale === 'en' ? `${lastCompleted!.name} completed! 🎉` : `${lastCompleted!.name} 완주! 🎉`)
+      : (locale === 'en' ? 'Start with this month’s base course' : '이달의 기본 코스부터 시작해요');
 
   return (
-    <div className="mx-4 mt-3">
-      <Link
-        href="/ranking?tab=world"
-        className="block rounded-2xl bg-gradient-to-br from-sky-50 via-white to-emerald-50/40 dark:from-sky-950/30 dark:via-zinc-900 dark:to-emerald-950/20 border border-sky-200/60 dark:border-sky-900/40 p-4 shadow-sm active:scale-[0.99] transition"
-      >
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-9 h-9 rounded-2xl bg-sky-100 dark:bg-sky-900/40 flex items-center justify-center">
-            <Globe size={18} className="text-sky-600 dark:text-sky-400" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[12px] font-extrabold tracking-widest uppercase text-sky-600 dark:text-sky-400">
-              {locale === 'en' ? 'WorldRun Challenge' : '월드런 챌린지'}
-            </p>
-            <p className="text-sm font-extrabold text-[var(--foreground)]">
-              {tt('진행 중')} · {display.length}
-            </p>
-          </div>
-          <ChevronRight size={16} className="text-[var(--muted)]" />
+    <div className="mx-4 mt-3 rounded-2xl bg-gradient-to-br from-sky-50 via-white to-emerald-50/40 dark:from-sky-950/30 dark:via-zinc-900 dark:to-emerald-950/20 border border-sky-200/60 dark:border-sky-900/40 p-4 shadow-sm">
+      {/* 헤더 — 월드런 허브 진입 */}
+      <Link href="/ranking?tab=world" className="flex items-center gap-2 mb-3 active:opacity-70 transition">
+        <div className="w-9 h-9 rounded-2xl bg-sky-100 dark:bg-sky-900/40 flex items-center justify-center">
+          {allCompleted
+            ? <Trophy size={18} className="text-amber-500" />
+            : <Globe size={18} className="text-sky-600 dark:text-sky-400" />}
         </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[12px] font-extrabold tracking-widest uppercase text-sky-600 dark:text-sky-400">
+            {locale === 'en' ? 'WorldRun Challenge' : '월드런 챌린지'}
+          </p>
+          <p className="text-sm font-extrabold text-[var(--foreground)] truncate">{headerStatus}</p>
+        </div>
+        <ChevronRight size={16} className="text-[var(--muted)]" />
+      </Link>
 
-        <div className="space-y-2.5">
-          {display.slice(0, 2).map(c => {
+      {/* 기본 코스 — 매달 풀코스 거리 42.195km (월드런 최소 요건, hans 통합 지시) */}
+      <MonthlyChallengeCard embedded />
+
+      {/* 진행 중 코스 */}
+      {active.length > 0 && (
+        <Link href="/ranking?tab=world" className="block mt-3 space-y-2.5 active:opacity-80 transition">
+          {active.slice(0, 2).map(c => {
             const pct = Math.min(100, Math.max(0, (c.progress_km / c.distance_km) * 100));
             return (
               <div key={c.course_id}>
@@ -124,8 +91,19 @@ export default function HomeWorldMarathonCard() {
               </div>
             );
           })}
-        </div>
-      </Link>
+        </Link>
+      )}
+
+      {/* 전부 완주 → 새 코스 도전 CTA (2026-07-20 hans: 완주 후 루프) */}
+      {allCompleted && (
+        <Link
+          href="/ranking?tab=world"
+          className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 text-white text-sm font-extrabold shadow-sm shadow-emerald-500/25 active:scale-95 transition"
+        >
+          <Globe size={15} />
+          {locale === 'en' ? 'Start a new course' : '새 코스 도전하기'}
+        </Link>
+      )}
     </div>
   );
 }

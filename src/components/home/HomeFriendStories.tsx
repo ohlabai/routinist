@@ -134,30 +134,30 @@ export default function HomeFriendStories() {
   return (
     <div className="mt-3">
       <div className="flex items-center justify-between mb-2 mx-4">
-        <h3 className="text-sm font-bold text-[var(--foreground)]">{t('home.friendStoriesTitle')}</h3>
+        <h3 className="text-lg font-extrabold text-[var(--foreground)]">{t('home.friendStoriesTitle')}</h3>
         <Link href="/social?tab=photos" className="text-[13px] font-bold text-emerald-600 dark:text-emerald-400">
           {t('home.friendStoriesSeeAll')}
         </Link>
       </div>
-      <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 px-4">
+      <div className="flex gap-2.5 overflow-x-auto scrollbar-hide pb-1 px-4 snap-x snap-mandatory">
         {stories.map((s, i) => (
           <button
             key={s.photo_id}
             onClick={() => setLightboxIndex(i)}
-            className="flex-shrink-0 w-24 h-32 rounded-2xl overflow-hidden bg-[var(--card-border)] relative shadow-sm active:scale-95 transition"
+            className="flex-shrink-0 w-[42vw] max-w-[230px] aspect-[3/4] rounded-3xl overflow-hidden bg-[var(--card-border)] relative shadow-md active:scale-95 transition snap-start"
           >
-            <Image src={s.photo_url} alt="" fill className="object-cover" sizes="96px" unoptimized />
+            <Image src={s.photo_url} alt="" fill className="object-cover" sizes="42vw" unoptimized />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-            <div className="absolute top-1.5 left-1.5 right-1.5 flex items-center gap-1">
-              <div className="w-6 h-6 rounded-full overflow-hidden ring-2 ring-white flex-shrink-0 bg-zinc-300">
+            <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center gap-1.5">
+              <div className="w-8 h-8 rounded-full overflow-hidden ring-2 ring-white flex-shrink-0 bg-zinc-300">
                 {s.avatar_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={s.avatar_url} alt="" className="w-full h-full object-cover" />
                 ) : null}
               </div>
-              <p className="text-[12px] font-bold text-white truncate drop-shadow">{s.display_name}</p>
+              <p className="text-sm font-bold text-white truncate drop-shadow">{s.display_name}</p>
             </div>
-            <p className="absolute bottom-1.5 left-2 right-2 text-[13px] font-extrabold text-white drop-shadow">
+            <p className="absolute bottom-2.5 left-3 right-3 text-xl font-extrabold text-white drop-shadow">
               {Number(s.distance_km).toFixed(1)}km
             </p>
           </button>

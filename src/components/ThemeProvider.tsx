@@ -22,8 +22,9 @@ function getSystemTheme(): Theme {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  // 라이트 모드 기본 (build 136) — system/dark 가 의도와 다르게 적용되는 신고 다수.
-  const [mode, setModeState] = useState<ThemeMode>('light');
+  // 2026-08-02 hans: 기본값 시스템 — iOS 다크 설정을 따라간다 (8페이지 다크 QA 통과 후 전환).
+  // (build 136 라이트 강제 이력 — 당시 신고는 dark: 클래스 미비 화면들 때문, 지금은 정비됨)
+  const [mode, setModeState] = useState<ThemeMode>('system');
   const [theme, setTheme] = useState<Theme>('light');
   const [mounted, setMounted] = useState(false);
 
@@ -35,7 +36,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setMounted(true);
     const savedMode = localStorage.getItem('themeMode') as ThemeMode | null;
-    const m = savedMode || 'light';
+    const m = savedMode || 'system';
     setModeState(m);
     if (m === 'system') {
       applyTheme(getSystemTheme());
@@ -46,7 +47,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     // 시스템 테마 변경 감지 — mode='system' 일 때만 반응
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = (e: MediaQueryListEvent) => {
-      const currentMode = localStorage.getItem('themeMode') || 'light';
+      const currentMode = localStorage.getItem('themeMode') || 'system';
       if (currentMode === 'system') applyTheme(e.matches ? 'dark' : 'light');
     };
     mq.addEventListener('change', handler);
