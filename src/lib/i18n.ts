@@ -2620,6 +2620,7 @@ const EXTRAS_EN: Record<string, string> = {
   '클럽 초대 공유': 'Share club invite',
   '페이스 그래프': 'Pace graph',
   '페이스 추이': 'Pace trend',
+  '시간대별 분포': 'Time of day',
   '프로필 사진 변경': 'Change profile photo',
   '🎉 첫 친구 신청을 보냈어요! 수락하면 친구가 돼요': "🎉 First friend request sent! You'll be friends once accepted",
 };

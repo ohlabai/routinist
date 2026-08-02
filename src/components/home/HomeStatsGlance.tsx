@@ -1,11 +1,9 @@
 'use client';
 
-// 홈 시각화 2종 (2026-08-01 hans: "그래프 다시 보여주고 보강, 텍스트 줄이고 글씨 크게")
-// Phase B 에서 /stats 로 전부 이관했더니 홈에서 추이가 안 보인다는 피드백 —
-// 서버 조회 없이 activities 로컬 계산 가능한 ① 최근 30일 일별 추이 ② 요일 패턴만 홈에 복원.
-// 깊은 분석 (PB·12주·페이스·시간대·기간비교) 은 계속 /stats.
-// 2026-08-01 2차 (hans): 요일 패턴은 7각형 레이더로 (막대보다 낫다는 피드백) + 글씨 추가 상향.
-// 원칙: 텍스트 최소 (제목 + 인사이트 한 줄), 데이터 성격에 맞는 폼 — 추이=막대, 주기=레이더.
+// 홈 시각화 클러스터 (2026-08-01~02 hans)
+// 순서 확정 (hans): ① 최근 30일 → ② 페이스 추이 → ③ 거리×페이스 → ④ 요일 패턴 → ⑤ 시간대별 분포
+// 전부 서버 조회 없이 activities 로컬 계산. 제목 탭 = /stats 딥링크.
+// 폼 원칙: 추이=막대/선, 분포=버블, 주기=레이더, 구성비=도넛.
 
 import { useMemo } from 'react';
 import Link from 'next/link';
@@ -13,12 +11,15 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   RadarChart, PolarGrid, PolarAngleAxis, Radar,
   AreaChart, Area, ScatterChart, Scatter, ZAxis,
+  PieChart, Pie, Cell,
 } from 'recharts';
 import { useUserData } from '@/components/UserDataProvider';
 import { useI18n } from '@/lib/i18n';
 import { toLocalDateStr } from '@/lib/kst';
 import { chartStyle } from '@/lib/chart-theme';
 import { runningOnly } from '@/lib/routinist-data';
+
+const HOUR_COLORS = ['#6366F1', '#F59E0B', '#EF4444', '#8B5CF6'];
 
 export default function HomeStatsGlance() {
   const { activities } = useUserData();
@@ -45,24 +46,7 @@ export default function HomeStatsGlance() {
   }, [activities]);
   const daily30Total = daily.reduce((s, d) => s + d.distance, 0);
 
-  // ② 요일별 러닝 횟수 (최근 1년)
-  const byDay = useMemo(() => {
-    const names = en ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['일','월','화','수','목','금','토'];
-    const counts = names.map(day => ({ day, count: 0 }));
-    const cutoff = new Date();
-    cutoff.setFullYear(cutoff.getFullYear() - 1);
-    const cutoffStr = toLocalDateStr(cutoff);
-    runningOnly(activities).forEach(a => {
-      if (a.activity_date < cutoffStr) return;
-      const [y, m, d] = a.activity_date.split('-').map(Number);
-      counts[new Date(y, m - 1, d).getDay()].count++;
-    });
-    return counts;
-  }, [activities, en]);
-  const maxDayCount = Math.max(...byDay.map(d => d.count));
-  const maxDay = byDay.find(d => d.count === maxDayCount && maxDayCount > 0);
-
-  // ③ 페이스 추이 — 최근 12개월 월별 가중평균 (총시간/총거리, 로컬 계산)
+  // ② 페이스 추이 — 최근 12개월 월별 가중평균 (총시간/총거리)
   const paceTrend = useMemo(() => {
     const agg = new Map<string, { sec: number; km: number }>();
     runningOnly(activities).forEach(a => {
@@ -82,7 +66,7 @@ export default function HomeStatsGlance() {
       .filter(m => m.pace > 0);
   }, [activities, en]);
 
-  // ④ 거리 × 페이스 버블 — 최근 6개월 러닝 분포 (버블 크기 = 시간)
+  // ③ 거리 × 페이스 버블 — 최근 6개월 (버블 크기 = 시간)
   const bubble = useMemo(() => {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 180);
@@ -96,10 +80,54 @@ export default function HomeStatsGlance() {
       }));
   }, [activities]);
 
-  const fmtPace = (v: number) => `${Math.floor(v / 60)}'${String(Math.round(v % 60)).padStart(2, '0')}"`;
+  // ④ 요일별 러닝 횟수 (최근 1년)
+  const byDay = useMemo(() => {
+    const names = en ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['일','월','화','수','목','금','토'];
+    const counts = names.map(day => ({ day, count: 0 }));
+    const cutoff = new Date();
+    cutoff.setFullYear(cutoff.getFullYear() - 1);
+    const cutoffStr = toLocalDateStr(cutoff);
+    runningOnly(activities).forEach(a => {
+      if (a.activity_date < cutoffStr) return;
+      const [y, m, d] = a.activity_date.split('-').map(Number);
+      counts[new Date(y, m - 1, d).getDay()].count++;
+    });
+    return counts;
+  }, [activities, en]);
+  const maxDayCount = Math.max(...byDay.map(d => d.count));
+  const maxDay = byDay.find(d => d.count === maxDayCount && maxDayCount > 0);
+
+  // ⑤ 시간대별 러닝 분포 (최근 1년, started_at 있는 활동)
+  const hourGroups = useMemo(() => {
+    const groups = en
+      ? [
+          { label: 'Dawn', sub: '0–6', count: 0 },
+          { label: 'Morning', sub: '6–12', count: 0 },
+          { label: 'Afternoon', sub: '12–18', count: 0 },
+          { label: 'Evening', sub: '18–24', count: 0 },
+        ]
+      : [
+          { label: '새벽', sub: '0~6시', count: 0 },
+          { label: '오전', sub: '6~12시', count: 0 },
+          { label: '오후', sub: '12~18시', count: 0 },
+          { label: '저녁', sub: '18~24시', count: 0 },
+        ];
+    const cutoff = new Date();
+    cutoff.setFullYear(cutoff.getFullYear() - 1);
+    const cutoffStr = toLocalDateStr(cutoff);
+    runningOnly(activities).forEach(a => {
+      if (!a.started_at || a.activity_date < cutoffStr) return;
+      const h = new Date(a.started_at).getHours();
+      groups[Math.min(3, Math.floor(h / 6))].count++;
+    });
+    return groups;
+  }, [activities, en]);
+  const hourTotal = hourGroups.reduce((s, g) => s + g.count, 0);
+  const maxHourGroup = hourGroups.reduce((m, g) => (g.count > m.count ? g : m), hourGroups[0]);
 
   if (daily30Total <= 0 && !maxDay) return null; // 데이터 없으면 통째로 생략 (신규 유저)
 
+  const fmtPace = (v: number) => `${Math.floor(v / 60)}'${String(Math.round(v % 60)).padStart(2, '0')}"`;
   const tooltipStyle = {
     background: 'var(--card-bg)',
     border: '1px solid var(--card-border)',
@@ -107,20 +135,26 @@ export default function HomeStatsGlance() {
     fontSize: 16,
   };
 
+  const CardTitle = ({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) => (
+    <div className="flex items-baseline justify-between mb-3">
+      <Link href="/stats" className="flex items-center gap-1">
+        <h3 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">{children}</h3>
+        <span className="text-sm font-bold text-[var(--muted)]">›</span>
+      </Link>
+      {right}
+    </div>
+  );
+
   return (
     <>
-      {/* 최근 30일 추이 — 시간 흐름 위 양(magnitude) = 막대 */}
+      {/* ① 최근 30일 — 시간 흐름 위 양 = 막대 */}
       {daily30Total > 0 && (
         <div className="mx-4 card p-5">
-          <div className="flex items-baseline justify-between mb-3">
-            <Link href="/stats" className="flex items-center gap-1">
-              <h3 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">{tt('최근 30일')}</h3>
-              <span className="text-sm font-bold text-[var(--muted)]">›</span>
-            </Link>
+          <CardTitle right={
             <p className="text-xl font-extrabold tabular-nums text-[var(--accent)]">
               {daily30Total.toFixed(1)}<span className="text-lg font-bold text-[var(--muted)]"> km</span>
             </p>
-          </div>
+          }>{tt('최근 30일')}</CardTitle>
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={daily} margin={{ top: 4, right: 0, left: -14, bottom: 0 }}>
               <defs>
@@ -139,20 +173,72 @@ export default function HomeStatsGlance() {
         </div>
       )}
 
-      {/* 요일 패턴 — 주기 데이터 = 7각형 레이더 (2026-08-01 hans: 레이더가 좋다) */}
+      {/* ② 페이스 추이 — 최근 12개월 */}
+      {paceTrend.length >= 3 && (
+        <div className="mx-4 card p-5">
+          <CardTitle right={<p className="text-base font-semibold text-[var(--muted)]">{en ? 'higher = faster' : '위로 갈수록 빠름'}</p>}>
+            {tt('페이스 추이')}
+          </CardTitle>
+          <ResponsiveContainer width="100%" height={170}>
+            <AreaChart data={paceTrend} margin={{ top: 4, right: 4, left: -6, bottom: 0 }}>
+              <defs>
+                <linearGradient id="homePaceGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10B981" stopOpacity={0.28} />
+                  <stop offset="100%" stopColor="#10B981" stopOpacity={0.04} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" vertical={false} />
+              <XAxis dataKey="month" tick={{ fontSize: 14, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+              <YAxis
+                reversed
+                domain={['dataMin - 15', 'dataMax + 15']}
+                tickFormatter={fmtPace}
+                tick={{ fontSize: 14, fill: 'var(--muted)' }}
+                axisLine={false} tickLine={false} width={54}
+              />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v) => [fmtPace(Number(v)), tt('평균 페이스')]} />
+              <Area type="monotone" dataKey="pace" stroke="#10B981" strokeWidth={2.5} fill="url(#homePaceGrad)" dot={{ r: 4, fill: '#10B981' }} animationDuration={chartStyle.animationDuration} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* ③ 거리 × 페이스 — 분포 = 버블 */}
+      {bubble.length >= 5 && (
+        <div className="mx-4 card p-5">
+          <CardTitle right={<p className="text-base font-semibold text-[var(--muted)]">{en ? 'last 6 months' : '최근 6개월'}</p>}>
+            {tt('거리 × 페이스')}
+          </CardTitle>
+          <ResponsiveContainer width="100%" height={190}>
+            <ScatterChart margin={{ top: 8, right: 8, left: -6, bottom: 0 }}>
+              <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" />
+              <XAxis type="number" dataKey="km" unit="km" domain={['dataMin - 0.5', 'dataMax + 0.5']} tick={{ fontSize: 14, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+              <YAxis type="number" dataKey="pace" reversed domain={['dataMin - 15', 'dataMax + 15']} tickFormatter={fmtPace} tick={{ fontSize: 14, fill: 'var(--muted)' }} axisLine={false} tickLine={false} width={54} />
+              <ZAxis type="number" dataKey="durMin" range={[50, 320]} />
+              <Tooltip
+                contentStyle={tooltipStyle}
+                formatter={(value, name) => {
+                  if (name === 'pace') return [fmtPace(Number(value)), tt('페이스')];
+                  if (name === 'km') return [`${value}km`, tt('거리')];
+                  return [`${value}${en ? 'min' : '분'}`, tt('시간')];
+                }}
+              />
+              <Scatter data={bubble} fill="#10B981" fillOpacity={0.55} animationDuration={chartStyle.animationDuration} />
+            </ScatterChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* ④ 요일 패턴 — 주기 = 7각형 레이더 */}
       {maxDay && (
         <div className="mx-4 card p-5">
-          <div className="flex items-baseline justify-between mb-1">
-            <Link href="/stats" className="flex items-center gap-1">
-              <h3 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">{tt('요일 패턴')}</h3>
-              <span className="text-sm font-bold text-[var(--muted)]">›</span>
-            </Link>
+          <CardTitle right={
             <p className="text-lg font-semibold text-[var(--muted)]">
               {en
                 ? <>mostly <span className="text-[var(--accent)] font-extrabold">{maxDay.day}</span></>
                 : <>주로 <span className="text-[var(--accent)] font-extrabold">{maxDay.day}요일</span></>}
             </p>
-          </div>
+          }>{tt('요일 패턴')}</CardTitle>
           <ResponsiveContainer width="100%" height={250}>
             <RadarChart data={byDay} margin={{ top: 10, right: 24, bottom: 10, left: 24 }}>
               <PolarGrid stroke="var(--card-border)" strokeDasharray={chartStyle.gridDash} />
@@ -173,67 +259,56 @@ export default function HomeStatsGlance() {
         </div>
       )}
 
-      {/* 페이스 추이 — 최근 12개월 (hans: 홈 하단 그래프 추가) */}
-      {paceTrend.length >= 3 && (
+      {/* ⑤ 시간대별 러닝 분포 — 구성비 = 도넛 (hans: /stats 에서 홈으로) */}
+      {hourTotal > 0 && (
         <div className="mx-4 card p-5">
-          <div className="flex items-baseline justify-between mb-3">
-            <Link href="/stats" className="flex items-center gap-1">
-              <h3 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">{tt('페이스 추이')}</h3>
-              <span className="text-sm font-bold text-[var(--muted)]">›</span>
-            </Link>
-            <p className="text-base font-semibold text-[var(--muted)]">{en ? 'higher = faster' : '위로 갈수록 빠름'}</p>
+          <CardTitle right={
+            <p className="text-lg font-semibold text-[var(--muted)]">
+              {en
+                ? <>mostly <span className="text-[var(--accent)] font-extrabold">{maxHourGroup.label}</span></>
+                : <>주로 <span className="text-[var(--accent)] font-extrabold">{maxHourGroup.label}</span></>}
+            </p>
+          }>{tt('시간대별 분포')}</CardTitle>
+          <div className="flex items-center gap-4">
+            <div className="relative w-44 h-44 shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={hourGroups}
+                    dataKey="count"
+                    nameKey="label"
+                    innerRadius={54}
+                    outerRadius={80}
+                    paddingAngle={3}
+                    strokeWidth={0}
+                    animationDuration={chartStyle.animationDuration}
+                  >
+                    {hourGroups.map((g, i) => (
+                      <Cell key={g.label} fill={HOUR_COLORS[i]} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v) => [en ? `${v} runs` : `${v}회`]} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <p className="text-2xl font-extrabold text-[var(--foreground)]">{maxHourGroup.label}</p>
+                <p className="text-base font-semibold text-[var(--muted)]">{en ? `${hourTotal} runs` : `총 ${hourTotal}회`}</p>
+              </div>
+            </div>
+            <div className="flex-1 min-w-0 space-y-2.5">
+              {hourGroups.map((g, i) => (
+                <div key={g.label} className="flex items-center gap-2.5">
+                  <span className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: HOUR_COLORS[i] }} />
+                  <span className="flex-1 text-lg font-medium text-[var(--foreground)] truncate">
+                    {g.label} <span className="text-sm text-[var(--muted)]">{g.sub}</span>
+                  </span>
+                  <span className="text-lg font-extrabold tabular-nums text-[var(--foreground)]">
+                    {en ? g.count : `${g.count}회`}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
-          <ResponsiveContainer width="100%" height={170}>
-            <AreaChart data={paceTrend} margin={{ top: 4, right: 4, left: -6, bottom: 0 }}>
-              <defs>
-                <linearGradient id="homePaceGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10B981" stopOpacity={0.28} />
-                  <stop offset="100%" stopColor="#10B981" stopOpacity={0.04} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 13, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
-              <YAxis
-                reversed
-                domain={['dataMin - 15', 'dataMax + 15']}
-                tickFormatter={fmtPace}
-                tick={{ fontSize: 13, fill: 'var(--muted)' }}
-                axisLine={false} tickLine={false} width={52}
-              />
-              <Tooltip contentStyle={tooltipStyle} formatter={(v) => [fmtPace(Number(v)), tt('평균 페이스')]} />
-              <Area type="monotone" dataKey="pace" stroke="#10B981" strokeWidth={2.5} fill="url(#homePaceGrad)" dot={{ r: 4, fill: '#10B981' }} animationDuration={chartStyle.animationDuration} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {/* 거리 × 페이스 버블 — 최근 6개월 (hans: 홈 하단 그래프 추가) */}
-      {bubble.length >= 5 && (
-        <div className="mx-4 card p-5">
-          <div className="flex items-baseline justify-between mb-3">
-            <Link href="/stats" className="flex items-center gap-1">
-              <h3 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">{tt('거리 × 페이스')}</h3>
-              <span className="text-sm font-bold text-[var(--muted)]">›</span>
-            </Link>
-            <p className="text-base font-semibold text-[var(--muted)]">{en ? 'last 6 months' : '최근 6개월'}</p>
-          </div>
-          <ResponsiveContainer width="100%" height={190}>
-            <ScatterChart margin={{ top: 8, right: 8, left: -6, bottom: 0 }}>
-              <CartesianGrid strokeDasharray={chartStyle.gridDash} stroke="var(--card-border)" />
-              <XAxis type="number" dataKey="km" unit="km" domain={['dataMin - 0.5', 'dataMax + 0.5']} tick={{ fontSize: 13, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
-              <YAxis type="number" dataKey="pace" reversed domain={['dataMin - 15', 'dataMax + 15']} tickFormatter={fmtPace} tick={{ fontSize: 13, fill: 'var(--muted)' }} axisLine={false} tickLine={false} width={52} />
-              <ZAxis type="number" dataKey="durMin" range={[50, 320]} />
-              <Tooltip
-                contentStyle={tooltipStyle}
-                formatter={(value, name) => {
-                  if (name === 'pace') return [fmtPace(Number(value)), tt('페이스')];
-                  if (name === 'km') return [`${value}km`, tt('거리')];
-                  return [`${value}${en ? 'min' : '분'}`, tt('시간')];
-                }}
-              />
-              <Scatter data={bubble} fill="#10B981" fillOpacity={0.55} animationDuration={chartStyle.animationDuration} />
-            </ScatterChart>
-          </ResponsiveContainer>
         </div>
       )}
     </>
