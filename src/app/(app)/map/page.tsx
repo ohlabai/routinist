@@ -534,7 +534,7 @@ function MapPageInner() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-extrabold text-white">{tt('동네 러너 코스 보기')}</p>
-            <p className="text-[11px] text-white/85 mt-0.5">{tt('같은 동네 러너들의 폴리라인을 색별로')}</p>
+            <p className="text-[13px] text-white/85 mt-0.5">{tt('같은 동네 러너들의 폴리라인을 색별로')}</p>
           </div>
           <span className="text-white text-base font-bold">→</span>
         </div>
@@ -587,7 +587,7 @@ function MapPageInner() {
               {CHIP_LEGEND.map(c => (
                 <div key={c.label} className="flex items-center gap-0.5">
                   <span className="w-3.5 h-3.5 rounded-sm" style={{ background: c.color }} />
-                  <span className="text-[10px]">{c.label}</span>
+                  <span className="text-[12px]">{c.label}</span>
                 </div>
               ))}
             </div>

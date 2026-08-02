@@ -149,11 +149,11 @@ export default function AdminSellersPage() {
               <Info icon={<Building2 size={11} />} value={`${app.payout_bank} ${app.payout_account}`} />
               <Info icon={<Clock size={11} />} value={new Date(app.submitted_at).toLocaleDateString('ko-KR')} />
             </div>
-            <p className="text-[11px] text-[var(--muted)] break-keep">
+            <p className="text-[13px] text-[var(--muted)] break-keep">
               📦 ({app.ship_zip}) {app.ship_address} · {app.ship_phone}
             </p>
             {app.rejection_reason && (
-              <p className="text-[11px] text-rose-500 bg-rose-50 dark:bg-rose-950/20 rounded-lg p-2 break-keep">
+              <p className="text-[13px] text-rose-500 bg-rose-50 dark:bg-rose-950/20 rounded-lg p-2 break-keep">
                 반려 사유: {app.rejection_reason}
               </p>
             )}

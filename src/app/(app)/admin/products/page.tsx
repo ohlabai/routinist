@@ -222,7 +222,7 @@ export default function AdminProductsPage() {
                   <div className="w-full h-full flex items-center justify-center text-[var(--muted)]"><ImageIcon size={20} /></div>
                 )}
                 {p.source === 'cafe24' && (
-                  <span className="absolute top-0 left-0 text-[8px] bg-blue-500 text-white px-1 py-0.5 rounded-br-md font-extrabold">C24</span>
+                  <span className="absolute top-0 left-0 text-[10px] bg-blue-500 text-white px-1 py-0.5 rounded-br-md font-extrabold">C24</span>
                 )}
               </div>
 
@@ -241,14 +241,14 @@ export default function AdminProductsPage() {
                   <span className="text-sm font-extrabold text-[var(--foreground)]">
                     {p.price_krw.toLocaleString()}원
                   </span>
-                  <span className="text-[10px] text-[var(--muted)] font-medium">재고 {p.stock}</span>
+                  <span className="text-[12px] text-[var(--muted)] font-medium">재고 {p.stock}</span>
                 </div>
                 <div className="flex items-center gap-1.5 mt-2">
                   <select
                     value={p.status}
                     onClick={e => e.stopPropagation()}
                     onChange={e => { e.stopPropagation(); handleStatusChange(p.id, e.target.value as ProductStatus); }}
-                    className="text-[10px] font-bold px-2 py-1 rounded-full border border-[var(--card-border)] bg-[var(--background)] focus:outline-none focus:border-emerald-500"
+                    className="text-[12px] font-bold px-2 py-1 rounded-full border border-[var(--card-border)] bg-[var(--background)] focus:outline-none focus:border-emerald-500"
                   >
                     <option value="published">판매중</option>
                     <option value="draft">임시저장</option>
@@ -257,13 +257,13 @@ export default function AdminProductsPage() {
                   <Link
                     href={`/admin/products/edit?id=${p.id}`}
                     onClick={e => e.stopPropagation()}
-                    className="text-[11px] font-bold text-emerald-600 inline-flex items-center gap-0.5 active:scale-95"
+                    className="text-[13px] font-bold text-emerald-600 inline-flex items-center gap-0.5 active:scale-95"
                   >
                     <Edit2 size={11} /> 편집
                   </Link>
                   <button
                     onClick={e => { e.stopPropagation(); handleDelete(p.id, p.name); }}
-                    className="ml-auto text-[11px] font-bold text-red-500 inline-flex items-center gap-0.5 active:scale-95"
+                    className="ml-auto text-[13px] font-bold text-red-500 inline-flex items-center gap-0.5 active:scale-95"
                   >
                     <Trash2 size={11} /> 삭제
                   </button>

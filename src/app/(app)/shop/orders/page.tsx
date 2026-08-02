@@ -121,14 +121,14 @@ function MyOrdersContent() {
             <div key={o.id} className="card p-4 active:scale-[0.99] transition group">
               <Link href={`/shop/order?id=${o.id}`} className="block">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-[11px] text-[var(--muted)] font-medium">
+                  <p className="text-[13px] text-[var(--muted)] font-medium">
                     {new Date(o.created_at).toLocaleString(locale === 'en' ? 'en-US' : 'ko-KR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </p>
-                  <span className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-[var(--card-border)]/40 ${orderStatusColor(o.status)}`}>
+                  <span className={`text-[13px] font-extrabold px-2 py-0.5 rounded-full bg-[var(--card-border)]/40 ${orderStatusColor(o.status)}`}>
                     {orderStatusLabel(o.status)}
                   </span>
                 </div>
-                <p className="text-[11px] text-[var(--muted)] mb-1.5">{locale === 'en' ? 'Order #' : '주문번호 ·'} {o.order_no ?? o.id.slice(0, 8)}</p>
+                <p className="text-[13px] text-[var(--muted)] mb-1.5">{locale === 'en' ? 'Order #' : '주문번호 ·'} {o.order_no ?? o.id.slice(0, 8)}</p>
                 <div className="flex items-baseline justify-between">
                   <span className="text-lg font-extrabold text-[var(--foreground)]">
                     {formatKrw(o.total_krw, locale)}

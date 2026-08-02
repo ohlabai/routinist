@@ -70,7 +70,7 @@ export default function InviteFriendCard() {
         </div>
         <h3 className="text-sm font-extrabold text-emerald-800 dark:text-emerald-200">{tt('친구 초대')}</h3>
       </div>
-      <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80 leading-relaxed">
+      <p className="text-[13px] text-emerald-700/80 dark:text-emerald-400/80 leading-relaxed">
         {locale === 'en'
           ? 'When a friend signs up with your code, you both get 100P 🎁'
           : '친구가 내 코드로 가입하면 서로 100P 를 받아요 🎁'}

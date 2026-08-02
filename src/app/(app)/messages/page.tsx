@@ -116,7 +116,7 @@ export default function MessagesPage() {
                       <p className="text-sm font-extrabold text-[var(--foreground)] truncate">
                         {name}{suffix}
                       </p>
-                      <p className="text-[10px] text-[var(--muted)] flex-shrink-0 font-medium">
+                      <p className="text-[12px] text-[var(--muted)] flex-shrink-0 font-medium">
                         {formatTime(conv.last_message_at)}
                       </p>
                     </div>

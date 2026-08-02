@@ -83,7 +83,7 @@ export default function ClubChallengesCard({ clubId }: Props) {
         <Trophy size={16} className="text-amber-500" />
         <h3 className="text-sm font-extrabold">{tt('클럽 챌린지')}</h3>
         {challenges.length > 1 && (
-          <span className="ml-auto text-[10px] font-bold text-[var(--muted)]">{locale === 'en' ? `${challenges.length} total` : `총 ${challenges.length}개`}</span>
+          <span className="ml-auto text-[12px] font-bold text-[var(--muted)]">{locale === 'en' ? `${challenges.length} total` : `총 ${challenges.length}개`}</span>
         )}
       </div>
 
@@ -113,18 +113,18 @@ export default function ClubChallengesCard({ clubId }: Props) {
           <div className="grid grid-cols-3 gap-2 mb-4">
             <div className="text-center">
               <p className="text-2xl font-extrabold text-amber-600 tabular-nums">{active.days_left}</p>
-              <p className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest">{tt('일 남음')}</p>
+              <p className="text-[12px] font-bold text-[var(--muted)] uppercase tracking-widest">{tt('일 남음')}</p>
             </div>
             {active.target_km !== null && (
               <div className="text-center">
                 <p className="text-2xl font-extrabold text-rose-600 tabular-nums">{active.target_km}</p>
-                <p className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest">{tt('목표 km')}</p>
+                <p className="text-[12px] font-bold text-[var(--muted)] uppercase tracking-widest">{tt('목표 km')}</p>
               </div>
             )}
             {active.target_run_count !== null && (
               <div className="text-center">
                 <p className="text-2xl font-extrabold text-fuchsia-600 tabular-nums">{active.target_run_count}</p>
-                <p className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest">{tt('목표 회수')}</p>
+                <p className="text-[12px] font-bold text-[var(--muted)] uppercase tracking-widest">{tt('목표 회수')}</p>
               </div>
             )}
           </div>
@@ -133,7 +133,7 @@ export default function ClubChallengesCard({ clubId }: Props) {
           <div className="pt-3 border-t border-amber-200/40 dark:border-amber-900/30">
             <div className="flex items-center gap-1.5 mb-2.5">
               <Users size={12} className="text-amber-500" />
-              <p className="text-[11px] font-extrabold uppercase tracking-widest text-[var(--muted)]">{tt('멤버 순위')}</p>
+              <p className="text-[13px] font-extrabold uppercase tracking-widest text-[var(--muted)]">{tt('멤버 순위')}</p>
             </div>
             {lbLoading ? (
               <div className="py-4 text-center"><Loader2 size={14} className="animate-spin text-amber-500 mx-auto" /></div>
@@ -153,7 +153,7 @@ export default function ClubChallengesCard({ clubId }: Props) {
                           : <span className="text-xs font-extrabold text-[var(--muted)]">{row.rank_position}</span>}
                       </div>
                       <p className={`flex-1 text-sm truncate ${isMe ? 'font-extrabold text-amber-700 dark:text-amber-300' : 'font-bold'}`}>
-                        {row.display_name}{isMe && <span className="text-[10px] ml-1 text-amber-600">{tt('(나)')}</span>}
+                        {row.display_name}{isMe && <span className="text-[12px] ml-1 text-amber-600">{tt('(나)')}</span>}
                       </p>
                       <p className="text-sm font-extrabold tabular-nums text-emerald-600">{row.total_km.toFixed(1)}km</p>
                     </div>
@@ -163,7 +163,7 @@ export default function ClubChallengesCard({ clubId }: Props) {
             )}
           </div>
 
-          <div className="mt-3 pt-3 border-t border-amber-200/40 dark:border-amber-900/30 inline-flex items-center gap-1 text-[10px] text-[var(--muted)]">
+          <div className="mt-3 pt-3 border-t border-amber-200/40 dark:border-amber-900/30 inline-flex items-center gap-1 text-[12px] text-[var(--muted)]">
             <Flag size={10} /> {active.start_date} ~ {active.end_date}
           </div>
         </>

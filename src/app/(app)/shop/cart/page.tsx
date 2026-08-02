@@ -201,13 +201,13 @@ export default function CartPage() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         {it.product?.brand && (
-                          <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">{it.product.brand}</p>
+                          <p className="text-[12px] font-bold text-emerald-600 uppercase tracking-wider">{it.product.brand}</p>
                         )}
                         <p className="text-sm font-semibold text-[var(--foreground)] line-clamp-2 leading-snug">
                           {it.product?.name ?? (locale === 'en' ? '(no product)' : '(상품 없음)')}
                         </p>
                         {it.variant?.option_value && (
-                          <p className="text-[11px] text-[var(--muted)] mt-0.5 inline-block px-1.5 py-0.5 rounded bg-[var(--card-border)]/40">
+                          <p className="text-[13px] text-[var(--muted)] mt-0.5 inline-block px-1.5 py-0.5 rounded bg-[var(--card-border)]/40">
                             {it.variant.option_value}
                           </p>
                         )}

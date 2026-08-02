@@ -47,7 +47,7 @@ function FriendRow({ row, rank, maxKm, locale }: { row: Row; rank: number; maxKm
           // eslint-disable-next-line @next/next/no-img-element
           <img src={row.avatar_url} alt="" className="w-full h-full object-cover" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-[11px] font-bold text-[var(--muted)]">
+          <div className="w-full h-full flex items-center justify-center text-[13px] font-bold text-[var(--muted)]">
             {row.display_name.slice(0, 1)}
           </div>
         )}
@@ -151,7 +151,7 @@ export default function FriendsLeaderboard() {
         <Users size={22} className="mx-auto text-emerald-600 dark:text-emerald-400 mb-1" />
         <p className="text-sm font-bold text-[var(--foreground)]">{tt('친구와 함께 달려보세요')}</p>
         <p className="text-xs text-[var(--muted)] mt-1">{locale === 'en' ? 'Find runners near you with similar pace' : '동네·페이스 비슷한 러너 찾기'}</p>
-        <p className="mt-2 inline-flex items-center gap-0.5 text-[11px] font-extrabold text-emerald-600">
+        <p className="mt-2 inline-flex items-center gap-0.5 text-[13px] font-extrabold text-emerald-600">
           {locale === 'en' ? 'Find friends' : '친구 찾기'} <ChevronRight size={12} />
         </p>
       </Link>
@@ -170,11 +170,11 @@ export default function FriendsLeaderboard() {
         <div className="flex items-baseline justify-between mb-3">
           <h3 className="text-sm font-bold text-[var(--foreground)]">
             {tt('이번 주 친구 비교')}
-            <span className="ml-1.5 text-[11px] font-semibold text-[var(--muted)]">
+            <span className="ml-1.5 text-[13px] font-semibold text-[var(--muted)]">
               · {locale === 'en' ? `${rows.length}` : `${rows.length}명`}
             </span>
           </h3>
-          <span className="text-[10px] text-[var(--muted)]">{locale === 'en' ? 'Since Monday' : '월요일 기준'}</span>
+          <span className="text-[12px] text-[var(--muted)]">{locale === 'en' ? 'Since Monday' : '월요일 기준'}</span>
         </div>
         <div className="space-y-2.5">
           {visibleRows.map((r, i) => (
@@ -211,7 +211,7 @@ export default function FriendsLeaderboard() {
                 <h2 className="text-base font-extrabold text-[var(--foreground)]">
                   {locale === 'en' ? `Friends · ${rows.length}` : `친구 비교 · ${rows.length}명`}
                 </h2>
-                <p className="text-[11px] text-[var(--muted)] mt-0.5">{locale === 'en' ? 'Since Monday · sorted by total km' : '월요일 기준 · km 합계 정렬'}</p>
+                <p className="text-[13px] text-[var(--muted)] mt-0.5">{locale === 'en' ? 'Since Monday · sorted by total km' : '월요일 기준 · km 합계 정렬'}</p>
               </div>
               <button
                 onClick={() => setSheetOpen(false)}

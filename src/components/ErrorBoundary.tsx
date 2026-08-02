@@ -66,7 +66,7 @@ export default class ErrorBoundary extends Component<Props, State> {
           >
             홈으로 돌아가기
           </button>
-          <p className="text-[10px] text-[var(--muted)] mt-4">
+          <p className="text-[12px] text-[var(--muted)] mt-4">
             build {APP_BUILD} · {this.state.screenPath || '/'}
           </p>
           {this.state.error && (

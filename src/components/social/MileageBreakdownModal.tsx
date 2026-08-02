@@ -142,7 +142,7 @@ export default function MileageBreakdownModal({ userId, rank, onClose }: Props) 
                   </div>
                 </div>
                 <div className="text-center">
-                  <p className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-wide mb-0.5">현재 잔액</p>
+                  <p className="text-[12px] font-bold text-[var(--muted)] uppercase tracking-wide mb-0.5">현재 잔액</p>
                   <p className="text-4xl font-extrabold text-emerald-600 tabular-nums">
                     {summary.total_balance.toLocaleString()}<span className="text-lg ml-1">P</span>
                   </p>
@@ -161,7 +161,7 @@ export default function MileageBreakdownModal({ userId, rank, onClose }: Props) 
                       <div className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500" style={{ width: `${runningPct}%` }} />
                       <div className="h-full bg-gradient-to-r from-amber-400 to-amber-500" style={{ width: `${rewardPct}%` }} />
                     </div>
-                    <div className="flex justify-between text-[11px] mb-4">
+                    <div className="flex justify-between text-[13px] mb-4">
                       <span className="text-emerald-700 dark:text-emerald-400 font-bold">
                         러닝 {runningPct.toFixed(0)}%
                       </span>
@@ -175,32 +175,32 @@ export default function MileageBreakdownModal({ userId, rank, onClose }: Props) 
                       <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/40 p-3">
                         <div className="flex items-center gap-1 mb-1">
                           <Footprints size={12} className="text-emerald-600" />
-                          <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400">러닝</span>
+                          <span className="text-[12px] font-bold text-emerald-700 dark:text-emerald-400">러닝</span>
                         </div>
                         <p className="text-base font-extrabold text-[var(--foreground)] tabular-nums">
                           +{summary.running_earned.toLocaleString()}
                         </p>
-                        <p className="text-[10px] text-[var(--muted)]">달려서 적립</p>
+                        <p className="text-[12px] text-[var(--muted)]">달려서 적립</p>
                       </div>
                       <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/40 p-3">
                         <div className="flex items-center gap-1 mb-1">
                           <Gift size={12} className="text-amber-600" />
-                          <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400">보상</span>
+                          <span className="text-[12px] font-bold text-amber-700 dark:text-amber-400">보상</span>
                         </div>
                         <p className="text-base font-extrabold text-[var(--foreground)] tabular-nums">
                           +{summary.reward_earned.toLocaleString()}
                         </p>
-                        <p className="text-[10px] text-[var(--muted)]">선물·가입 등</p>
+                        <p className="text-[12px] text-[var(--muted)]">선물·가입 등</p>
                       </div>
                       <div className="rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-900/40 p-3">
                         <div className="flex items-center gap-1 mb-1">
                           <ShoppingCart size={12} className="text-rose-600" />
-                          <span className="text-[10px] font-bold text-rose-700 dark:text-rose-400">사용</span>
+                          <span className="text-[12px] font-bold text-rose-700 dark:text-rose-400">사용</span>
                         </div>
                         <p className="text-base font-extrabold text-[var(--foreground)] tabular-nums">
                           -{summary.spent.toLocaleString()}
                         </p>
-                        <p className="text-[10px] text-[var(--muted)]">쇼핑·선물</p>
+                        <p className="text-[12px] text-[var(--muted)]">쇼핑·선물</p>
                       </div>
                     </div>
                   </>
@@ -274,12 +274,12 @@ export default function MileageBreakdownModal({ userId, rank, onClose }: Props) 
                                 <p className="text-sm font-semibold text-[var(--foreground)] truncate">
                                   {txTypeLabel(tx.tx_type)}
                                   {tx.event_type && (
-                                    <span className="ml-1 text-[10px] text-[var(--muted)] font-normal">
+                                    <span className="ml-1 text-[12px] text-[var(--muted)] font-normal">
                                       {tx.event_type}
                                     </span>
                                   )}
                                 </p>
-                                <p className="text-[11px] text-[var(--muted)]">{dateStr}</p>
+                                <p className="text-[13px] text-[var(--muted)]">{dateStr}</p>
                               </div>
                               <span className={`text-sm font-extrabold tabular-nums whitespace-nowrap ${
                                 isEarn ? 'text-emerald-600' : 'text-rose-600'

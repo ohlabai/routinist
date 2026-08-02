@@ -80,7 +80,7 @@ export default function AdminQuotesPage() {
             <ArrowLeft size={20} />
           </button>
           <h1 className="text-xl font-extrabold tracking-tight flex-1">러너 한 줄 모더레이션</h1>
-          <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40">
+          <span className="text-[12px] font-bold text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40">
             ADMIN
           </span>
         </div>
@@ -92,7 +92,7 @@ export default function AdminQuotesPage() {
             <Flag size={20} className="text-amber-600" />
             <div>
               <p className="text-sm font-extrabold">{reports.length}건 미해결 신고</p>
-              <p className="text-[11px] text-[var(--muted)]">3회 누적 시 자동 숨김. 어드민 수동 처리도 가능.</p>
+              <p className="text-[13px] text-[var(--muted)]">3회 누적 시 자동 숨김. 어드민 수동 처리도 가능.</p>
             </div>
           </div>
         </div>
@@ -119,18 +119,18 @@ export default function AdminQuotesPage() {
             <div key={r.quote_id} className="card p-4 space-y-3">
               <div>
                 <p className="text-sm italic font-semibold leading-relaxed break-keep">&ldquo;{r.quote_text}&rdquo;</p>
-                <p className="text-[11px] text-[var(--muted)] mt-1">— {r.quote_author ?? '익명'}</p>
+                <p className="text-[13px] text-[var(--muted)] mt-1">— {r.quote_author ?? '익명'}</p>
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-950/30 text-red-600">
+                <span className="text-[12px] font-extrabold px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-950/30 text-red-600">
                   신고 {r.report_count}건
                 </span>
                 {r.reasons.map(reason => (
-                  <span key={reason} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--card-border)]/40 text-[var(--muted)]">
+                  <span key={reason} className="text-[12px] font-bold px-2 py-0.5 rounded-full bg-[var(--card-border)]/40 text-[var(--muted)]">
                     {REASON_LABEL[reason] ?? reason}
                   </span>
                 ))}
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--card-border)]/40 text-[var(--muted)]">
+                <span className="text-[12px] font-bold px-2 py-0.5 rounded-full bg-[var(--card-border)]/40 text-[var(--muted)]">
                   상태: {r.quote_status}
                 </span>
               </div>

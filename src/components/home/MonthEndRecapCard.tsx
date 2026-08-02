@@ -92,19 +92,19 @@ export default function MonthEndRecapCard({ activities }: Props) {
         <div className="grid grid-cols-4 gap-2 text-center bg-white/50 dark:bg-black/20 rounded-xl py-3">
           <div>
             <p className="text-lg font-extrabold text-amber-700 dark:text-amber-300">{totalKm.toFixed(1)}</p>
-            <p className="text-[10px] text-[var(--muted)] mt-0.5">{locale === 'en' ? 'Total km' : '총 km'}</p>
+            <p className="text-[12px] text-[var(--muted)] mt-0.5">{locale === 'en' ? 'Total km' : '총 km'}</p>
           </div>
           <div>
             <p className="text-lg font-extrabold text-[var(--foreground)]">{runDays}</p>
-            <p className="text-[10px] text-[var(--muted)] mt-0.5">{locale === 'en' ? 'Days run' : '달린 일'}</p>
+            <p className="text-[12px] text-[var(--muted)] mt-0.5">{locale === 'en' ? 'Days run' : '달린 일'}</p>
           </div>
           <div>
             <p className="text-lg font-extrabold text-[var(--foreground)]">{paceLabel(bestPace)}</p>
-            <p className="text-[10px] text-[var(--muted)] mt-0.5">{locale === 'en' ? 'Best pace' : '베스트 페이스'}</p>
+            <p className="text-[12px] text-[var(--muted)] mt-0.5">{locale === 'en' ? 'Best pace' : '베스트 페이스'}</p>
           </div>
           <div>
             <p className="text-lg font-extrabold text-[var(--foreground)]">{longestRun ? Number(longestRun.distance_km).toFixed(1) : '—'}</p>
-            <p className="text-[10px] text-[var(--muted)] mt-0.5">{locale === 'en' ? 'Longest km' : '최장 km'}</p>
+            <p className="text-[12px] text-[var(--muted)] mt-0.5">{locale === 'en' ? 'Longest km' : '최장 km'}</p>
           </div>
         </div>
 

@@ -109,7 +109,7 @@ function CohortInner() {
         <div className="rounded-3xl bg-gradient-to-br from-emerald-50 via-white to-emerald-50/30 dark:from-emerald-950/30 dark:via-zinc-900 dark:to-emerald-950/10 border border-emerald-200/40 dark:border-emerald-900/30 p-5">
           <div className="flex items-center gap-2 mb-1">
             <meta.Icon size={16} className="text-emerald-600" />
-            <p className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-wide">{axisLabel}</p>
+            <p className="text-[12px] font-bold text-[var(--muted)] uppercase tracking-wide">{axisLabel}</p>
           </div>
           <h2 className="text-2xl font-extrabold text-[var(--foreground)]">{meta.title}</h2>
           <p className="text-xs text-[var(--muted)] mt-1">{meta.sub}</p>
@@ -123,7 +123,7 @@ function CohortInner() {
                 <p className="text-sm font-extrabold text-emerald-700 dark:text-emerald-400">
                   내 순위
                 </p>
-                <p className="text-[11px] text-[var(--muted)]">
+                <p className="text-[13px] text-[var(--muted)]">
                   {profile?.display_name ?? '나'} · {Number(myRow.km).toFixed(1)}km
                 </p>
               </div>
@@ -215,7 +215,7 @@ function CohortInner() {
                         {r.display_name}{r.is_me && <span className="ml-1">(나)</span>}
                       </p>
                       {r.region_gu && (
-                        <p className="text-[11px] text-[var(--muted)] flex items-center gap-0.5">
+                        <p className="text-[13px] text-[var(--muted)] flex items-center gap-0.5">
                           <MapPin size={10} /> {r.region_gu}
                         </p>
                       )}
@@ -224,7 +224,7 @@ function CohortInner() {
                       <p className={`text-base font-extrabold tabular-nums ${isPodium ? 'text-emerald-600' : 'text-[var(--foreground)]'}`}>
                         {Number(r.km).toFixed(1)}
                       </p>
-                      <p className="text-[10px] text-[var(--muted)]">km</p>
+                      <p className="text-[12px] text-[var(--muted)]">km</p>
                     </div>
                   </Link>
                 </li>

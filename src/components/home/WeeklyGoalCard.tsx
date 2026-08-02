@@ -176,7 +176,7 @@ export default function WeeklyGoalCard({ weeklyStreak = 0, maxStreak = 0, isReco
           <div className="flex items-start justify-between gap-1 mb-2">
             {weekDots.map((d, i) => (
               <div key={d.date} className="flex flex-col items-center gap-1 flex-1">
-                <span className={`text-[10px] font-bold ${d.isToday ? 'text-emerald-600' : 'text-[var(--muted)]'}`}>
+                <span className={`text-[12px] font-bold ${d.isToday ? 'text-emerald-600' : 'text-[var(--muted)]'}`}>
                   {dayLabels[i]}
                 </span>
                 <div
@@ -218,7 +218,7 @@ export default function WeeklyGoalCard({ weeklyStreak = 0, maxStreak = 0, isReco
                 : `역대 최장 기록까지 ${weeksToRecord}주!`}
             </p>
           ) : maxStreak >= 2 ? (
-            <p className="text-center text-[11px] font-semibold text-[var(--muted)] mt-2">
+            <p className="text-center text-[13px] font-semibold text-[var(--muted)] mt-2">
               {locale === 'en' ? `Best streak · ${maxStreak} weeks` : `최장 연속 ${maxStreak}주`}
             </p>
           ) : null}

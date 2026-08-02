@@ -144,7 +144,7 @@ export default function ProductReviews({ productId, ratingAvg = 0, ratingCount =
                   {submitting ? '저장 중…' : myReview ? '수정 완료' : '리뷰 작성'}
                 </button>
               </div>
-              <p className="text-[10px] text-[var(--muted)] mt-2">* 구매 인증된 사용자만 리뷰를 작성할 수 있습니다.</p>
+              <p className="text-[12px] text-[var(--muted)] mt-2">* 구매 인증된 사용자만 리뷰를 작성할 수 있습니다.</p>
             </div>
           )}
         </div>
@@ -175,12 +175,12 @@ export default function ProductReviews({ productId, ratingAvg = 0, ratingCount =
                     {r.source === 'cafe24' ? (r.external_author ?? '러너') : (r.user?.display_name ?? '러너')}
                   </span>
                   {r.source === 'cafe24' && (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300">
+                    <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300">
                       이전 구매자
                     </span>
                   )}
                 </div>
-                <span className="text-[10px] text-[var(--muted)]">
+                <span className="text-[12px] text-[var(--muted)]">
                   {new Date(r.created_at).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
                 </span>
               </div>

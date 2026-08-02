@@ -117,7 +117,7 @@ export default function ClubChallengeSection({ clubId, canManage }: Props) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-extrabold truncate">{c.name}</p>
-                  <p className="text-[11px] text-[var(--muted)]">{c.country ?? tt('세계')} · {c.distance_km.toFixed(1)}km · {locale === 'en' ? `${c.contributors} contributed` : `기여 ${c.contributors}명`}</p>
+                  <p className="text-[13px] text-[var(--muted)]">{c.country ?? tt('세계')} · {c.distance_km.toFixed(1)}km · {locale === 'en' ? `${c.contributors} contributed` : `기여 ${c.contributors}명`}</p>
                 </div>
               </div>
               <div className="mt-3">
@@ -224,7 +224,7 @@ function ClubCompletionCelebration({ clubId, course, onClose }: {
               </div>
             ))}
             {members.length > 7 && (
-              <div className="w-9 h-9 rounded-full bg-amber-500 text-white flex items-center justify-center font-extrabold text-[10px] border-2 border-amber-300">+{members.length - 7}</div>
+              <div className="w-9 h-9 rounded-full bg-amber-500 text-white flex items-center justify-center font-extrabold text-[12px] border-2 border-amber-300">+{members.length - 7}</div>
             )}
           </div>
         )}
@@ -313,7 +313,7 @@ function ClubEmailsSheet({ clubId, onClose }: { clubId: string; onClose: () => v
             <Mail size={12} /> {tt('메일 작성')}
           </a>
         </div>
-        {msg && <p className="text-[11px] text-center font-bold text-emerald-600 pb-2">{msg}</p>}
+        {msg && <p className="text-[13px] text-center font-bold text-emerald-600 pb-2">{msg}</p>}
       </div>
     </div>
   );
@@ -457,7 +457,7 @@ function StartCoursePicker({ clubId, alreadyStartedIds, onClose, onStarted, onEr
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-extrabold truncate">{c.name}</p>
-                  <p className="text-[11px] text-[var(--muted)]">{c.country ?? tt('세계')} · {c.distance_km.toFixed(1)}km</p>
+                  <p className="text-[13px] text-[var(--muted)]">{c.country ?? tt('세계')} · {c.distance_km.toFixed(1)}km</p>
                 </div>
                 <button
                   onClick={() => handleStart(c.id)}
@@ -501,7 +501,7 @@ function ClubLeaderboardSheet({ clubId, courseId, courseName, onClose }: {
               <h3 className="text-base font-extrabold inline-flex items-center gap-1.5">
                 <Users size={16} className="text-emerald-500" /> {tt('멤버 기여도')}
               </h3>
-              <p className="text-[11px] text-[var(--muted)] mt-0.5 truncate">{courseName}</p>
+              <p className="text-[13px] text-[var(--muted)] mt-0.5 truncate">{courseName}</p>
             </div>
             <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90">
               <X size={18} />

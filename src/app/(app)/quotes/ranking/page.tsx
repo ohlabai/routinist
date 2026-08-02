@@ -94,7 +94,7 @@ export default function QuoteRankingPage() {
           <div className="relative">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm mb-2">
               <Trophy size={11} className="text-white" />
-              <span className="text-[10px] font-extrabold text-white tracking-widest">QUOTE RANKING</span>
+              <span className="text-[12px] font-extrabold text-white tracking-widest">QUOTE RANKING</span>
             </div>
             <h2 className="text-xl font-extrabold text-white mb-1">러너 한 줄 모음</h2>
             <p className="text-xs text-white/90 leading-relaxed">
@@ -115,7 +115,7 @@ export default function QuoteRankingPage() {
           </div>
           <div className="flex-1">
             <p className="text-sm font-extrabold text-[var(--foreground)]">한 줄 일기 쓰기</p>
-            <p className="text-[11px] text-[var(--muted)]">공유 카드에 닉네임과 함께 표시돼요</p>
+            <p className="text-[13px] text-[var(--muted)]">공유 카드에 닉네임과 함께 표시돼요</p>
           </div>
           <span className="text-emerald-600 text-xs font-bold">시작 →</span>
         </Link>
@@ -154,12 +154,12 @@ export default function QuoteRankingPage() {
                   &ldquo;{q.text}&rdquo;
                 </p>
                 <div className="flex items-center gap-2 mt-2">
-                  <span className="text-[11px] text-[var(--muted)] inline-flex items-center gap-1">
+                  <span className="text-[13px] text-[var(--muted)] inline-flex items-center gap-1">
                     {q.is_user_quote ? <User size={10} /> : <Sparkles size={10} />}
                     — {q.author ?? '익명'}
                   </span>
                   {q.is_user_quote && (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
+                    <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
                       러너
                     </span>
                   )}
@@ -183,7 +183,7 @@ export default function QuoteRankingPage() {
                   {q.is_user_quote && user && (
                     <button
                       onClick={() => setReportTarget(q)}
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] text-[var(--muted)] active:scale-95"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[12px] text-[var(--muted)] active:scale-95"
                       aria-label="신고"
                     >
                       <Flag size={10} /> 신고

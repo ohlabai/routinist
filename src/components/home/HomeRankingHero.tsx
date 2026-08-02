@@ -248,7 +248,7 @@ export default function HomeRankingHero() {
               border/배경 제거 + 작은 텍스트 링크. */}
           <Link
             href="/profile/edit"
-            className="text-[11px] font-semibold text-[var(--muted)] underline underline-offset-2 active:scale-95 flex-shrink-0 self-start mt-1"
+            className="text-[13px] font-semibold text-[var(--muted)] underline underline-offset-2 active:scale-95 flex-shrink-0 self-start mt-1"
           >
             {t('homeHero.edit')}
           </Link>
@@ -359,7 +359,7 @@ export default function HomeRankingHero() {
 
         {!isTopRank && kmToNext > 0 && (
           <div className="mt-4">
-            <div className="flex items-center justify-between mb-1.5 text-[11px]">
+            <div className="flex items-center justify-between mb-1.5 text-[13px]">
               <span className="font-semibold text-[var(--muted)]">{formatRank(rank.rank_position, locale)}</span>
               <span className={`font-extrabold ${style.accent}`}>
                 <span className="font-black">{t('homeHero.kmMore').replace('{km}', kmToNext.toFixed(1))}</span> {t('homeHero.toRankAbbr').replace('{rank}', String(rank.target_rank))}

@@ -162,7 +162,7 @@ export default function MultiUserTimeSeriesChart({ users, defaultSelectedIds, ti
 
       {/* 사용자 선택 체크박스 */}
       <div className="mt-3 pt-3 border-t border-[var(--card-border)]/40">
-        <p className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest mb-1.5">
+        <p className="text-[12px] font-bold text-[var(--muted)] uppercase tracking-widest mb-1.5">
           비교 (최대 5명)
         </p>
         <div className="flex flex-wrap gap-1.5">

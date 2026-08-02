@@ -162,7 +162,7 @@ export default function SellerApplyPage() {
               {submitting ? tt('제출 중...') : tt('판매자 신청 제출')}
             </button>
 
-            <p className="text-[11px] text-[var(--muted)] text-center break-keep">
+            <p className="text-[13px] text-[var(--muted)] text-center break-keep">
               개인사업자/법인 모두 가능합니다. 신청 후 영업일 기준 1~3일 내 검토되며, 결과는 이메일로 알려드려요.
               수수료는 매출의 10%이며, 정산은 매주 월요일에 지급됩니다.
             </p>

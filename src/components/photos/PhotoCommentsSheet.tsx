@@ -194,7 +194,7 @@ export default function PhotoCommentsSheet({ photoId, onClose, onCountChange }: 
                         >
                           {c.display_name ?? tt('러너')}{isMine && (locale === 'en' ? ' (me)' : ' (나)')}
                         </Link>
-                        <span className="text-[10px] text-[var(--muted)]">{relativeTime(c.created_at, locale)}</span>
+                        <span className="text-[12px] text-[var(--muted)]">{relativeTime(c.created_at, locale)}</span>
                       </div>
                       <p className="text-sm text-[var(--foreground)] mt-0.5 whitespace-pre-wrap break-words">
                         {c.body}
@@ -247,7 +247,7 @@ export default function PhotoCommentsSheet({ photoId, onClose, onCountChange }: 
               )}
             </button>
           </div>
-          <p className="text-[10px] text-[var(--muted)] mt-1 text-right">{body.length}/500</p>
+          <p className="text-[12px] text-[var(--muted)] mt-1 text-right">{body.length}/500</p>
         </div>
       </div>
 

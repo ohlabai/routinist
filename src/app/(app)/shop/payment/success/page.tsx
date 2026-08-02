@@ -107,7 +107,7 @@ function PaymentSuccessContent() {
         </div>
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/30 mb-3">
           <Sparkles size={12} className="text-emerald-500" />
-          <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 tracking-wider uppercase">Order Complete</span>
+          <span className="text-[13px] font-bold text-emerald-700 dark:text-emerald-300 tracking-wider uppercase">Order Complete</span>
         </div>
         <h1 className="text-3xl font-extrabold text-[var(--foreground)] mb-2 leading-tight">
           {tt('결제 완료!')}<br />

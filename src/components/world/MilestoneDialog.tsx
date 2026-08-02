@@ -88,7 +88,7 @@ export default function MilestoneDialog({ milestone, course, userName, onClose }
             <span className="text-2xl leading-none">{milestone.emoji}</span>
             <div>
               <p className="text-base font-extrabold tracking-tight">{labelText}</p>
-              <p className="text-[11px] text-[var(--muted)] truncate">{course.name}</p>
+              <p className="text-[13px] text-[var(--muted)] truncate">{course.name}</p>
             </div>
           </div>
           <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90">
@@ -125,7 +125,7 @@ export default function MilestoneDialog({ milestone, course, userName, onClose }
                   </div>
                 )}
                 {/* 코스명 sticker */}
-                <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-white/85 backdrop-blur text-[10px] font-extrabold text-zinc-800">
+                <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-white/85 backdrop-blur text-[12px] font-extrabold text-zinc-800">
                   {course.country ?? '🌍'} {course.name}
                 </div>
               </div>
@@ -137,7 +137,7 @@ export default function MilestoneDialog({ milestone, course, userName, onClose }
                 >
                   {milestone.name === '완주' || milestone.kind === 'finish' ? tt('완주!') : tt(milestone.name)}
                 </p>
-                <p className="text-[10px] text-zinc-600 mt-1 font-bold tracking-wide tabular-nums">
+                <p className="text-[12px] text-zinc-600 mt-1 font-bold tracking-wide tabular-nums">
                   {userName ?? tt('러너')} · {today}
                 </p>
               </div>
@@ -149,7 +149,7 @@ export default function MilestoneDialog({ milestone, course, userName, onClose }
           {/* Fun fact / 안내 */}
           {milestone.funFact && (
             <div className="rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-50/30 dark:from-emerald-950/30 dark:to-emerald-950/10 border border-emerald-200/60 dark:border-emerald-800/40 p-4">
-              <p className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-700 dark:text-emerald-300 uppercase tracking-widest mb-1.5">
+              <p className="inline-flex items-center gap-1 text-[12px] font-extrabold text-emerald-700 dark:text-emerald-300 uppercase tracking-widest mb-1.5">
                 <Sparkles size={11} /> Fun Fact
               </p>
               <p className="text-sm text-[var(--foreground)] leading-relaxed break-keep">{milestone.funFact}</p>
@@ -157,7 +157,7 @@ export default function MilestoneDialog({ milestone, course, userName, onClose }
           )}
 
           {!hasLatLng && (
-            <p className="text-[11px] text-[var(--muted)] text-center">{tt('이 코스는 GPS 좌표가 등록되지 않아 거리뷰를 표시할 수 없어요.')}</p>
+            <p className="text-[13px] text-[var(--muted)] text-center">{tt('이 코스는 GPS 좌표가 등록되지 않아 거리뷰를 표시할 수 없어요.')}</p>
           )}
         </div>
 

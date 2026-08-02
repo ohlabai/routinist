@@ -95,7 +95,7 @@ export default function AdminDashboardPage() {
             <ArrowLeft size={20} />
           </button>
           <h1 className="text-xl font-extrabold tracking-tight flex-1">어드민</h1>
-          <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40">
+          <span className="text-[12px] font-bold text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40">
             ADMIN
           </span>
         </div>
@@ -120,7 +120,7 @@ export default function AdminDashboardPage() {
               <div className="relative">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm mb-3">
                   <Sparkles size={11} className="text-white" />
-                  <span className="text-[10px] font-extrabold text-white tracking-widest">TODAY REVENUE</span>
+                  <span className="text-[12px] font-extrabold text-white tracking-widest">TODAY REVENUE</span>
                 </div>
                 <p className="text-4xl font-extrabold text-white tracking-tight">
                   {stats.revenue.today.toLocaleString()}<span className="text-xl ml-1">원</span>
@@ -254,7 +254,7 @@ export default function AdminDashboardPage() {
                   <div className="card p-4 space-y-2">
                     {kpi.top_products_30d.map((p, i) => (
                       <div key={p.product_name} className="flex items-center gap-3 text-xs">
-                        <span className={`w-6 h-6 rounded-full flex items-center justify-center font-extrabold text-[10px] ${
+                        <span className={`w-6 h-6 rounded-full flex items-center justify-center font-extrabold text-[12px] ${
                           i === 0 ? 'bg-amber-100 text-amber-700' :
                           i === 1 ? 'bg-zinc-200 text-zinc-700' :
                           i === 2 ? 'bg-orange-100 text-orange-700' :
@@ -370,7 +370,7 @@ function RegionBackfillSection() {
           <div className="text-xs text-[var(--foreground)] space-y-1">
             <p>대상 {result.processed}명 / 적용 <span className="text-emerald-600 font-bold">{result.applied}</span> · 스킵 {result.skipped}</p>
             {result.errors.length > 0 && (
-              <details className="text-[10px] text-rose-500">
+              <details className="text-[12px] text-rose-500">
                 <summary>오류 {result.errors.length}건</summary>
                 <pre className="whitespace-pre-wrap mt-1">{result.errors.join('\n')}</pre>
               </details>
@@ -405,7 +405,7 @@ function Stat({ label, value, unit, tone = 'default' }: { label: string; value: 
   }[tone];
   return (
     <div>
-      <p className="text-[10px] text-[var(--muted)] font-medium mb-0.5">{label}</p>
+      <p className="text-[12px] text-[var(--muted)] font-medium mb-0.5">{label}</p>
       <p className={`text-base font-extrabold ${colorClass}`}>
         {value}
         {unit && <span className="text-xs font-bold ml-0.5 opacity-70">{unit}</span>}
@@ -417,7 +417,7 @@ function Stat({ label, value, unit, tone = 'default' }: { label: string; value: 
 function SmallStat({ label, value, dark }: { label: string; value: string; dark?: boolean }) {
   return (
     <div>
-      <p className={`text-[10px] font-medium ${dark ? 'text-white/70' : 'text-[var(--muted)]'}`}>{label}</p>
+      <p className={`text-[12px] font-medium ${dark ? 'text-white/70' : 'text-[var(--muted)]'}`}>{label}</p>
       <p className={`text-base font-extrabold ${dark ? 'text-white' : 'text-[var(--foreground)]'}`}>{value}</p>
     </div>
   );

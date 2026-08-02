@@ -127,7 +127,7 @@ export default function ClubWorldRunPanel({ clubId, myRole, currentUserId }: Pro
             } p-5 shadow-md active:scale-[0.99]`}
           >
             <div className="flex items-center justify-between mb-1.5">
-              <span className={`text-[10px] font-extrabold uppercase tracking-widest inline-flex items-center gap-1 ${
+              <span className={`text-[12px] font-extrabold uppercase tracking-widest inline-flex items-center gap-1 ${
                 isIndividual ? 'text-purple-700 dark:text-purple-300' : 'text-indigo-700 dark:text-indigo-300'
               }`}>
                 {isIndividual ? <><Users size={11} /> {tt('각자 달리기')}</> : <><Trophy size={11} /> {tt('자동 합산')}</>}
@@ -196,11 +196,11 @@ export default function ClubWorldRunPanel({ clubId, myRole, currentUserId }: Pro
                 <div className="flex items-center gap-2 mb-1">
                   <Trophy size={14} className="text-amber-600" />
                   <span className="text-sm font-extrabold flex-1 truncate">{c.name}</span>
-                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                  <span className="text-[12px] font-bold text-amber-700 dark:text-amber-300">
                     {c.completed_at && new Date(c.completed_at).toLocaleDateString(locale === 'en' ? 'en-US' : 'ko-KR')}
                   </span>
                 </div>
-                <p className="text-[11px] text-[var(--muted)]">
+                <p className="text-[13px] text-[var(--muted)]">
                   {locale === 'en'
                     ? `${c.distance_km.toFixed(1)}km · ${c.contributors} contributed · club total ${c.total_km.toFixed(1)}km`
                     : `${c.distance_km.toFixed(1)}km · ${c.contributors}명 기여 · 클럽 합산 ${c.total_km.toFixed(1)}km`}
@@ -224,7 +224,7 @@ export default function ClubWorldRunPanel({ clubId, myRole, currentUserId }: Pro
 
             {/* build 235: 모드 선택 — 디폴트 각자 달리기. */}
             <div className="px-5 pt-3 pb-1">
-              <p className="text-[10px] font-extrabold uppercase tracking-widest text-[var(--muted)] mb-1.5">{tt('진행 방식')}</p>
+              <p className="text-[12px] font-extrabold uppercase tracking-widest text-[var(--muted)] mb-1.5">{tt('진행 방식')}</p>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setPickerMode('individual')}
@@ -235,7 +235,7 @@ export default function ClubWorldRunPanel({ clubId, myRole, currentUserId }: Pro
                   }`}
                 >
                   <div className="text-sm font-extrabold mb-0.5">{tt('🏃 각자 달리기')}</div>
-                  <div className="text-[10px] font-normal opacity-90">{tt('멤버 각자 본인 진행률')}</div>
+                  <div className="text-[12px] font-normal opacity-90">{tt('멤버 각자 본인 진행률')}</div>
                 </button>
                 <button
                   onClick={() => setPickerMode('pooled')}
@@ -246,7 +246,7 @@ export default function ClubWorldRunPanel({ clubId, myRole, currentUserId }: Pro
                   }`}
                 >
                   <div className="text-sm font-extrabold mb-0.5">{tt('🤝 자동 합산')}</div>
-                  <div className="text-[10px] font-normal opacity-90">{tt('전 멤버 km 합쳐 1회 완주')}</div>
+                  <div className="text-[12px] font-normal opacity-90">{tt('전 멤버 km 합쳐 1회 완주')}</div>
                 </button>
               </div>
             </div>
@@ -264,7 +264,7 @@ export default function ClubWorldRunPanel({ clubId, myRole, currentUserId }: Pro
                   <div className="flex items-center gap-2">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-extrabold truncate">{pc.name}</p>
-                      <p className="text-[11px] text-[var(--muted)]">{pc.country ?? tt('세계')} · {pc.distance_km.toFixed(1)}km</p>
+                      <p className="text-[13px] text-[var(--muted)]">{pc.country ?? tt('세계')} · {pc.distance_km.toFixed(1)}km</p>
                     </div>
                     {starting === pc.id ? (
                       <span className="text-xs text-emerald-600 font-bold">{tt('시작 중…')}</span>
@@ -275,7 +275,7 @@ export default function ClubWorldRunPanel({ clubId, myRole, currentUserId }: Pro
                 </button>
               ))}
             </div>
-            <p className="px-5 pb-4 pt-2 text-[11px] text-[var(--muted)] text-center border-t border-[var(--card-border)]/40">
+            <p className="px-5 pb-4 pt-2 text-[13px] text-[var(--muted)] text-center border-t border-[var(--card-border)]/40">
               {tt('참가비는 차감되지 않아요. 클럽 멤버 활동이 자동 합산됩니다.')}
             </p>
           </div>
@@ -335,7 +335,7 @@ function ClubCourseDetailSheet({ clubId, course, currentUserId, onClose }: Detai
         <div className="px-5 pt-4 pb-3 border-b border-[var(--card-border)]/40 flex items-center justify-between">
           <div className="min-w-0">
             <h3 className="text-base font-extrabold tracking-tight truncate">{course.name}</h3>
-            <p className="text-[11px] text-[var(--muted)]">{course.country ?? tt('세계')} · {course.distance_km.toFixed(1)}km</p>
+            <p className="text-[13px] text-[var(--muted)]">{course.country ?? tt('세계')} · {course.distance_km.toFixed(1)}km</p>
           </div>
           <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90">
             <X size={18} />
@@ -350,7 +350,7 @@ function ClubCourseDetailSheet({ clubId, course, currentUserId, onClose }: Detai
                 ? 'bg-gradient-to-br from-amber-50 to-orange-50/40 dark:from-amber-950/30 border-2 border-amber-300/60 dark:border-amber-800/40'
                 : 'bg-gradient-to-br from-indigo-50 to-indigo-50/40 dark:from-indigo-950/30 border-2 border-indigo-300/60 dark:border-indigo-800/40'
             }`}>
-              <p className={`text-[10px] font-extrabold uppercase tracking-widest mb-1 inline-flex items-center gap-1 ${
+              <p className={`text-[12px] font-extrabold uppercase tracking-widest mb-1 inline-flex items-center gap-1 ${
                 completed ? 'text-amber-700 dark:text-amber-300' : 'text-indigo-700 dark:text-indigo-300'
               }`}>
                 <Trophy size={11} /> {completed ? tt('완주!') : tt('클럽 합산 진행')}
@@ -379,7 +379,7 @@ function ClubCourseDetailSheet({ clubId, course, currentUserId, onClose }: Detai
 
           {isIndividual && (
             <div className="rounded-2xl p-5 bg-gradient-to-br from-purple-50 to-purple-50/40 dark:from-purple-950/30 border-2 border-purple-300/60 dark:border-purple-800/40">
-              <p className="text-[10px] font-extrabold uppercase tracking-widest mb-1 inline-flex items-center gap-1 text-purple-700 dark:text-purple-300">
+              <p className="text-[12px] font-extrabold uppercase tracking-widest mb-1 inline-flex items-center gap-1 text-purple-700 dark:text-purple-300">
                 <Users size={11} /> {tt('각자 달리기')} · {course.distance_km.toFixed(1)}km
               </p>
               <p className="text-2xl font-extrabold tracking-tight leading-tight">{locale === 'en' ? `${course.contributors} members running` : `${course.contributors}명 도전 중`}</p>
@@ -416,7 +416,7 @@ function ClubCourseDetailSheet({ clubId, course, currentUserId, onClose }: Detai
                             : 'bg-[var(--card)] border border-[var(--card-border)]/40'
                         }`}
                       >
-                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-extrabold flex-shrink-0 ${
+                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[13px] font-extrabold flex-shrink-0 ${
                           i === 0 ? 'bg-amber-100 text-amber-700' :
                           i === 1 ? 'bg-zinc-200 text-zinc-700' :
                           i === 2 ? 'bg-orange-100 text-orange-700' :
@@ -429,16 +429,16 @@ function ClubCourseDetailSheet({ clubId, course, currentUserId, onClose }: Detai
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={r.avatar_url} alt="" className="w-full h-full object-cover" />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-[11px] font-bold text-[var(--muted)]">{r.display_name.slice(0, 1)}</div>
+                            <div className="w-full h-full flex items-center justify-center text-[13px] font-bold text-[var(--muted)]">{r.display_name.slice(0, 1)}</div>
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-baseline justify-between gap-2">
                             <span className={`text-sm truncate ${isMe ? 'font-extrabold text-amber-700 dark:text-amber-300' : 'font-bold'}`}>
-                              {r.display_name}{isMe && <span className="ml-1 text-[10px] font-bold">{tt('(나)')}</span>}
+                              {r.display_name}{isMe && <span className="ml-1 text-[12px] font-bold">{tt('(나)')}</span>}
                               {r.completed_at && <Trophy size={11} className="inline ml-1 text-emerald-600" />}
                             </span>
-                            <span className="text-[11px] font-extrabold text-[var(--muted)] tabular-nums">
+                            <span className="text-[13px] font-extrabold text-[var(--muted)] tabular-nums">
                               {r.progress_km.toFixed(1)}km · {memberPct}%
                             </span>
                           </div>
@@ -471,7 +471,7 @@ function ClubCourseDetailSheet({ clubId, course, currentUserId, onClose }: Detai
                           : 'bg-[var(--card)] border border-[var(--card-border)]/40'
                       }`}
                     >
-                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-extrabold flex-shrink-0 ${
+                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[13px] font-extrabold flex-shrink-0 ${
                         i === 0 ? 'bg-amber-100 text-amber-700' :
                         i === 1 ? 'bg-zinc-200 text-zinc-700' :
                         i === 2 ? 'bg-orange-100 text-orange-700' :
@@ -484,15 +484,15 @@ function ClubCourseDetailSheet({ clubId, course, currentUserId, onClose }: Detai
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={r.avatar_url} alt="" className="w-full h-full object-cover" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-[11px] font-bold text-[var(--muted)]">{r.display_name.slice(0, 1)}</div>
+                          <div className="w-full h-full flex items-center justify-center text-[13px] font-bold text-[var(--muted)]">{r.display_name.slice(0, 1)}</div>
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-baseline justify-between gap-2">
                           <span className={`text-sm truncate ${isMe ? 'font-extrabold text-amber-700 dark:text-amber-300' : 'font-bold'}`}>
-                            {r.display_name}{isMe && <span className="ml-1 text-[10px] font-bold">{tt('(나)')}</span>}
+                            {r.display_name}{isMe && <span className="ml-1 text-[12px] font-bold">{tt('(나)')}</span>}
                           </span>
-                          <span className="text-[11px] font-extrabold text-[var(--muted)] tabular-nums">{r.contributed_km.toFixed(1)}km</span>
+                          <span className="text-[13px] font-extrabold text-[var(--muted)] tabular-nums">{r.contributed_km.toFixed(1)}km</span>
                         </div>
                         <div className="mt-1 h-1.5 rounded-full bg-[var(--card-border)]/40 overflow-hidden">
                           <div

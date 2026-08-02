@@ -26,7 +26,7 @@ export default function SamsungHealthGuide() {
         <Step n={1} label={ko ? '삼성헬스 앱 → 우상단 ⋮ → 설정' : 'Samsung Health → top-right ⋮ → Settings'}>
           <div className="flex items-center gap-2 px-2.5 py-2">
             <span className="w-7 h-7 rounded-xl bg-teal-500 flex items-center justify-center text-white text-sm font-black">S</span>
-            <span className="text-[11px] font-bold text-[var(--foreground)] flex-1">Samsung Health</span>
+            <span className="text-[13px] font-bold text-[var(--foreground)] flex-1">Samsung Health</span>
             <span className="relative w-6 h-6 rounded-full ring-2 ring-emerald-500 flex items-center justify-center text-[var(--foreground)] font-black text-sm">
               ⋮
               <Pointer />
@@ -39,8 +39,8 @@ export default function SamsungHealthGuide() {
           <div className="px-2.5 py-1.5 space-y-1">
             <MockRow dim label={ko ? '알림' : 'Notifications'} />
             <div className="relative flex items-center justify-between rounded-lg ring-2 ring-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-1.5">
-              <span className="text-[11px] font-extrabold text-[var(--foreground)]">Health Connect</span>
-              <span className="text-[11px] text-[var(--muted)]">›</span>
+              <span className="text-[13px] font-extrabold text-[var(--foreground)]">Health Connect</span>
+              <span className="text-[13px] text-[var(--muted)]">›</span>
               <Pointer />
             </div>
             <MockRow dim label={ko ? '정보' : 'About'} />
@@ -51,13 +51,13 @@ export default function SamsungHealthGuide() {
         <Step n={3} label={ko ? "'데이터 동기화' 켜기 + '운동' 켜기" : "Turn on 'Sync data' + enable 'Exercise'"}>
           <div className="px-2.5 py-1.5 space-y-1">
             <div className="relative flex items-center justify-between rounded-lg px-2 py-1.5">
-              <span className="text-[11px] font-bold text-[var(--foreground)]">
+              <span className="text-[13px] font-bold text-[var(--foreground)]">
                 {ko ? 'Health Connect 와 동기화' : 'Sync with Health Connect'}
               </span>
               <ToggleOn />
             </div>
             <div className="flex items-center justify-between rounded-lg px-2 py-1.5">
-              <span className="text-[11px] font-bold text-[var(--foreground)]">🏃 {ko ? '운동' : 'Exercise'}</span>
+              <span className="text-[13px] font-bold text-[var(--foreground)]">🏃 {ko ? '운동' : 'Exercise'}</span>
               <ToggleOn small />
             </div>
           </div>
@@ -66,10 +66,10 @@ export default function SamsungHealthGuide() {
         {/* 4단계 — 돌아와서 동기화 */}
         <Step n={4} label={ko ? '여기로 돌아와 동기화 누르기' : 'Come back here and tap Sync'}>
           <div className="flex items-center justify-center gap-2 px-2.5 py-2.5">
-            <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-500 text-white text-[11px] font-extrabold shadow-sm shadow-emerald-500/30">
+            <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-500 text-white text-[13px] font-extrabold shadow-sm shadow-emerald-500/30">
               🔄 {ko ? '동기화' : 'Sync'}
             </span>
-            <span className="text-[11px] text-[var(--muted)]">→ 🏃 {ko ? '기록이 들어와요!' : 'runs appear!'}</span>
+            <span className="text-[13px] text-[var(--muted)]">→ 🏃 {ko ? '기록이 들어와요!' : 'runs appear!'}</span>
           </div>
         </Step>
       </div>
@@ -83,7 +83,7 @@ function Step({ n, label, children }: { n: number; label: string; children: Reac
   return (
     <div>
       <div className="flex items-center gap-1.5 mb-1">
-        <span className="w-4.5 h-4.5 min-w-[18px] min-h-[18px] rounded-full bg-amber-500 text-white text-[10px] font-black flex items-center justify-center">
+        <span className="w-4.5 h-4.5 min-w-[18px] min-h-[18px] rounded-full bg-amber-500 text-white text-[12px] font-black flex items-center justify-center">
           {n}
         </span>
         <span className="text-xs font-bold text-amber-900 dark:text-amber-200">{label}</span>
@@ -99,8 +99,8 @@ function Step({ n, label, children }: { n: number; label: string; children: Reac
 function MockRow({ label, dim = false }: { label: string; dim?: boolean }) {
   return (
     <div className={`flex items-center justify-between rounded-lg px-2 py-1.5 ${dim ? 'opacity-40' : ''}`}>
-      <span className="text-[11px] font-bold text-[var(--foreground)]">{label}</span>
-      <span className="text-[11px] text-[var(--muted)]">›</span>
+      <span className="text-[13px] font-bold text-[var(--foreground)]">{label}</span>
+      <span className="text-[13px] text-[var(--muted)]">›</span>
     </div>
   );
 }

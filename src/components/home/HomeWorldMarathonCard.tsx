@@ -47,7 +47,7 @@ export default function HomeWorldMarathonCard() {
               <Trophy size={18} className="text-amber-500" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-extrabold tracking-widest uppercase text-amber-600 dark:text-amber-400">
+              <p className="text-[12px] font-extrabold tracking-widest uppercase text-amber-600 dark:text-amber-400">
                 {locale === 'en' ? 'WorldRun Challenge' : '월드런 챌린지'}
               </p>
               <p className="text-sm font-extrabold text-[var(--foreground)] truncate">
@@ -87,7 +87,7 @@ export default function HomeWorldMarathonCard() {
             <Globe size={18} className="text-sky-600 dark:text-sky-400" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-extrabold tracking-widest uppercase text-sky-600 dark:text-sky-400">
+            <p className="text-[12px] font-extrabold tracking-widest uppercase text-sky-600 dark:text-sky-400">
               {locale === 'en' ? 'WorldRun Challenge' : '월드런 챌린지'}
             </p>
             <p className="text-sm font-extrabold text-[var(--foreground)]">
@@ -116,7 +116,7 @@ export default function HomeWorldMarathonCard() {
                     style={{ width: `${pct}%` }}
                   />
                 </div>
-                <p className="text-[10px] text-[var(--muted)] mt-0.5">
+                <p className="text-[12px] text-[var(--muted)] mt-0.5">
                   {locale === 'en'
                     ? `${pct.toFixed(0)}% · ${(c.distance_km - c.progress_km).toFixed(1)}km left`
                     : `${pct.toFixed(0)}% · 남은 거리 ${(c.distance_km - c.progress_km).toFixed(1)}km`}

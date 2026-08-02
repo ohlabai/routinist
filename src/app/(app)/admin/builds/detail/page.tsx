@@ -199,7 +199,7 @@ function AdminBuildDetailInner() {
           <h1 className="text-xl font-extrabold tracking-tight inline-flex items-center gap-1.5">
             <Package size={18} className="text-emerald-500" /> Build {release.build_number}
           </h1>
-          <span className="ml-auto text-[10px] font-bold text-[var(--muted)]">v{release.marketing_version}</span>
+          <span className="ml-auto text-[12px] font-bold text-[var(--muted)]">v{release.marketing_version}</span>
           <button onClick={load} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/30">
             <RefreshCw size={14} />
           </button>
@@ -231,7 +231,7 @@ function AdminBuildDetailInner() {
               <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-600 transition-all" style={{ width: `${pct}%` }} />
             </div>
             {fail > 0 && (
-              <p className="text-[11px] text-rose-500 font-bold mt-2 inline-flex items-center gap-1">
+              <p className="text-[13px] text-rose-500 font-bold mt-2 inline-flex items-center gap-1">
                 <XCircle size={11} /> {fail}건 실패
               </p>
             )}
@@ -245,7 +245,7 @@ function AdminBuildDetailInner() {
             <div key={category} className="card p-4">
               <div className="flex items-center gap-2 mb-3">
                 <h3 className="text-sm font-extrabold">{category}</h3>
-                <span className="text-[10px] text-[var(--muted)] font-bold ml-auto tabular-nums">{catPass} / {items.length}</span>
+                <span className="text-[12px] text-[var(--muted)] font-bold ml-auto tabular-nums">{catPass} / {items.length}</span>
                 <button onClick={() => startAddItem(category)}
                   className="w-6 h-6 rounded-full flex items-center justify-center bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/30 active:scale-90"
                   aria-label="이 카테고리에 항목 추가">
@@ -276,10 +276,10 @@ function AdminBuildDetailInner() {
                         <div className="flex-1 min-w-0">
                           <p className={`text-sm font-bold ${checked ? 'line-through text-[var(--muted)]' : ''}`}>{item.title}</p>
                           {item.expected && (
-                            <p className={`text-[11px] text-[var(--muted)] mt-0.5 ${checked ? 'line-through' : ''}`}>→ {item.expected}</p>
+                            <p className={`text-[13px] text-[var(--muted)] mt-0.5 ${checked ? 'line-through' : ''}`}>→ {item.expected}</p>
                           )}
                           {item.checked_by_email && item.checked_at && (
-                            <p className="text-[10px] text-[var(--muted)]/70 mt-1">
+                            <p className="text-[12px] text-[var(--muted)]/70 mt-1">
                               {item.checked_by_email.split('@')[0]} · {new Date(item.checked_at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                             </p>
                           )}
@@ -289,22 +289,22 @@ function AdminBuildDetailInner() {
                               <input value={noteValue} onChange={e => setNoteValue(e.target.value)} placeholder="메모"
                                 className="flex-1 px-2 py-1 rounded-lg bg-[var(--background)] border border-[var(--card-border)] text-xs focus:outline-none focus:border-emerald-500" />
                               <button onClick={() => saveNote(item)} disabled={busy === item.id}
-                                className="px-2 py-1 rounded-lg bg-emerald-500 text-white text-[10px] font-extrabold active:scale-95 inline-flex items-center gap-0.5">
+                                className="px-2 py-1 rounded-lg bg-emerald-500 text-white text-[12px] font-extrabold active:scale-95 inline-flex items-center gap-0.5">
                                 <Save size={10} /> 저장
                               </button>
                               <button onClick={() => setEditingNote(null)}
-                                className="px-2 py-1 rounded-lg bg-[var(--card-border)]/30 text-[10px] font-bold active:scale-95">
+                                className="px-2 py-1 rounded-lg bg-[var(--card-border)]/30 text-[12px] font-bold active:scale-95">
                                 <X size={10} />
                               </button>
                             </div>
                           ) : item.note ? (
                             <button onClick={() => { setEditingNote(item.id); setNoteValue(item.note ?? ''); }}
-                              className="mt-2 text-[11px] text-[var(--foreground)] bg-amber-50 dark:bg-amber-950/20 border border-amber-200/40 dark:border-amber-900/30 px-2 py-1 rounded-lg inline-flex items-center gap-1">
+                              className="mt-2 text-[13px] text-[var(--foreground)] bg-amber-50 dark:bg-amber-950/20 border border-amber-200/40 dark:border-amber-900/30 px-2 py-1 rounded-lg inline-flex items-center gap-1">
                               <MessageSquare size={10} className="text-amber-500" /> {item.note}
                             </button>
                           ) : (
                             <button onClick={() => { setEditingNote(item.id); setNoteValue(''); }}
-                              className="mt-1 text-[10px] text-[var(--muted)] hover:text-emerald-600 inline-flex items-center gap-0.5">
+                              className="mt-1 text-[12px] text-[var(--muted)] hover:text-emerald-600 inline-flex items-center gap-0.5">
                               <MessageSquare size={9} /> 메모
                             </button>
                           )}
@@ -359,7 +359,7 @@ function AdminBuildDetailInner() {
             </div>
             <div className="p-5 space-y-3">
               <div>
-                <label className="text-[11px] font-extrabold text-[var(--muted)] uppercase tracking-widest">카테고리 *</label>
+                <label className="text-[13px] font-extrabold text-[var(--muted)] uppercase tracking-widest">카테고리 *</label>
                 <input value={itemForm.category} list="category-suggestions" placeholder="예: GPS, 인증, UI, 결제..."
                   onChange={(e) => setItemForm({ ...itemForm, category: e.target.value })}
                   className="mt-1 w-full px-3 py-2 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)] text-sm font-bold focus:outline-none focus:border-emerald-500" />
@@ -370,19 +370,19 @@ function AdminBuildDetailInner() {
                 </datalist>
               </div>
               <div>
-                <label className="text-[11px] font-extrabold text-[var(--muted)] uppercase tracking-widest">제목 *</label>
+                <label className="text-[13px] font-extrabold text-[var(--muted)] uppercase tracking-widest">제목 *</label>
                 <input value={itemForm.title} placeholder="무엇을 확인해야 할까요?"
                   onChange={(e) => setItemForm({ ...itemForm, title: e.target.value })}
                   className="mt-1 w-full px-3 py-2 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)] text-sm font-bold focus:outline-none focus:border-emerald-500" />
               </div>
               <div>
-                <label className="text-[11px] font-extrabold text-[var(--muted)] uppercase tracking-widest">기대 결과</label>
+                <label className="text-[13px] font-extrabold text-[var(--muted)] uppercase tracking-widest">기대 결과</label>
                 <input value={itemForm.expected} placeholder="기대하는 결과 (선택)"
                   onChange={(e) => setItemForm({ ...itemForm, expected: e.target.value })}
                   className="mt-1 w-full px-3 py-2 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)] text-sm focus:outline-none focus:border-emerald-500" />
               </div>
               <div>
-                <label className="text-[11px] font-extrabold text-[var(--muted)] uppercase tracking-widest">세부 설명</label>
+                <label className="text-[13px] font-extrabold text-[var(--muted)] uppercase tracking-widest">세부 설명</label>
                 <textarea value={itemForm.detail} rows={3} placeholder="재현 방법 / 추가 컨텍스트 (선택)"
                   onChange={(e) => setItemForm({ ...itemForm, detail: e.target.value })}
                   className="mt-1 w-full px-3 py-2 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)] text-sm leading-relaxed focus:outline-none focus:border-emerald-500 resize-none" />

@@ -66,7 +66,7 @@ export default function MilestoneBoard({ course, myProgressKm, userName }: Props
             >
               <div className="flex items-center gap-1.5 mb-1">
                 <span className="text-base leading-none">{m.unlocked ? m.emoji : '🔒'}</span>
-                <span className="text-[10px] font-extrabold text-[var(--muted)] tabular-nums">
+                <span className="text-[12px] font-extrabold text-[var(--muted)] tabular-nums">
                   {m.km.toFixed(m.km % 1 === 0 ? 0 : 1)} km
                 </span>
               </div>
@@ -74,7 +74,7 @@ export default function MilestoneBoard({ course, myProgressKm, userName }: Props
                 {tt(m.name)}
               </p>
               {!m.unlocked && (
-                <p className="text-[10px] text-[var(--muted)] mt-0.5 inline-flex items-center gap-0.5">
+                <p className="text-[12px] text-[var(--muted)] mt-0.5 inline-flex items-center gap-0.5">
                   <Lock size={9} /> {(m.km - myProgressKm).toFixed(1)}km {tt('남음')}
                 </p>
               )}

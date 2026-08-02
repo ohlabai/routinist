@@ -165,7 +165,7 @@ export default function FriendsListPage() {
                 </Link>
                 <Link href={`/social/user?id=${r.receiver_id}`} className="flex-1 min-w-0">
                   <p className="text-sm font-bold truncate">{r.receiver?.display_name ?? tt('알 수 없음')}</p>
-                  <p className="text-[11px] text-[var(--muted)]">{tt('신청 보냄 · 응답 대기 중')}</p>
+                  <p className="text-[13px] text-[var(--muted)]">{tt('신청 보냄 · 응답 대기 중')}</p>
                 </Link>
                 <button
                   onClick={() => handleCancel(r.id)}

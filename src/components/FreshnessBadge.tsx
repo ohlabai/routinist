@@ -45,7 +45,7 @@ export default function FreshnessBadge({ ts, onRefresh, className = '', hideUnde
   return (
     <Wrap
       onClick={onRefresh}
-      className={`inline-flex items-center gap-1 text-[11px] text-[var(--muted)] ${onRefresh ? 'active:opacity-60' : ''} ${className}`}
+      className={`inline-flex items-center gap-1 text-[13px] text-[var(--muted)] ${onRefresh ? 'active:opacity-60' : ''} ${className}`}
     >
       {onRefresh && <RefreshCw size={11} />}
       <span>{formatAgo(ts, now)}</span>

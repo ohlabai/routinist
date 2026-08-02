@@ -140,7 +140,7 @@ export default function RankNeighbors() {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={r.avatar_url} alt="" className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-[9px] font-bold text-[var(--muted)]">
+                <div className="w-full h-full flex items-center justify-center text-[11px] font-bold text-[var(--muted)]">
                   {r.display_name.slice(0, 1)}
                 </div>
               )}

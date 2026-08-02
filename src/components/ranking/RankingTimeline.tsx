@@ -115,7 +115,7 @@ export default function RankingTimeline() {
         <div className="inline-flex bg-[var(--card-border)]/30 rounded-lg p-0.5">
           <button
             onClick={() => setMode('rank')}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-bold inline-flex items-center gap-1 ${
+            className={`px-2.5 py-1 rounded-md text-[13px] font-bold inline-flex items-center gap-1 ${
               mode === 'rank' ? 'bg-emerald-500 text-white shadow-sm' : 'text-[var(--muted)]'
             }`}
           >
@@ -123,7 +123,7 @@ export default function RankingTimeline() {
           </button>
           <button
             onClick={() => setMode('km')}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-bold inline-flex items-center gap-1 ${
+            className={`px-2.5 py-1 rounded-md text-[13px] font-bold inline-flex items-center gap-1 ${
               mode === 'km' ? 'bg-emerald-500 text-white shadow-sm' : 'text-[var(--muted)]'
             }`}
           >
@@ -153,7 +153,7 @@ export default function RankingTimeline() {
           <button
             key={s.id}
             onClick={() => setScope(s.id)}
-            className={`px-2.5 py-1 rounded-full text-[10px] font-bold whitespace-nowrap flex-shrink-0 ${
+            className={`px-2.5 py-1 rounded-full text-[12px] font-bold whitespace-nowrap flex-shrink-0 ${
               scope === s.id ? 'bg-[var(--foreground)] text-[var(--background)]' : 'bg-[var(--card-border)]/20 text-[var(--muted)]'
             }`}
           >
@@ -208,7 +208,7 @@ export default function RankingTimeline() {
               />
             </LineChart>
           </ResponsiveContainer>
-          <p className="text-[10px] text-[var(--muted)] mt-2 text-center">{tt('위로 갈수록 좋은 순위 · 1위가 최상단')}</p>
+          <p className="text-[12px] text-[var(--muted)] mt-2 text-center">{tt('위로 갈수록 좋은 순위 · 1위가 최상단')}</p>
         </>
       ) : (
         <>
@@ -236,7 +236,7 @@ export default function RankingTimeline() {
               <Bar dataKey="my_km" fill="url(#kmBarGrad)" radius={[6, 6, 0, 0]} animationDuration={600} />
             </BarChart>
           </ResponsiveContainer>
-          <p className="text-[10px] text-[var(--muted)] mt-2 text-center">{tt('기간별 내 거리 합계')}</p>
+          <p className="text-[12px] text-[var(--muted)] mt-2 text-center">{tt('기간별 내 거리 합계')}</p>
         </>
       )}
     </div>

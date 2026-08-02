@@ -42,7 +42,7 @@ export default function CourseFriendsRow({ courseId, courseDistanceKm, myProgres
           {tt('같이 달리는 친구')} {friends.length}
         </span>
         {ahead > 0 && (
-          <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400">
+          <span className="text-[12px] font-bold text-orange-600 dark:text-orange-400">
             {locale === 'en' ? `${ahead} ahead of you` : `${ahead}명이 앞서고 있어요`}
           </span>
         )}
@@ -58,14 +58,14 @@ export default function CourseFriendsRow({ courseId, courseDistanceKm, myProgres
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={f.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
               ) : (
-                <div className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-[9px] font-bold text-emerald-700 dark:text-emerald-400 flex-shrink-0">
+                <div className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-[11px] font-bold text-emerald-700 dark:text-emerald-400 flex-shrink-0">
                   {(f.display_name?.[0] ?? '?').toUpperCase()}
                 </div>
               )}
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline justify-between mb-0.5">
-                  <span className="text-[11px] font-semibold truncate">{f.display_name}</span>
-                  <span className={`text-[10px] tabular-nums font-bold ml-1 ${completed ? 'text-amber-600 dark:text-amber-400' : 'text-[var(--text-muted)]'}`}>
+                  <span className="text-[13px] font-semibold truncate">{f.display_name}</span>
+                  <span className={`text-[12px] tabular-nums font-bold ml-1 ${completed ? 'text-amber-600 dark:text-amber-400' : 'text-[var(--text-muted)]'}`}>
                     {completed ? `🏆 ${tt('완주')}` : `${f.progress_km.toFixed(1)}km`}
                   </span>
                 </div>
@@ -84,7 +84,7 @@ export default function CourseFriendsRow({ courseId, courseDistanceKm, myProgres
       {/* 내 위치 표시 (mini) */}
       <div className="flex items-center gap-2 mt-2 pt-2 border-t border-[var(--card-border)]/30">
         <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0">
-          <span className="text-[9px] font-extrabold text-white">{locale === 'en' ? 'Me' : '나'}</span>
+          <span className="text-[11px] font-extrabold text-white">{locale === 'en' ? 'Me' : '나'}</span>
         </div>
         <div className="flex-1">
           <div className="h-1 rounded-full bg-[var(--card-border)]/30 overflow-hidden">
@@ -94,7 +94,7 @@ export default function CourseFriendsRow({ courseId, courseDistanceKm, myProgres
             />
           </div>
         </div>
-        <span className="text-[10px] tabular-nums font-bold text-emerald-600 dark:text-emerald-400">
+        <span className="text-[12px] tabular-nums font-bold text-emerald-600 dark:text-emerald-400">
           {myProgressKm.toFixed(1)}km
         </span>
       </div>

@@ -168,12 +168,12 @@ export default function ClubExternalArchive({ clubId }: Props) {
                           <div className="flex items-center gap-1.5">
                             <span className="font-bold text-[var(--foreground)]">{r.name}</span>
                             {r.goal_achieved === true && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold inline-flex items-center gap-0.5">
+                              <span className="text-[12px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold inline-flex items-center gap-0.5">
                                 <Coffee size={10} /> {tt('쿠폰')}
                               </span>
                             )}
                             {!r.pass50 && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-600 font-semibold">{tt('휴면')}</span>
+                              <span className="text-[12px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-600 font-semibold">{tt('휴면')}</span>
                             )}
                           </div>
                           <span className="text-base font-extrabold text-[var(--foreground)]">
@@ -186,7 +186,7 @@ export default function ClubExternalArchive({ clubId }: Props) {
                             style={{ width: `${barWidth}%` }}
                           />
                         </div>
-                        <div className="flex items-center justify-between mt-1 text-[11px] text-[var(--muted)]">
+                        <div className="flex items-center justify-between mt-1 text-[13px] text-[var(--muted)]">
                           <span>{locale === 'en' ? `${r.run_count} runs · ${r.days_count} days` : `${r.run_count}회 · ${r.days_count}일`}</span>
                           {r.goal_km !== null && pct !== null && (
                             <span className={r.goal_achieved ? 'text-emerald-600 font-semibold' : ''}>
@@ -212,17 +212,17 @@ export default function ClubExternalArchive({ clubId }: Props) {
                           {events.map(e => (
                             <li key={e.id} className="py-1.5 flex items-center justify-between text-sm">
                               <div className="flex items-center gap-2">
-                                <span className="font-mono text-[11px] text-[var(--muted)]">
+                                <span className="font-mono text-[13px] text-[var(--muted)]">
                                   {e.activity_date.slice(5)}
                                 </span>
                                 {e.started_at && (
-                                  <span className="font-mono text-[10px] text-[var(--muted)]">
+                                  <span className="font-mono text-[12px] text-[var(--muted)]">
                                     {new Date(e.started_at).toLocaleTimeString(locale === 'en' ? 'en-US' : 'ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}
                                   </span>
                                 )}
                               </div>
                               <span className="font-bold text-[var(--foreground)]">
-                                {Number(e.distance_km).toFixed(2)}<span className="text-[10px] text-[var(--muted)] ml-0.5">km</span>
+                                {Number(e.distance_km).toFixed(2)}<span className="text-[12px] text-[var(--muted)] ml-0.5">km</span>
                               </span>
                             </li>
                           ))}
@@ -247,7 +247,7 @@ export default function ClubExternalArchive({ clubId }: Props) {
 function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="rounded-xl bg-[var(--card)] border border-[var(--card-border)] p-2.5">
-      <div className="flex items-center gap-1 text-[10px] text-[var(--muted)] mb-0.5">
+      <div className="flex items-center gap-1 text-[12px] text-[var(--muted)] mb-0.5">
         {icon}
         <span>{label}</span>
       </div>

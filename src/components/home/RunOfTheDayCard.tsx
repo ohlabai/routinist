@@ -81,7 +81,7 @@ export default function RunOfTheDayCard() {
         <h3 className="text-xs font-extrabold text-amber-700 dark:text-amber-300 tracking-wide">
           {pick.pick_date === todayStr() ? "TODAY'S BEST RUN" : 'RUN OF THE DAY'}
         </h3>
-        <span className="ml-auto text-[10px] text-[var(--muted)] font-semibold">{pick.pick_date}</span>
+        <span className="ml-auto text-[12px] text-[var(--muted)] font-semibold">{pick.pick_date}</span>
       </div>
       <div className="flex items-center gap-3">
         <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center font-extrabold text-base shadow-md overflow-hidden">
@@ -94,7 +94,7 @@ export default function RunOfTheDayCard() {
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-extrabold text-[var(--foreground)] truncate">{pick.display_name ?? tt('러너')}</p>
-          <div className="flex items-center gap-2 mt-0.5 text-[11px] text-[var(--muted)]">
+          <div className="flex items-center gap-2 mt-0.5 text-[13px] text-[var(--muted)]">
             <span className="font-bold text-amber-600 dark:text-amber-400">{pick.distance_km.toFixed(2)}km</span>
             <span className="inline-flex items-center gap-0.5">
               <Zap size={10} className="text-emerald-500" />

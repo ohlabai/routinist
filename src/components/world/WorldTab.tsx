@@ -347,7 +347,7 @@ export default function WorldTab() {
                   {c.has_medal ? <Trophy size={26} className="text-white" /> : <Sparkles size={22} className="text-white" />}
                 </div>
                 <p className="text-xs font-extrabold truncate">{tt(c.name)}</p>
-                <p className="text-[10px] text-[var(--muted)]">{c.distance_km.toFixed(1)}km</p>
+                <p className="text-[12px] text-[var(--muted)]">{c.distance_km.toFixed(1)}km</p>
               </div>
             ))}
           </div>
@@ -362,7 +362,7 @@ export default function WorldTab() {
               <Trophy size={14} className="text-amber-500" /> {tt('챌린지 시리즈')}
             </h2>
             {seriesFilter && (
-              <button onClick={() => setSeriesFilter(null)} className="text-[11px] font-bold text-emerald-600 active:scale-95">{tt('전체')}</button>
+              <button onClick={() => setSeriesFilter(null)} className="text-[13px] font-bold text-emerald-600 active:scale-95">{tt('전체')}</button>
             )}
           </div>
           <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mx-1 px-1">
@@ -379,15 +379,15 @@ export default function WorldTab() {
                   <button onClick={() => setSeriesFilter(active ? null : s.series_id)} className="w-full text-left active:scale-[0.98] transition">
                     <div className="text-2xl mb-1">{s.emoji ?? '🏆'}</div>
                     <p className={`text-sm font-extrabold ${active ? 'text-white' : 'text-[var(--foreground)]'}`}>{tt(s.name)}</p>
-                    <p className={`text-[10px] mt-0.5 line-clamp-2 ${active ? 'text-white/90' : 'text-[var(--muted)]'}`}>{s.description ? tt(s.description) : ''}</p>
-                    <div className="mt-2 flex items-center gap-2 text-[11px] font-extrabold">
+                    <p className={`text-[12px] mt-0.5 line-clamp-2 ${active ? 'text-white/90' : 'text-[var(--muted)]'}`}>{s.description ? tt(s.description) : ''}</p>
+                    <div className="mt-2 flex items-center gap-2 text-[13px] font-extrabold">
                       <span className={active ? 'text-white' : 'text-emerald-600'}>{s.my_completed}/{s.course_count}</span>
                       <div className={`flex-1 h-1.5 rounded-full overflow-hidden ${active ? 'bg-white/30' : 'bg-[var(--card-border)]/30'}`}>
                         <div className={`h-full ${active ? 'bg-white' : 'bg-emerald-500'}`} style={{ width: `${pct}%` }} />
                       </div>
                     </div>
                   </button>
-                  <NextLink href={`/world/series?slug=${s.slug}`} className={`mt-2 block text-center py-1 rounded-lg text-[10px] font-extrabold ${
+                  <NextLink href={`/world/series?slug=${s.slug}`} className={`mt-2 block text-center py-1 rounded-lg text-[12px] font-extrabold ${
                     active ? 'bg-white/25 text-white' : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300'
                   }`}>
                     {tt('자세히 →')}
@@ -466,7 +466,7 @@ export default function WorldTab() {
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-2 mb-1">
                     <h3 className="text-base font-extrabold truncate">{tt(c.name)}</h3>
-                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex-shrink-0">
+                    <span className="text-[12px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex-shrink-0">
                       {c.distance_km.toFixed(1)}km
                     </span>
                   </div>
@@ -556,8 +556,8 @@ export default function WorldTab() {
 
             {/* build 229.B: 왜 달리는가 (optional) — 완주 시 회상 모먼트로 활용 */}
             <div className="mb-4">
-              <label className="text-[11px] font-extrabold text-[var(--muted)] uppercase tracking-widest block mb-1.5">
-                💭 {tt('왜 달리고 있나요?')} <span className="text-[10px] opacity-60 normal-case">({tt('선택')})</span>
+              <label className="text-[13px] font-extrabold text-[var(--muted)] uppercase tracking-widest block mb-1.5">
+                💭 {tt('왜 달리고 있나요?')} <span className="text-[12px] opacity-60 normal-case">({tt('선택')})</span>
               </label>
               <textarea
                 value={motivationText}
@@ -566,7 +566,7 @@ export default function WorldTab() {
                 rows={2}
                 className="w-full text-sm rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 placeholder:text-[var(--muted)]/60 focus:outline-none focus:border-emerald-400 resize-none"
               />
-              <p className="text-[10px] text-[var(--muted)] mt-1">{tt('완주 시 이 문장을 다시 보여드릴게요')}</p>
+              <p className="text-[12px] text-[var(--muted)] mt-1">{tt('완주 시 이 문장을 다시 보여드릴게요')}</p>
             </div>
 
             <div className="flex gap-2">

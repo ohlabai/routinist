@@ -112,9 +112,9 @@ export default function AdminMileagePage() {
       <div className="px-4 mt-4 mb-3">
         <div className="card p-4 bg-gradient-to-br from-emerald-50/50 to-transparent dark:from-emerald-950/20 border-emerald-200/40 dark:border-emerald-900/30 inline-flex items-start gap-2.5">
           <Info size={14} className="text-emerald-500 flex-shrink-0 mt-0.5" />
-          <p className="text-[11px] text-[var(--muted)] leading-relaxed">
+          <p className="text-[13px] text-[var(--muted)] leading-relaxed">
             보상 금액·활성 여부를 변경하면 즉시 반영됩니다.<br />
-            변경 이력은 <code className="text-[10px] px-1 py-0.5 rounded bg-[var(--card-border)]/30">mileage_reward_config_audit</code> 에 자동 기록.
+            변경 이력은 <code className="text-[12px] px-1 py-0.5 rounded bg-[var(--card-border)]/30">mileage_reward_config_audit</code> 에 자동 기록.
           </p>
         </div>
       </div>
@@ -165,23 +165,23 @@ export default function AdminMileagePage() {
                       <Coins size={13} className="text-emerald-500 flex-shrink-0" />
                       {cfg.event_type}
                     </p>
-                    <p className="text-[11px] text-[var(--muted)] mt-1 ml-5">{cfg.description}</p>
+                    <p className="text-[13px] text-[var(--muted)] mt-1 ml-5">{cfg.description}</p>
                     <div className="flex items-center gap-1.5 flex-wrap mt-1.5 ml-5">
-                      <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30">
+                      <span className="text-[12px] font-bold text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30">
                         {RECURRENCE_LABEL[cfg.recurrence]}
                       </span>
                       {cfg.daily_cap && (
-                        <span className="text-[10px] font-bold text-[var(--muted)] px-2 py-0.5 rounded-full bg-[var(--card-border)]/40">
+                        <span className="text-[12px] font-bold text-[var(--muted)] px-2 py-0.5 rounded-full bg-[var(--card-border)]/40">
                           일 {cfg.daily_cap}회 캡
                         </span>
                       )}
                       {cfg.cooldown_days > 0 && (
-                        <span className="text-[10px] font-bold text-[var(--muted)] px-2 py-0.5 rounded-full bg-[var(--card-border)]/40">
+                        <span className="text-[12px] font-bold text-[var(--muted)] px-2 py-0.5 rounded-full bg-[var(--card-border)]/40">
                           쿨다운 {cfg.cooldown_days}일
                         </span>
                       )}
                       {inBoost && (
-                        <span className="text-[10px] font-extrabold text-orange-600 px-2 py-0.5 rounded-full bg-orange-50 dark:bg-orange-950/30 inline-flex items-center gap-0.5">
+                        <span className="text-[12px] font-extrabold text-orange-600 px-2 py-0.5 rounded-full bg-orange-50 dark:bg-orange-950/30 inline-flex items-center gap-0.5">
                           <Flame size={10} /> 부스트 ×{cfg.boost_multiplier}
                         </span>
                       )}
@@ -189,7 +189,7 @@ export default function AdminMileagePage() {
                   </div>
                   <button
                     onClick={() => setEdit(cfg.event_type, 'is_active', !currentActive)}
-                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-extrabold transition active:scale-95 ${
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[12px] font-extrabold transition active:scale-95 ${
                       currentActive
                         ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/30'
                         : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
@@ -225,7 +225,7 @@ export default function AdminMileagePage() {
       )}
 
       <div className="px-4 mt-5">
-        <div className="card p-3.5 inline-flex items-start gap-2 text-[11px] text-[var(--muted)] leading-relaxed">
+        <div className="card p-3.5 inline-flex items-start gap-2 text-[13px] text-[var(--muted)] leading-relaxed">
           <span>💡</span>
           <span>
             글로벌 일일 캡: 한 사용자가 24시간 내 받을 수 있는 모든 보상 합 = <b>5000P</b><br />

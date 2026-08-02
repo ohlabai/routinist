@@ -199,7 +199,7 @@ export default function NeighborhoodMapPage() {
               최근 {d}일
             </button>
           ))}
-          <span className="ml-auto text-[11px] text-[var(--muted)] font-bold">
+          <span className="ml-auto text-[13px] text-[var(--muted)] font-bold">
             {profile?.region_gu ?? '지역 미설정'}
           </span>
         </div>
@@ -252,7 +252,7 @@ export default function NeighborhoodMapPage() {
                   <Users size={14} className="text-emerald-500" /> 동네 러너 · {neighborRoutes.length}명
                 </h3>
                 {highlightUserId && (
-                  <button onClick={() => setHighlightUserId(null)} className="text-[11px] font-bold text-emerald-600 active:scale-95">
+                  <button onClick={() => setHighlightUserId(null)} className="text-[13px] font-bold text-emerald-600 active:scale-95">
                     전체 보기
                   </button>
                 )}
@@ -304,12 +304,12 @@ export default function NeighborhoodMapPage() {
                       </div>
                       <div className="flex-1 min-w-0 text-left">
                         <p className="text-sm font-bold truncate">{r.display_name}</p>
-                        <p className="text-[10px] text-[var(--muted)]">{r.activity_date} · {r.distance_km.toFixed(1)}km</p>
+                        <p className="text-[12px] text-[var(--muted)]">{r.activity_date} · {r.distance_km.toFixed(1)}km</p>
                       </div>
                       <Link
                         href={`/social/user?id=${r.user_id}`}
                         onClick={(e) => e.stopPropagation()}
-                        className="text-[11px] font-bold text-emerald-600 px-2 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 active:scale-95 inline-flex items-center gap-0.5"
+                        className="text-[13px] font-bold text-emerald-600 px-2 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 active:scale-95 inline-flex items-center gap-0.5"
                       >
                         프로필 <ChevronRight size={10} />
                       </Link>

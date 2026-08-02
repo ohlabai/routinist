@@ -212,7 +212,7 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
               <span className="truncate max-w-[160px]">@{photo.display_name}</span>
               <GenderBadge gender={photo.gender} show={photo.show_gender} size={11} />
             </Link>
-            <div className="flex items-center gap-1.5 text-[11px] text-[var(--muted)] font-semibold flex-shrink-0">
+            <div className="flex items-center gap-1.5 text-[13px] text-[var(--muted)] font-semibold flex-shrink-0">
               <span>{Number(photo.distance_km).toFixed(1)}km</span>
               {photo.region_gu && (
                 <span className="inline-flex items-center gap-0.5">
@@ -227,7 +227,7 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
             <p className="text-[14px] italic text-[var(--foreground)] leading-relaxed line-clamp-5 break-keep">
               &ldquo;{(photo.quote_text ?? photo.caption ?? photo.essay_body ?? '').replace(/\s+/g, ' ').trim()}&rdquo;
               {photo.quote_author && photo.quote_author !== photo.display_name && (
-                <span className="text-[11px] text-[var(--muted)] ml-1.5 font-semibold">— {photo.quote_author}</span>
+                <span className="text-[13px] text-[var(--muted)] ml-1.5 font-semibold">— {photo.quote_author}</span>
               )}
             </p>
           )}
@@ -254,7 +254,7 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
         {(likes > 0 || commentCount > 0) && (
           <div className="absolute top-2 left-2 flex items-center gap-1">
             {likes > 0 && (
-              <div className="px-2 py-0.5 rounded-full bg-white/90 backdrop-blur text-[11px] font-bold text-gray-800 flex items-center gap-0.5 shadow-sm">
+              <div className="px-2 py-0.5 rounded-full bg-white/90 backdrop-blur text-[13px] font-bold text-gray-800 flex items-center gap-0.5 shadow-sm">
                 <Heart size={10} fill="#ef4444" className="text-red-500" strokeWidth={0} />
                 {likes}
               </div>
@@ -262,7 +262,7 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
             {commentCount > 0 && (
               <button
                 onClick={(e) => { e.stopPropagation(); setShowComments(true); }}
-                className="px-2 py-0.5 rounded-full bg-white/90 backdrop-blur text-[11px] font-bold text-gray-800 flex items-center gap-0.5 shadow-sm active:scale-95 transition"
+                className="px-2 py-0.5 rounded-full bg-white/90 backdrop-blur text-[13px] font-bold text-gray-800 flex items-center gap-0.5 shadow-sm active:scale-95 transition"
                 aria-label={tt('댓글 보기')}
               >
                 <MessageCircle size={10} className="text-emerald-600" strokeWidth={2.5} />
@@ -360,7 +360,7 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
           {/* 원본 토글 힌트 — 원본이 있을 때만 */}
           {originalUrl && (
             <div
-              className="absolute left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur text-white/90 text-[11px] font-bold pointer-events-none"
+              className="absolute left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur text-white/90 text-[13px] font-bold pointer-events-none"
               style={{ top: 'calc(env(safe-area-inset-top, 0px) + 20px)' }}
             >
               {showOriginal
@@ -383,7 +383,7 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
             {(photo.quote_text || photo.caption || photo.essay_body) && (
               <div className="px-4 py-3 rounded-2xl bg-black/55 backdrop-blur-md text-white text-sm leading-relaxed max-h-40 overflow-y-auto">
                 <p className="italic whitespace-pre-wrap">&ldquo;{photo.quote_text ?? photo.caption ?? photo.essay_body}&rdquo;</p>
-                <p className="mt-2 text-[11px] text-white/70">— {photo.quote_author ?? `@${photo.display_name}`}</p>
+                <p className="mt-2 text-[13px] text-white/70">— {photo.quote_author ?? `@${photo.display_name}`}</p>
               </div>
             )}
             <div className="flex items-center justify-between gap-3">

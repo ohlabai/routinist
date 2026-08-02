@@ -168,7 +168,7 @@ export default function FriendFeedPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold truncate">{dispName}</p>
-                    <p className="text-[11px] text-[var(--muted)]">{timeAgo(act.ended_at || act.started_at, locale)}</p>
+                    <p className="text-[13px] text-[var(--muted)]">{timeAgo(act.ended_at || act.started_at, locale)}</p>
                   </div>
                 </Link>
 
@@ -177,15 +177,15 @@ export default function FriendFeedPage() {
                   <div className="grid grid-cols-3 gap-2 py-3 bg-emerald-50/30 dark:bg-emerald-950/15 rounded-2xl tabular-nums">
                     <div className="text-center">
                       <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400">{km}</p>
-                      <p className="text-[10px] text-[var(--muted)] mt-0.5"><MapPin size={9} className="inline" /> km</p>
+                      <p className="text-[12px] text-[var(--muted)] mt-0.5"><MapPin size={9} className="inline" /> km</p>
                     </div>
                     <div className="text-center border-l border-r border-[var(--card-border)]/30">
                       <p className="text-xl font-extrabold text-[var(--foreground)]">{dur}</p>
-                      <p className="text-[10px] text-[var(--muted)] mt-0.5"><Clock size={9} className="inline" /> {tt('시간')}</p>
+                      <p className="text-[12px] text-[var(--muted)] mt-0.5"><Clock size={9} className="inline" /> {tt('시간')}</p>
                     </div>
                     <div className="text-center">
                       <p className="text-xl font-extrabold text-[var(--foreground)]">{pace}</p>
-                      <p className="text-[10px] text-[var(--muted)] mt-0.5">/km</p>
+                      <p className="text-[12px] text-[var(--muted)] mt-0.5">/km</p>
                     </div>
                   </div>
                 </Link>

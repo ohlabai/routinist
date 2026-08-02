@@ -115,7 +115,7 @@ export default function WishlistPage() {
                       <div className="w-full h-full flex items-center justify-center text-[var(--muted)]"><Package size={36} /></div>
                     )}
                     {discount > 0 && (
-                      <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-extrabold shadow">
+                      <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-red-500 text-white text-[12px] font-extrabold shadow">
                         -{discount}%
                       </span>
                     )}
@@ -135,7 +135,7 @@ export default function WishlistPage() {
                   </div>
                   <div className="px-0.5 mt-2.5">
                     {p.brand && (
-                      <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">{p.brand}</p>
+                      <p className="text-[12px] font-bold text-emerald-600 uppercase tracking-wider">{p.brand}</p>
                     )}
                     <p className="text-sm font-medium text-[var(--foreground)] line-clamp-2 leading-snug mt-0.5">{p.name}</p>
                     <p className="mt-1 text-base font-extrabold text-[var(--foreground)]">{formatKrw(p.price_krw, locale)}</p>

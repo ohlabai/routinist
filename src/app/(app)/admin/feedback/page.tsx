@@ -136,10 +136,10 @@ export default function AdminFeedbackPage() {
               <article key={p.id} className="card p-4">
                 <button onClick={() => toggle(p)} className="w-full text-left">
                   <div className="flex items-start gap-2 mb-1">
-                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${STATUS_COLOR[p.status]}`}>
+                    <span className={`text-[12px] font-extrabold px-2 py-0.5 rounded-full ${STATUS_COLOR[p.status]}`}>
                       {STATUS_LABEL[p.status]}
                     </span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--card-border)]/40 text-[var(--muted)]">
+                    <span className="text-[12px] font-bold px-2 py-0.5 rounded-full bg-[var(--card-border)]/40 text-[var(--muted)]">
                       {CATEGORY_LABEL[p.category]}
                     </span>
                     {p.is_public ? (
@@ -153,7 +153,7 @@ export default function AdminFeedbackPage() {
                     {isOpen ? <ChevronUp size={14} className="text-[var(--muted)]" /> : <ChevronDown size={14} className="text-[var(--muted)]" />}
                   </div>
                   <p className="text-sm font-extrabold text-[var(--foreground)] leading-snug">{p.title}</p>
-                  <p className="text-[11px] text-[var(--muted)] mt-0.5">
+                  <p className="text-[13px] text-[var(--muted)] mt-0.5">
                     {p.author_name} · {timeAgo(p.created_at)}
                   </p>
                 </button>
@@ -192,7 +192,7 @@ export default function AdminFeedbackPage() {
                         placeholder="진행 상황 / 반영 시점 / 채택 이유 등을 알려주세요. 공개 글이면 모든 러너에게 보입니다."
                         className="w-full px-3 py-2.5 rounded-xl border-2 border-[var(--card-border)] bg-[var(--background)] text-sm focus:outline-none focus:border-emerald-500 resize-none"
                       />
-                      <p className="text-[10px] text-[var(--muted)] mt-0.5">{d.reply.length}/2000 · 비우면 답글 없이 상태만 변경</p>
+                      <p className="text-[12px] text-[var(--muted)] mt-0.5">{d.reply.length}/2000 · 비우면 답글 없이 상태만 변경</p>
                     </div>
 
                     <button

@@ -74,7 +74,7 @@ function InviteLanding() {
 
         {code && (
           <div className="mt-6 mx-auto max-w-xs rounded-2xl bg-white border-2 border-emerald-200 shadow-lg shadow-emerald-100/60 px-6 py-5">
-            <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-wide">
+            <p className="text-[13px] font-bold text-emerald-600 uppercase tracking-wide">
               {en ? 'Invite code' : '초대 코드'}
             </p>
             <p className="mt-1 text-4xl font-extrabold text-emerald-700 tracking-[0.3em]">{code}</p>
@@ -111,7 +111,7 @@ function InviteLanding() {
           )}
         </div>
 
-        <p className="mt-8 text-[11px] text-gray-500">#Routinist · Run Your Routine.</p>
+        <p className="mt-8 text-[13px] text-gray-500">#Routinist · Run Your Routine.</p>
       </div>
     </div>
   );

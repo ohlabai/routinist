@@ -179,7 +179,7 @@ function SeriesInner() {
                         <div className="h-1.5 rounded-full bg-[var(--card-border)]/30 overflow-hidden">
                           <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600" style={{ width: `${progress}%` }} />
                         </div>
-                        <p className="text-[10px] text-emerald-600 font-bold mt-1">{c.my_progress_km.toFixed(1)} / {c.distance_km.toFixed(1)}km · {progress.toFixed(0)}%</p>
+                        <p className="text-[12px] text-emerald-600 font-bold mt-1">{c.my_progress_km.toFixed(1)} / {c.distance_km.toFixed(1)}km · {progress.toFixed(0)}%</p>
                       </div>
                     )}
                   </button>
@@ -258,7 +258,7 @@ function SeriesMedalRequestForm({ seriesId, seriesName, initialName, existing, o
               </div>
               <div>
                 <h3 className="text-base font-extrabold">시리즈 메달 신청</h3>
-                <p className="text-[11px] text-[var(--muted)] mt-0.5 truncate">{seriesName}</p>
+                <p className="text-[13px] text-[var(--muted)] mt-0.5 truncate">{seriesName}</p>
               </div>
             </div>
             <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90"><X size={18} /></button>
@@ -269,7 +269,7 @@ function SeriesMedalRequestForm({ seriesId, seriesName, initialName, existing, o
             <p className="text-sm font-extrabold text-amber-900 dark:text-amber-200 inline-flex items-center gap-1.5">
               <Sparkles size={14} /> 시리즈 완주 메달 {SERIES_MEDAL_PRICE.toLocaleString()}원
             </p>
-            <p className="text-[11px] text-amber-700/80 dark:text-amber-300/80 mt-1 leading-relaxed">
+            <p className="text-[13px] text-amber-700/80 dark:text-amber-300/80 mt-1 leading-relaxed">
               실물 메달 + 디스플레이 케이스 + 배송비 포함. 신청 접수 후 결제 안내 메시지를 보내드려요.
             </p>
           </div>

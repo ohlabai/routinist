@@ -259,7 +259,7 @@ function CheckoutContent() {
             <span className="text-base">✨</span>
             <div className="flex-1">
               <p className="text-xs font-extrabold text-amber-700 dark:text-amber-300 mb-0.5">{locale === 'en' ? 'Launching soon' : '정식 런칭 임박'}</p>
-              <p className="text-[11px] text-[var(--muted)] leading-relaxed">
+              <p className="text-[13px] text-[var(--muted)] leading-relaxed">
                 {locale === 'en'
                   ? 'Checkout opens next week at full launch. Until then, browsing and adding to cart still work ✨'
                   : '다음주 정식 런칭 후 결제가 열려요. 그때까지 둘러보기 + 장바구니에 미리 담아두기는 모두 가능합니다 ✨'}
@@ -279,7 +279,7 @@ function CheckoutContent() {
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <p className="text-sm font-extrabold">{selectedAddress.recipient_name}</p>
                     {selectedAddress.label && (
-                      <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/40">
+                      <span className="text-[12px] font-bold text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/40">
                         {selectedAddress.label}
                       </span>
                     )}
@@ -393,7 +393,7 @@ function CheckoutContent() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-[var(--foreground)] line-clamp-1">{it.product?.name}</p>
                   {it.variant?.option_value && (
-                    <p className="text-[10px] text-[var(--muted)] mt-0.5 inline-block px-1.5 py-0.5 rounded bg-[var(--card-border)]/40">
+                    <p className="text-[12px] text-[var(--muted)] mt-0.5 inline-block px-1.5 py-0.5 rounded bg-[var(--card-border)]/40">
                       {it.variant.option_value}
                     </p>
                   )}
@@ -430,7 +430,7 @@ function CheckoutContent() {
             </button>
           </div>
           {totals.mileageUse > 0 && (
-            <p className="text-[11px] text-emerald-600 font-bold">
+            <p className="text-[13px] text-emerald-600 font-bold">
               {locale === 'en'
                 ? `\u2713 Using ${totals.mileageUse.toLocaleString()}P \u2192 Balance after: ${(mileageBalance - totals.mileageUse).toLocaleString()}P`
                 : `\u2713 ${totals.mileageUse.toLocaleString()}P 사용 \u2192 결제 후 잔액 ${(mileageBalance - totals.mileageUse).toLocaleString()}P`}
@@ -467,7 +467,7 @@ function CheckoutContent() {
       <div className="px-4 mt-4">
         <div className="card p-3.5 flex items-start gap-2">
           <ShieldCheck size={14} className="text-emerald-500 flex-shrink-0 mt-0.5" />
-          <p className="text-[11px] text-[var(--muted)] leading-relaxed">
+          <p className="text-[13px] text-[var(--muted)] leading-relaxed">
             {locale === 'en' ? (
               <>By paying, I agree to the{' '}
                 <a href="/shop/terms" target="_blank" className="text-emerald-600 underline font-bold">Terms</a>{', '}

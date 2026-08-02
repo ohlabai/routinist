@@ -108,7 +108,7 @@ export default function OnThisDayCard() {
               : `${activity.distance_km.toFixed(2)}km 달렸어요`}
             {activity.years_ago === 1 && ' 🎉'}
           </p>
-          <p className="text-[11px] text-[var(--muted)]">
+          <p className="text-[13px] text-[var(--muted)]">
             {locale === 'en'
               ? `${activity.activity_date.slice(0, 4)}-${activity.activity_date.split('-')[1]}-${activity.activity_date.split('-')[2]}`
               : `${activity.activity_date.slice(0, 4)}년 ${parseInt(activity.activity_date.split('-')[1])}월 ${parseInt(activity.activity_date.split('-')[2])}일`}

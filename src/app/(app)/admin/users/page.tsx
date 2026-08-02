@@ -206,7 +206,7 @@ export default function AdminUsersPage() {
                 ? 'bg-emerald-500 text-white border-emerald-500'
                 : 'bg-[var(--card)] border-[var(--card-border)] text-[var(--foreground)]'
             }`}>
-            <Filter size={12} /> 필터 {activeFilterCount > 0 && <span className="ml-0.5 px-1 rounded-full bg-white/20 text-[10px]">{activeFilterCount}</span>}
+            <Filter size={12} /> 필터 {activeFilterCount > 0 && <span className="ml-0.5 px-1 rounded-full bg-white/20 text-[12px]">{activeFilterCount}</span>}
           </button>
           <select value={sort} onChange={e => { setSort(e.target.value as SortKey); setPage(0); }}
             className="px-3 py-2.5 rounded-xl bg-[var(--card)] border border-[var(--card-border)] text-xs font-bold focus:outline-none focus:border-emerald-500">
@@ -278,7 +278,7 @@ export default function AdminUsersPage() {
                   스크롤 컨테이너 기준이라 항상 mid-table 에 떠 있음.
                   데스크탑/iPad 운영 도구라 화면이 짧지 않아 sticky 가 오히려 혼란.
                   자연 위치 (테이블 최상단) 로 환원. */}
-              <thead className="bg-[var(--card-border)]/20 text-[10px] uppercase tracking-widest text-[var(--muted)]">
+              <thead className="bg-[var(--card-border)]/20 text-[12px] uppercase tracking-widest text-[var(--muted)]">
                 <tr>
                   <Th>닉네임</Th>
                   <Th>이메일</Th>
@@ -354,7 +354,7 @@ export default function AdminUsersPage() {
                           {r.is_public ? <EyeOff size={12} /> : <Eye size={12} />}
                         </button>
                         <Link href={`/admin/users/detail?id=${r.user_id}`}
-                          className="px-2 py-1 rounded-lg bg-[var(--card)] border border-[var(--card-border)] text-[10px] font-extrabold hover:bg-emerald-50 dark:hover:bg-emerald-950/20">
+                          className="px-2 py-1 rounded-lg bg-[var(--card)] border border-[var(--card-border)] text-[12px] font-extrabold hover:bg-emerald-50 dark:hover:bg-emerald-950/20">
                           상세
                         </Link>
                       </div>
@@ -404,11 +404,11 @@ function FilterChips({ label, value, onChange, options }: {
 }) {
   return (
     <div>
-      <p className="text-[9px] font-extrabold uppercase tracking-widest text-[var(--muted)] mb-1">{label}</p>
+      <p className="text-[11px] font-extrabold uppercase tracking-widest text-[var(--muted)] mb-1">{label}</p>
       <div className="flex gap-1 flex-wrap">
         {options.map(([v, lbl]) => (
           <button key={v} onClick={() => onChange(v)}
-            className={`px-2 py-1 rounded-lg text-[10px] font-extrabold ${
+            className={`px-2 py-1 rounded-lg text-[12px] font-extrabold ${
               value === v ? 'bg-emerald-500 text-white' : 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--foreground)]'
             }`}>{lbl}</button>
         ))}

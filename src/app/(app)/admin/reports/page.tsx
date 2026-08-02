@@ -169,12 +169,12 @@ export default function AdminReportsPage() {
                       <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
                         {TARGET_LABEL[r.target_type] ?? r.target_type}
                       </span>
-                      <span className="text-[10px] text-[var(--muted)]">·</span>
+                      <span className="text-[12px] text-[var(--muted)]">·</span>
                       <span className="text-xs font-semibold text-[var(--foreground)]">
                         {REASON_LABEL[r.reason] ?? r.reason}
                       </span>
                     </div>
-                    <p className="text-[11px] text-[var(--muted)] mt-0.5">
+                    <p className="text-[13px] text-[var(--muted)] mt-0.5">
                       {new Date(r.created_at).toLocaleString('ko-KR')}
                     </p>
                   </div>
@@ -184,7 +184,7 @@ export default function AdminReportsPage() {
                     {r.detail}
                   </p>
                 )}
-                <p className="text-[10px] text-[var(--muted)] font-mono mb-3 break-all">
+                <p className="text-[12px] text-[var(--muted)] font-mono mb-3 break-all">
                   ID: {r.target_id}
                 </p>
                 {filter === 'open' && (

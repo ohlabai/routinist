@@ -203,14 +203,14 @@ export default function AdminMedalsPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        {status && <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${status.color}`}>{status.label}</span>}
+                        {status && <span className={`text-[12px] font-extrabold px-2 py-0.5 rounded-full ${status.color}`}>{status.label}</span>}
                         <span className="text-xs font-extrabold inline-flex items-center gap-0.5 text-amber-600">
                           <Trophy size={11} /> {r.course_name}
                         </span>
-                        <span className="text-[10px] text-[var(--muted)]">· {r.course_distance_km.toFixed(1)}km</span>
+                        <span className="text-[12px] text-[var(--muted)]">· {r.course_distance_km.toFixed(1)}km</span>
                       </div>
                       <p className="text-sm font-extrabold mt-1 truncate">{r.user_name} <span className="text-[var(--muted)] font-normal">· {r.user_email}</span></p>
-                      <p className="text-[11px] text-[var(--muted)] mt-0.5">신청 {timeAgo(r.requested_at)} 전 · {r.payment_amount.toLocaleString()}원</p>
+                      <p className="text-[13px] text-[var(--muted)] mt-0.5">신청 {timeAgo(r.requested_at)} 전 · {r.payment_amount.toLocaleString()}원</p>
                     </div>
                     {isOpen ? <ChevronUp size={16} className="text-[var(--muted)] flex-shrink-0" /> : <ChevronDown size={16} className="text-[var(--muted)] flex-shrink-0" />}
                   </div>
@@ -221,8 +221,8 @@ export default function AdminMedalsPage() {
                     {/* 배송지 — 복사 버튼 */}
                     <div className="rounded-xl bg-[var(--card-border)]/20 p-3">
                       <div className="flex items-start justify-between gap-2 mb-1">
-                        <span className="text-[11px] font-extrabold text-[var(--muted)]">배송지</span>
-                        <button onClick={() => copyAddress(r)} className="text-[11px] font-bold text-emerald-600 inline-flex items-center gap-0.5 active:scale-95">
+                        <span className="text-[13px] font-extrabold text-[var(--muted)]">배송지</span>
+                        <button onClick={() => copyAddress(r)} className="text-[13px] font-bold text-emerald-600 inline-flex items-center gap-0.5 active:scale-95">
                           <Copy size={10} /> 복사
                         </button>
                       </div>
@@ -244,7 +244,7 @@ export default function AdminMedalsPage() {
                           <button
                             key={s.id}
                             onClick={() => setDrafts(prev => ({ ...prev, [k]: { ...d, status: s.id } }))}
-                            className={`py-2 rounded-lg text-[11px] font-bold active:scale-95 ${
+                            className={`py-2 rounded-lg text-[13px] font-bold active:scale-95 ${
                               d.status === s.id ? 'bg-amber-500 text-white shadow' : 'bg-[var(--card-border)]/30 text-[var(--muted)]'
                             }`}
                           >

@@ -153,12 +153,12 @@ export default function CoachPage() {
               <Settings size={14} className="text-violet-500" />
               <h3 className="text-sm font-extrabold">{tt('코치 설정')}</h3>
             </div>
-            <p className="text-[11px] text-[var(--muted)] leading-relaxed">
+            <p className="text-[13px] text-[var(--muted)] leading-relaxed">
               {tt('본인에게만 보여요. 랭킹·비교에 사용되지 않습니다.')}
             </p>
 
             <div>
-              <label className="text-[11px] font-bold text-[var(--muted)] inline-flex items-center gap-1 mb-1">
+              <label className="text-[13px] font-bold text-[var(--muted)] inline-flex items-center gap-1 mb-1">
                 <Zap size={11} /> {tt('체중 (kg) — 칼로리 정확도')}
               </label>
               <input
@@ -170,7 +170,7 @@ export default function CoachPage() {
             </div>
 
             <div>
-              <label className="text-[11px] font-bold text-[var(--muted)] inline-flex items-center gap-1 mb-1">
+              <label className="text-[13px] font-bold text-[var(--muted)] inline-flex items-center gap-1 mb-1">
                 <Heart size={11} /> {tt('최대 심박수 — HR Zones 분석용 (220 - 나이 가능)')}
               </label>
               <input
@@ -209,7 +209,7 @@ export default function CoachPage() {
         {today ? (
           <div className={`rounded-[20px] p-6 bg-gradient-to-br ${scoreColor} text-white shadow-lg`}>
             <div className="flex items-center justify-between mb-3">
-              <span className="text-[10px] font-extrabold uppercase tracking-widest text-white/80">Today&apos;s Condition</span>
+              <span className="text-[12px] font-extrabold uppercase tracking-widest text-white/80">Today&apos;s Condition</span>
               <Sparkles size={16} className="text-white/90" />
             </div>
             <div className="flex items-baseline gap-2 mb-2">
@@ -221,15 +221,15 @@ export default function CoachPage() {
 
             <div className="mt-4 pt-4 border-t border-white/20 grid grid-cols-3 gap-2 text-center">
               <div>
-                <p className="text-[10px] font-bold text-white/70 uppercase">{tt('장기 피트니스')}</p>
+                <p className="text-[12px] font-bold text-white/70 uppercase">{tt('장기 피트니스')}</p>
                 <p className="text-lg font-extrabold tabular-nums">{today.ctl}</p>
               </div>
               <div>
-                <p className="text-[10px] font-bold text-white/70 uppercase">{tt('최근 부하')}</p>
+                <p className="text-[12px] font-bold text-white/70 uppercase">{tt('최근 부하')}</p>
                 <p className="text-lg font-extrabold tabular-nums">{today.atl}</p>
               </div>
               <div>
-                <p className="text-[10px] font-bold text-white/70 uppercase">{tt('컨디션')}</p>
+                <p className="text-[12px] font-bold text-white/70 uppercase">{tt('컨디션')}</p>
                 <p className={`text-lg font-extrabold tabular-nums ${today.tsb > 0 ? 'text-white' : 'text-white/85'}`}>
                   {today.tsb > 0 ? '+' : ''}{today.tsb}
                 </p>
@@ -253,7 +253,7 @@ export default function CoachPage() {
               <h3 className="text-sm font-extrabold">{tt('최근 14일 부하 흐름')}</h3>
             </div>
             <MiniChart data={trend.slice(-14)} />
-            <p className="text-[11px] text-[var(--muted)] mt-3 leading-relaxed">
+            <p className="text-[13px] text-[var(--muted)] mt-3 leading-relaxed">
               <span className="inline-block w-2 h-2 rounded-full bg-violet-400 mr-1" /> {tt('장기 피트니스 (꾸준함)')}
               {'  '}<span className="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1" /> {tt('최근 부하 (피로)')}
             </p>
@@ -265,7 +265,7 @@ export default function CoachPage() {
           <Info size={14} className="text-violet-500 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-xs font-extrabold text-violet-700 dark:text-violet-300">{tt('코칭은 어떻게 계산되나요?')}</p>
-            <p className="text-[11px] text-[var(--muted)] mt-1 leading-relaxed">
+            <p className="text-[13px] text-[var(--muted)] mt-1 leading-relaxed">
               {tt('거리 · 시간 기반으로 매일 부하 점수를 매기고, 장기 평균(42일)과 단기 평균(7일)의 차이로 오늘 컨디션을 산출해요. 체중·최대 심박수 입력 시 더 정확해져요.')}
             </p>
           </div>

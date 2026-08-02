@@ -166,14 +166,14 @@ export default function AdminBuildsPage() {
               <div key={r.build_number} className="card p-4 flex items-center gap-3 relative hover:bg-emerald-50/40 dark:hover:bg-emerald-950/10 transition">
                 <Link href={`/admin/builds/detail?build=${r.build_number}`} className="absolute inset-0 rounded-2xl" aria-label={`build ${r.build_number} detail`} />
                 <div className="w-14 text-center flex-shrink-0 relative pointer-events-none">
-                  <p className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest">v{r.marketing_version}</p>
+                  <p className="text-[12px] font-bold text-[var(--muted)] uppercase tracking-widest">v{r.marketing_version}</p>
                   <p className="text-2xl font-extrabold tabular-nums text-emerald-600">{r.build_number}</p>
                 </div>
                 <div className="flex-1 min-w-0 relative pointer-events-none">
                   <p className="text-sm font-extrabold truncate">{r.title}</p>
-                  <p className="text-[11px] text-[var(--muted)] mt-0.5">{r.released_at}</p>
+                  <p className="text-[13px] text-[var(--muted)] mt-0.5">{r.released_at}</p>
                   {r.total_checks > 0 && (
-                    <div className="mt-2 flex items-center gap-3 text-[11px]">
+                    <div className="mt-2 flex items-center gap-3 text-[13px]">
                       <span className="inline-flex items-center gap-0.5 text-emerald-600 font-bold">
                         <CheckCircle size={11} /> {r.passed}
                       </span>
@@ -197,7 +197,7 @@ export default function AdminBuildsPage() {
                         strokeDasharray={`${(pct / 100) * 2 * Math.PI * 16} ${2 * Math.PI * 16}`}
                         className="text-emerald-500" strokeLinecap="round" />
                     </svg>
-                    <div className="absolute inset-0 flex items-center justify-center text-[11px] font-extrabold">{pct}%</div>
+                    <div className="absolute inset-0 flex items-center justify-center text-[13px] font-extrabold">{pct}%</div>
                   </div>
                 )}
                 {/* 수정 / 삭제 — absolute 카드 위, Link 보다 z-index 높게 */}
@@ -231,39 +231,39 @@ export default function AdminBuildsPage() {
             </div>
             <div className="p-5 space-y-3">
               <div>
-                <label className="text-[11px] font-extrabold text-[var(--muted)] uppercase tracking-widest">빌드 번호 *</label>
+                <label className="text-[13px] font-extrabold text-[var(--muted)] uppercase tracking-widest">빌드 번호 *</label>
                 <input type="number" inputMode="numeric" value={editing.build_number} disabled={!isNew}
                   onChange={(e) => setEditing({ ...editing, build_number: e.target.value })}
                   className="mt-1 w-full px-3 py-2 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)] text-sm font-bold tabular-nums focus:outline-none focus:border-emerald-500 disabled:opacity-60" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[11px] font-extrabold text-[var(--muted)] uppercase tracking-widest">버전</label>
+                  <label className="text-[13px] font-extrabold text-[var(--muted)] uppercase tracking-widest">버전</label>
                   <input value={editing.marketing_version} placeholder="1.2.2"
                     onChange={(e) => setEditing({ ...editing, marketing_version: e.target.value })}
                     className="mt-1 w-full px-3 py-2 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)] text-sm focus:outline-none focus:border-emerald-500" />
                 </div>
                 <div>
-                  <label className="text-[11px] font-extrabold text-[var(--muted)] uppercase tracking-widest">출시일 *</label>
+                  <label className="text-[13px] font-extrabold text-[var(--muted)] uppercase tracking-widest">출시일 *</label>
                   <input type="date" value={editing.released_at}
                     onChange={(e) => setEditing({ ...editing, released_at: e.target.value })}
                     className="mt-1 w-full px-3 py-2 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)] text-sm focus:outline-none focus:border-emerald-500" />
                 </div>
               </div>
               <div>
-                <label className="text-[11px] font-extrabold text-[var(--muted)] uppercase tracking-widest">제목 *</label>
+                <label className="text-[13px] font-extrabold text-[var(--muted)] uppercase tracking-widest">제목 *</label>
                 <input value={editing.title} placeholder="예: GPS 정확도 fix + 백그라운드 트래커"
                   onChange={(e) => setEditing({ ...editing, title: e.target.value })}
                   className="mt-1 w-full px-3 py-2 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)] text-sm font-bold focus:outline-none focus:border-emerald-500" />
               </div>
               <div>
-                <label className="text-[11px] font-extrabold text-[var(--muted)] uppercase tracking-widest">요약</label>
+                <label className="text-[13px] font-extrabold text-[var(--muted)] uppercase tracking-widest">요약</label>
                 <textarea value={editing.summary} rows={4} placeholder="이 빌드의 주요 변경사항 / 사용자 보고 fix..."
                   onChange={(e) => setEditing({ ...editing, summary: e.target.value })}
                   className="mt-1 w-full px-3 py-2 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)] text-sm leading-relaxed focus:outline-none focus:border-emerald-500 resize-none" />
               </div>
               <div>
-                <label className="text-[11px] font-extrabold text-[var(--muted)] uppercase tracking-widest">commit SHA</label>
+                <label className="text-[13px] font-extrabold text-[var(--muted)] uppercase tracking-widest">commit SHA</label>
                 <input value={editing.commit_sha} placeholder="41a37b5"
                   onChange={(e) => setEditing({ ...editing, commit_sha: e.target.value })}
                   className="mt-1 w-full px-3 py-2 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)] text-xs font-mono tabular-nums focus:outline-none focus:border-emerald-500" />

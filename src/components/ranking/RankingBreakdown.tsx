@@ -273,7 +273,7 @@ export default function RankingBreakdown({ axis }: Props) {
 
         {combined && (
           <div className="relative text-center">
-            <p className="text-[11px] font-bold text-[var(--muted)] uppercase tracking-wide mb-1">
+            <p className="text-[13px] font-bold text-[var(--muted)] uppercase tracking-wide mb-1">
               {localizeScopeLabel(combined.scope_label)}
             </p>
             <div className="flex items-baseline justify-center gap-1.5 mb-1">
@@ -288,7 +288,7 @@ export default function RankingBreakdown({ axis }: Props) {
 
             {!isTop && Number(combined.km_to_top10) > 0 && combined.rank_position > 10 && (
               <div className="mt-3">
-                <div className="flex items-center justify-between mb-1 text-[11px]">
+                <div className="flex items-center justify-between mb-1 text-[13px]">
                   <span className="font-semibold text-[var(--muted)]">{formatRank(combined.rank_position, locale)}</span>
                   <span className="font-extrabold text-emerald-700 dark:text-emerald-400">
                     {t('rankingHero.toTop10').replace('{km}', Number(combined.km_to_top10).toFixed(1))}
@@ -308,10 +308,10 @@ export default function RankingBreakdown({ axis }: Props) {
               <span className="text-sm font-bold text-[var(--foreground)]">{heroMot.text}</span>
             </div>
 
-            <p className="mt-2 text-[11px] text-[var(--muted)] leading-relaxed px-2">
+            <p className="mt-2 text-[13px] text-[var(--muted)] leading-relaxed px-2">
               {t('rankingHero.starHint')}
               <br />
-              <span className="text-[10px] opacity-80">{t('rankingHero.starExample')}</span>
+              <span className="text-[12px] opacity-80">{t('rankingHero.starExample')}</span>
             </p>
           </div>
         )}
@@ -335,28 +335,28 @@ export default function RankingBreakdown({ axis }: Props) {
               >
                 <div className="flex items-center gap-1.5 mb-1.5">
                   <meta.Icon size={12} className={meta.iconColor} />
-                  <p className="text-[10px] font-bold text-[var(--muted)] truncate">{localizeScopeLabel(r.scope_label)}</p>
+                  <p className="text-[12px] font-bold text-[var(--muted)] truncate">{localizeScopeLabel(r.scope_label)}</p>
                 </div>
                 <div className="flex items-baseline gap-0.5 mb-1">
                   <span className={`text-3xl font-extrabold leading-none tabular-nums ${isTopHere ? meta.iconColor : 'text-[var(--foreground)]'}`}>
                     {r.rank_position}
                   </span>
                   <span className="text-base font-bold text-[var(--foreground)]">{rankSuffix(r.rank_position, locale)}</span>
-                  <span className="ml-auto text-[10px] text-[var(--muted)] font-bold">
+                  <span className="ml-auto text-[12px] text-[var(--muted)] font-bold">
                     / {r.total_in_scope.toLocaleString()}
                   </span>
                 </div>
-                <p className="text-[11px] text-[var(--muted)] mb-2">{Number(r.my_km).toFixed(1)}km</p>
+                <p className="text-[13px] text-[var(--muted)] mb-2">{Number(r.my_km).toFixed(1)}km</p>
                 {!isTopHere && Number(r.km_to_top10) > 0 && (
                   <div className="h-1.5 bg-white/60 dark:bg-zinc-800/60 rounded-full overflow-hidden mb-1.5">
                     <div className={`h-full ${meta.barColor}`} style={{ width: `${progressTo10}%` }} />
                   </div>
                 )}
-                <p className="text-[11px] font-bold text-[var(--foreground)] leading-tight">
+                <p className="text-[13px] font-bold text-[var(--foreground)] leading-tight">
                   <span className="mr-0.5">{mot.emoji}</span>
                   <span className="text-[var(--muted)]">{mot.text}</span>
                 </p>
-                <p className="mt-1 text-[9px] text-[var(--muted)] inline-flex items-center gap-0.5">
+                <p className="mt-1 text-[11px] text-[var(--muted)] inline-flex items-center gap-0.5">
                   {t('rankingHero.viewAll')} <ChevronRight size={9} />
                 </p>
               </Link>

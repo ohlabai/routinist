@@ -197,7 +197,7 @@ function ShopContent() {
             >
               <ShoppingCart size={20} className="text-[var(--foreground)]" />
               {cartCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-white text-[10px] font-extrabold flex items-center justify-center ring-2 ring-[var(--background)]">
+                <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-white text-[12px] font-extrabold flex items-center justify-center ring-2 ring-[var(--background)]">
                   {cartCount > 9 ? '9+' : cartCount}
                 </span>
               )}
@@ -263,7 +263,7 @@ function ShopContent() {
             <div className="relative">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm mb-3">
                 <Sparkles size={12} className="text-white" />
-                <span className="text-[11px] font-bold text-white tracking-wide">{t('shop.heroBadge')}</span>
+                <span className="text-[13px] font-bold text-white tracking-wide">{t('shop.heroBadge')}</span>
               </div>
               <h2 className="text-2xl font-extrabold text-white leading-tight mb-1">
                 {t('shop.heroTitle1')}<br />
@@ -398,7 +398,7 @@ function ShopContent() {
                           </div>
                         )}
                         {discount > 0 && (
-                          <span className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full bg-red-500 text-white text-[10px] font-extrabold shadow">
+                          <span className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full bg-red-500 text-white text-[12px] font-extrabold shadow">
                             -{discount}%
                           </span>
                         )}
@@ -420,14 +420,14 @@ function ShopContent() {
                       </div>
                       <div className="px-1 mt-2.5">
                         {p.brand && (
-                          <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">{p.brand}</p>
+                          <p className="text-[12px] font-bold text-emerald-600 uppercase tracking-wider">{p.brand}</p>
                         )}
                         <p className="text-sm font-semibold text-[var(--foreground)] line-clamp-2 leading-snug mt-0.5">{p.name}</p>
                         {(p.rating_count ?? 0) > 0 && (
                           <div className="flex items-center gap-0.5 mt-1">
                             <Star size={11} className="text-amber-400 fill-amber-400" />
-                            <span className="text-[11px] font-bold text-[var(--foreground)]">{(p.rating_avg ?? 0).toFixed(1)}</span>
-                            <span className="text-[10px] text-[var(--muted)]">({p.rating_count})</span>
+                            <span className="text-[13px] font-bold text-[var(--foreground)]">{(p.rating_avg ?? 0).toFixed(1)}</span>
+                            <span className="text-[12px] text-[var(--muted)]">({p.rating_count})</span>
                           </div>
                         )}
                         <div className="mt-1 flex items-baseline gap-1.5">
@@ -435,7 +435,7 @@ function ShopContent() {
                             {p.price_krw.toLocaleString()}원
                           </span>
                           {p.compare_price_krw && p.compare_price_krw > p.price_krw && (
-                            <span className="text-[10px] text-[var(--muted)] line-through">
+                            <span className="text-[12px] text-[var(--muted)] line-through">
                               {p.compare_price_krw.toLocaleString()}
                             </span>
                           )}
@@ -485,7 +485,7 @@ function ShopContent() {
                         </div>
                       )}
                       {discount > 0 && (
-                        <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-extrabold shadow">
+                        <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-red-500 text-white text-[12px] font-extrabold shadow">
                           -{discount}%
                         </span>
                       )}
@@ -507,14 +507,14 @@ function ShopContent() {
                     </div>
                     <div className="px-0.5 mt-2.5">
                       {p.brand && (
-                        <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">{p.brand}</p>
+                        <p className="text-[12px] font-bold text-emerald-600 uppercase tracking-wider">{p.brand}</p>
                       )}
                       <p className="text-sm font-medium text-[var(--foreground)] line-clamp-2 leading-snug mt-0.5">{p.name}</p>
                       {(p.rating_count ?? 0) > 0 && (
                         <div className="flex items-center gap-0.5 mt-1">
                           <Star size={11} className="text-amber-400 fill-amber-400" />
-                          <span className="text-[11px] font-bold text-[var(--foreground)]">{(p.rating_avg ?? 0).toFixed(1)}</span>
-                          <span className="text-[10px] text-[var(--muted)]">({p.rating_count})</span>
+                          <span className="text-[13px] font-bold text-[var(--foreground)]">{(p.rating_avg ?? 0).toFixed(1)}</span>
+                          <span className="text-[12px] text-[var(--muted)]">({p.rating_count})</span>
                         </div>
                       )}
                       <div className="mt-1 flex items-baseline gap-1.5">
@@ -522,7 +522,7 @@ function ShopContent() {
                           {p.price_krw.toLocaleString()}원
                         </span>
                         {p.compare_price_krw && p.compare_price_krw > p.price_krw && (
-                          <span className="text-[10px] text-[var(--muted)] line-through">
+                          <span className="text-[12px] text-[var(--muted)] line-through">
                             {p.compare_price_krw.toLocaleString()}
                           </span>
                         )}
@@ -662,8 +662,8 @@ function SearchSuggestions({ value, onPick }: { value: string; onPick: (q: strin
       {recent.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] font-bold text-[var(--muted)]">{t('shop.recentSearch')}</span>
-            <button onClick={clearRecent} className="text-[10px] text-[var(--muted)] active:scale-95">{t('shop.clearAll')}</button>
+            <span className="text-[13px] font-bold text-[var(--muted)]">{t('shop.recentSearch')}</span>
+            <button onClick={clearRecent} className="text-[12px] text-[var(--muted)] active:scale-95">{t('shop.clearAll')}</button>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {recent.map(q => (
@@ -679,7 +679,7 @@ function SearchSuggestions({ value, onPick }: { value: string; onPick: (q: strin
         </div>
       )}
       <div>
-        <span className="text-[11px] font-bold text-[var(--muted)]">{t('shop.suggested')}</span>
+        <span className="text-[13px] font-bold text-[var(--muted)]">{t('shop.suggested')}</span>
         <div className="flex flex-wrap gap-1.5 mt-1.5">
           {SUGGESTED.map(q => (
             <button

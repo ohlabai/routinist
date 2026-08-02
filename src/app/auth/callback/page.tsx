@@ -124,7 +124,7 @@ function CallbackHandler() {
           >
             {tt('웹에서 로그인 계속하기')}
           </a>
-          <p className="text-[11px] text-gray-400 leading-relaxed">
+          <p className="text-[13px] text-gray-400 leading-relaxed">
             {tt('앱이 안 열리면 App Store 에서 Routinist 를 먼저 설치해주세요.')}
           </p>
         </div>
@@ -156,7 +156,7 @@ function CallbackHandler() {
               {tt('로그인 화면에서 메일을 다시 받아주세요.')}
             </p>
             {reason && (
-              <p className="mt-2 text-[11px] text-rose-500 break-all">{reason}</p>
+              <p className="mt-2 text-[13px] text-rose-500 break-all">{reason}</p>
             )}
           </div>
           <a

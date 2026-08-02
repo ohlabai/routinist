@@ -190,7 +190,7 @@ export default function MileageRankingTab() {
                 </div>
                 <div className="text-right">
                   <p className="text-base font-bold text-emerald-600 tabular-nums">{r.mileage_balance.toLocaleString()}</p>
-                  <p className="text-[10px] text-[var(--muted)]">{tt('마일')}</p>
+                  <p className="text-[12px] text-[var(--muted)]">{tt('마일')}</p>
                 </div>
               </button>
             );

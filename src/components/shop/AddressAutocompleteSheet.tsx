@@ -189,7 +189,7 @@ export default function AddressAutocompleteSheet({ onClose, onComplete }: Props)
 
           {!query.trim() && KAKAO_KEY && (
             <div className="px-5 pt-6 pb-4">
-              <p className="text-[11px] font-extrabold text-[var(--muted)] uppercase tracking-wide mb-3">검색 팁</p>
+              <p className="text-[13px] font-extrabold text-[var(--muted)] uppercase tracking-wide mb-3">검색 팁</p>
               <ul className="space-y-2.5 text-sm text-[var(--foreground)]">
                 <li className="flex items-start gap-2">
                   <span className="text-emerald-500 mt-0.5">•</span>
@@ -246,12 +246,12 @@ export default function AddressAutocompleteSheet({ onClose, onComplete }: Props)
                           )}
                         </p>
                         {r?.address_name && a?.address_name && r.address_name !== a.address_name && (
-                          <p className="text-[11px] text-[var(--muted)] truncate mt-0.5">
+                          <p className="text-[13px] text-[var(--muted)] truncate mt-0.5">
                             지번: {a.address_name}
                           </p>
                         )}
                         {r?.zone_no && (
-                          <span className="inline-block mt-1.5 px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/30 text-[10px] font-extrabold text-emerald-700 dark:text-emerald-300 tabular-nums">
+                          <span className="inline-block mt-1.5 px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/30 text-[12px] font-extrabold text-emerald-700 dark:text-emerald-300 tabular-nums">
                             {r.zone_no}
                           </span>
                         )}

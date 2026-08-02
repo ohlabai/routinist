@@ -161,7 +161,7 @@ export default function WinnerPredictionFullModal({ roundId, myPick, isClosed, o
         </div>
 
         <div className="border-t border-[var(--card-border)] px-5 py-3 text-center">
-          <p className="text-[11px] text-[var(--muted)]">{tt('일요일 자정 결과 공개 · 맞추면 50P + 10점')}</p>
+          <p className="text-[13px] text-[var(--muted)]">{tt('일요일 자정 결과 공개 · 맞추면 50P + 10점')}</p>
         </div>
       </div>
     </div>

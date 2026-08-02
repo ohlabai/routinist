@@ -96,10 +96,10 @@ export default function CohortLeaderboardInline({ scope, axis, title, subtitle, 
           </div>
           <div className="min-w-0">
             <p className="text-sm font-extrabold text-[var(--foreground)] truncate">{title}</p>
-            <p className="text-[10px] text-[var(--muted)] truncate">{subtitle}</p>
+            <p className="text-[12px] text-[var(--muted)] truncate">{subtitle}</p>
           </div>
         </div>
-        <span className="inline-flex items-center text-[11px] font-bold text-emerald-700 dark:text-emerald-400 flex-shrink-0">
+        <span className="inline-flex items-center text-[13px] font-bold text-emerald-700 dark:text-emerald-400 flex-shrink-0">
           {tt('전체')} <ChevronRight size={11} />
         </span>
       </Link>
@@ -109,7 +109,7 @@ export default function CohortLeaderboardInline({ scope, axis, title, subtitle, 
           <button
             type="button"
             onClick={() => setView('top')}
-            className={`flex-1 py-1 rounded-md text-[11px] font-bold transition ${
+            className={`flex-1 py-1 rounded-md text-[13px] font-bold transition ${
               view === 'top'
                 ? 'bg-emerald-500 text-white shadow-sm'
                 : 'text-[var(--muted)]'
@@ -120,7 +120,7 @@ export default function CohortLeaderboardInline({ scope, axis, title, subtitle, 
           <button
             type="button"
             onClick={() => setView('me')}
-            className={`flex-1 py-1 rounded-md text-[11px] font-bold transition ${
+            className={`flex-1 py-1 rounded-md text-[13px] font-bold transition ${
               view === 'me'
                 ? 'bg-emerald-500 text-white shadow-sm'
                 : 'text-[var(--muted)]'
@@ -162,7 +162,7 @@ export default function CohortLeaderboardInline({ scope, axis, title, subtitle, 
                   {r.display_name}{r.is_me && <span className="ml-0.5">{tt('(나)')}</span>}
                 </p>
                 <span className="text-sm font-extrabold tabular-nums text-[var(--foreground)]">
-                  {Number(r.km).toFixed(1)}<span className="text-[10px] font-bold text-[var(--muted)] ml-0.5">km</span>
+                  {Number(r.km).toFixed(1)}<span className="text-[12px] font-bold text-[var(--muted)] ml-0.5">km</span>
                 </span>
               </Link>
             </li>

@@ -45,7 +45,7 @@ export default function SharePeriodEntry({ activities }: Props) {
           <div className="flex items-center gap-2 mb-3">
             <Share2 size={16} className="text-emerald-500" />
             <h3 className="text-sm font-extrabold">{tt('공유카드')}</h3>
-            <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/40">
+            <span className="text-[12px] font-bold text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/40">
               NEW
             </span>
           </div>

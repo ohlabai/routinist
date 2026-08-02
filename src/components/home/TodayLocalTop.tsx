@@ -120,7 +120,7 @@ export default function TodayLocalTop() {
                 </div>
               )}
               <span
-                className={`absolute -top-1 -left-1 w-6 h-6 rounded-full text-[11px] font-bold flex items-center justify-center text-white ${
+                className={`absolute -top-1 -left-1 w-6 h-6 rounded-full text-[13px] font-bold flex items-center justify-center text-white ${
                   r.rank_position === 1 ? 'bg-amber-500' :
                   r.rank_position === 2 ? 'bg-gray-400' :
                   r.rank_position === 3 ? 'bg-amber-700' : 'bg-[var(--accent)]'
@@ -130,7 +130,7 @@ export default function TodayLocalTop() {
               </span>
             </div>
             <p className="text-xs font-medium text-[var(--foreground)] truncate">{r.display_name}</p>
-            <p className="text-[11px] text-[var(--muted)] mt-0.5">{r.today_km.toFixed(1)}km</p>
+            <p className="text-[13px] text-[var(--muted)] mt-0.5">{r.today_km.toFixed(1)}km</p>
           </Link>
         ))}
       </div>

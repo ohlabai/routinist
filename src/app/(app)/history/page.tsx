@@ -446,7 +446,7 @@ export default function HistoryPage() {
                     {toDisplayDistance(a.distance_km, unit).toFixed(2)} {unitLabel(unit)}
                     {/* build 296: 걷기 배지 — 러닝 합계 미포함 표시 */}
                     {a.activity_type === 'walking' && (
-                      <span className="ml-1.5 px-1.5 py-0.5 rounded-md bg-sky-100 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 text-[10px] font-bold align-middle">
+                      <span className="ml-1.5 px-1.5 py-0.5 rounded-md bg-sky-100 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 text-[12px] font-bold align-middle">
                         🚶 {tt('걷기')}
                       </span>
                     )}

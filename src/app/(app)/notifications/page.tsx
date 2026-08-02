@@ -309,14 +309,14 @@ export default function NotificationsPage() {
                     {item.kind === 'cheer' && item.preview && (
                       <p className="text-base mt-0.5">{item.preview}</p>
                     )}
-                    <p className="text-[11px] text-[var(--muted)] mt-1">
+                    <p className="text-[13px] text-[var(--muted)] mt-1">
                       {timeAgo(item.created_at, locale)}
                     </p>
                     {/* build 275: cheer 알림 → 답례 응원 버튼 inline. CheerButton 의 emoji picker.
                         Link 가 actor 프로필로 가니까 이 버튼은 propagation 막아서 응원만 보내고 그대로. */}
                     {isCheerWithActor && item.actor_id && (
                       <div className="mt-2.5 flex items-center gap-2" onClick={(e) => e.preventDefault()}>
-                        <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400">답례 응원</span>
+                        <span className="text-[13px] font-bold text-emerald-700 dark:text-emerald-400">답례 응원</span>
                         <CheerButton toUserId={item.actor_id} context="profile" size="sm" />
                       </div>
                     )}

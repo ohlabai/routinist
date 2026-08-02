@@ -190,7 +190,7 @@ export default function AdminAnalyticsPage() {
                 <Stat label="14일 미접속" value={overview.active.churned_14d.toLocaleString()} tone="red" />
               </div>
               {overview.active.mau > 0 && (
-                <p className="text-[11px] text-[var(--muted)] mt-2 font-bold inline-flex items-center gap-1">
+                <p className="text-[13px] text-[var(--muted)] mt-2 font-bold inline-flex items-center gap-1">
                   DAU/MAU 끈끈함 (Stickiness):
                   <span className="text-emerald-600">
                     {((overview.active.dau / overview.active.mau) * 100).toFixed(0)}%
@@ -213,7 +213,7 @@ export default function AdminAnalyticsPage() {
                     <Line type="monotone" dataKey="runs" stroke="#f97316" strokeWidth={2} dot={false} name="활동수" />
                   </LineChart>
                 </ResponsiveContainer>
-                <div className="flex items-center justify-center gap-3 mt-2 text-[10px] font-bold">
+                <div className="flex items-center justify-center gap-3 mt-2 text-[12px] font-bold">
                   <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> DAU</span>
                   <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-500" /> 활동수</span>
                 </div>
@@ -230,7 +230,7 @@ export default function AdminAnalyticsPage() {
                   <FunnelStep label="1일 내 첫 달림" value={activation.activated_within_1d} pct={pct(activation.activated_within_1d, activation.total)} />
                   <FunnelStep label="7일 내 첫 달림" value={activation.activated_within_7d} pct={pct(activation.activated_within_7d, activation.total)} />
                 </div>
-                <div className="mt-3 px-3 py-2 rounded-lg bg-rose-50 dark:bg-rose-950/30 text-[11px] text-rose-700 dark:text-rose-300 inline-flex items-center gap-1.5 w-full">
+                <div className="mt-3 px-3 py-2 rounded-lg bg-rose-50 dark:bg-rose-950/30 text-[13px] text-rose-700 dark:text-rose-300 inline-flex items-center gap-1.5 w-full">
                   <AlertCircle size={11} /> 한 번도 달리지 않은 사용자: <b>{activation.never_ran.toLocaleString()}명</b>
                 </div>
               </div>
@@ -267,7 +267,7 @@ export default function AdminAnalyticsPage() {
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
-                <p className="text-[10px] text-[var(--muted)] mt-1 text-center">색이 진할수록 인기 시간</p>
+                <p className="text-[12px] text-[var(--muted)] mt-1 text-center">색이 진할수록 인기 시간</p>
               </div>
             </Section>
           )}
@@ -320,7 +320,7 @@ export default function AdminAnalyticsPage() {
               <div className="card p-3 space-y-1.5">
                 {topContent.top_runners_30d!.map((r, i) => (
                   <div key={i} className="flex items-center gap-2.5">
-                    <span className={`w-6 h-6 rounded-full flex items-center justify-center font-extrabold text-[11px] ${
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center font-extrabold text-[13px] ${
                       i === 0 ? 'bg-amber-100 text-amber-700' : i === 1 ? 'bg-zinc-200 text-zinc-700' : i === 2 ? 'bg-orange-100 text-orange-700' : 'bg-[var(--card-border)]/40 text-[var(--muted)]'
                     }`}>{i + 1}</span>
                     <div className="w-7 h-7 rounded-full bg-[var(--card-border)]/40 overflow-hidden flex-shrink-0">
@@ -328,7 +328,7 @@ export default function AdminAnalyticsPage() {
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={r.avatar_url} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-[var(--muted)]">{r.display_name?.slice(0,1)}</div>
+                        <div className="w-full h-full flex items-center justify-center text-[12px] font-bold text-[var(--muted)]">{r.display_name?.slice(0,1)}</div>
                       )}
                     </div>
                     <span className="flex-1 text-sm font-bold truncate">{r.display_name}</span>
@@ -346,7 +346,7 @@ export default function AdminAnalyticsPage() {
                 {topContent.quotes.map((q) => (
                   <div key={q.id} className="px-2 py-1.5 border-l-2 border-emerald-400 bg-emerald-50/30 dark:bg-emerald-950/20 rounded-r-lg">
                     <p className="text-xs italic font-semibold line-clamp-2 break-keep">&ldquo;{q.text}&rdquo;</p>
-                    <p className="text-[10px] text-[var(--muted)] mt-0.5">— {q.author} · ❤️ {q.like_count}</p>
+                    <p className="text-[12px] text-[var(--muted)] mt-0.5">— {q.author} · ❤️ {q.like_count}</p>
                   </div>
                 ))}
               </div>
@@ -369,7 +369,7 @@ export default function AdminAnalyticsPage() {
                   <MessageSquare size={14} className="text-blue-500" />
                   <span className="text-xs font-bold flex-1">제안 게시판 신규 글</span>
                   <span className="text-sm font-extrabold text-emerald-600">{weekly.feedback.this}건</span>
-                  <span className="text-[10px] text-[var(--muted)]">(지난주 {weekly.feedback.prev})</span>
+                  <span className="text-[12px] text-[var(--muted)]">(지난주 {weekly.feedback.prev})</span>
                 </div>
               )}
               <WeeklySendButtons />
@@ -395,7 +395,7 @@ export default function AdminAnalyticsPage() {
                       <div className="h-full rounded-full bg-gradient-to-r from-violet-400 to-violet-600 transition-all" style={{ width: `${pct(step.value, funnel.signup)}%` }} />
                     </div>
                     <span className="text-xs font-extrabold tabular-nums w-10 text-right">{step.value.toLocaleString()}</span>
-                    <span className="text-[10px] font-bold text-violet-600 w-9 text-right">{pct(step.value, funnel.signup)}%</span>
+                    <span className="text-[12px] font-bold text-violet-600 w-9 text-right">{pct(step.value, funnel.signup)}%</span>
                   </div>
                 ))}
               </div>
@@ -411,13 +411,13 @@ export default function AdminAnalyticsPage() {
               </div>
               {eventsSummary.top_paths && eventsSummary.top_paths.length > 0 && (
                 <div className="card p-3 mb-2">
-                  <p className="text-[11px] font-extrabold text-[var(--muted)] mb-1.5">인기 화면 (페이지뷰)</p>
+                  <p className="text-[13px] font-extrabold text-[var(--muted)] mb-1.5">인기 화면 (페이지뷰)</p>
                   <div className="space-y-1">
                     {eventsSummary.top_paths.slice(0, 10).map((p) => (
                       <div key={p.path} className="flex items-center gap-2">
                         <span className="text-xs font-mono truncate flex-1">{p.path}</span>
                         <span className="text-xs font-bold tabular-nums text-[var(--muted)]">{p.views.toLocaleString()}회</span>
-                        <span className="text-[10px] font-bold tabular-nums text-emerald-600">{p.unique_users}명</span>
+                        <span className="text-[12px] font-bold tabular-nums text-emerald-600">{p.unique_users}명</span>
                       </div>
                     ))}
                   </div>
@@ -425,7 +425,7 @@ export default function AdminAnalyticsPage() {
               )}
               {eventsSummary.top_events && eventsSummary.top_events.length > 0 && (
                 <div className="card p-3">
-                  <p className="text-[11px] font-extrabold text-[var(--muted)] mb-1.5">자주 발생한 이벤트</p>
+                  <p className="text-[13px] font-extrabold text-[var(--muted)] mb-1.5">자주 발생한 이벤트</p>
                   <div className="space-y-1">
                     {eventsSummary.top_events.slice(0, 10).map((e) => (
                       <div key={e.event_name} className="flex items-center gap-2">
@@ -550,7 +550,7 @@ function WeeklySendButtons() {
       </div>
       {editing && (
         <div className="space-y-1.5">
-          <p className="text-[10px] font-bold text-[var(--muted)]">슬랙 Incoming Webhook URL</p>
+          <p className="text-[12px] font-bold text-[var(--muted)]">슬랙 Incoming Webhook URL</p>
           <input
             type="url"
             value={webhook}
@@ -566,8 +566,8 @@ function WeeklySendButtons() {
           </button>
         </div>
       )}
-      {msg && <p className="text-[11px] text-center font-bold text-emerald-600">{msg}</p>}
-      <p className="text-[10px] text-[var(--muted)] leading-snug">
+      {msg && <p className="text-[13px] text-center font-bold text-emerald-600">{msg}</p>}
+      <p className="text-[12px] text-[var(--muted)] leading-snug">
         자동 발송은 별도 pg_cron 또는 Vercel Cron 으로 매주 일요일 21:00 KST 에 admin_weekly_report_text() 결과를 webhook 에 POST 하면 됩니다.
       </p>
     </div>
@@ -580,11 +580,11 @@ function WeeklyCard({ label, this_, prev, unit }: { label: string; this_: number
   const tone = diff >= 0 ? 'text-emerald-600' : 'text-rose-500';
   return (
     <div className="card p-3">
-      <p className="text-[10px] text-[var(--muted)] font-bold">{label}</p>
+      <p className="text-[12px] text-[var(--muted)] font-bold">{label}</p>
       <p className="text-lg font-extrabold mt-0.5 tabular-nums">
-        {Number(this_).toLocaleString()}{unit && <span className="text-[10px] font-bold ml-0.5 opacity-70">{unit}</span>}
+        {Number(this_).toLocaleString()}{unit && <span className="text-[12px] font-bold ml-0.5 opacity-70">{unit}</span>}
       </p>
-      <p className={`text-[10px] font-extrabold mt-0.5 ${tone}`}>
+      <p className={`text-[12px] font-extrabold mt-0.5 ${tone}`}>
         {diff >= 0 ? '▲' : '▼'} {Math.abs(diff).toLocaleString()} ({pctDiff > 0 ? '+' : ''}{pctDiff}%)
       </p>
     </div>
@@ -619,10 +619,10 @@ function Stat({ label, value, unit, tone = 'default' }: { label: string; value: 
   }[tone];
   return (
     <div className="card p-3">
-      <p className="text-[10px] text-[var(--muted)] font-bold">{label}</p>
+      <p className="text-[12px] text-[var(--muted)] font-bold">{label}</p>
       <p className={`text-xl font-extrabold mt-0.5 ${colorClass}`}>
         {value}
-        {unit && <span className="text-[11px] font-bold ml-0.5 opacity-70">{unit}</span>}
+        {unit && <span className="text-[13px] font-bold ml-0.5 opacity-70">{unit}</span>}
       </p>
     </div>
   );
@@ -631,12 +631,12 @@ function Stat({ label, value, unit, tone = 'default' }: { label: string; value: 
 function FunnelStep({ label, value, pct }: { label: string; value: number; pct: number }) {
   return (
     <div>
-      <p className="text-[10px] font-bold text-[var(--muted)]">{label}</p>
+      <p className="text-[12px] font-bold text-[var(--muted)]">{label}</p>
       <p className="text-lg font-extrabold mt-0.5">{value.toLocaleString()}</p>
       <div className="mt-1 h-1 rounded-full bg-[var(--card-border)]/30 overflow-hidden">
         <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all" style={{ width: `${pct}%` }} />
       </div>
-      <p className="text-[10px] font-extrabold text-emerald-600 mt-0.5">{pct}%</p>
+      <p className="text-[12px] font-extrabold text-emerald-600 mt-0.5">{pct}%</p>
     </div>
   );
 }

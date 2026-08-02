@@ -156,7 +156,7 @@ export default function BlockedUsersPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold truncate">{p.display_name ?? tt('알 수 없음')}</p>
-                    {sub && <p className="text-[11px] text-[var(--muted)] truncate">{sub}</p>}
+                    {sub && <p className="text-[13px] text-[var(--muted)] truncate">{sub}</p>}
                   </div>
                   <button
                     onClick={() => handleUnblock(p.id)}

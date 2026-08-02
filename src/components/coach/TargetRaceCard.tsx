@@ -112,7 +112,7 @@ export default function TargetRaceCard() {
           <Flag size={14} className="text-violet-500" />
           <h3 className="text-sm font-extrabold">목표 레이스</h3>
         </div>
-        <span className="text-[10px] font-extrabold text-violet-700 dark:text-violet-300 px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40">
+        <span className="text-[12px] font-extrabold text-violet-700 dark:text-violet-300 px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40">
           {distLabel}
         </span>
       </div>
@@ -126,22 +126,22 @@ export default function TargetRaceCard() {
       <div className="grid grid-cols-2 gap-3 mb-3">
         <div className="text-center">
           <p className="text-3xl font-extrabold text-violet-600 tabular-nums">{info?.days_left ?? '-'}</p>
-          <p className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest mt-0.5">일 남음</p>
+          <p className="text-[12px] font-bold text-[var(--muted)] uppercase tracking-widest mt-0.5">일 남음</p>
         </div>
         <div className="text-center">
           <p className="text-3xl font-extrabold text-fuchsia-600 tabular-nums">{info?.recommended_weekly_km ?? '-'}</p>
-          <p className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest mt-0.5">권장 주간 km</p>
+          <p className="text-[12px] font-bold text-[var(--muted)] uppercase tracking-widest mt-0.5">권장 주간 km</p>
         </div>
       </div>
 
       {info?.is_taper && (
         <div className="mt-2 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-900/30">
-          <p className="text-[11px] font-bold text-amber-700 dark:text-amber-300">⚠️ 테이퍼링 기간 — 강도 낮추고 회복 중심으로</p>
+          <p className="text-[13px] font-bold text-amber-700 dark:text-amber-300">⚠️ 테이퍼링 기간 — 강도 낮추고 회복 중심으로</p>
         </div>
       )}
 
       <button onClick={() => setShowForm(true)}
-        className="mt-3 w-full px-3 py-2 rounded-xl border border-violet-200/60 dark:border-violet-900/40 text-violet-600 dark:text-violet-400 text-[11px] font-bold active:scale-95 inline-flex items-center justify-center gap-1">
+        className="mt-3 w-full px-3 py-2 rounded-xl border border-violet-200/60 dark:border-violet-900/40 text-violet-600 dark:text-violet-400 text-[13px] font-bold active:scale-95 inline-flex items-center justify-center gap-1">
         <ChevronRight size={11} /> 다른 대회 추가
       </button>
 

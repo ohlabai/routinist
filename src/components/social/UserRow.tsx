@@ -41,7 +41,7 @@ export default function UserRow({ profile, currentUserId, isFollowing = false, s
             size={11}
           />
           {badge && (
-            <span className="flex-shrink-0 px-1.5 py-0.5 rounded-full bg-emerald-100/80 dark:bg-emerald-900/30 text-[9px] font-extrabold text-emerald-700 dark:text-emerald-300">
+            <span className="flex-shrink-0 px-1.5 py-0.5 rounded-full bg-emerald-100/80 dark:bg-emerald-900/30 text-[11px] font-extrabold text-emerald-700 dark:text-emerald-300">
               {badge}
             </span>
           )}

@@ -175,7 +175,7 @@ function SocialPageInner() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-extrabold text-[var(--foreground)]">{tt('친구 목록')}</p>
-                  <p className="text-[10px] text-[var(--muted)] mt-0.5">{tt('친구·팔로잉·팔로워')}</p>
+                  <p className="text-[12px] text-[var(--muted)] mt-0.5">{tt('친구·팔로잉·팔로워')}</p>
                 </div>
               </div>
             </Link>
@@ -189,7 +189,7 @@ function SocialPageInner() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-extrabold text-[var(--foreground)]">{tt('친구 피드')}</p>
-                  <p className="text-[10px] text-[var(--muted)] mt-0.5">{tt('최근 친구 활동')}</p>
+                  <p className="text-[12px] text-[var(--muted)] mt-0.5">{tt('최근 친구 활동')}</p>
                 </div>
               </div>
             </Link>
@@ -245,7 +245,7 @@ function SocialPageInner() {
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={r.avatar} alt="" className="w-full h-full object-cover" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-[var(--muted)]">
+                          <div className="w-full h-full flex items-center justify-center text-[12px] font-bold text-[var(--muted)]">
                             {r.name.slice(0, 1)}
                           </div>
                         )}
@@ -278,7 +278,7 @@ function SocialPageInner() {
               <UserIcon size={28} className="mx-auto text-emerald-600 dark:text-emerald-400 mb-2" />
               <p className="text-sm font-bold text-[var(--foreground)]">{t('social.emptyFriendsTitle')}</p>
               <p className="text-xs text-[var(--muted)] mt-1">{t('social.emptyFriendsSub')}</p>
-              <p className="mt-2 inline-flex items-center gap-0.5 text-[11px] font-extrabold text-emerald-600">
+              <p className="mt-2 inline-flex items-center gap-0.5 text-[13px] font-extrabold text-emerald-600">
                 {t('social.findFriendsCta')}
               </p>
             </Link>

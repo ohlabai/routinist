@@ -187,7 +187,7 @@ function AdminUserDetailInner() {
             <User size={18} className="text-emerald-500" /> 회원 상세
           </h1>
           {p && !p.is_public && (
-            <span className="ml-2 inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
+            <span className="ml-2 inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[12px] font-extrabold bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
               <EyeOff size={10} /> 감춤
             </span>
           )}
@@ -267,7 +267,7 @@ function AdminUserDetailInner() {
         {action === 'block' && (
           <ActionForm title="차단 (감춤 처리)" onCancel={() => { setAction(null); resetForm(); }}
             onSave={handleBlock} busy={busy} icon={<ShieldOff size={14} className="text-rose-500" />}>
-            <p className="text-[11px] text-[var(--muted)] mb-1">랭킹·검색에서 노출 제외됩니다. 영구 삭제 아님.</p>
+            <p className="text-[13px] text-[var(--muted)] mb-1">랭킹·검색에서 노출 제외됩니다. 영구 삭제 아님.</p>
             <FormInput label="차단 사유 *" value={blockReason} onChange={setBlockReason} placeholder="예: 위반 신고 다수, 부정 활동" multiline />
           </ActionForm>
         )}
@@ -292,8 +292,8 @@ function AdminUserDetailInner() {
             <ul className="divide-y divide-[var(--card-border)]/40 text-xs">
               {data.recent_orders.map(o => (
                 <li key={o.id} className="py-2 flex items-center justify-between">
-                  <span className="font-mono text-[10px]">{o.order_no}</span>
-                  <span className={`text-[10px] font-bold ${o.status === 'paid' ? 'text-emerald-600' : 'text-[var(--muted)]'}`}>{o.status}</span>
+                  <span className="font-mono text-[12px]">{o.order_no}</span>
+                  <span className={`text-[12px] font-bold ${o.status === 'paid' ? 'text-emerald-600' : 'text-[var(--muted)]'}`}>{o.status}</span>
                   <span className="tabular-nums">{Number(o.total_krw).toLocaleString()}원</span>
                   <span className="text-[var(--muted)]">{fmtDate(o.created_at)}</span>
                 </li>
@@ -307,12 +307,12 @@ function AdminUserDetailInner() {
             <ul className="divide-y divide-[var(--card-border)]/40 text-xs">
               {data.mileage_history.map(m => (
                 <li key={m.id} className="py-2 flex items-center justify-between gap-2">
-                  <span className="text-[10px] text-[var(--muted)]">{m.event_type}</span>
+                  <span className="text-[12px] text-[var(--muted)]">{m.event_type}</span>
                   <span className={`tabular-nums font-bold ${m.amount > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
                     {m.amount > 0 ? '+' : ''}{m.amount.toLocaleString()}P
                   </span>
-                  <span className="flex-1 truncate text-[10px] text-[var(--muted)]">{m.reason ?? ''}</span>
-                  <span className="text-[10px] text-[var(--muted)]">{fmtDate(m.created_at)}</span>
+                  <span className="flex-1 truncate text-[12px] text-[var(--muted)]">{m.reason ?? ''}</span>
+                  <span className="text-[12px] text-[var(--muted)]">{fmtDate(m.created_at)}</span>
                 </li>
               ))}
             </ul>
@@ -325,9 +325,9 @@ function AdminUserDetailInner() {
               {data.push_history.map(ph => (
                 <li key={ph.id} className="py-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-violet-600">{ph.category}</span>
-                    <span className={`text-[10px] font-bold ${ph.status === 'sent' ? 'text-emerald-600' : 'text-[var(--muted)]'}`}>{ph.status}</span>
-                    <span className="text-[10px] text-[var(--muted)] ml-auto">{fmtDate(ph.created_at)}</span>
+                    <span className="text-[12px] font-bold text-violet-600">{ph.category}</span>
+                    <span className={`text-[12px] font-bold ${ph.status === 'sent' ? 'text-emerald-600' : 'text-[var(--muted)]'}`}>{ph.status}</span>
+                    <span className="text-[12px] text-[var(--muted)] ml-auto">{fmtDate(ph.created_at)}</span>
                   </div>
                   <p className="font-bold mt-0.5">{ph.title}</p>
                   <p className="text-[var(--muted)] truncate">{ph.body}</p>
@@ -348,7 +348,7 @@ function AdminUserDetailInner() {
                   <li key={pb.distance_meters} className="py-2 flex items-center justify-between">
                     <span className="font-bold">{label}</span>
                     <span className="tabular-nums">{m}:{s.toString().padStart(2, '0')}</span>
-                    <span className="text-[var(--muted)] text-[10px]">{fmtDate(pb.achieved_at)}</span>
+                    <span className="text-[var(--muted)] text-[12px]">{fmtDate(pb.achieved_at)}</span>
                   </li>
                 );
               })}
@@ -362,8 +362,8 @@ function AdminUserDetailInner() {
               {data.admin_action_log.map(l => (
                 <li key={l.id} className="py-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-rose-600">{l.action}</span>
-                    <span className="text-[10px] text-[var(--muted)] ml-auto">{fmtDateTime(l.created_at)}</span>
+                    <span className="text-[12px] font-bold text-rose-600">{l.action}</span>
+                    <span className="text-[12px] text-[var(--muted)] ml-auto">{fmtDateTime(l.created_at)}</span>
                   </div>
                   <p className="text-[var(--muted)]">{l.actor_email} · {l.reason ?? '-'}</p>
                 </li>
@@ -384,7 +384,7 @@ function StatChip({ icon, label, value, color }: { icon: React.ReactNode; label:
     : 'bg-violet-50 dark:bg-violet-950/20 text-violet-700 dark:text-violet-300';
   return (
     <div className={`rounded-xl px-3 py-2 ${cls}`}>
-      <div className="text-[10px] font-bold uppercase tracking-widest inline-flex items-center gap-1">{icon} {label}</div>
+      <div className="text-[12px] font-bold uppercase tracking-widest inline-flex items-center gap-1">{icon} {label}</div>
       <p className="text-lg font-extrabold tabular-nums">{value}</p>
     </div>
   );
@@ -426,7 +426,7 @@ function FormInput({ label, value, onChange, placeholder, multiline, type = 'tex
   { label: string; value: string; onChange: (v: string) => void; placeholder?: string; multiline?: boolean; type?: string }) {
   return (
     <div>
-      <label className="text-[11px] font-bold text-[var(--muted)] block mb-1">{label}</label>
+      <label className="text-[13px] font-bold text-[var(--muted)] block mb-1">{label}</label>
       {multiline ? (
         <textarea value={value} onChange={e => onChange(e.target.value)} rows={3} placeholder={placeholder}
           className="w-full px-3 py-2 rounded-xl bg-[var(--background)] border border-[var(--card-border)] text-sm focus:outline-none focus:border-emerald-500 resize-none" />
@@ -444,7 +444,7 @@ function HistoryCard({ title, icon, count, children }: { title: string; icon: Re
       <div className="flex items-center gap-2 mb-2.5">
         <span className="text-emerald-500">{icon}</span>
         <h3 className="text-sm font-extrabold">{title}</h3>
-        <span className="ml-auto text-[10px] text-[var(--muted)] font-bold">{count}건</span>
+        <span className="ml-auto text-[12px] text-[var(--muted)] font-bold">{count}건</span>
       </div>
       {children}
     </div>

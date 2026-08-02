@@ -437,7 +437,7 @@ export default function LoginPage() {
       )}
 
       {showDebug && (
-        <div className="mt-6 w-full max-w-sm relative z-10 bg-white/80 border border-gray-300 rounded-xl p-3 text-[10px] text-gray-700">
+        <div className="mt-6 w-full max-w-sm relative z-10 bg-white/80 border border-gray-300 rounded-xl p-3 text-[12px] text-gray-700">
           <div className="flex items-center justify-between mb-1">
             <span className="font-bold">{tt('진단 로그 (/login?debug=1)')}</span>
             <button onClick={refreshDebug} className="text-blue-600 underline">{tt('새로고침')}</button>

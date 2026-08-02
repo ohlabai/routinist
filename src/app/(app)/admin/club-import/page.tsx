@@ -88,7 +88,7 @@ export default function AdminClubImportPage() {
           <div className="flex items-start gap-2">
             <AlertCircle size={16} className="text-emerald-600 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-[var(--foreground)] leading-relaxed">
-              매월 BIT RUNNERS 매거진 HTML 을 붙여넣고 import 합니다. HTML 안 <code className="text-[10px] bg-[var(--card-border)]/40 px-1 rounded">const MEMBERS_DATA = [...]</code> JSON 자동 추출.
+              매월 BIT RUNNERS 매거진 HTML 을 붙여넣고 import 합니다. HTML 안 <code className="text-[12px] bg-[var(--card-border)]/40 px-1 rounded">const MEMBERS_DATA = [...]</code> JSON 자동 추출.
               같은 월 재실행 시 멱등 (이전 활동 자동 삭제 후 재insert).
             </p>
           </div>
@@ -135,7 +135,7 @@ export default function AdminClubImportPage() {
               rows={10}
               className="w-full px-3 py-2 rounded-xl border border-[var(--card-border)] bg-[var(--background)] text-xs font-mono resize-none"
             />
-            <p className="text-[10px] text-[var(--muted)] mt-1">{html.length.toLocaleString()} 문자</p>
+            <p className="text-[12px] text-[var(--muted)] mt-1">{html.length.toLocaleString()} 문자</p>
           </div>
 
           <button
@@ -158,7 +158,7 @@ export default function AdminClubImportPage() {
                 <div className="flex-1">
                   <p className="font-bold whitespace-pre-wrap break-all">{result.text}</p>
                   {result.summary && (
-                    <p className="mt-1 text-[10px] opacity-80">
+                    <p className="mt-1 text-[12px] opacity-80">
                       멤버 {result.summary.members}명 (신규 {result.summary.new_members}) · 목표 {result.summary.goals} · 활동 {result.summary.activities}건
                     </p>
                   )}

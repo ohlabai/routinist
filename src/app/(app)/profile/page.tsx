@@ -332,11 +332,11 @@ export default function ProfilePage() {
             </div>
             <div>
               <p className="text-sm font-extrabold text-violet-800 dark:text-violet-200">{tt('러닝 코치 (AI)')}</p>
-              <p className="text-[10px] text-violet-600/80 dark:text-violet-400/80">{tt('오늘 컨디션 · 자기 기록 분석')}</p>
+              <p className="text-[12px] text-violet-600/80 dark:text-violet-400/80">{tt('오늘 컨디션 · 자기 기록 분석')}</p>
             </div>
           </div>
           <span className="inline-flex items-center gap-1.5">
-            <span className="text-[10px] font-extrabold text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded bg-violet-100 dark:bg-violet-900/40">NEW</span>
+            <span className="text-[12px] font-extrabold text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded bg-violet-100 dark:bg-violet-900/40">NEW</span>
             <ChevronRight size={16} className="text-violet-500/70 group-active:translate-x-0.5 transition" />
           </span>
         </Link>
@@ -384,13 +384,13 @@ export default function ProfilePage() {
             <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-50 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-800/40">
               <span className="text-xs">❤️</span>
               <span className="text-xs font-extrabold text-rose-700 dark:text-rose-300 tabular-nums">{cheerCounts.total}</span>
-              <span className="text-[10px] font-bold text-rose-600/70 dark:text-rose-400/70">받은 응원</span>
+              <span className="text-[12px] font-bold text-rose-600/70 dark:text-rose-400/70">받은 응원</span>
             </span>
             {cheerCounts.thisWeek > 0 && (
               <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/40">
                 <span className="text-xs">🔥</span>
                 <span className="text-xs font-extrabold text-amber-700 dark:text-amber-300 tabular-nums">{cheerCounts.thisWeek}</span>
-                <span className="text-[10px] font-bold text-amber-600/70 dark:text-amber-400/70">이번 주</span>
+                <span className="text-[12px] font-bold text-amber-600/70 dark:text-amber-400/70">이번 주</span>
               </span>
             )}
           </div>
@@ -455,7 +455,7 @@ export default function ProfilePage() {
               <a.Icon size={24} className={a.color} />
               <span className="text-sm font-semibold text-[var(--foreground)]">{a.label}</span>
               {showBadge && (
-                <span className="absolute top-3 right-3 min-w-[22px] h-[22px] px-1.5 rounded-full bg-rose-500 text-white text-[11px] font-extrabold flex items-center justify-center shadow-sm">
+                <span className="absolute top-3 right-3 min-w-[22px] h-[22px] px-1.5 rounded-full bg-rose-500 text-white text-[13px] font-extrabold flex items-center justify-center shadow-sm">
                   {unreadMessages > 99 ? '99+' : unreadMessages}
                 </span>
               )}
@@ -476,7 +476,7 @@ export default function ProfilePage() {
           </div>
           <div className="flex-1 text-left">
             <p className="text-sm font-extrabold text-[var(--foreground)]">{t('profile.pushOnTitle')}</p>
-            <p className="text-[11px] text-[var(--muted)] mt-0.5">
+            <p className="text-[13px] text-[var(--muted)] mt-0.5">
               {pushState === 'denied' ? t('profile.pushOnSubReenable') : t('profile.pushOnSubInvite')}
             </p>
           </div>

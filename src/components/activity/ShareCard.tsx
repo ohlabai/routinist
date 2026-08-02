@@ -1746,7 +1746,7 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
           />
           {!bgImage && !attachedVideoUrl && (
             <div
-              className="absolute left-6 px-3 py-1.5 rounded-full bg-black/55 backdrop-blur-sm text-white text-[11px] font-bold pointer-events-none inline-flex items-center gap-1"
+              className="absolute left-6 px-3 py-1.5 rounded-full bg-black/55 backdrop-blur-sm text-white text-[13px] font-bold pointer-events-none inline-flex items-center gap-1"
               style={{ top: 'calc(env(safe-area-inset-top, 0px) + 28px)' }}
             >
               📷 {locale === 'en' ? 'Tap to add a background photo' : '탭해서 배경 사진 추가'}
@@ -1809,7 +1809,7 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
                   <Check size={10} className="absolute text-white pointer-events-none" strokeWidth={3} />
                 )}
               </span>
-              <span className="text-[11px] text-[var(--muted)]">{tt('러너 한 줄에도 저장 (소셜 탭에서 보임)')}</span>
+              <span className="text-[13px] text-[var(--muted)]">{tt('러너 한 줄에도 저장 (소셜 탭에서 보임)')}</span>
             </label>
           )}
         </div>

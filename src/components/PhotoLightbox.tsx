@@ -217,7 +217,7 @@ export default function PhotoLightbox({ photos, initialIndex = 0, onClose, showP
       />
       {currentOriginal && (
         <div
-          className="absolute left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur text-white/90 text-[11px] font-bold pointer-events-none z-10"
+          className="absolute left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur text-white/90 text-[13px] font-bold pointer-events-none z-10"
           style={{ top: 'calc(env(safe-area-inset-top, 0px) + 20px)' }}
         >
           {showOriginal
@@ -330,7 +330,7 @@ export default function PhotoLightbox({ photos, initialIndex = 0, onClose, showP
             )}
           </div>
         )}
-        <p className="text-[10px] text-white/60 text-center font-bold">{index + 1} / {photos.length}</p>
+        <p className="text-[12px] text-white/60 text-center font-bold">{index + 1} / {photos.length}</p>
       </div>
     </div>
   );

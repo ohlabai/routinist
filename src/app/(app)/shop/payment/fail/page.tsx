@@ -41,7 +41,7 @@ function PaymentFailContent() {
         </div>
         <h1 className="text-2xl font-extrabold text-[var(--foreground)] mb-2">{tt('결제 실패')}</h1>
         <p className="text-sm text-[var(--foreground)] max-w-xs mx-auto break-keep mb-1">{message}</p>
-        {code && <p className="text-[10px] text-[var(--muted)]/70 font-mono mb-5">[{code}]</p>}
+        {code && <p className="text-[12px] text-[var(--muted)]/70 font-mono mb-5">[{code}]</p>}
         <p className="text-xs text-[var(--muted)] mb-8 max-w-xs mx-auto break-keep">
           {tt('다시 시도하시거나, 다른 결제 수단으로 진행해주세요')}
         </p>

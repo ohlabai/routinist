@@ -112,7 +112,7 @@ export default function AdminCoursesPage() {
             >
               <div className="flex items-center gap-2">
                 <span className="text-sm font-extrabold flex-1">{c.name}</span>
-                {!c.is_active && <span className="text-[10px] font-bold text-rose-500">비활성</span>}
+                {!c.is_active && <span className="text-[12px] font-bold text-rose-500">비활성</span>}
               </div>
               <p className="text-xs text-[var(--muted)] mt-0.5">
                 {c.country ?? '—'} · {c.distance_km.toFixed(1)}km · {c.entry_fee_p ?? 0}P
@@ -258,7 +258,7 @@ function JsonField({ label, value, onChange }: { label: string; value: unknown; 
         className={`${fieldCls} resize-none font-mono text-xs`}
         placeholder='예) [{"km":0,"name":"시작"}]'
       />
-      {err && <p className="text-[10px] text-rose-500 mt-1">{err}</p>}
+      {err && <p className="text-[12px] text-rose-500 mt-1">{err}</p>}
     </div>
   );
 }

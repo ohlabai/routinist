@@ -119,7 +119,7 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
               </div>
               <div className="min-w-0">
                 <h3 className="text-base font-extrabold tracking-tight truncate">{course ? tt(course.name) : tt('코스')}</h3>
-                <p className="text-[11px] text-[var(--muted)] truncate">
+                <p className="text-[13px] text-[var(--muted)] truncate">
                   {course?.country ?? ''} {course && `· ${course.distance_km.toFixed(1)}km`}
                 </p>
               </div>
@@ -161,7 +161,7 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                               {r.avatar_url
                                 ? // eslint-disable-next-line @next/next/no-img-element
                                   <img src={r.avatar_url} alt="" className="w-full h-full object-cover" />
-                                : <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-zinc-600">{r.display_name?.[0] ?? tt('러')}</div>
+                                : <div className="w-full h-full flex items-center justify-center text-[12px] font-bold text-zinc-600">{r.display_name?.[0] ?? tt('러')}</div>
                               }
                             </div>
                           ))}
@@ -240,7 +240,7 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                     ? 'bg-gradient-to-br from-amber-50 to-orange-50/40 dark:from-amber-950/30 dark:to-amber-950/10 border-amber-300/60 dark:border-amber-800/40'
                     : 'bg-gradient-to-br from-emerald-50/60 to-transparent dark:from-emerald-950/15 border-emerald-200/40 dark:border-emerald-900/30'
                 }`}>
-                  <p className="text-[10px] font-extrabold uppercase tracking-widest mb-1.5 inline-flex items-center gap-1
+                  <p className="text-[12px] font-extrabold uppercase tracking-widest mb-1.5 inline-flex items-center gap-1
                                  text-emerald-700 dark:text-emerald-300">
                     💭 {completed ? tt('시작했을 때 마음') : tt('왜 달리고 있나요')}
                   </p>
@@ -287,7 +287,7 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                               ? 'bg-gradient-to-r from-amber-50 to-amber-50/40 dark:from-amber-950/30 dark:to-amber-950/15 border border-amber-300/60 dark:border-amber-800/40'
                               : 'bg-[var(--card)] border border-[var(--card-border)]/40'
                           }`}>
-                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-extrabold flex-shrink-0 ${
+                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[13px] font-extrabold flex-shrink-0 ${
                               i === 0 ? 'bg-amber-100 text-amber-700' :
                               i === 1 ? 'bg-zinc-200 text-zinc-700' :
                               i === 2 ? 'bg-orange-100 text-orange-700' :
@@ -300,7 +300,7 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img src={r.avatar_url} alt="" className="w-full h-full object-cover" />
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center text-[11px] font-bold text-[var(--muted)]">
+                                <div className="w-full h-full flex items-center justify-center text-[13px] font-bold text-[var(--muted)]">
                                   {r.display_name.slice(0, 1)}
                                 </div>
                               )}
@@ -308,10 +308,10 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                             <div className="flex-1 min-w-0">
                               <div className="flex items-baseline justify-between gap-2">
                                 <span className={`text-sm truncate ${isMe ? 'font-extrabold text-amber-700 dark:text-amber-300' : 'font-bold'}`}>
-                                  {r.display_name}{isMe && <span className="ml-1 text-[10px] font-bold">{tt('(나)')}</span>}
+                                  {r.display_name}{isMe && <span className="ml-1 text-[12px] font-bold">{tt('(나)')}</span>}
                                   {r.completed_at && <Trophy size={11} className="inline ml-1 text-emerald-600" />}
                                 </span>
-                                <span className="text-[11px] font-extrabold text-[var(--muted)] tabular-nums flex-shrink-0">
+                                <span className="text-[13px] font-extrabold text-[var(--muted)] tabular-nums flex-shrink-0">
                                   {r.progress_km.toFixed(1)}km · {pct}%
                                 </span>
                               </div>
@@ -396,7 +396,7 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-extrabold text-white">{tt('대회 영상 보기')}</p>
-                      <p className="text-[11px] text-white/85 mt-0.5">{tt('YouTube 에서 코스 미리보기')}</p>
+                      <p className="text-[13px] text-white/85 mt-0.5">{tt('YouTube 에서 코스 미리보기')}</p>
                     </div>
                     <ExternalLink size={16} className="text-white/85" />
                   </div>
@@ -422,12 +422,12 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                   <div className="space-y-2">
                     {course.landmarks.map((l, i) => (
                       <div key={i} className="flex items-start gap-2.5 px-2 py-1.5">
-                        <span className="text-[11px] font-extrabold text-emerald-600 tabular-nums w-12 flex-shrink-0">
+                        <span className="text-[13px] font-extrabold text-emerald-600 tabular-nums w-12 flex-shrink-0">
                           {l.km.toFixed(1)}km
                         </span>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-bold">{tt(l.name)}</p>
-                          {l.description && <p className="text-[11px] text-[var(--muted)] mt-0.5 leading-snug">{tt(l.description)}</p>}
+                          {l.description && <p className="text-[13px] text-[var(--muted)] mt-0.5 leading-snug">{tt(l.description)}</p>}
                         </div>
                       </div>
                     ))}
@@ -451,7 +451,7 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                     ))}
                   </div>
                   {course.course_record && (
-                    <p className="text-[11px] text-[var(--muted)] mt-2 italic border-t border-[var(--card-border)]/40 pt-2">
+                    <p className="text-[13px] text-[var(--muted)] mt-2 italic border-t border-[var(--card-border)]/40 pt-2">
                       {tt('코스 기록:')} {course.course_record}
                     </p>
                   )}
@@ -470,7 +470,7 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                     </div>
                     <div>
                       <p className="text-sm font-extrabold text-amber-900 dark:text-amber-200">{tt('🎉 완주 축하해요!')}</p>
-                      <p className="text-[11px] text-amber-700/80 dark:text-amber-300/80">{tt('디지털 인증서를 다운받거나 실물 메달을 신청하세요')}</p>
+                      <p className="text-[13px] text-amber-700/80 dark:text-amber-300/80">{tt('디지털 인증서를 다운받거나 실물 메달을 신청하세요')}</p>
                     </div>
                   </div>
 
@@ -498,13 +498,13 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
                   </div>
 
                   {medal?.request_status && medal.request_status !== 'none' && (
-                    <div className="text-[11px] text-amber-800 dark:text-amber-200 px-2 py-2 rounded-lg bg-white/40 dark:bg-black/20">
+                    <div className="text-[13px] text-amber-800 dark:text-amber-200 px-2 py-2 rounded-lg bg-white/40 dark:bg-black/20">
                       <span className="font-extrabold">{tt('상태:')}</span> {tt(STATUS_LABEL[medal.request_status])}
                       {medal.shipping_address && <> · {medal.shipping_address.slice(0, 40)}</>}
                     </div>
                   )}
 
-                  <p className="text-[10px] text-amber-700/70 dark:text-amber-300/70 leading-relaxed">
+                  <p className="text-[12px] text-amber-700/70 dark:text-amber-300/70 leading-relaxed">
                     {locale === 'en'
                       ? `💌 Physical medal ₩${MEDAL_PRICE.toLocaleString()} (shipping included). Ships 1–2 weeks after request.`
                       : `💌 실물 메달은 ${MEDAL_PRICE.toLocaleString()}원 (배송비 포함). 신청 후 1~2주 내 발송.`}
@@ -528,7 +528,7 @@ export default function CourseDetailSheet({ courseId, onClose, onStartCourse }: 
             >
               <Trophy size={16} /> {locale === 'en' ? `Start for ${course.entry_fee_p.toLocaleString()} mileage` : `${course.entry_fee_p.toLocaleString()} 마일리지로 도전 시작`}
             </button>
-            <p className="text-[11px] text-center text-[var(--muted)] mt-1.5">
+            <p className="text-[13px] text-center text-[var(--muted)] mt-1.5">
               {locale === 'en' ? `${runners.length} runner${runners.length === 1 ? ' is' : 's are'} on this course right now` : `지금 ${runners.length}명이 함께 달리고 있어요`}
             </p>
           </div>
@@ -738,7 +738,7 @@ function GoogleLiveTracker({ realPath, runners, myUserId }: {
       {/* build 220 #4a: 사용자가 '지도 중간 파란점이 뭐지?' 라고 물음.
           마커가 무엇을 의미하는지 한 줄 범례. */}
       {loaded && (
-        <div className="px-3 py-2 bg-[var(--card)] border-t border-[var(--card-border)] text-[10px] flex items-center gap-2.5 flex-wrap text-[var(--muted)]">
+        <div className="px-3 py-2 bg-[var(--card)] border-t border-[var(--card-border)] text-[12px] flex items-center gap-2.5 flex-wrap text-[var(--muted)]">
           <span className="inline-flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500" /> {tt('시작')}</span>
           <span className="inline-flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-orange-500" /> {tt('도착')}</span>
           <span className="inline-flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200" /> {tt('나')}</span>
@@ -828,7 +828,7 @@ function ElevationChart({ points }: { points: { km: number; m: number }[] }) {
         <path d={areaPath} fill="url(#elev-grad)" />
         <path d={linePath} fill="none" stroke="#10b981" strokeWidth="0.8" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      <div className="flex items-center justify-between text-[10px] text-[var(--muted)] font-bold mt-1">
+      <div className="flex items-center justify-between text-[12px] text-[var(--muted)] font-bold mt-1">
         <span>0km · {Math.round(points[0].m)}m</span>
         <span className="text-emerald-600">{tt('최고')} {Math.round(maxM)}m</span>
         <span>{points[points.length - 1].km.toFixed(1)}km · {Math.round(points[points.length - 1].m)}m</span>
@@ -906,12 +906,12 @@ function LiveTrackerMap({ path, runners, myUserId }: { path: PreviewPoint[] | nu
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={r.avatar_url} alt="" className="w-full h-full object-cover" />
               ) : (
-                <div className={`w-full h-full flex items-center justify-center font-extrabold text-[10px] ${isMe ? 'bg-emerald-500 text-white' : 'bg-white text-emerald-600'}`}>
+                <div className={`w-full h-full flex items-center justify-center font-extrabold text-[12px] ${isMe ? 'bg-emerald-500 text-white' : 'bg-white text-emerald-600'}`}>
                   {r.display_name.slice(0, 1)}
                 </div>
               )}
             </div>
-            <div className={`mt-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-extrabold whitespace-nowrap max-w-[80px] truncate ${isMe ? 'bg-emerald-500 text-white' : 'bg-white/95 dark:bg-zinc-900/95 text-[var(--foreground)] shadow-sm'}`}>
+            <div className={`mt-0.5 px-1.5 py-0.5 rounded-md text-[11px] font-extrabold whitespace-nowrap max-w-[80px] truncate ${isMe ? 'bg-emerald-500 text-white' : 'bg-white/95 dark:bg-zinc-900/95 text-[var(--foreground)] shadow-sm'}`}>
               {r.display_name}
             </div>
           </div>
@@ -968,7 +968,7 @@ function MedalRequestForm({ courseId, courseName, initialName, existing, onClose
               </div>
               <div>
                 <h3 className="text-base font-extrabold">{tt('메달 신청')}</h3>
-                <p className="text-[11px] text-[var(--muted)]">{courseName}</p>
+                <p className="text-[13px] text-[var(--muted)]">{courseName}</p>
               </div>
             </div>
             <button onClick={onClose} className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[var(--card-border)]/40 active:scale-90">
@@ -982,7 +982,7 @@ function MedalRequestForm({ courseId, courseName, initialName, existing, onClose
             <p className="text-sm font-extrabold text-amber-900 dark:text-amber-200 inline-flex items-center gap-1.5">
               <Sparkles size={14} /> {locale === 'en' ? `Souvenir medal ₩${MEDAL_PRICE.toLocaleString()}` : `기념 메달 ${MEDAL_PRICE.toLocaleString()}원`}
             </p>
-            <p className="text-[11px] text-amber-700/80 dark:text-amber-300/80 mt-1 leading-relaxed">
+            <p className="text-[13px] text-amber-700/80 dark:text-amber-300/80 mt-1 leading-relaxed">
               {tt('배송비 포함. 신청 접수 후 결제 안내 메시지를 보내드려요. 결제 확인 후 1~2주 내 발송.')}
             </p>
           </div>

@@ -263,7 +263,7 @@ function ProductDetailContent() {
       {/* 상품 정보 카드 */}
       <div className="px-4 pt-5 pb-4">
         {product.brand && (
-          <p className="text-[11px] font-extrabold text-emerald-600 uppercase tracking-widest mb-1.5">{product.brand}</p>
+          <p className="text-[13px] font-extrabold text-emerald-600 uppercase tracking-widest mb-1.5">{product.brand}</p>
         )}
         <h1 className="text-xl font-extrabold text-[var(--foreground)] leading-tight mb-3">{product.name}</h1>
 
@@ -289,7 +289,7 @@ function ProductDetailContent() {
 
         {/* 재고 긴급 안내 */}
         {!isSoldOut && availableStock > 0 && availableStock <= 5 && (
-          <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 text-[11px] font-extrabold mb-2.5 animate-pulse">
+          <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 text-[13px] font-extrabold mb-2.5 animate-pulse">
             🔥 {locale === 'en' ? `Only ${availableStock} left` : `마지막 ${availableStock}개 남음`}
           </div>
         )}
@@ -338,7 +338,7 @@ function ProductDetailContent() {
               <Truck size={16} className="text-emerald-600" />
             </div>
             <div>
-              <p className="text-[10px] text-[var(--muted)] font-medium">{locale === 'en' ? 'Always' : '무조건'}</p>
+              <p className="text-[12px] text-[var(--muted)] font-medium">{locale === 'en' ? 'Always' : '무조건'}</p>
               <p className="text-xs font-bold text-[var(--foreground)]">{locale === 'en' ? 'Same-day shipping' : '당일 출고'}</p>
             </div>
           </div>
@@ -347,7 +347,7 @@ function ProductDetailContent() {
               <ShieldCheck size={16} className="text-emerald-600" />
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] text-[var(--muted)] font-medium whitespace-nowrap">{locale === 'en' ? 'Over ₩10,000' : '1만원 이상'}</p>
+              <p className="text-[12px] text-[var(--muted)] font-medium whitespace-nowrap">{locale === 'en' ? 'Over ₩10,000' : '1만원 이상'}</p>
               <p className="text-xs font-bold text-[var(--foreground)] whitespace-nowrap">{locale === 'en' ? 'Free shipping' : '무료 배송'}</p>
             </div>
           </div>
@@ -500,7 +500,7 @@ function ProductDetailContent() {
                         >
                           <span className="block truncate">{v.option_value}</span>
                           {v.price_delta_krw !== 0 && (
-                            <span className="block text-[10px] mt-0.5 opacity-90">
+                            <span className="block text-[12px] mt-0.5 opacity-90">
                               {v.price_delta_krw > 0 ? '+' : ''}{v.price_delta_krw.toLocaleString()}
                             </span>
                           )}

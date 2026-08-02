@@ -231,7 +231,7 @@ function ProductEditContent() {
                 <div className="text-center">
                   <ImagePlus size={32} className="mx-auto text-emerald-500 mb-2" />
                   <p className="text-xs font-bold text-[var(--foreground)]">{uploading ? '업로드 중…' : '클릭해서 업로드'}</p>
-                  <p className="text-[10px] text-[var(--muted)] mt-0.5">정사각 이미지 권장</p>
+                  <p className="text-[12px] text-[var(--muted)] mt-0.5">정사각 이미지 권장</p>
                 </div>
               </label>
             )}
@@ -305,19 +305,19 @@ function ProductEditContent() {
                   <div key={v.id} className="grid grid-cols-[1fr_1fr_70px_60px_32px] gap-1.5 items-center">
                     <input type="text" placeholder="옵션명" value={v.option_name ?? ''}
                       onChange={e => updateVariant(v.id, { option_name: e.target.value })}
-                      className="px-2 py-2 rounded-xl border-2 border-[var(--card-border)] bg-[var(--background)] text-[11px] font-medium focus:outline-none focus:border-emerald-500"
+                      className="px-2 py-2 rounded-xl border-2 border-[var(--card-border)] bg-[var(--background)] text-[13px] font-medium focus:outline-none focus:border-emerald-500"
                     />
                     <input type="text" placeholder="값" value={v.option_value ?? ''}
                       onChange={e => updateVariant(v.id, { option_value: e.target.value })}
-                      className="px-2 py-2 rounded-xl border-2 border-[var(--card-border)] bg-[var(--background)] text-[11px] font-medium focus:outline-none focus:border-emerald-500"
+                      className="px-2 py-2 rounded-xl border-2 border-[var(--card-border)] bg-[var(--background)] text-[13px] font-medium focus:outline-none focus:border-emerald-500"
                     />
                     <input type="number" placeholder="±가격" value={v.price_delta_krw}
                       onChange={e => updateVariant(v.id, { price_delta_krw: parseInt(e.target.value) || 0 })}
-                      className="px-2 py-2 rounded-xl border-2 border-[var(--card-border)] bg-[var(--background)] text-[11px] font-medium focus:outline-none focus:border-emerald-500"
+                      className="px-2 py-2 rounded-xl border-2 border-[var(--card-border)] bg-[var(--background)] text-[13px] font-medium focus:outline-none focus:border-emerald-500"
                     />
                     <input type="number" placeholder="재고" value={v.stock}
                       onChange={e => updateVariant(v.id, { stock: parseInt(e.target.value) || 0 })}
-                      className="px-2 py-2 rounded-xl border-2 border-[var(--card-border)] bg-[var(--background)] text-[11px] font-medium focus:outline-none focus:border-emerald-500"
+                      className="px-2 py-2 rounded-xl border-2 border-[var(--card-border)] bg-[var(--background)] text-[13px] font-medium focus:outline-none focus:border-emerald-500"
                     />
                     <button onClick={() => removeVariant(v.id)} className="text-red-500 active:scale-90">
                       <Trash2 size={14} className="mx-auto" />
@@ -432,7 +432,7 @@ function Field({ label, children }: { label: string; children: React.ReactElemen
   }`;
   return (
     <div>
-      <label className="block text-[10px] font-bold text-[var(--muted)] mb-1 px-0.5 uppercase tracking-wider">{label}</label>
+      <label className="block text-[12px] font-bold text-[var(--muted)] mb-1 px-0.5 uppercase tracking-wider">{label}</label>
       {React.cloneElement(children, { className })}
     </div>
   );

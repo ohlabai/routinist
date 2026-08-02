@@ -363,7 +363,7 @@ function RunnerCard({ r, following, sent, busy, onFollow }: {
             {ageOf(r.birth_year, locale) && <span className="ml-1">· {ageOf(r.birth_year, locale)}</span>}
           </p>
           {r.bio && <p className="text-xs text-[var(--muted)] mt-1 line-clamp-2 italic">{r.bio}</p>}
-          <p className="text-[11px] text-[var(--muted)] inline-flex items-center gap-2 mt-1.5">
+          <p className="text-[13px] text-[var(--muted)] inline-flex items-center gap-2 mt-1.5">
             <span className="inline-flex items-center gap-0.5 font-bold">
               <Activity size={10} className="text-emerald-500" />
               {isActive30d
@@ -520,7 +520,7 @@ function PaceMatchedSection({ runners, loading, followingIds, sentMap, busy, onF
                 <p className="text-xs text-[var(--muted)] inline-flex items-center gap-1 mt-0.5">
                   <MapPin size={11} /> {r.region_gu ?? tt('지역 미설정')}
                 </p>
-                <div className="mt-1.5 flex items-center gap-3 text-[11px]">
+                <div className="mt-1.5 flex items-center gap-3 text-[13px]">
                   <span className="inline-flex items-center gap-0.5 font-bold text-emerald-600">
                     <Zap size={11} /> {formatPace(r.avg_pace_sec)}/km
                   </span>

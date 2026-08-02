@@ -328,7 +328,7 @@ export default function HomeCalendarCard() {
                 {day}
               </span>
               {km > 0 && (
-                <span className={`absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[10px] font-semibold leading-none whitespace-nowrap ${textWhite ? 'text-white/95 drop-shadow' : 'text-[var(--muted)]'}`}>
+                <span className={`absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[12px] font-semibold leading-none whitespace-nowrap ${textWhite ? 'text-white/95 drop-shadow' : 'text-[var(--muted)]'}`}>
                   {km.toFixed(1)}
                 </span>
               )}
@@ -381,7 +381,7 @@ export default function HomeCalendarCard() {
                 <span className="flex-1 min-w-0 text-sm font-semibold text-[var(--foreground)]">
                   {Number(a.distance_km).toFixed(2)} km
                   {a.activity_type === 'walking' && (
-                    <span className="ml-1.5 px-1.5 py-0.5 rounded-md bg-sky-100 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 text-[10px] font-bold align-middle">🚶 {tt('걷기')}</span>
+                    <span className="ml-1.5 px-1.5 py-0.5 rounded-md bg-sky-100 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 text-[12px] font-bold align-middle">🚶 {tt('걷기')}</span>
                   )}
                   <span className="text-[var(--muted)] font-normal ml-2 text-xs">
                     {(() => { const ts = a.started_at ?? a.created_at; return ts ? new Date(ts).toLocaleTimeString(locale === 'en' ? 'en-US' : 'ko-KR', { hour: '2-digit', minute: '2-digit' }) : ''; })()}

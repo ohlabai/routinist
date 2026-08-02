@@ -39,8 +39,8 @@ export default function AchievementsCard({ userId }: Props) {
           return (
             <div key={a.code} className="rounded-xl bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/20 border border-amber-200/60 dark:border-amber-800/40 p-2.5 text-center">
               <div className="text-2xl">{def.emoji}</div>
-              <p className="text-[10px] font-extrabold mt-1 text-amber-900 dark:text-amber-200 leading-tight">{tt(def.name)}</p>
-              <p className="text-[9px] text-amber-700/80 dark:text-amber-300/80 mt-0.5 line-clamp-1">{tt(def.description)}</p>
+              <p className="text-[12px] font-extrabold mt-1 text-amber-900 dark:text-amber-200 leading-tight">{tt(def.name)}</p>
+              <p className="text-[11px] text-amber-700/80 dark:text-amber-300/80 mt-0.5 line-clamp-1">{tt(def.description)}</p>
             </div>
           );
         })}

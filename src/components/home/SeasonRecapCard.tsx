@@ -60,7 +60,7 @@ export default function SeasonRecapCard() {
           className="w-full text-left rounded-2xl p-4 bg-gradient-to-br from-rose-500 via-fuchsia-500 to-violet-600 text-white shadow-lg shadow-fuchsia-500/30 active:scale-[0.99] disabled:opacity-60 transition">
           <div className="flex items-center gap-2 mb-1">
             <Award size={16} className="text-white" />
-            <span className="text-[11px] font-extrabold tracking-widest uppercase text-white/85">Season Recap</span>
+            <span className="text-[13px] font-extrabold tracking-widest uppercase text-white/85">Season Recap</span>
             <Sparkles size={12} className="text-white/85 ml-auto" />
           </div>
           <p className="text-lg font-extrabold">{season.label}</p>

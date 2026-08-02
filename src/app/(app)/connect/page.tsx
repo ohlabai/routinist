@@ -231,7 +231,7 @@ export default function ConnectPage() {
                 {connected && (
                   <div className="mt-1 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40">
                     <p className="text-xs font-bold text-amber-800 dark:text-amber-200 mb-1.5">권한 항목을 바꾸고 싶다면</p>
-                    <p className="text-[11px] leading-relaxed text-amber-700 dark:text-amber-300">
+                    <p className="text-[13px] leading-relaxed text-amber-700 dark:text-amber-300">
                       iPhone <span className="font-extrabold">설정 앱 → 개인정보 보호 및 보안 → 건강 → Routinist</span> 에서<br/>
                       가져올 데이터(러닝/심박수/칼로리 등)를 다시 선택할 수 있어요
                     </p>
@@ -265,7 +265,7 @@ export default function ConnectPage() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-extrabold text-[var(--foreground)]">걷기 기록도 가져오기</p>
-            <p className="text-[11px] text-[var(--muted)] mt-0.5 leading-snug">
+            <p className="text-[13px] text-[var(--muted)] mt-0.5 leading-snug">
               끄면 러닝 기록만 가져와요 · 걷기는 기록에 &lsquo;걷기&rsquo;로 구분 표시돼요
             </p>
           </div>

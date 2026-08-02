@@ -96,7 +96,7 @@ export default function MyQuotesPage() {
           <div className="relative">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm mb-2">
               <Sparkles size={11} className="text-white" />
-              <span className="text-[10px] font-extrabold text-white tracking-widest">MY QUOTES</span>
+              <span className="text-[12px] font-extrabold text-white tracking-widest">MY QUOTES</span>
             </div>
             <p className="text-3xl font-extrabold text-white">
               {quotes.length}<span className="text-base font-bold ml-1">개</span>
@@ -121,7 +121,7 @@ export default function MyQuotesPage() {
             className="w-full px-3.5 py-2.5 rounded-xl border-2 border-[var(--card-border)] bg-[var(--background)] text-sm focus:outline-none focus:border-emerald-500 resize-none"
           />
           <div className="flex items-center justify-between">
-            <span className="text-[11px] text-[var(--muted)]">{input.length}/300</span>
+            <span className="text-[13px] text-[var(--muted)]">{input.length}/300</span>
             <button
               onClick={handleSubmit}
               disabled={submitting || input.trim().length < 3}
@@ -157,7 +157,7 @@ export default function MyQuotesPage() {
                 &ldquo;{q.text}&rdquo;
               </p>
               <div className="flex items-center justify-between mt-2.5">
-                <span className="text-[11px] text-[var(--muted)] inline-flex items-center gap-1.5">
+                <span className="text-[13px] text-[var(--muted)] inline-flex items-center gap-1.5">
                   <ThumbsUp size={11} className={q.like_count > 0 ? 'text-emerald-500' : 'text-[var(--muted)]'} fill={q.like_count > 0 ? '#10b981' : 'transparent'} />
                   {q.like_count}
                   {q.status === 'hidden' && (

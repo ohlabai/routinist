@@ -94,7 +94,7 @@ export default function MileagePage() {
             <div className="flex items-center justify-between mb-4">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm">
                 <Coins size={11} className="text-white" />
-                <span className="text-[10px] font-extrabold text-white tracking-widest">MY MILEAGE</span>
+                <span className="text-[12px] font-extrabold text-white tracking-widest">MY MILEAGE</span>
               </div>
               <Sparkles size={20} className="text-white/80" />
             </div>
@@ -184,7 +184,7 @@ export default function MileagePage() {
                       <p className="text-sm font-semibold text-[var(--foreground)] line-clamp-1">
                         {tx.description || txTypeLabel(tx.tx_type)}
                       </p>
-                      <p className="text-[11px] text-[var(--muted)] mt-0.5">
+                      <p className="text-[13px] text-[var(--muted)] mt-0.5">
                         {new Date(tx.created_at).toLocaleString(locale === 'en' ? 'en-US' : 'ko-KR', {
                           year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
                         })}
@@ -207,7 +207,7 @@ export default function MileagePage() {
             </div>
           )}
           {!loading && !hasMore && transactions.length > PAGE_SIZE && (
-            <p className="text-[11px] text-[var(--muted)] text-center py-3.5 font-medium">{tt('— 끝 —')}</p>
+            <p className="text-[13px] text-[var(--muted)] text-center py-3.5 font-medium">{tt('— 끝 —')}</p>
           )}
         </div>
       </section>

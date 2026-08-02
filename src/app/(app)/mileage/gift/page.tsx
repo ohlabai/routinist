@@ -71,7 +71,7 @@ export default function GiftMileagePage() {
             <Coins size={20} className="text-emerald-600" />
           </div>
           <div>
-            <p className="text-[10px] text-[var(--muted)] font-bold uppercase tracking-wider">보유 마일리지</p>
+            <p className="text-[12px] text-[var(--muted)] font-bold uppercase tracking-wider">보유 마일리지</p>
             <p className="text-xl font-extrabold text-[var(--foreground)]">
               {balance.toLocaleString()}<span className="text-sm ml-0.5 text-emerald-600">P</span>
             </p>
@@ -131,7 +131,7 @@ export default function GiftMileagePage() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-extrabold truncate">{selectedUser.display_name}</p>
-              <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider mt-0.5">받는 사람</p>
+              <p className="text-[12px] text-emerald-600 font-bold uppercase tracking-wider mt-0.5">받는 사람</p>
             </div>
             <button
               onClick={() => setSelectedUser(null)}

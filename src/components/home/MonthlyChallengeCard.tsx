@@ -96,7 +96,7 @@ export default function MonthlyChallengeCard({ embedded = false }: { embedded?: 
               : <Flame size={18} className="text-orange-500" />}
           </div>
           <div className="flex-1 min-w-0">
-            <p className={`text-[10px] font-extrabold tracking-widest uppercase ${
+            <p className={`text-[12px] font-extrabold tracking-widest uppercase ${
               completed ? 'text-amber-600 dark:text-amber-400' : 'text-orange-600 dark:text-orange-400'
             }`}>
               {locale === 'en' ? 'Monthly Basic Challenge' : '이달의 기본 챌린지'}
@@ -106,7 +106,7 @@ export default function MonthlyChallengeCard({ embedded = false }: { embedded?: 
             </p>
           </div>
           {!completed && (
-            <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-[var(--muted)] flex-shrink-0">
+            <span className="inline-flex items-center gap-0.5 text-[13px] font-bold text-[var(--muted)] flex-shrink-0">
               <CalendarDays size={12} />
               {locale === 'en' ? `${data.days_left}d left` : `${data.days_left}일 남음`}
             </span>

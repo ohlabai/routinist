@@ -226,18 +226,18 @@ export default function AddressesPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-sm font-extrabold">{a.recipient_name}</p>
                   {a.label && (
-                    <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 inline-flex items-center gap-1">
+                    <span className="text-[12px] font-bold text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 inline-flex items-center gap-1">
                       <Home size={10} /> {a.label}
                     </span>
                   )}
                   {a.is_default && (
-                    <span className="text-[10px] font-extrabold text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full bg-emerald-500 text-white inline-flex items-center gap-1">
+                    <span className="text-[12px] font-extrabold text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full bg-emerald-500 text-white inline-flex items-center gap-1">
                       <Star size={10} fill="currentColor" /> {locale === 'en' ? 'Default' : '기본'}
                     </span>
                   )}
                 </div>
               </div>
-              <p className="text-[11px] text-[var(--muted)] mb-1">{a.phone}</p>
+              <p className="text-[13px] text-[var(--muted)] mb-1">{a.phone}</p>
               <p className="text-xs text-[var(--foreground)] leading-relaxed">
                 [{a.postal_code}] {a.address_line1} {a.address_line2 ?? ''}
               </p>
@@ -245,20 +245,20 @@ export default function AddressesPage() {
                 {!a.is_default && (
                   <button
                     onClick={() => handleSetDefault(a.id)}
-                    className="flex-1 py-2 rounded-xl text-[11px] font-bold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-95"
+                    className="flex-1 py-2 rounded-xl text-[13px] font-bold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-95"
                   >
                     {locale === 'en' ? 'Set default' : '기본 지정'}
                   </button>
                 )}
                 <button
                   onClick={() => startEdit(a)}
-                  className="flex-1 py-2 rounded-xl text-[11px] font-bold text-[var(--muted)] hover:bg-[var(--card)] active:scale-95 inline-flex items-center justify-center gap-1"
+                  className="flex-1 py-2 rounded-xl text-[13px] font-bold text-[var(--muted)] hover:bg-[var(--card)] active:scale-95 inline-flex items-center justify-center gap-1"
                 >
                   <Edit2 size={11} /> {locale === 'en' ? 'Edit' : '수정'}
                 </button>
                 <button
                   onClick={() => handleDelete(a.id)}
-                  className="flex-1 py-2 rounded-xl text-[11px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 active:scale-95 inline-flex items-center justify-center gap-1"
+                  className="flex-1 py-2 rounded-xl text-[13px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 active:scale-95 inline-flex items-center justify-center gap-1"
                 >
                   <Trash2 size={11} /> {locale === 'en' ? 'Delete' : '삭제'}
                 </button>

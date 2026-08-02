@@ -316,13 +316,13 @@ export default function TrackSummarySheet({ finalState, userId, nativeEngine, on
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="text-center">
-                <div className="inline-flex items-center gap-1 text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest mb-1">
+                <div className="inline-flex items-center gap-1 text-[12px] font-bold text-[var(--muted)] uppercase tracking-widest mb-1">
                   <Clock size={11} /> {tt('시간')}
                 </div>
                 <p className="text-2xl font-extrabold tabular-nums">{formatDuration(elapsedSeconds)}</p>
               </div>
               <div className="text-center">
-                <div className="inline-flex items-center gap-1 text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest mb-1">
+                <div className="inline-flex items-center gap-1 text-[12px] font-bold text-[var(--muted)] uppercase tracking-widest mb-1">
                   <Activity size={11} /> {tt('평균 페이스')}
                 </div>
                 <p className="text-2xl font-extrabold tabular-nums">{formatPace(avgPaceSec)}</p>

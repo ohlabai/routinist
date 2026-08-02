@@ -170,11 +170,11 @@ export default function AdminOrdersPage() {
               <div className="flex items-center justify-between mb-2">
                 <div>
                   <p className="text-sm font-extrabold">{o.order_no ?? o.id.slice(0, 8)}</p>
-                  <p className="text-[11px] text-[var(--muted)]">
+                  <p className="text-[13px] text-[var(--muted)]">
                     {new Date(o.created_at).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
-                <span className={`text-[11px] font-extrabold px-2.5 py-1 rounded-full bg-[var(--card-border)]/40 ${orderStatusColor(o.status)}`}>
+                <span className={`text-[13px] font-extrabold px-2.5 py-1 rounded-full bg-[var(--card-border)]/40 ${orderStatusColor(o.status)}`}>
                   {orderStatusLabel(o.status)}
                 </span>
               </div>
@@ -194,7 +194,7 @@ export default function AdminOrdersPage() {
 
               {/* 운송장 (있을 때만) */}
               {o.tracking_no && (
-                <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+                <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-[13px] font-bold text-emerald-700 dark:text-emerald-300">
                   <Truck size={11} /> {o.tracking_carrier} {o.tracking_no}
                 </div>
               )}

@@ -146,11 +146,11 @@ function DonateInner() {
             <div className="rounded-3xl bg-gradient-to-br from-pink-50 via-white to-rose-50/30 dark:from-pink-950/30 dark:via-zinc-900 dark:to-rose-950/10 border border-pink-200/40 dark:border-pink-900/30 p-5">
               <div className="flex items-center gap-2 mb-1">
                 <Heart size={16} className="text-pink-500" />
-                <p className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-wide">마일리지 후원</p>
+                <p className="text-[12px] font-bold text-[var(--muted)] uppercase tracking-wide">마일리지 후원</p>
               </div>
               <p className="text-xs text-[var(--muted)] mt-2">내 마일리지를 클럽 활동에 후원해보세요. 클럽장이 운영비로 사용하거나 멤버 보상에 쓸 수 있어요.</p>
               <div className="mt-3 inline-flex items-center gap-1 bg-white/80 dark:bg-zinc-900/60 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                <span className="text-[10px] text-[var(--muted)] font-bold">잔액</span>
+                <span className="text-[12px] text-[var(--muted)] font-bold">잔액</span>
                 <span className="text-sm font-extrabold text-emerald-600 tabular-nums">{balance.toLocaleString()} P</span>
               </div>
             </div>
@@ -177,7 +177,7 @@ function DonateInner() {
                         {c.name}
                       </p>
                       {c.description && (
-                        <p className="text-[11px] text-[var(--muted)] truncate">{c.description}</p>
+                        <p className="text-[13px] text-[var(--muted)] truncate">{c.description}</p>
                       )}
                     </div>
                   </button>
@@ -211,7 +211,7 @@ function DonateInner() {
                 step={100}
                 className="w-full px-3 py-2 rounded-xl border border-[var(--card-border)] bg-[var(--background)] text-sm tabular-nums text-right font-bold"
               />
-              <p className="text-[10px] text-[var(--muted)] mt-1 text-center">최소 100 P · 보유 {balance.toLocaleString()} P</p>
+              <p className="text-[12px] text-[var(--muted)] mt-1 text-center">최소 100 P · 보유 {balance.toLocaleString()} P</p>
             </div>
 
             {/* 메시지 */}
@@ -224,7 +224,7 @@ function DonateInner() {
                 placeholder="예: 함께 달려요!"
                 className="w-full px-3 py-2 rounded-xl border border-[var(--card-border)] bg-[var(--background)] text-sm"
               />
-              <p className="text-[10px] text-[var(--muted)] mt-1 text-right">{message.length}/100</p>
+              <p className="text-[12px] text-[var(--muted)] mt-1 text-right">{message.length}/100</p>
             </div>
 
             <button

@@ -91,7 +91,7 @@ export default function RankingsPage() {
           <div className="relative">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm mb-2">
               <Trophy size={11} className="text-white" />
-              <span className="text-[10px] font-extrabold text-white tracking-widest">{`${year}.${String(month).padStart(2,'0')} ${ttl('랭킹')}`}</span>
+              <span className="text-[12px] font-extrabold text-white tracking-widest">{`${year}.${String(month).padStart(2,'0')} ${ttl('랭킹')}`}</span>
             </div>
             <p className="text-3xl font-extrabold text-white leading-tight inline-flex items-center gap-2">
               <MapPin size={22} className="text-white/80" />
@@ -154,7 +154,7 @@ export default function RankingsPage() {
       {/* 2026-07-15: 시/도 코호트 전환 — si 만 설정한 유저에겐 안내 불필요 */}
       {!profile?.region_si && !profile?.region_gu && (
         <div className="px-4 mt-3">
-          <div className="card p-3 inline-flex items-start gap-2 text-[11px]">
+          <div className="card p-3 inline-flex items-start gap-2 text-[13px]">
             <Sparkles size={12} className="text-emerald-500 flex-shrink-0 mt-0.5" />
             <p className="text-[var(--muted)]">
               <Link href="/profile/edit" className="text-emerald-600 font-bold underline">프로필</Link> {ttl(' 에서 지역을 설정하면 랭킹에 참여할 수 있어요')}
@@ -222,11 +222,11 @@ export default function RankingsPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-extrabold truncate">{r.display_name}</p>
-                    <p className="text-[11px] text-[var(--muted)]">{r.run_count}회 러닝</p>
+                    <p className="text-[13px] text-[var(--muted)]">{r.run_count}회 러닝</p>
                   </div>
                   <div className="text-right">
                     <p className="text-base font-extrabold text-emerald-600">{Number(r.monthly_km).toFixed(1)}</p>
-                    <p className="text-[10px] text-[var(--muted)] font-bold">km</p>
+                    <p className="text-[12px] text-[var(--muted)] font-bold">km</p>
                   </div>
                 </Link>
               );

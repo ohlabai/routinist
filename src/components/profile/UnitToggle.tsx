@@ -25,7 +25,7 @@ export default function UnitToggle() {
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="text-sm font-extrabold text-[var(--foreground)]">{tt('거리 단위')}</h3>
-          <p className="text-[11px] text-[var(--muted)] mt-0.5">{tt('킬로미터 또는 마일로 표시해요')}</p>
+          <p className="text-[13px] text-[var(--muted)] mt-0.5">{tt('킬로미터 또는 마일로 표시해요')}</p>
         </div>
         <div className="flex p-0.5 rounded-lg bg-white/70 dark:bg-zinc-900/40 border border-[var(--card-border)]/30 flex-shrink-0">
           {OPTIONS.map(opt => (

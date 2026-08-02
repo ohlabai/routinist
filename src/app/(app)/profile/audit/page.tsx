@@ -394,7 +394,7 @@ export default function DataAuditPage() {
               {diag.errors.length > 0 && (
                 <details className="pt-2 border-t border-[var(--card-border)]">
                   <summary className="text-xs text-[var(--muted)] cursor-pointer">상세 에러 ({diag.errors.length})</summary>
-                  <ul className="mt-1 space-y-0.5 text-[10px] text-rose-500">
+                  <ul className="mt-1 space-y-0.5 text-[12px] text-rose-500">
                     {diag.errors.map((err, i) => <li key={i}>• {err}</li>)}
                   </ul>
                 </details>

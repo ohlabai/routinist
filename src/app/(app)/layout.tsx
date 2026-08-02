@@ -386,7 +386,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="relative">
           <tab.Icon size={isActive ? 24 : 22} strokeWidth={isActive ? 2.5 : 1.75} />
           {badgeCount > 0 && (
-            <span className="absolute -top-1.5 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center leading-none shadow-md shadow-rose-500/30 tabular-nums">
+            <span className="absolute -top-1.5 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[12px] font-extrabold flex items-center justify-center leading-none shadow-md shadow-rose-500/30 tabular-nums">
               {badgeCount > 99 ? '99+' : badgeCount}
             </span>
           )}

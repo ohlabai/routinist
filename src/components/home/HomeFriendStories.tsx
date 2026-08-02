@@ -135,7 +135,7 @@ export default function HomeFriendStories() {
     <div className="mt-3">
       <div className="flex items-center justify-between mb-2 mx-4">
         <h3 className="text-sm font-bold text-[var(--foreground)]">{t('home.friendStoriesTitle')}</h3>
-        <Link href="/social?tab=photos" className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+        <Link href="/social?tab=photos" className="text-[13px] font-bold text-emerald-600 dark:text-emerald-400">
           {t('home.friendStoriesSeeAll')}
         </Link>
       </div>
@@ -155,9 +155,9 @@ export default function HomeFriendStories() {
                   <img src={s.avatar_url} alt="" className="w-full h-full object-cover" />
                 ) : null}
               </div>
-              <p className="text-[10px] font-bold text-white truncate drop-shadow">{s.display_name}</p>
+              <p className="text-[12px] font-bold text-white truncate drop-shadow">{s.display_name}</p>
             </div>
-            <p className="absolute bottom-1.5 left-2 right-2 text-[11px] font-extrabold text-white drop-shadow">
+            <p className="absolute bottom-1.5 left-2 right-2 text-[13px] font-extrabold text-white drop-shadow">
               {Number(s.distance_km).toFixed(1)}km
             </p>
           </button>

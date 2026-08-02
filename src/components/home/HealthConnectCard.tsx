@@ -153,7 +153,7 @@ export default function HealthConnectCard() {
           <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-200 flex items-center gap-1">
             <Check size={11} /> {tt('Apple Health 연동됨')}
           </p>
-          <p className="text-[11px] text-emerald-700/80 dark:text-emerald-300/80 truncate">
+          <p className="text-[13px] text-emerald-700/80 dark:text-emerald-300/80 truncate">
             {syncing && progress
               ? `${progress.label} · ${progress.percent}%`
               : lastSyncTs

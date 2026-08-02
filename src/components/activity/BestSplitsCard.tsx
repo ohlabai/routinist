@@ -63,7 +63,7 @@ export default function BestSplitsCard({ userId, activityId, routeData, newPBDis
         <Trophy size={16} className="text-emerald-500" />
         <h3 className="text-sm font-extrabold text-[var(--foreground)]">구간별 베스트</h3>
         {newPBSet.size > 0 && (
-          <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40">
+          <span className="ml-auto inline-flex items-center gap-1 text-[12px] font-extrabold text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40">
             <Sparkles size={10} /> NEW PB!
           </span>
         )}
@@ -88,12 +88,12 @@ export default function BestSplitsCard({ userId, activityId, routeData, newPBDis
                 <p className={`text-base font-extrabold tabular-nums ${isPB ? 'text-emerald-600' : 'text-[var(--foreground)]'}`}>
                   {formatSplitTime(sp.bestSeconds)}
                 </p>
-                <p className="text-[11px] text-[var(--muted)] tabular-nums">
+                <p className="text-[13px] text-[var(--muted)] tabular-nums">
                   페이스 {formatPaceFromSplit(sp.distanceMeters, sp.bestSeconds)} · {sp.distanceMeters >= 1000 ? `${(sp.distanceMeters / 1000).toFixed(1)}km` : `${sp.distanceMeters}m`}
                 </p>
               </div>
               {isPB && (
-                <span className="text-[10px] font-extrabold text-white bg-gradient-to-br from-emerald-500 to-emerald-600 px-2 py-0.5 rounded-full shadow-sm">
+                <span className="text-[12px] font-extrabold text-white bg-gradient-to-br from-emerald-500 to-emerald-600 px-2 py-0.5 rounded-full shadow-sm">
                   새 PB
                 </span>
               )}
@@ -112,7 +112,7 @@ export default function BestSplitsCard({ userId, activityId, routeData, newPBDis
             <Sparkles size={12} /> 자기 기록 {newPBSet.size}개 갱신!
             <ChevronRight size={12} />
           </p>
-          <p className="text-[11px] text-[var(--muted)] mt-0.5">자랑할 만한 기록이에요. 공유카드 만들어 보내볼까요?</p>
+          <p className="text-[13px] text-[var(--muted)] mt-0.5">자랑할 만한 기록이에요. 공유카드 만들어 보내볼까요?</p>
         </div>
       )}
     </div>

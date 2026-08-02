@@ -102,7 +102,7 @@ function InlineProfileForm({ onSaved }: { onSaved: () => void }) {
       </button>
       <div className="grid grid-cols-3 gap-2">
         <div>
-          <label className="text-[10px] text-[var(--muted)] block mb-1 px-0.5">{locale === 'en' ? 'Country' : '국가'}</label>
+          <label className="text-[12px] text-[var(--muted)] block mb-1 px-0.5">{locale === 'en' ? 'Country' : '국가'}</label>
           <input
             type="text"
             value={country}
@@ -113,7 +113,7 @@ function InlineProfileForm({ onSaved }: { onSaved: () => void }) {
           />
         </div>
         <div>
-          <label className="text-[10px] text-[var(--muted)] block mb-1 px-0.5">{locale === 'en' ? 'City' : '도시·시도'}</label>
+          <label className="text-[12px] text-[var(--muted)] block mb-1 px-0.5">{locale === 'en' ? 'City' : '도시·시도'}</label>
           <input
             type="text"
             value={sido}
@@ -123,7 +123,7 @@ function InlineProfileForm({ onSaved }: { onSaved: () => void }) {
           />
         </div>
         <div>
-          <label className="text-[10px] text-[var(--muted)] block mb-1 px-0.5">{locale === 'en' ? 'District' : '구·군'}</label>
+          <label className="text-[12px] text-[var(--muted)] block mb-1 px-0.5">{locale === 'en' ? 'District' : '구·군'}</label>
           <input
             type="text"
             value={gu}
@@ -162,7 +162,7 @@ function InlineProfileForm({ onSaved }: { onSaved: () => void }) {
         {saving ? tt('저장 중…') : tt('저장하기')}
       </button>
       {msg && (
-        <p className={`text-[11px] text-center ${msgKind === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+        <p className={`text-[13px] text-center ${msgKind === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
           {msg}
         </p>
       )}
@@ -208,7 +208,7 @@ function InlineMonthlyGoalForm({ onSaved }: { onSaved: () => void }) {
 
   return (
     <div className="mt-2 p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-emerald-200/60 dark:border-emerald-900/40 space-y-2.5">
-      <p className="text-[11px] text-[var(--muted)] leading-relaxed">
+      <p className="text-[13px] text-[var(--muted)] leading-relaxed">
         {locale === 'en'
           ? 'Set your distance goal for this month. Filling it up day by day is the fun part.'
           : '이번 달에 달릴 거리를 정해봐요. 매일 조금씩 채워가는 재미가 쏠쏠해요.'}
@@ -247,7 +247,7 @@ function InlineMonthlyGoalForm({ onSaved }: { onSaved: () => void }) {
         {saving ? tt('저장 중…') : (locale === 'en' ? 'Save goal' : '목표 저장하기')}
       </button>
       {msg && (
-        <p className={`text-[11px] text-center ${msgKind === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+        <p className={`text-[13px] text-center ${msgKind === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
           {msg}
         </p>
       )}
@@ -312,7 +312,7 @@ function InlineHealthConnect({ onSynced }: { onSynced: () => void }) {
         <Heart size={14} /> {syncing ? (locale === 'en' ? 'Syncing…' : '동기화 중…') : (locale === 'en' ? 'Connect Apple Health and import' : 'Apple Health 연동하고 가져오기')}
       </button>
       {msg && (
-        <p className={`text-[11px] text-center ${msgKind === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+        <p className={`text-[13px] text-center ${msgKind === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
           {msg}
         </p>
       )}
@@ -357,7 +357,7 @@ function InlineInviteCodeForm({ onClaimed }: { onClaimed: () => void }) {
 
   return (
     <div className="mt-2 p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-emerald-200/60 dark:border-emerald-900/40 space-y-2.5">
-      <p className="text-[11px] text-[var(--muted)] leading-relaxed">
+      <p className="text-[13px] text-[var(--muted)] leading-relaxed">
         {locale === 'en'
           ? 'Got a 6-letter code from a friend? Enter it and you both get 100P 🎁'
           : '친구에게 받은 6자리 초대 코드를 입력하면 서로 100P 를 받아요 🎁'}
@@ -382,7 +382,7 @@ function InlineInviteCodeForm({ onClaimed }: { onClaimed: () => void }) {
         {claiming ? tt('등록 중…') : tt('코드 등록하기')}
       </button>
       {msg && (
-        <p className={`text-[11px] text-center ${msgKind === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+        <p className={`text-[13px] text-center ${msgKind === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
           {msg}
         </p>
       )}
@@ -443,7 +443,7 @@ function RecommendedRunnersRow({ onFollowed }: { onFollowed: () => void }) {
 
   return (
     <div className="mt-2 p-3 rounded-2xl bg-white dark:bg-zinc-900 border border-emerald-200/60 dark:border-emerald-900/40">
-      <p className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 mb-2 inline-flex items-center gap-1">
+      <p className="text-[13px] font-bold text-emerald-700 dark:text-emerald-300 mb-2 inline-flex items-center gap-1">
         <Sparkles size={11} /> {tt('요즘 달리고 있는 러너들이에요')}
       </p>
       <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-0.5">
@@ -462,16 +462,16 @@ function RecommendedRunnersRow({ onFollowed }: { onFollowed: () => void }) {
                     </div>
                   )}
                 </div>
-                <p className="text-[11px] font-extrabold truncate mt-1.5 text-[var(--foreground)]">{r.display_name}</p>
+                <p className="text-[13px] font-extrabold truncate mt-1.5 text-[var(--foreground)]">{r.display_name}</p>
               </Link>
-              <p className="text-[10px] text-[var(--muted)] font-bold mt-0.5">
+              <p className="text-[12px] text-[var(--muted)] font-bold mt-0.5">
                 {locale === 'en' ? `${r.km_30d.toFixed(1)}km · 30d` : `30일 ${r.km_30d.toFixed(1)}km`}
               </p>
               <button
                 type="button"
                 onClick={() => handleFollow(r)}
                 disabled={busy === r.user_id || isFollowed}
-                className={`mt-1.5 w-full inline-flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-extrabold active:scale-95 transition disabled:opacity-70 ${
+                className={`mt-1.5 w-full inline-flex items-center justify-center gap-1 py-1.5 rounded-lg text-[13px] font-extrabold active:scale-95 transition disabled:opacity-70 ${
                   isFollowed
                     ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
                     : 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm shadow-emerald-500/25'
@@ -574,7 +574,7 @@ export default function HomeOnboardingCard() {
   return (
     <div className="mx-4 mt-3 rounded-3xl bg-gradient-to-br from-emerald-100/80 via-emerald-50/40 to-teal-50 dark:from-emerald-950/40 dark:via-emerald-950/20 dark:to-teal-950/20 border border-emerald-200/60 dark:border-emerald-900/40 p-5 shadow-sm">
       <div className="mb-3">
-        <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide inline-flex items-center gap-1">
+        <p className="text-[12px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide inline-flex items-center gap-1">
           <Sparkles size={11} /> {locale === 'en' ? `Day ${signupDays + 1}` : `가입 ${signupDays + 1}일째`}
         </p>
         <h3 className="text-lg font-extrabold text-[var(--foreground)] mt-0.5">{locale === 'en' ? 'Getting started' : '시작 가이드'}</h3>
@@ -601,7 +601,7 @@ export default function HomeOnboardingCard() {
               <span className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
                 it.done ? 'bg-emerald-500 text-white shadow-sm' : 'bg-[var(--card-border)]/40 text-[var(--muted)]'
               }`}>
-                {it.done ? <Check size={14} strokeWidth={3} /> : <span className="text-[10px] font-extrabold">{idx + 1}</span>}
+                {it.done ? <Check size={14} strokeWidth={3} /> : <span className="text-[12px] font-extrabold">{idx + 1}</span>}
               </span>
               <span className={`flex-1 text-center text-sm font-bold ${
                 it.done ? 'text-emerald-700 dark:text-emerald-400 line-through' : 'text-[var(--foreground)]'

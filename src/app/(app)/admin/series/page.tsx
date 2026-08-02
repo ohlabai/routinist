@@ -112,9 +112,9 @@ export default function AdminSeriesPage() {
               <div className="flex items-center gap-2">
                 <span className="text-xl">{s.emoji ?? '🏆'}</span>
                 <span className="text-sm font-extrabold flex-1">{s.name}</span>
-                {!s.is_active && <span className="text-[10px] font-bold text-rose-500">비활성</span>}
+                {!s.is_active && <span className="text-[12px] font-bold text-rose-500">비활성</span>}
               </div>
-              <p className="text-[11px] text-[var(--muted)] mt-0.5 font-mono">{s.slug}</p>
+              <p className="text-[13px] text-[var(--muted)] mt-0.5 font-mono">{s.slug}</p>
               {s.description && <p className="text-xs text-[var(--muted)] mt-1 line-clamp-2">{s.description}</p>}
             </button>
           ))

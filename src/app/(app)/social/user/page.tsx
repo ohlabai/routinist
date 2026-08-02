@@ -757,18 +757,18 @@ function FriendWeeklyRecap({ userId }: { userId: string }) {
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 p-3">
-          <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">{tt('이번 주')}</p>
+          <p className="text-[12px] font-bold text-emerald-700 dark:text-emerald-300">{tt('이번 주')}</p>
           <p className="text-xl font-extrabold text-[var(--foreground)] mt-0.5 tabular-nums">{Number(recap.week_km).toFixed(1)}<span className="text-xs ml-0.5">km</span></p>
-          <p className="text-[11px] text-[var(--muted)] mt-0.5 font-bold">
+          <p className="text-[13px] text-[var(--muted)] mt-0.5 font-bold">
             {locale === 'en'
               ? `${recap.week_runs} runs · longest ${Number(recap.week_longest).toFixed(1)}km · ${paceStr}/km`
               : `${recap.week_runs}회 · 최장 ${Number(recap.week_longest).toFixed(1)}km · ${paceStr}/km`}
           </p>
         </div>
         <div className="rounded-xl bg-amber-50/60 dark:bg-amber-950/20 p-3">
-          <p className="text-[10px] font-bold text-amber-700 dark:text-amber-300">{tt('이번 달')}</p>
+          <p className="text-[12px] font-bold text-amber-700 dark:text-amber-300">{tt('이번 달')}</p>
           <p className="text-xl font-extrabold text-[var(--foreground)] mt-0.5 tabular-nums">{Number(recap.month_km).toFixed(1)}<span className="text-xs ml-0.5">km</span></p>
-          <p className="text-[11px] text-[var(--muted)] mt-0.5 font-bold">{locale === 'en' ? `${recap.month_runs} runs` : `${recap.month_runs}회`}</p>
+          <p className="text-[13px] text-[var(--muted)] mt-0.5 font-bold">{locale === 'en' ? `${recap.month_runs} runs` : `${recap.month_runs}회`}</p>
         </div>
       </div>
     </div>
@@ -818,7 +818,7 @@ function FriendCoursesCard({ userId }: { userId: string }) {
             </div>
           );
         })}
-        {list.length > 5 && <p className="text-[10px] text-[var(--muted)] text-center mt-1">{locale === 'en' ? `+ ${list.length - 5} more` : `+ ${list.length - 5}개 더`}</p>}
+        {list.length > 5 && <p className="text-[12px] text-[var(--muted)] text-center mt-1">{locale === 'en' ? `+ ${list.length - 5} more` : `+ ${list.length - 5}개 더`}</p>}
       </div>
     </div>
   );
@@ -871,14 +871,14 @@ function FriendCalendarCard({ userId }: { userId: string }) {
       </div>
       <div className="grid grid-cols-7 gap-1">
         {['일','월','화','수','목','금','토'].map(d => (
-          <div key={d} className={`text-center text-[10px] font-bold ${d === '일' ? 'text-rose-500' : d === '토' ? 'text-blue-500' : 'text-[var(--muted)]'}`}>{d}</div>
+          <div key={d} className={`text-center text-[12px] font-bold ${d === '일' ? 'text-rose-500' : d === '토' ? 'text-blue-500' : 'text-[var(--muted)]'}`}>{d}</div>
         ))}
         {padded.map((c, i) => {
           if (!c) return <div key={i} className="aspect-square" />;
           return (
             <div
               key={i}
-              className={`aspect-square rounded-md flex flex-col items-center justify-center text-[10px] font-bold ${
+              className={`aspect-square rounded-md flex flex-col items-center justify-center text-[12px] font-bold ${
                 c.km === 0
                   ? 'bg-[var(--card-border)]/20 text-[var(--muted)]'
                   : c.km < 3
@@ -891,13 +891,13 @@ function FriendCalendarCard({ userId }: { userId: string }) {
               } ${c.isToday ? 'ring-2 ring-amber-400' : ''}`}
               title={`${c.date} · ${c.km.toFixed(1)}km`}
             >
-              <span className="text-[9px] opacity-70">{Number(c.date.slice(8, 10))}</span>
-              {c.km > 0 && <span className="text-[10px] tabular-nums">{c.km.toFixed(0)}</span>}
+              <span className="text-[11px] opacity-70">{Number(c.date.slice(8, 10))}</span>
+              {c.km > 0 && <span className="text-[12px] tabular-nums">{c.km.toFixed(0)}</span>}
             </div>
           );
         })}
       </div>
-      <div className="flex items-center justify-end gap-1.5 mt-2 text-[10px] text-[var(--muted)] font-bold">
+      <div className="flex items-center justify-end gap-1.5 mt-2 text-[12px] text-[var(--muted)] font-bold">
         <span>적음</span>
         <span className="w-3 h-3 rounded-sm bg-emerald-100 dark:bg-emerald-900/30" />
         <span className="w-3 h-3 rounded-sm bg-emerald-300/70" />
@@ -967,12 +967,12 @@ function FriendRankingBlock({ userId, monthlyKm }: { userId: string; monthlyKm: 
       {rank && (
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">{tt('이달 랭킹')}</p>
+            <p className="text-[12px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">{tt('이달 랭킹')}</p>
             <p className="text-lg font-extrabold text-[var(--foreground)] mt-0.5">
               <span className="text-emerald-600">{formatRank(rank.rank_position, locale)}</span>
               <span className="text-xs font-medium text-[var(--muted)] ml-1.5">{locale === 'en' ? `/ ${rank.total_in_scope} runners` : `/ ${rank.total_in_scope}명`}</span>
             </p>
-            <p className="text-[11px] text-[var(--muted)] mt-0.5">{rank.scope_label === '전체' ? tt('전체') : rank.scope_label}</p>
+            <p className="text-[13px] text-[var(--muted)] mt-0.5">{rank.scope_label === '전체' ? tt('전체') : rank.scope_label}</p>
           </div>
           <Trophy size={28} className="text-yellow-500" />
         </div>
@@ -980,13 +980,13 @@ function FriendRankingBlock({ userId, monthlyKm }: { userId: string; monthlyKm: 
       {goalKm && goalPct !== null && (
         <div className={rank ? 'pt-3 border-t border-[var(--card-border)]' : ''}>
           <div className="flex items-center justify-between mb-1.5">
-            <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">{tt('이달 목표')}</p>
+            <p className="text-[12px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">{tt('이달 목표')}</p>
             <p className="text-xs font-bold text-[var(--foreground)] tabular-nums">{monthlyKm.toFixed(1)} / {goalKm.toFixed(0)} km</p>
           </div>
           <div className="h-2 rounded-full bg-[var(--card-border)]/30 overflow-hidden">
             <div className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all" style={{ width: `${goalPct}%` }} />
           </div>
-          <p className="text-[11px] text-[var(--muted)] mt-1 text-right">{locale === 'en' ? `${goalPct}% done` : `${goalPct}% 진행`}</p>
+          <p className="text-[13px] text-[var(--muted)] mt-1 text-right">{locale === 'en' ? `${goalPct}% done` : `${goalPct}% 진행`}</p>
         </div>
       )}
     </div>
@@ -1055,7 +1055,7 @@ function FriendMiniMap({ userId }: { userId: string }) {
         </div>
         <div className="flex items-center gap-1.5">
           <span className="text-xs font-bold text-emerald-600 tabular-nums">{locale === 'en' ? `${withRoute.length} runs` : `${withRoute.length}회`}</span>
-          <span className="text-[10px] text-[var(--muted)]">{tt('지도 크게 보기')} →</span>
+          <span className="text-[12px] text-[var(--muted)]">{tt('지도 크게 보기')} →</span>
         </div>
       </div>
       <div className="rounded-xl bg-gradient-to-br from-emerald-50/60 via-white to-emerald-50/30 dark:from-emerald-950/20 dark:via-zinc-900 dark:to-emerald-950/10 border border-emerald-200/30 dark:border-emerald-900/20 overflow-hidden">
@@ -1112,7 +1112,7 @@ function FriendActivityChart({ userId }: { userId: string }) {
     <div className="card p-4">
       <div className="flex items-center justify-between mb-2.5">
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40">{tt('30일')}</span>
+          <span className="text-[12px] font-bold text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40">{tt('30일')}</span>
           <h3 className="text-sm font-extrabold">{tt('활동 그래프')}</h3>
         </div>
         <span className="text-xs font-bold text-emerald-600 tabular-nums">
@@ -1132,7 +1132,7 @@ function FriendActivityChart({ userId }: { userId: string }) {
           );
         })}
       </div>
-      <div className="flex items-center justify-between mt-1.5 text-[10px] text-[var(--muted)] font-bold">
+      <div className="flex items-center justify-between mt-1.5 text-[12px] text-[var(--muted)] font-bold">
         <span>{days[0].date.slice(5)}</span>
         <span>{tt('오늘')}</span>
       </div>

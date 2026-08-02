@@ -16,7 +16,7 @@ export default function BusinessFooter({ variant = 'compact', withTopBorder = tr
 
   return (
     <footer
-      className={`px-4 py-5 text-[11px] leading-relaxed text-[var(--muted)] ${
+      className={`px-4 py-5 text-[13px] leading-relaxed text-[var(--muted)] ${
         withTopBorder ? 'border-t border-[var(--card-border)]' : ''
       }`}
     >
@@ -53,7 +53,7 @@ export default function BusinessFooter({ variant = 'compact', withTopBorder = tr
         <Link href="/privacy" className="text-[var(--accent)] hover:underline">개인정보처리방침</Link>
       </nav>
 
-      <p className="mt-4 text-[10px] text-[var(--muted)]/70">
+      <p className="mt-4 text-[12px] text-[var(--muted)]/70">
         © {new Date().getFullYear()} {b.companyName}. All rights reserved.
       </p>
     </footer>

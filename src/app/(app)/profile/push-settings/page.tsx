@@ -210,7 +210,7 @@ export default function PushSettingsPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-extrabold">{c.label}</p>
-                  <p className="text-[11px] text-[var(--muted)] mt-0.5 leading-snug">{c.description}</p>
+                  <p className="text-[13px] text-[var(--muted)] mt-0.5 leading-snug">{c.description}</p>
                 </div>
                 <div className={`w-11 h-6 rounded-full transition relative flex-shrink-0 ${on ? 'bg-gradient-to-r from-emerald-500 to-emerald-600' : 'bg-[var(--card-border)]'}`}>
                   <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${on ? 'left-[22px]' : 'left-0.5'}`} />

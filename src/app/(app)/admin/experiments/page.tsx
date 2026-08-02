@@ -191,28 +191,28 @@ export default function ExperimentsPage() {
                 <div className="flex items-start justify-between gap-2 mb-1.5">
                   <div className="min-w-0">
                     <p className="text-sm font-extrabold">{exp.name}</p>
-                    {exp.description && <p className="text-[11px] text-[var(--muted)] mt-0.5">{exp.description}</p>}
+                    {exp.description && <p className="text-[13px] text-[var(--muted)] mt-0.5">{exp.description}</p>}
                   </div>
-                  <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full flex-shrink-0 ${statusBadge}`}>
+                  <span className={`text-[12px] font-extrabold px-2.5 py-1 rounded-full flex-shrink-0 ${statusBadge}`}>
                     {statusText}
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 flex-wrap mb-3">
                   {(exp.variants ?? []).map(v => (
-                    <span key={v} className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30">{v}</span>
+                    <span key={v} className="text-[12px] font-bold text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30">{v}</span>
                   ))}
-                  <span className="text-[10px] text-[var(--muted)] font-medium">· traffic {exp.traffic_pct}%</span>
+                  <span className="text-[12px] text-[var(--muted)] font-medium">· traffic {exp.traffic_pct}%</span>
                   {exp.primary_metric && (
-                    <span className="text-[10px] text-[var(--muted)] font-medium">· {exp.primary_metric}</span>
+                    <span className="text-[12px] text-[var(--muted)] font-medium">· {exp.primary_metric}</span>
                   )}
                 </div>
 
                 {expResults.length > 0 && (
                   <div className="bg-emerald-50/40 dark:bg-emerald-950/15 rounded-2xl p-3 mb-3">
-                    <p className="text-[11px] font-extrabold mb-2 inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
+                    <p className="text-[13px] font-extrabold mb-2 inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
                       <BarChart2 size={11} /> 결과
                     </p>
-                    <table className="w-full text-[11px]">
+                    <table className="w-full text-[13px]">
                       <thead className="text-[var(--muted)] font-bold">
                         <tr>
                           <th className="text-left pb-1">variant</th>

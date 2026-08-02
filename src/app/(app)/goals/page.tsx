@@ -184,7 +184,7 @@ export default function GoalsPage() {
             >
               {n}
               {n === WEEKLY_RECOMMENDED && (
-                <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-px rounded-full bg-amber-400 text-[9px] font-extrabold text-amber-950 whitespace-nowrap">
+                <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-px rounded-full bg-amber-400 text-[11px] font-extrabold text-amber-950 whitespace-nowrap">
                   {tt('추천')}
                 </span>
               )}

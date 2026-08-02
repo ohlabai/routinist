@@ -1137,7 +1137,7 @@ function TrackPageImpl() {
         )}
         {/* build 292: GPS 신호 배지 (native update 이벤트의 gpsSignal) */}
         {useNative && hasState && gpsSignal && (
-          <div className="absolute top-3 left-3 z-[5] inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-black/55 backdrop-blur text-[11px] font-extrabold text-white pointer-events-none">
+          <div className="absolute top-3 left-3 z-[5] inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-black/55 backdrop-blur text-[13px] font-extrabold text-white pointer-events-none">
             <span className={`w-2 h-2 rounded-full ${
               gpsSignal === 'good' ? 'bg-emerald-400' : gpsSignal === 'weak' ? 'bg-amber-400' : 'bg-rose-500'
             }`} />
@@ -1153,7 +1153,7 @@ function TrackPageImpl() {
             <p className="text-sm text-[var(--muted)] mb-1">
               {locale === 'en' ? 'Ready? Tap to auto-record your route.' : '준비됐어요? 시작하면 자동으로 경로를 기록해요'}
             </p>
-            <p className="text-[11px] text-[var(--muted)]/80 mb-3 break-keep">
+            <p className="text-[13px] text-[var(--muted)]/80 mb-3 break-keep">
               {/* 2026-07-15 Android 리뷰 P0-1: 레거시 JS 엔진 (구버전 Android 빌드) 은 백그라운드
                   트래킹이 안 돼 "잠금 화면에서도 측정" 카피가 허위 — 화면 유지 안내로 분기.
                   네이티브 RunSession (Phase 2, FGS) 이 있으면 iOS 와 동일하게 잠금 측정 가능. */}
@@ -1217,7 +1217,7 @@ function TrackPageImpl() {
             </div>
             )}
             {voiceOn && showVoiceQualityHint && (
-              <p className="mb-4 -mt-2 text-[11px] text-[var(--muted)] text-center leading-relaxed">
+              <p className="mb-4 -mt-2 text-[13px] text-[var(--muted)] text-center leading-relaxed">
                 💡 더 자연스러운 목소리를 원하면 아이폰 <span className="font-bold">설정 → 손쉬운 사용 → 음성 콘텐츠 → 음성 → 한국어</span>에서
                 프리미엄 보이스를 다운로드하세요. 받는 즉시 자동 적용돼요.
               </p>
@@ -1232,7 +1232,7 @@ function TrackPageImpl() {
           <>
             {/* 시간 hero — 6xl. build 210 #1: 항상 HH:MM:SS (Apple Fitness 패턴). */}
             <div className="text-center mb-4">
-              <p className="text-[11px] font-extrabold text-[var(--muted)] tracking-[0.25em] uppercase mb-1">
+              <p className="text-[13px] font-extrabold text-[var(--muted)] tracking-[0.25em] uppercase mb-1">
                 {locale === 'en' ? 'TIME' : '시간'}
               </p>
               <p className="text-5xl font-extrabold tracking-tight text-[var(--foreground)] tabular-nums leading-none">
@@ -1243,7 +1243,7 @@ function TrackPageImpl() {
             {/* 거리 + 페이스 — 2-col secondary */}
             <div className="grid grid-cols-2 gap-3 mb-5 pb-4 border-b border-[var(--card-border)]/40">
               <div className="text-center">
-                <p className="text-[10px] font-extrabold text-[var(--muted)] tracking-widest uppercase mb-1">
+                <p className="text-[12px] font-extrabold text-[var(--muted)] tracking-widest uppercase mb-1">
                   {locale === 'en' ? 'DISTANCE' : '거리'}
                 </p>
                 <p className="text-3xl font-extrabold tracking-tight text-emerald-600 tabular-nums leading-none">
@@ -1252,7 +1252,7 @@ function TrackPageImpl() {
                 </p>
               </div>
               <div className="text-center">
-                <p className="text-[10px] font-extrabold text-[var(--muted)] tracking-widest uppercase mb-1">
+                <p className="text-[12px] font-extrabold text-[var(--muted)] tracking-widest uppercase mb-1">
                   {locale === 'en' ? 'PACE' : '페이스'}
                 </p>
                 <p className="text-3xl font-extrabold tracking-tight text-[var(--foreground)] tabular-nums leading-none">

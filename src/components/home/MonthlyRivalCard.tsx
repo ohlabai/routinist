@@ -62,7 +62,7 @@ export default function MonthlyRivalCard() {
           </div>
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100/80 dark:bg-amber-900/30">
             <Calendar size={11} className="text-amber-700 dark:text-amber-300" />
-            <span className="text-[10px] font-extrabold text-amber-700 dark:text-amber-300">
+            <span className="text-[12px] font-extrabold text-amber-700 dark:text-amber-300">
               {monthLabel} · D-{rival.daysLeft}
             </span>
           </span>
@@ -72,11 +72,11 @@ export default function MonthlyRivalCard() {
         <div className="grid grid-cols-2 gap-3 tabular-nums">
           {/* 나 */}
           <div className={`p-3 rounded-2xl text-center ${winning ? 'bg-emerald-100/60 dark:bg-emerald-900/30 border-2 border-emerald-300/60 dark:border-emerald-700/40' : 'bg-[var(--card)]'}`}>
-            <p className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-wider">{locale === 'en' ? 'YOU' : '나'}</p>
+            <p className="text-[12px] font-bold text-[var(--muted)] uppercase tracking-wider">{locale === 'en' ? 'YOU' : '나'}</p>
             <p className={`text-2xl font-extrabold mt-0.5 ${winning ? 'text-emerald-600 dark:text-emerald-400' : 'text-[var(--foreground)]'}`}>
               {myKm.toFixed(1)}
             </p>
-            <p className="text-[10px] text-[var(--muted)]">km</p>
+            <p className="text-[12px] text-[var(--muted)]">km</p>
           </div>
           {/* 라이벌 */}
           <Link href={`/social/user?id=${rival.rivalUserId}`}
@@ -91,14 +91,14 @@ export default function MonthlyRivalCard() {
                   <div className="w-full h-full flex items-center justify-center"><AppLogo size={12} /></div>
                 )}
               </div>
-              <p className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-wider truncate max-w-[80px]">
+              <p className="text-[12px] font-bold text-[var(--muted)] uppercase tracking-wider truncate max-w-[80px]">
                 {rival.rivalDisplayName ?? (locale === 'en' ? 'Pacemaker' : '페이스메이커')}
               </p>
             </div>
             <p className={`text-2xl font-extrabold ${!winning && myKm < rivalKm ? 'text-rose-600 dark:text-rose-400' : 'text-[var(--foreground)]'}`}>
               {rivalKm.toFixed(1)}
             </p>
-            <p className="text-[10px] text-[var(--muted)]">km</p>
+            <p className="text-[12px] text-[var(--muted)]">km</p>
           </Link>
         </div>
 
@@ -111,7 +111,7 @@ export default function MonthlyRivalCard() {
         </div>
 
         {/* 콜아웃 */}
-        <p className="mt-2.5 text-[11px] text-center font-bold text-[var(--muted)] break-keep">
+        <p className="mt-2.5 text-[13px] text-center font-bold text-[var(--muted)] break-keep">
           {locale === 'en' ? (
             winning ? (
               diff > 5

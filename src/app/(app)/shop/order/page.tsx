@@ -147,7 +147,7 @@ function OrderDetailContent() {
               <p className={`text-base font-extrabold ${orderStatusColor(order.status)}`}>
                 {orderStatusLabel(order.status)}
               </p>
-              <p className="text-[11px] text-[var(--muted)]">
+              <p className="text-[13px] text-[var(--muted)]">
                 {new Date(order.created_at).toLocaleString(locale === 'en' ? 'en-US' : 'ko-KR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
@@ -176,7 +176,7 @@ function OrderDetailContent() {
           {order.cancelled_reason && (
             <div className="mt-3 p-3 rounded-xl bg-red-50 dark:bg-red-950/20 flex items-start gap-2">
               <AlertCircle size={14} className="text-red-500 flex-shrink-0 mt-0.5" />
-              <p className="text-[11px] text-red-600 dark:text-red-400">{order.cancelled_reason}</p>
+              <p className="text-[13px] text-red-600 dark:text-red-400">{order.cancelled_reason}</p>
             </div>
           )}
         </div>
@@ -198,7 +198,7 @@ function OrderDetailContent() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-[var(--foreground)] line-clamp-2 leading-snug">{it.product_name}</p>
                 {it.variant_label && (
-                  <p className="text-[10px] text-[var(--muted)] mt-0.5 inline-block px-1.5 py-0.5 rounded bg-[var(--card-border)]/40">{it.variant_label}</p>
+                  <p className="text-[12px] text-[var(--muted)] mt-0.5 inline-block px-1.5 py-0.5 rounded bg-[var(--card-border)]/40">{it.variant_label}</p>
                 )}
                 <p className="text-xs text-[var(--muted)] mt-0.5">{locale === 'en' ? `${it.quantity} × ${formatKrw(it.unit_price_krw, locale)}` : `${it.quantity}개 × ${it.unit_price_krw.toLocaleString()}원`}</p>
               </div>
@@ -221,7 +221,7 @@ function OrderDetailContent() {
             {order.shipping_address_line2 && ` ${order.shipping_address_line2}`}
           </p>
           {order.shipping_memo && (
-            <p className="text-[11px] text-[var(--muted)] mt-2 italic">{locale === 'en' ? 'Note:' : '메모:'} {order.shipping_memo}</p>
+            <p className="text-[13px] text-[var(--muted)] mt-2 italic">{locale === 'en' ? 'Note:' : '메모:'} {order.shipping_memo}</p>
           )}
         </div>
       </Section>
@@ -239,7 +239,7 @@ function OrderDetailContent() {
             <span className="text-2xl font-extrabold text-emerald-600">{formatKrw(order.total_krw, locale)}</span>
           </div>
           {latestPayment && latestPayment.approved_at && (
-            <p className="text-[11px] text-[var(--muted)] mt-1">
+            <p className="text-[13px] text-[var(--muted)] mt-1">
               {latestPayment.method ?? (locale === 'en' ? 'Card' : '카드')} · {new Date(latestPayment.approved_at).toLocaleString(locale === 'en' ? 'en-US' : 'ko-KR')}
             </p>
           )}
@@ -250,7 +250,7 @@ function OrderDetailContent() {
             return (
               <a
                 href={url} target="_blank" rel="noopener noreferrer"
-                className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 active:scale-95"
+                className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-bold text-emerald-600 active:scale-95"
               >
                 <Receipt size={12} /> {locale === 'en' ? 'View receipt' : '영수증 보기'} <ExternalLink size={11} />
               </a>
@@ -270,7 +270,7 @@ function OrderDetailContent() {
             {cancelling ? (locale === 'en' ? 'Processing…' : '처리 중…') : (order.status === 'pending' ? tt('주문 취소') : tt('결제 취소·환불'))}
           </button>
           {order.status === 'pending' && (
-            <p className="text-[11px] text-[var(--muted)] mt-2 text-center">{locale === 'en' ? 'Cancels immediately (unpaid)' : '결제 미완료 상태라 즉시 취소돼요'}</p>
+            <p className="text-[13px] text-[var(--muted)] mt-2 text-center">{locale === 'en' ? 'Cancels immediately (unpaid)' : '결제 미완료 상태라 즉시 취소돼요'}</p>
           )}
         </div>
       )}
@@ -282,7 +282,7 @@ function OrderDetailContent() {
           >
             <RotateCcw size={15} /> {tt('반품·환불 신청')}
           </a>
-          <p className="text-[11px] text-[var(--muted)] text-center break-keep">
+          <p className="text-[13px] text-[var(--muted)] text-center break-keep">
             {locale === 'en'
               ? 'Within 7 days of delivery. Return shipping at buyer\'s cost for change of mind.'
               : '수령일로부터 7일 이내, 단순 변심 시 왕복 배송비 부담'}

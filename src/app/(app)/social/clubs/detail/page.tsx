@@ -937,7 +937,7 @@ function ClubDetail() {
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img src={c.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
                                 ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-[var(--muted)]">
+                                  <div className="w-full h-full flex items-center justify-center text-[12px] font-bold text-[var(--muted)]">
                                     {(c.profiles?.display_name ?? '?').slice(0, 1)}
                                   </div>
                                 )}
@@ -1057,7 +1057,7 @@ function ClubDetail() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isActive ? 'bg-emerald-500 text-white' : isPast ? 'bg-[var(--card-border)] text-[var(--muted)]' : 'bg-amber-100 text-amber-700'}`}>
+                        <span className={`text-[12px] font-bold px-2 py-0.5 rounded-full ${isActive ? 'bg-emerald-500 text-white' : isPast ? 'bg-[var(--card-border)] text-[var(--muted)]' : 'bg-amber-100 text-amber-700'}`}>
                           {isActive ? tt('진행중') : isPast ? tt('종료') : tt('예정')}
                         </span>
                         <p className="text-base font-bold text-[var(--foreground)] truncate">{ch.title}</p>
@@ -1277,7 +1277,7 @@ function ClubDetail() {
               ) : (
                 <>
                   {hiddenMemberIds.size > 0 && (
-                    <div className="mb-2 flex items-center justify-between text-[11px] text-[var(--muted)]">
+                    <div className="mb-2 flex items-center justify-between text-[13px] text-[var(--muted)]">
                       <span>{locale === 'en' ? `${hiddenMemberIds.size} hidden` : `${hiddenMemberIds.size}명 숨김`}</span>
                       <button
                         onClick={() => setHiddenMemberIds(new Set())}
@@ -1300,7 +1300,7 @@ function ClubDetail() {
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img src={r.avatar} alt="" className="w-full h-full object-cover" />
                                 ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-[var(--muted)]">
+                                  <div className="w-full h-full flex items-center justify-center text-[12px] font-bold text-[var(--muted)]">
                                     {r.name.slice(0, 1)}
                                   </div>
                                 )}
@@ -1330,7 +1330,7 @@ function ClubDetail() {
                           ))}
                           {hiddenMemberIds.size > 0 && (
                             <div className="pt-2 mt-2 border-t border-[var(--card-border)]/40">
-                              <p className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-widest mb-1.5">{tt('숨김')}</p>
+                              <p className="text-[12px] font-bold text-[var(--muted)] uppercase tracking-widest mb-1.5">{tt('숨김')}</p>
                               {compareRows.filter(r => hiddenMemberIds.has(r.id)).map(r => (
                                 <button
                                   key={r.id}
@@ -1344,7 +1344,7 @@ function ClubDetail() {
                                     ) : null}
                                   </div>
                                   <span className="text-xs flex-1 text-left truncate">{r.name}</span>
-                                  <span className="text-[11px] text-[var(--muted)]">{r.km.toFixed(1)}km</span>
+                                  <span className="text-[13px] text-[var(--muted)]">{r.km.toFixed(1)}km</span>
                                   <EyeOff size={12} className="text-[var(--muted)]" />
                                 </button>
                               ))}

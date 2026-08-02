@@ -264,14 +264,14 @@ export default function FeedbackPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-[var(--card-border)]/40 text-[var(--muted)]">
+                      <span className="text-[13px] font-extrabold px-2 py-0.5 rounded-full bg-[var(--card-border)]/40 text-[var(--muted)]">
                         {tt(CATEGORY_LABEL[p.category])}
                       </span>
-                      <span className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full ${STATUS_COLOR[p.status]}`}>
+                      <span className={`text-[13px] font-extrabold px-2 py-0.5 rounded-full ${STATUS_COLOR[p.status]}`}>
                         {tt(STATUS_LABEL[p.status])}
                       </span>
                       {!p.is_public && (
-                        <span className="text-[10px] font-bold inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-[var(--muted)]">
+                        <span className="text-[12px] font-bold inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-[var(--muted)]">
                           <Lock size={9} /> {tt('비공개')}
                         </span>
                       )}
@@ -317,7 +317,7 @@ export default function FeedbackPage() {
                       </div>
                       <span className="text-xs font-extrabold text-emerald-700 dark:text-emerald-300">{tt('운영자 답글')}</span>
                       {p.admin_replied_at && (
-                        <span className="text-[10px] text-[var(--muted)]">· {timeAgo(p.admin_replied_at, locale)}</span>
+                        <span className="text-[12px] text-[var(--muted)]">· {timeAgo(p.admin_replied_at, locale)}</span>
                       )}
                     </div>
                     <p className="text-[14px] text-emerald-900 dark:text-emerald-100 leading-relaxed whitespace-pre-wrap break-keep">
@@ -546,7 +546,7 @@ function ComposeModal({ onClose, onCreated, onError }: {
               </div>
               <div>
                 <h3 className="text-lg font-extrabold tracking-tight">{tt('제안 쓰기')}</h3>
-                <p className="text-[11px] text-[var(--muted)]">{tt('의견을 들려주세요')}</p>
+                <p className="text-[13px] text-[var(--muted)]">{tt('의견을 들려주세요')}</p>
               </div>
             </div>
             <button
@@ -589,7 +589,7 @@ function ComposeModal({ onClose, onCreated, onError }: {
           {/* build 173.1 #2: 이미지 첨부 — 카테고리 다음 (스크롤 안 해도 노출). compact 형태 */}
           <div>
             <label className="block text-sm font-extrabold text-[var(--foreground)] mb-2">
-              {tt('사진 첨부')} <span className="text-[11px] text-[var(--muted)] font-medium">{tt('(선택 · 캡쳐 화면 첨부 가능)')}</span>
+              {tt('사진 첨부')} <span className="text-[13px] text-[var(--muted)] font-medium">{tt('(선택 · 캡쳐 화면 첨부 가능)')}</span>
             </label>
             {imagePreview ? (
               <div className="relative rounded-2xl overflow-hidden border-2 border-emerald-200/60 dark:border-emerald-800/40">
@@ -632,7 +632,7 @@ function ComposeModal({ onClose, onCreated, onError }: {
               placeholder={tt('한 줄로 요약해주세요')}
               className="w-full px-4 py-4 rounded-2xl border-2 border-[var(--card-border)] bg-[var(--card)] text-[17px] font-semibold focus:outline-none focus:border-emerald-500 focus:bg-emerald-50/40 dark:focus:bg-emerald-950/20 transition placeholder:text-[var(--muted)] placeholder:font-normal"
             />
-            <p className="text-[11px] text-[var(--muted)] mt-1.5 px-1">{title.length}/120</p>
+            <p className="text-[13px] text-[var(--muted)] mt-1.5 px-1">{title.length}/120</p>
           </div>
 
           {/* 내용 — 큰 textarea */}
@@ -666,9 +666,9 @@ function ComposeModal({ onClose, onCreated, onError }: {
               className="w-full px-4 py-4 rounded-2xl border-2 border-[var(--card-border)] bg-[var(--card)] text-[17px] leading-relaxed focus:outline-none focus:border-emerald-500 focus:bg-emerald-50/40 dark:focus:bg-emerald-950/20 transition resize-none placeholder:text-[var(--muted)] placeholder:text-[15px] placeholder:leading-relaxed"
             />
             <div className="flex justify-between mt-1.5 px-1">
-              <span className="text-[11px] text-[var(--muted)]">{body.length}/4000</span>
+              <span className="text-[13px] text-[var(--muted)]">{body.length}/4000</span>
               {body.length >= 5 && (
-                <span className="text-[11px] text-emerald-600 font-bold inline-flex items-center gap-0.5">
+                <span className="text-[13px] text-emerald-600 font-bold inline-flex items-center gap-0.5">
                   <Check size={11} /> {tt('충분히 적었어요')}
                 </span>
               )}
