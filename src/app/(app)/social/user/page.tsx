@@ -31,6 +31,7 @@ import { logClientWarn } from '@/lib/error-logger';
 import { daysAgoStr, toLocalMonthStr, toLocalDateStr } from '@/lib/kst';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { dataCache, CACHE_KEYS } from '@/lib/data-cache';
+import { calendarDayColor } from '@/lib/kr-holidays';
 import { useI18n, formatRank } from '@/lib/i18n';
 import dynamic from 'next/dynamic';
 import { X as XIcon } from 'lucide-react';
@@ -573,7 +574,7 @@ function UserProfileContent() {
         </div>
         <div className="grid grid-cols-7 gap-1 text-center text-xs mb-1">
           {(locale === 'en' ? ['S','M','T','W','T','F','S'] : ['일','월','화','수','목','금','토']).map((d, i) => (
-            <span key={i} className={`${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-[var(--muted)]'}`}>{d}</span>
+            <span key={i} className={`${i === 0 ? 'text-red-500 dark:text-red-400' : i === 6 ? 'text-blue-500 dark:text-blue-400' : 'text-[var(--muted)]'}`}>{d}</span>
           ))}
         </div>
         <div className="grid grid-cols-7 gap-1">
@@ -593,7 +594,7 @@ function UserProfileContent() {
                 className={`aspect-square rounded-md flex items-center justify-center ${calColor(km)} ${clickable ? 'active:scale-90 transition-transform' : 'cursor-default'}`}
                 aria-label={clickable ? (locale === 'en' ? `View ${km.toFixed(1)}km on ${calendarData.month}/${day}` : `${calendarData.month}월 ${day}일 ${km.toFixed(1)}km 보기`) : undefined}
               >
-                <span className={`text-xs font-medium ${km >= 7 ? 'text-white' : 'text-[var(--foreground)]'}`}>{day}</span>
+                <span className={`text-xs font-medium ${km >= 7 ? 'text-white' : calendarDayColor(ds, (calendarData.firstDay + i) % 7) || 'text-[var(--foreground)]'}`}>{day}</span>
               </button>
             );
           })}

@@ -12,6 +12,7 @@ import { useUserData } from '@/components/UserDataProvider';
 import { getSupabase } from '@/lib/supabase';
 import ShareCard from '@/components/activity/ShareCard';
 import { useI18n } from '@/lib/i18n';
+import { krHoliday, calendarDayColor } from '@/lib/kr-holidays';
 import { fetchWeekChartData, fetchMonthChartData } from '@/lib/period-share-data';
 import type { PeriodChartData } from '@/lib/period-share-canvas';
 import PeriodShareCard from '@/components/share/PeriodShareCard';
@@ -268,7 +269,7 @@ export default function HomeCalendarCard() {
           <span
             key={`${i}-${d}`}
             className={`py-1 font-semibold ${
-              i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-[var(--muted)]'
+              i === 0 ? 'text-red-500 dark:text-red-400' : i === 6 ? 'text-blue-500 dark:text-blue-400' : 'text-[var(--muted)]'
             }`}
           >
             {d}
@@ -298,6 +299,9 @@ export default function HomeCalendarCard() {
           const dayEntry = dateActivityMap.get(dateStr);
           const activityId = dayEntry?.pickId;
           const textWhite = km >= 7 || hasPhoto;
+          // 네이버 달력 룰 — 일요일·공휴일 빨강, 토요일 파랑 (초록 진한 셀/사진 셀은 흰색 유지)
+          const holiday = krHoliday(dateStr);
+          const dayColor = calendarDayColor(dateStr, (firstDay + i) % 7);
 
           // build 169 #12: day 숫자 + km 숫자 겹침 fix — 두 span 을 절대 위치로 분리.
           // day 는 top, km 은 bottom 에 고정 → 좁은 화면에서도 line-height 충돌 없음.
@@ -324,9 +328,14 @@ export default function HomeCalendarCard() {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
                 </>
               )}
-              <span className={`absolute top-0.5 left-1/2 -translate-x-1/2 text-[13px] font-bold leading-none ${textWhite ? 'text-white drop-shadow' : 'text-[var(--foreground)]'}`}>
+              <span className={`absolute top-0.5 left-1/2 -translate-x-1/2 text-[13px] font-bold leading-none ${textWhite ? 'text-white drop-shadow' : dayColor || 'text-[var(--foreground)]'}`}>
                 {day}
               </span>
+              {holiday && km === 0 && !hasPhoto && (
+                <span className="absolute bottom-0.5 inset-x-0 px-0.5 text-center text-[10px] font-semibold leading-none truncate text-red-500 dark:text-red-400">
+                  {locale === 'en' ? holiday.nameEn : holiday.name}
+                </span>
+              )}
               {km > 0 && (
                 <span className={`absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[12px] font-semibold leading-none whitespace-nowrap ${textWhite ? 'text-white/95 drop-shadow' : 'text-[var(--muted)]'}`}>
                   {km.toFixed(1)}

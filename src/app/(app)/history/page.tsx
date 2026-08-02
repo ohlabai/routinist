@@ -22,6 +22,7 @@ import {
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, TrendingUp, Activity, Zap, Users } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { calendarDayColor } from '@/lib/kr-holidays';
 
 export default function HistoryPage() {
   const { user } = useAuth();
@@ -275,8 +276,8 @@ export default function HistoryPage() {
       <div className="card p-4">
         <h3 className="text-base font-bold text-[var(--foreground)] mb-3">{tt('러닝 캘린더')}</h3>
         <div className="grid grid-cols-7 gap-1 text-center text-sm mb-2">
-          {(locale === 'en' ? ['Su','Mo','Tu','We','Th','Fr','Sa'] : ['일','월','화','수','목','금','토']).map(d => (
-            <span key={d} className="text-[var(--muted)] py-1 text-sm">{d}</span>
+          {(locale === 'en' ? ['Su','Mo','Tu','We','Th','Fr','Sa'] : ['일','월','화','수','목','금','토']).map((d, i) => (
+            <span key={d} className={`py-1 text-sm ${i === 0 ? 'text-red-500 dark:text-red-400' : i === 6 ? 'text-blue-500 dark:text-blue-400' : 'text-[var(--muted)]'}`}>{d}</span>
           ))}
         </div>
         <div className="grid grid-cols-7 gap-1">
@@ -300,7 +301,7 @@ export default function HistoryPage() {
                 key={day}
                 className={`aspect-square flex flex-col items-center justify-center rounded-lg text-sm font-medium relative ${bgClass}`}
               >
-                <span>{day}</span>
+                <span className={clubCount >= 1 ? '' : calendarDayColor(dateStr, (firstDay + i) % 7)}>{day}</span>
                 {clubCount > 0 && (
                   <span className="text-sm opacity-80">{locale === 'en' ? clubCount : `${clubCount}명`}</span>
                 )}
