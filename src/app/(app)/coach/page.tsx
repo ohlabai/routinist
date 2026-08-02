@@ -15,6 +15,8 @@ import { getSupabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import AppToast from '@/components/AppToast';
 import TargetRaceCard from '@/components/coach/TargetRaceCard';
+import RacePredictionCard from '@/components/coach/RacePredictionCard';
+import WeeklyLoadCard from '@/components/coach/WeeklyLoadCard';
 
 interface CoachingPayload {
   score: number;
@@ -119,28 +121,28 @@ export default function CoachPage() {
   if (loading) {
     return (
       <div className="flex justify-center py-20">
-        <div className="animate-spin w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full" />
+        <div className="animate-spin w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full" />
       </div>
     );
   }
 
   const scoreColor =
     today && today.score >= 80 ? 'from-emerald-500 to-emerald-600' :
-    today && today.score >= 50 ? 'from-violet-500 to-fuchsia-500' :
-    'from-amber-500 to-orange-500';
+    today && today.score >= 50 ? 'from-teal-500 to-emerald-600' :
+    'from-slate-500 to-slate-600';   // 휴식 필요 = 차분한 슬레이트 (주황·빨강 금지 톤 룰)
 
   return (
     <div className="max-w-lg mx-auto pb-24 bg-[var(--background)] min-h-screen">
       {/* 헤더 */}
       <header className="sticky top-0 z-30 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--card-border)]/30 flex items-center gap-2 px-3 py-3">
         <button onClick={() => router.back()} aria-label={tt('뒤로')}
-          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-violet-50 dark:hover:bg-violet-950/30 active:scale-90">
+          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90">
           <ArrowLeft size={20} />
         </button>
-        <h1 className="text-xl font-extrabold tracking-tight flex-1">{tt('러닝 코치')} <span className="text-xs text-violet-500 font-bold">AI</span></h1>
+        <h1 className="text-xl font-extrabold tracking-tight flex-1">{tt('러닝 코치')} <span className="text-xs text-emerald-500 font-bold">AI</span></h1>
         <button onClick={() => setShowSettings(s => !s)} aria-label={tt('설정')}
-          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-violet-50 dark:hover:bg-violet-950/30 active:scale-90">
-          <Settings size={18} className="text-violet-500" />
+          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-90">
+          <Settings size={18} className="text-emerald-600" />
         </button>
       </header>
 
@@ -148,9 +150,9 @@ export default function CoachPage() {
         {/* 설정 (펼침) — 2026-07-11 피드백: 이전엔 페이지 맨 아래에 열려서 "클릭이 안 된다"고
             느껴졌음. 기어 탭 즉시 보이도록 최상단으로 이동. */}
         {showSettings && (
-          <div className="card p-5 space-y-3 border-violet-200 dark:border-violet-900/40">
+          <div className="card p-5 space-y-3 border-emerald-200 dark:border-emerald-900/40">
             <div className="flex items-center gap-2">
-              <Settings size={14} className="text-violet-500" />
+              <Settings size={14} className="text-emerald-600" />
               <h3 className="text-sm font-extrabold">{tt('코치 설정')}</h3>
             </div>
             <p className="text-[13px] text-[var(--muted)] leading-relaxed">
@@ -165,7 +167,7 @@ export default function CoachPage() {
                 type="number" inputMode="decimal" min={20} max={250} step={0.1}
                 value={weightInput} onChange={e => setWeightInput(e.target.value)}
                 placeholder={tt('예: 65')}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--background)] border-2 border-[var(--card-border)] text-sm focus:outline-none focus:border-violet-500"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--background)] border-2 border-[var(--card-border)] text-sm focus:outline-none focus:border-[var(--accent)]"
               />
             </div>
 
@@ -177,13 +179,13 @@ export default function CoachPage() {
                 type="number" inputMode="numeric" min={100} max={230}
                 value={maxHrInput} onChange={e => setMaxHrInput(e.target.value)}
                 placeholder={tt('예: 185')}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--background)] border-2 border-[var(--card-border)] text-sm focus:outline-none focus:border-violet-500"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--background)] border-2 border-[var(--card-border)] text-sm focus:outline-none focus:border-[var(--accent)]"
               />
             </div>
 
             <button
               onClick={handleSaveSettings} disabled={savingSettings}
-              className="w-full py-3 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white font-extrabold text-sm active:scale-[0.98] disabled:opacity-50 shadow-md shadow-violet-500/30 inline-flex items-center justify-center gap-1.5"
+              className="w-full py-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-sm active:scale-[0.98] disabled:opacity-50 shadow-md shadow-emerald-500/30 inline-flex items-center justify-center gap-1.5"
             >
               {savingSettings ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
               {tt('저장')}
@@ -197,7 +199,7 @@ export default function CoachPage() {
             <p className="text-sm font-bold text-[var(--foreground)]">{tt('코칭 데이터를 불러오지 못했어요')}</p>
             <button
               onClick={() => setReloadKey(k => k + 1)}
-              className="px-5 py-2.5 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white text-sm font-extrabold active:scale-95"
+              className="px-5 py-2.5 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-sm font-extrabold active:scale-95"
             >
               {tt('다시 시도')}
             </button>
@@ -245,26 +247,30 @@ export default function CoachPage() {
         {/* 타겟 레이스 카운트다운 (build 199) */}
         <TargetRaceCard />
 
+        {/* 2026-08-02 hans "내용 빈약": 예상 레이스 기록 (Riegel) + 주간 훈련량/부하 밸런스 */}
+        <RacePredictionCard />
+        <WeeklyLoadCard />
+
         {/* 14일 차트 */}
         {trend.length > 0 && (
           <div className="card p-5">
             <div className="flex items-center gap-2 mb-3">
-              <Activity size={14} className="text-violet-500" />
-              <h3 className="text-sm font-extrabold">{tt('최근 14일 부하 흐름')}</h3>
+              <Activity size={14} className="text-emerald-600" />
+              <h3 className="text-lg font-extrabold">{tt('최근 14일 부하 흐름')}</h3>
             </div>
             <MiniChart data={trend.slice(-14)} />
             <p className="text-[13px] text-[var(--muted)] mt-3 leading-relaxed">
-              <span className="inline-block w-2 h-2 rounded-full bg-violet-400 mr-1" /> {tt('장기 피트니스 (꾸준함)')}
-              {'  '}<span className="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1" /> {tt('최근 부하 (피로)')}
+              <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1" /> {tt('장기 피트니스 (꾸준함)')}
+              {'  '}<span className="inline-block w-2 h-2 rounded-full bg-slate-400 mr-1" /> {tt('최근 부하 (피로)')}
             </p>
           </div>
         )}
 
         {/* 안내 카드 */}
-        <div className="card p-4 bg-violet-50/40 dark:bg-violet-950/15 border-violet-200/40 dark:border-violet-900/30 flex items-start gap-2.5">
-          <Info size={14} className="text-violet-500 flex-shrink-0 mt-0.5" />
+        <div className="card p-4 bg-emerald-50/40 dark:bg-emerald-950/15 border-emerald-200/40 dark:border-emerald-900/30 flex items-start gap-2.5">
+          <Info size={14} className="text-emerald-600 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-xs font-extrabold text-violet-700 dark:text-violet-300">{tt('코칭은 어떻게 계산되나요?')}</p>
+            <p className="text-xs font-extrabold text-emerald-700 dark:text-emerald-300">{tt('코칭은 어떻게 계산되나요?')}</p>
             <p className="text-[13px] text-[var(--muted)] mt-1 leading-relaxed">
               {tt('거리 · 시간 기반으로 매일 부하 점수를 매기고, 장기 평균(42일)과 단기 평균(7일)의 차이로 오늘 컨디션을 산출해요. 체중·최대 심박수 입력 시 더 정확해져요.')}
             </p>
@@ -278,7 +284,7 @@ export default function CoachPage() {
   );
 }
 
-// 미니 SVG 차트 — CTL (violet) + ATL (amber) 라인.
+// 미니 SVG 차트 — CTL (emerald) + ATL (slate) 라인. (2026-08-02 톤 통일)
 function MiniChart({ data }: { data: TrendRow[] }) {
   if (data.length === 0) return null;
   const W = 320;
@@ -296,10 +302,10 @@ function MiniChart({ data }: { data: TrendRow[] }) {
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-20">
-      <path d={pathFor('ctl')} stroke="#a78bfa" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      <path d={pathFor('atl')} stroke="#f59e0b" strokeWidth="2" fill="none" strokeDasharray="3 3" strokeLinecap="round" />
+      <path d={pathFor('ctl')} stroke="#10B981" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={pathFor('atl')} stroke="#94A3B8" strokeWidth="2" fill="none" strokeDasharray="3 3" strokeLinecap="round" />
       {data.map((d, i) => (
-        <circle key={i} cx={padX + i * stepX} cy={H - padY - (Number(d.ctl) / maxV) * (H - padY * 2)} r="2" fill="#7c3aed" />
+        <circle key={i} cx={padX + i * stepX} cy={H - padY - (Number(d.ctl) / maxV) * (H - padY * 2)} r="2" fill="#059669" />
       ))}
     </svg>
   );

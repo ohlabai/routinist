@@ -79,9 +79,9 @@ export default function TargetRaceCard() {
 
   if (!race) {
     return (
-      <div className="card p-4 border-violet-200/40 dark:border-violet-900/30">
+      <div className="card p-4 border-emerald-200/40 dark:border-emerald-900/30">
         <div className="flex items-center gap-2 mb-2">
-          <Flag size={14} className="text-violet-500" />
+          <Flag size={14} className="text-emerald-500" />
           <h3 className="text-sm font-extrabold">목표 레이스</h3>
         </div>
         {showForm ? (
@@ -93,7 +93,7 @@ export default function TargetRaceCard() {
           />
         ) : (
           <button onClick={() => setShowForm(true)}
-            className="w-full mt-1 px-3 py-2.5 rounded-xl border-2 border-dashed border-violet-300 dark:border-violet-700 text-violet-600 dark:text-violet-400 text-xs font-extrabold active:scale-95 inline-flex items-center justify-center gap-1.5">
+            className="w-full mt-1 px-3 py-2.5 rounded-xl border-2 border-dashed border-emerald-300 dark:border-emerald-700 text-emerald-600 dark:text-emerald-400 text-xs font-extrabold active:scale-95 inline-flex items-center justify-center gap-1.5">
             <Plus size={14} /> 다음 대회 등록하기
           </button>
         )}
@@ -106,13 +106,13 @@ export default function TargetRaceCard() {
     : `${(race.distance_meters / 1000).toFixed(0)}K`;
 
   return (
-    <div className="card p-5 bg-gradient-to-br from-violet-50/50 via-transparent to-fuchsia-50/40 dark:from-violet-950/20 dark:to-fuchsia-950/15">
+    <div className="card p-5 bg-gradient-to-br from-emerald-50/50 via-transparent to-emerald-50/30 dark:from-emerald-950/20 dark:to-emerald-950/10">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Flag size={14} className="text-violet-500" />
+          <Flag size={14} className="text-emerald-500" />
           <h3 className="text-sm font-extrabold">목표 레이스</h3>
         </div>
-        <span className="text-[12px] font-extrabold text-violet-700 dark:text-violet-300 px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40">
+        <span className="text-[12px] font-extrabold text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40">
           {distLabel}
         </span>
       </div>
@@ -125,11 +125,11 @@ export default function TargetRaceCard() {
       {/* 카운트다운 hero */}
       <div className="grid grid-cols-2 gap-3 mb-3">
         <div className="text-center">
-          <p className="text-3xl font-extrabold text-violet-600 tabular-nums">{info?.days_left ?? '-'}</p>
+          <p className="text-3xl font-extrabold text-emerald-600 tabular-nums">{info?.days_left ?? '-'}</p>
           <p className="text-[12px] font-bold text-[var(--muted)] uppercase tracking-widest mt-0.5">일 남음</p>
         </div>
         <div className="text-center">
-          <p className="text-3xl font-extrabold text-fuchsia-600 tabular-nums">{info?.recommended_weekly_km ?? '-'}</p>
+          <p className="text-3xl font-extrabold text-emerald-700 dark:text-emerald-400 tabular-nums">{info?.recommended_weekly_km ?? '-'}</p>
           <p className="text-[12px] font-bold text-[var(--muted)] uppercase tracking-widest mt-0.5">권장 주간 km</p>
         </div>
       </div>
@@ -141,12 +141,12 @@ export default function TargetRaceCard() {
       )}
 
       <button onClick={() => setShowForm(true)}
-        className="mt-3 w-full px-3 py-2 rounded-xl border border-violet-200/60 dark:border-violet-900/40 text-violet-600 dark:text-violet-400 text-[13px] font-bold active:scale-95 inline-flex items-center justify-center gap-1">
+        className="mt-3 w-full px-3 py-2 rounded-xl border border-emerald-200/60 dark:border-emerald-900/40 text-emerald-600 dark:text-emerald-400 text-[13px] font-bold active:scale-95 inline-flex items-center justify-center gap-1">
         <ChevronRight size={11} /> 다른 대회 추가
       </button>
 
       {showForm && (
-        <div className="mt-3 pt-3 border-t border-violet-200/40 dark:border-violet-900/30">
+        <div className="mt-3 pt-3 border-t border-emerald-200/40 dark:border-emerald-900/30">
           <RaceForm
             name={name} setName={setName}
             raceDate={raceDate} setRaceDate={setRaceDate}
@@ -171,17 +171,17 @@ function RaceForm({ name, setName, raceDate, setRaceDate, distance, setDistance,
     <div className="space-y-2.5">
       <input type="text" placeholder="대회명 (예: 춘천마라톤)"
         value={name} onChange={e => setName(e.target.value)}
-        className="w-full px-3 py-2.5 rounded-xl bg-[var(--background)] border-2 border-[var(--card-border)] text-sm focus:outline-none focus:border-violet-500"
+        className="w-full px-3 py-2.5 rounded-xl bg-[var(--background)] border-2 border-[var(--card-border)] text-sm focus:outline-none focus:border-emerald-500"
       />
       <input type="date" value={raceDate} onChange={e => setRaceDate(e.target.value)}
-        className="w-full px-3 py-2.5 rounded-xl bg-[var(--background)] border-2 border-[var(--card-border)] text-sm focus:outline-none focus:border-violet-500"
+        className="w-full px-3 py-2.5 rounded-xl bg-[var(--background)] border-2 border-[var(--card-border)] text-sm focus:outline-none focus:border-emerald-500"
       />
       <div className="grid grid-cols-4 gap-1.5">
         {DISTANCES.map(d => (
           <button key={d.meters} onClick={() => setDistance(d.meters)} type="button"
             className={`py-2 rounded-xl text-xs font-extrabold border-2 active:scale-95 ${
               distance === d.meters
-                ? 'bg-violet-500 border-violet-500 text-white'
+                ? 'bg-emerald-500 border-emerald-500 text-white'
                 : 'bg-[var(--card)] border-[var(--card-border)] text-[var(--foreground)]'
             }`}>
             {d.label}
@@ -194,7 +194,7 @@ function RaceForm({ name, setName, raceDate, setRaceDate, distance, setDistance,
           <X size={14} /> 취소
         </button>
         <button onClick={onSave} disabled={saving || !name.trim() || !raceDate}
-          className="flex-[2] py-2.5 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white text-sm font-extrabold active:scale-95 disabled:opacity-50 shadow-md shadow-violet-500/30 inline-flex items-center justify-center gap-1">
+          className="flex-[2] py-2.5 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-sm font-extrabold active:scale-95 disabled:opacity-50 shadow-md shadow-emerald-500/30 inline-flex items-center justify-center gap-1">
           {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} 저장
         </button>
       </div>
