@@ -88,6 +88,8 @@ export default function TrackSummarySheet({ finalState, userId, nativeEngine, on
   const { tt } = useI18n();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // PB→용 배선 (2026-08-02): 신기록 러닝이면 페이스 동물 대신 용이 축하
+  const [hadNewPB, setHadNewPB] = useState(false);
   const autoSaveFired = useRef(false);
 
   const distanceMeters = finalState.distanceMeters;
@@ -209,6 +211,7 @@ export default function TrackSummarySheet({ finalState, userId, nativeEngine, on
       try {
         const newPBs = await syncPBsFromActivity(activityId, routeData.coordinates, endedAt);
         if (newPBs.length > 0) {
+          setHadNewPB(true);   // 요약 배지 = 용 (PB 전용)
           // 신규 PB 가 있으면 활동 상세에 query string 으로 전달 → 거기서 축하 toast 표시.
           params.set('new_pb', JSON.stringify(newPBs.map(p => p.distanceMeters)));
         }
@@ -331,8 +334,8 @@ export default function TrackSummarySheet({ finalState, userId, nativeEngine, on
             {/* 페이스 동물 배지 — 정지 스프라이트 (2026-08-01 hans: 움직이는 동물 금지) */}
             {avgPaceSec != null && avgPaceSec > 0 && (
               <div className="mt-4 pt-3 border-t border-emerald-500/10 flex items-center justify-center gap-2.5">
-                <PixelRunnerStatic name={paceAnimal(avgPaceSec).name} height={28} />
-                <p className="text-sm font-bold text-emerald-600">{tt(paceAnimal(avgPaceSec).copy)}</p>
+                <PixelRunnerStatic name={paceAnimal(avgPaceSec, hadNewPB).name} height={28} />
+                <p className="text-sm font-bold text-emerald-600">{tt(paceAnimal(avgPaceSec, hadNewPB).copy)}</p>
               </div>
             )}
           </div>

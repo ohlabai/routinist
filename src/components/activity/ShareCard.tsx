@@ -131,6 +131,8 @@ function drawCard(
   },
   /** build 218 #3: 영상 배경 (시네마틱). 지정 시 bgImage 대체 — 카드 전체가 video frame 위에 overlay. */
   videoBgEl?: HTMLVideoElement | null,
+  /** PB→용 (2026-08-02): 신기록 러닝이면 페이스 동물 대신 용 */
+  isPB?: boolean,
 ) {
   // build 205 #11: 막대 그래프 애니메이션 진행도. routeProgress 와 동일 timeline (0~1).
   // 일간 카드: 오늘 막대 / 가로 누적바가 0 → 목표 까지 차오른 후 bounce → 원래 색.
@@ -787,7 +789,7 @@ function drawCard(
   // 페이스 동물 — 잔디 픽셀 동물이 구분선을 지면 삼아 달린다 (완료 화면 배지와 세트,
   // 워치 퍼레이드 스프라이트 공유). 구분선 우측 끝이라 KILOMETERS 텍스트와 안 겹침.
   if (activity.pace_avg_sec_per_km) {
-    const animal = PIXEL_RUNNER_BY_NAME[paceAnimal(activity.pace_avg_sec_per_km).name];
+    const animal = PIXEL_RUNNER_BY_NAME[paceAnimal(activity.pace_avg_sec_per_km, isPB).name];
     if (animal) {
       const grid = animal.frames[0];
       // 높이 48px — KILOMETERS 텍스트 (baseline distY+60) 아래로만 그려져 안 겹침.
@@ -1161,6 +1163,15 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
   // build 167 #1: useUserData() activities 는 route_data 없는 lite. ShareCard 진입 시 단건 lazy fetch.
   const [routeData, setRouteData] = useState<Activity['route_data']>(baseActivity.route_data ?? null);
   const activity = useMemo<Activity>(() => ({ ...baseActivity, route_data: routeData }), [baseActivity, routeData]);
+  // PB→용 (2026-08-02): 이 활동에 앵커된 신기록(personal_bests)이 있으면 카드 동물 = 용
+  const [isPB, setIsPB] = useState(false);
+  useEffect(() => {
+    if (!/^[0-9a-f-]{36}$/i.test(baseActivity.id)) return;   // 주간/월간 합성 id 방어
+    let cancelled = false;
+    getSupabase().from('personal_bests').select('id').eq('activity_id', baseActivity.id).limit(1)
+      .then(({ data }) => { if (!cancelled && data && data.length > 0) setIsPB(true); });
+    return () => { cancelled = true; };
+  }, [baseActivity.id]);
   useEffect(() => {
     if (routeData) return;
     // 2026-07-15 리뷰 fix: 주간/월간 카드의 합성 id ('period-week-…') 가 uuid 컬럼에 발사돼
@@ -1344,9 +1355,9 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
 
   const generate = useCallback(() => {
     if (!canvasRef.current) return;
-    drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel ?? undefined, 1, undefined, periodOverrides, videoStill);
+    drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel ?? undefined, 1, undefined, periodOverrides, videoStill, isPB);
     // locale: 캔버스 안 ttl()/getCurrentLocale() 텍스트가 언어 전환 시 다시 그려지도록 (build 291 i18n Phase D).
-  }, [activity, displayName, themeIdx, bgImage, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel, locale, videoStill]);
+  }, [activity, displayName, themeIdx, bgImage, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel, locale, videoStill, isPB]);
 
   useEffect(() => { generate(); }, [generate]);
 
