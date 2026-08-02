@@ -283,6 +283,39 @@ final class WorkoutManager: NSObject, ObservableObject {
         return elapsedAnchorValue + now.timeIntervalSince(elapsedAnchorDate)
     }
 
+    // ── v22: 폰 잠금화면 미러 (watchOS 10+) — Runna·애플 운동앱 방식 ──
+    // startMirroringToCompanionDevice → 시스템이 폰 앱을 깨워 Live Activity 시작.
+    // 지표는 sendToRemoteWorkoutSession 페이로드 {e,d,p,h} 로 5초 스로틀 전송.
+    private var mirrorStarted = false
+    private var lastMirrorSentAt = Date.distantPast
+
+    private func startMirroringToPhone() {
+        guard #available(watchOS 10.0, *), let session else { return }
+        session.startMirroringToCompanionDevice { [weak self] success, error in
+            Task { @MainActor in
+                guard let self else { return }
+                self.mirrorStarted = success
+                if let error { NSLog("[Watch] mirror start failed: \(error)") }
+                if success { self.sendMirrorMetrics(force: true) }
+            }
+        }
+    }
+
+    private func sendMirrorMetrics(force: Bool = false) {
+        guard #available(watchOS 10.0, *), mirrorStarted, let session else { return }
+        let now = Date()
+        guard force || now.timeIntervalSince(lastMirrorSentAt) >= 5 else { return }
+        lastMirrorSentAt = now
+        let payload: [String: Any] = [
+            "e": elapsedSeconds,
+            "d": distanceMeters,
+            "p": (lastSplitPaceSecPerKm ?? paceSecPerKm) ?? 0,
+            "h": heartRate,
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: payload) else { return }
+        session.sendToRemoteWorkoutSession(data: data) { _, _ in }
+    }
+
     // ── 화면 상태 ──────────────────────────────────────────────
     enum Phase { case idle, requesting, countdown, active, paused, ended }
     @Published var phase: Phase = .idle
@@ -480,6 +513,7 @@ final class WorkoutManager: NSObject, ObservableObject {
                 self.activateAudioSession()
                 self.registerAudioInterruptionObserverOnce()
                 self.startStallWatch()
+                self.startMirroringToPhone()   // v22: UI 재실행 복구 시에도 미러 재개
             }
         }
     }
@@ -501,6 +535,7 @@ final class WorkoutManager: NSObject, ObservableObject {
             session.startActivity(with: start)
             builder.beginCollection(withStart: start) { _, _ in }
             phase = .active
+            startMirroringToPhone()   // v22: 폰 잠금화면 Live Activity
         } catch {
             phase = .idle
         }
@@ -597,6 +632,8 @@ final class WorkoutManager: NSObject, ObservableObject {
         isAutoPaused = false
         goalAnnounced = false
         pendingCountdownAfterLocationAuth = false
+        mirrorStarted = false
+        lastMirrorSentAt = .distantPast
     }
 
     // ── 통계 반영 ─────────────────────────────────────────────
@@ -678,10 +715,12 @@ extension WorkoutManager: HKWorkoutSessionDelegate {
                 // v8 fix: 재개 직후 앵커 재동기화 — 안 하면 displayElapsed 가
                 // 일시정지 시간을 벽시계로 합산해 타이머가 점프했다 돌아옴
                 if let b = self.builder { self.syncElapsed(b.elapsedTime) }
+                self.sendMirrorMetrics(force: true)   // v22: 전이 직후 최신값
             case .paused:
                 self.phase = .paused
                 // 정지 화면 표시값을 builder 의 정확한 경과시간으로 고정
                 if let b = self.builder { self.elapsedSeconds = b.elapsedTime }
+                self.sendMirrorMetrics(force: true)
             case .ended:
                 // v12: 종료 버튼 없이 끝남 = 외부 종료 (다른 운동 앱이 세션을 가져감)
                 self.endedExternally = !self.endRequested
@@ -747,5 +786,6 @@ extension WorkoutManager: HKLiveWorkoutBuilderDelegate {
         elapsedAnchorValue = value
         elapsedAnchorDate = Date()
         checkGoal()   // v9: 시간 목표 체크
+        sendMirrorMetrics()   // v22: 폰 잠금화면 지표 (5초 스로틀)
     }
 }

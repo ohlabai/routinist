@@ -37,6 +37,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
         // watch v9: WCSession 활성화 (RoutinistWatch 연동)
         WatchBridge.shared.activate()
+        // watch v22: 워치 러닝 미러 수신 — 워치가 미러링을 시작하면 시스템이 이 앱을
+        // (종료 상태여도) 깨워 잠금화면 Live Activity 를 시작하게 해준다 (WWDC23 10023).
+        if #available(iOS 17.0, *) {
+            WorkoutMirrorReceiver.shared.register()
+        }
         return true
     }
 
