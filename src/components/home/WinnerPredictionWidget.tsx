@@ -130,10 +130,10 @@ export default function WinnerPredictionWidget() {
     <div className="mx-4 mt-3 rounded-3xl bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:from-emerald-950/30 dark:via-zinc-900 dark:to-teal-950/10 border border-emerald-200/60 dark:border-emerald-900/30 p-4 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <p className="text-base font-bold text-[var(--foreground)] flex items-center gap-1.5">
+          <p className="text-lg font-extrabold text-[var(--foreground)] flex items-center gap-1.5">
             {tt('🏆 이번 주 우승자 맞히기')}
           </p>
-          <p className="text-xs text-[var(--muted)] mt-0.5">
+          <p className="text-sm text-[var(--muted)] mt-0.5">
             {(isClosed
               ? (locale === 'en' ? 'Closed — results Sunday midnight' : '마감됨 — 일요일 자정 결과 공개')
               : timeLabel)}
@@ -147,14 +147,14 @@ export default function WinnerPredictionWidget() {
           </p>
         </div>
         {round.my_pick && (
-          <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
+          <span className="text-sm font-bold text-emerald-600 flex items-center gap-1">
             <Check size={14} /> {locale === 'en' ? 'Picked' : '픽 완료'}
           </span>
         )}
       </div>
 
       {candidates.length === 0 ? (
-        <p className="text-xs text-[var(--muted)] text-center py-4">{tt('아직 이번 주에 달린 사람이 없어요')}</p>
+        <p className="text-sm text-[var(--muted)] text-center py-4">{tt('아직 이번 주에 달린 사람이 없어요')}</p>
       ) : (
         <div className="grid grid-cols-2 gap-2">
           {candidates.slice(0, 4).map(c => {
@@ -204,8 +204,8 @@ export default function WinnerPredictionWidget() {
                   ) : null}
                 </div>
                 <div className="flex-1 min-w-0 text-left">
-                  <p className="text-sm font-bold text-[var(--foreground)] truncate">{c.display_name}</p>
-                  <p className="text-xs text-[var(--muted)] truncate">
+                  <p className="text-base font-bold text-[var(--foreground)] truncate">{c.display_name}</p>
+                  <p className="text-sm text-[var(--muted)] truncate">
                     {c.recent_km}km · {c.region_gu ?? '—'}
                   </p>
                 </div>
@@ -221,7 +221,7 @@ export default function WinnerPredictionWidget() {
         <button
           type="button"
           onClick={() => setShowFull(true)}
-          className="mt-3 w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/80 dark:bg-zinc-900/60 border border-emerald-200/60 dark:border-emerald-800/40 text-xs font-extrabold text-emerald-700 dark:text-emerald-400 active:scale-[0.98] transition"
+          className="mt-3 w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/80 dark:bg-zinc-900/60 border border-emerald-200/60 dark:border-emerald-800/40 text-sm font-extrabold text-emerald-700 dark:text-emerald-400 active:scale-[0.98] transition"
         >
           <Users size={14} />
           <span>{locale === 'en' ? 'See all 30 candidates' : '전체 후보 30명 보기'}</span>

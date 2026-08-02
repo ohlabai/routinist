@@ -99,15 +99,15 @@ export default function RankNeighbors() {
     <div className="mx-4 mt-4 rounded-3xl bg-gradient-to-br from-emerald-50 via-white to-emerald-50/30 dark:from-emerald-950/30 dark:via-zinc-900 dark:to-emerald-950/10 border border-emerald-200/60 dark:border-emerald-900/30 p-4 shadow-sm">
       <div className="flex items-center gap-1.5 mb-3">
         <Zap size={18} className="text-emerald-600" />
-        <h3 className="text-base font-bold text-[var(--foreground)]">{tt('이번 주 내 주변 러너')}</h3>
-        <span className="text-xs text-[var(--muted)] ml-auto">{locale === 'en' ? 'Since Monday' : '월요일 기준'}</span>
+        <h3 className="text-lg font-extrabold text-[var(--foreground)]">{tt('이번 주 내 주변 러너')}</h3>
+        <span className="text-sm text-[var(--muted)] ml-auto">{locale === 'en' ? 'Since Monday' : '월요일 기준'}</span>
       </div>
 
       {/* 따라잡기 타겟 (바로 앞) — 10km 이내일 때만 (2026-08-02 hans: 격차 큰데 자극 문구는 어색) */}
       {target && kmToTarget > 0 && kmToTarget < 10 && (
         <div className="mb-2 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 flex items-center gap-2">
           <span className="text-sm">🎯</span>
-          <p className="text-xs font-semibold text-[var(--foreground)] flex-1">
+          <p className="text-sm font-semibold text-[var(--foreground)] flex-1">
             {locale === 'en' ? (
               <>
                 Run <span className="text-amber-600 font-extrabold">{kmToTarget.toFixed(1)}km</span> more to pass{' '}
@@ -132,10 +132,10 @@ export default function RankNeighbors() {
               r.is_me ? 'bg-gradient-to-r from-emerald-100 to-emerald-200/70 dark:from-emerald-950/40 dark:to-emerald-900/40 ring-2 ring-emerald-300 dark:ring-emerald-700' : ''
             } ${!r.is_me && r.weekly_km <= 0 ? 'opacity-55' : ''}`}
           >
-            <span className={`w-6 text-center text-xs font-bold ${r.rank_position <= 3 ? 'text-amber-500' : 'text-[var(--muted)]'}`}>
+            <span className={`w-7 text-center text-base font-bold ${r.rank_position <= 3 ? 'text-amber-500' : 'text-[var(--muted)]'}`}>
               {r.rank_position}
             </span>
-            <div className="w-6 h-6 rounded-full bg-[var(--card-border)] overflow-hidden flex-shrink-0">
+            <div className="w-8 h-8 rounded-full bg-[var(--card-border)] overflow-hidden flex-shrink-0">
               {r.avatar_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={r.avatar_url} alt="" className="w-full h-full object-cover" />
@@ -145,10 +145,10 @@ export default function RankNeighbors() {
                 </div>
               )}
             </div>
-            <span className={`flex-1 text-xs truncate ${r.is_me ? 'font-extrabold text-emerald-700 dark:text-emerald-400' : 'font-medium text-[var(--foreground)]'}`}>
+            <span className={`flex-1 text-base truncate ${r.is_me ? 'font-extrabold text-emerald-700 dark:text-emerald-400' : 'font-medium text-[var(--foreground)]'}`}>
               {r.display_name}{r.is_me ? (locale === 'en' ? ' (You)' : ' (나)') : ''}
             </span>
-            <span className="text-xs text-[var(--muted)] font-semibold">
+            <span className="text-base text-[var(--muted)] font-semibold tabular-nums">
               {/* 이번 주 미달림 러너는 0.0km 대신 부드럽게 (2026-08-02 hans) */}
               {r.weekly_km > 0 ? `${r.weekly_km.toFixed(1)}km` : (locale === 'en' ? 'no runs yet' : '아직 기록 없음')}
             </span>
@@ -161,7 +161,7 @@ export default function RankNeighbors() {
       {chaser && chaser.weekly_km > 0 && kmFromChaser >= 0 && kmFromChaser < 5 && (
         <div className="mt-2 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/20 flex items-center gap-2">
           <span className="text-sm">⚠️</span>
-          <p className="text-xs font-semibold text-[var(--foreground)] flex-1">
+          <p className="text-sm font-semibold text-[var(--foreground)] flex-1">
             {locale === 'en' ? (
               <>
                 <span className="font-bold">{chaser.display_name}</span> is chasing you,{' '}
@@ -179,7 +179,7 @@ export default function RankNeighbors() {
 
       <Link
         href="/ranking"
-        className="mt-3 flex items-center justify-center gap-0.5 text-xs font-semibold text-emerald-600"
+        className="mt-3 flex items-center justify-center gap-0.5 text-sm font-bold text-emerald-600"
       >
         {tt('전체 랭킹 보기')} <ChevronRight size={14} />
       </Link>
