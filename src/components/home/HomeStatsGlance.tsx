@@ -19,7 +19,9 @@ import { toLocalDateStr } from '@/lib/kst';
 import { chartStyle } from '@/lib/chart-theme';
 import { runningOnly } from '@/lib/routinist-data';
 
-const HOUR_COLORS = ['#6366F1', '#F59E0B', '#EF4444', '#8B5CF6'];
+// 시간대 5분할 (2026-08-02 hans): 새벽·오전·오후·저녁·밤. 색 = 하루 하늘 은유
+// (여명 teal → 해 amber → 한낮 sky → 노을 red → 밤 indigo). 인접쌍 CVD ΔE 14+ 검증 완료.
+const HOUR_COLORS = ['#14B8A6', '#F59E0B', '#0EA5E9', '#EF4444', '#6366F1'];
 
 export default function HomeStatsGlance() {
   const { activities } = useUserData();
@@ -104,13 +106,15 @@ export default function HomeStatsGlance() {
           { label: 'Dawn', sub: '0–6', count: 0 },
           { label: 'Morning', sub: '6–12', count: 0 },
           { label: 'Afternoon', sub: '12–18', count: 0 },
-          { label: 'Evening', sub: '18–24', count: 0 },
+          { label: 'Evening', sub: '18–21', count: 0 },
+          { label: 'Night', sub: '21–24', count: 0 },
         ]
       : [
           { label: '새벽', sub: '0~6시', count: 0 },
           { label: '오전', sub: '6~12시', count: 0 },
           { label: '오후', sub: '12~18시', count: 0 },
-          { label: '저녁', sub: '18~24시', count: 0 },
+          { label: '저녁', sub: '18~21시', count: 0 },
+          { label: '밤', sub: '21~24시', count: 0 },
         ];
     const cutoff = new Date();
     cutoff.setFullYear(cutoff.getFullYear() - 1);
@@ -118,7 +122,7 @@ export default function HomeStatsGlance() {
     runningOnly(activities).forEach(a => {
       if (!a.started_at || a.activity_date < cutoffStr) return;
       const h = new Date(a.started_at).getHours();
-      groups[Math.min(3, Math.floor(h / 6))].count++;
+      groups[h < 6 ? 0 : h < 12 ? 1 : h < 18 ? 2 : h < 21 ? 3 : 4].count++;
     });
     return groups;
   }, [activities, en]);
@@ -269,12 +273,14 @@ export default function HomeStatsGlance() {
                 : <>주로 <span className="text-[var(--accent)] font-extrabold">{maxHourGroup.label}</span></>}
             </p>
           }>{tt('시간대별 분포')}</CardTitle>
-          <div className="flex items-center gap-4">
+          {/* 2026-08-02 hans: 좁은 옆 범례에서 라벨이 "오…"로 잘려 오전/오후 구분 불가
+              → 도넛 위·범례 아래 세로 스택 (풀폭 행이라 라벨+시간대+횟수+% 전부 표시) */}
+          <div className="flex flex-col items-center gap-3">
             <div className="relative w-44 h-44 shrink-0">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={hourGroups}
+                    data={hourGroups.map((g, i) => ({ ...g, fill: HOUR_COLORS[i] })).filter(g => g.count > 0)}
                     dataKey="count"
                     nameKey="label"
                     innerRadius={54}
@@ -283,8 +289,8 @@ export default function HomeStatsGlance() {
                     strokeWidth={0}
                     animationDuration={chartStyle.animationDuration}
                   >
-                    {hourGroups.map((g, i) => (
-                      <Cell key={g.label} fill={HOUR_COLORS[i]} />
+                    {hourGroups.map((g, i) => ({ ...g, fill: HOUR_COLORS[i] })).filter(g => g.count > 0).map(g => (
+                      <Cell key={g.label} fill={g.fill} />
                     ))}
                   </Pie>
                   <Tooltip contentStyle={tooltipStyle} formatter={(v) => [en ? `${v} runs` : `${v}회`]} />
@@ -295,15 +301,17 @@ export default function HomeStatsGlance() {
                 <p className="text-base font-semibold text-[var(--muted)]">{en ? `${hourTotal} runs` : `총 ${hourTotal}회`}</p>
               </div>
             </div>
-            <div className="flex-1 min-w-0 space-y-2.5">
+            <div className="w-full space-y-2">
               {hourGroups.map((g, i) => (
-                <div key={g.label} className="flex items-center gap-2.5">
+                <div key={g.label} className={`flex items-center gap-2.5 ${g.count === 0 ? 'opacity-45' : ''}`}>
                   <span className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: HOUR_COLORS[i] }} />
-                  <span className="flex-1 text-lg font-medium text-[var(--foreground)] truncate">
-                    {g.label} <span className="text-sm text-[var(--muted)]">{g.sub}</span>
-                  </span>
+                  <span className="text-lg font-medium text-[var(--foreground)]">{g.label}</span>
+                  <span className="flex-1 text-sm text-[var(--muted)]">{g.sub}</span>
                   <span className="text-lg font-extrabold tabular-nums text-[var(--foreground)]">
                     {en ? g.count : `${g.count}회`}
+                  </span>
+                  <span className="w-11 text-right text-base tabular-nums text-[var(--muted)]">
+                    {hourTotal > 0 ? `${Math.round((g.count / hourTotal) * 100)}%` : ''}
                   </span>
                 </div>
               ))}

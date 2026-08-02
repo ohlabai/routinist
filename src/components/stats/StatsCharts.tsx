@@ -205,17 +205,20 @@ export default function StatsCharts() {
     return hours;
   }, [activities, hourScope, year, locale]);
 
-  const hourGroups = locale === 'en' ? [
-    { label: 'Dawn (0–6)', count: hourStats.slice(0, 6).reduce((s, h) => s + h.runCount, 0) },
-    { label: 'Morning (6–12)', count: hourStats.slice(6, 12).reduce((s, h) => s + h.runCount, 0) },
-    { label: 'Afternoon (12–18)', count: hourStats.slice(12, 18).reduce((s, h) => s + h.runCount, 0) },
-    { label: 'Evening (18–24)', count: hourStats.slice(18, 24).reduce((s, h) => s + h.runCount, 0) },
+  // 시간대 5분할 (2026-08-02 hans): 새벽·오전·오후·저녁·밤 — 홈 도넛과 동일 경계.
+  const hourGroups = (locale === 'en' ? [
+    { label: 'Dawn', sub: '0–6', range: [0, 6] },
+    { label: 'Morning', sub: '6–12', range: [6, 12] },
+    { label: 'Afternoon', sub: '12–18', range: [12, 18] },
+    { label: 'Evening', sub: '18–21', range: [18, 21] },
+    { label: 'Night', sub: '21–24', range: [21, 24] },
   ] : [
-    { label: '새벽 (0~6시)', count: hourStats.slice(0, 6).reduce((s, h) => s + h.runCount, 0) },
-    { label: '오전 (6~12시)', count: hourStats.slice(6, 12).reduce((s, h) => s + h.runCount, 0) },
-    { label: '오후 (12~18시)', count: hourStats.slice(12, 18).reduce((s, h) => s + h.runCount, 0) },
-    { label: '저녁 (18~24시)', count: hourStats.slice(18, 24).reduce((s, h) => s + h.runCount, 0) },
-  ];
+    { label: '새벽', sub: '0~6시', range: [0, 6] },
+    { label: '오전', sub: '6~12시', range: [6, 12] },
+    { label: '오후', sub: '12~18시', range: [12, 18] },
+    { label: '저녁', sub: '18~21시', range: [18, 21] },
+    { label: '밤', sub: '21~24시', range: [21, 24] },
+  ]).map(g => ({ ...g, count: hourStats.slice(g.range[0], g.range[1]).reduce((s, h) => s + h.runCount, 0) }));
   const maxHourGroup = hourGroups.reduce((m, g) => g.count > m.count ? g : m, hourGroups[0]);
   const hourTotal = hourGroups.reduce((s, g) => s + g.count, 0);
 
@@ -592,21 +595,24 @@ export default function StatsCharts() {
           </div>
           <p className="text-lg text-[var(--muted)] mb-3">
             {locale === 'en' ? (
-              <>You mostly run in the <span className="font-semibold text-[var(--accent)]">{maxHourGroup.label}</span></>
+              <>You mostly run in the <span className="font-semibold text-[var(--accent)]">{maxHourGroup.label} ({maxHourGroup.sub})</span></>
             ) : (
-              <>주로 <span className="font-semibold text-[var(--accent)]">{maxHourGroup.label}</span>에 달려요</>
+              <>주로 <span className="font-semibold text-[var(--accent)]">{maxHourGroup.label} ({maxHourGroup.sub})</span>에 달려요</>
             )}
           </p>
           {/* 2026-08-01 (hans 다양한 폼): 구성비 데이터 = 도넛. 색+라벨+횟수 병기 (색 단독 식별 금지) */}
           {(() => {
-            const HOUR_COLORS = ['#6366F1', '#F59E0B', '#EF4444', '#8B5CF6'];
+            // 색 = 하루 하늘 은유 (여명 teal → 해 amber → 한낮 sky → 노을 red → 밤 indigo). 홈과 동일.
+            const HOUR_COLORS = ['#14B8A6', '#F59E0B', '#0EA5E9', '#EF4444', '#6366F1'];
+            const slices = hourGroups.map((g, i) => ({ ...g, fill: HOUR_COLORS[i] })).filter(g => g.count > 0);
             return (
-              <div className="flex items-center gap-4">
+              // 옆 범례 라벨 잘림 (hans 2026-08-02) → 도넛 위·풀폭 범례 아래 세로 스택
+              <div className="flex flex-col items-center gap-3">
                 <div className="relative w-44 h-44 shrink-0">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
-                        data={hourGroups}
+                        data={slices}
                         dataKey="count"
                         nameKey="label"
                         innerRadius={54}
@@ -615,8 +621,8 @@ export default function StatsCharts() {
                         strokeWidth={0}
                         animationDuration={chartStyle.animationDuration}
                       >
-                        {hourGroups.map((g, i) => (
-                          <Cell key={g.label} fill={HOUR_COLORS[i]} />
+                        {slices.map(g => (
+                          <Cell key={g.label} fill={g.fill} />
                         ))}
                       </Pie>
                       <Tooltip
@@ -626,15 +632,16 @@ export default function StatsCharts() {
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <p className="text-2xl font-extrabold text-[var(--foreground)]">{maxHourGroup.label.split(' ')[0]}</p>
+                    <p className="text-2xl font-extrabold text-[var(--foreground)]">{maxHourGroup.label}</p>
                     <p className="text-base font-semibold text-[var(--muted)]">{locale === 'en' ? `${hourTotal} runs` : `총 ${hourTotal}회`}</p>
                   </div>
                 </div>
-                <div className="flex-1 min-w-0 space-y-2.5">
+                <div className="w-full space-y-2">
                   {hourGroups.map((g, i) => (
-                    <div key={g.label} className="flex items-center gap-2.5">
+                    <div key={g.label} className={`flex items-center gap-2.5 ${g.count === 0 ? 'opacity-45' : ''}`}>
                       <span className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: HOUR_COLORS[i] }} />
-                      <span className="flex-1 text-lg font-medium text-[var(--foreground)] truncate">{g.label}</span>
+                      <span className="text-lg font-medium text-[var(--foreground)]">{g.label}</span>
+                      <span className="flex-1 text-sm text-[var(--muted)]">{g.sub}</span>
                       <span className="text-lg font-extrabold tabular-nums text-[var(--foreground)]">
                         {locale === 'en' ? g.count : `${g.count}회`}
                       </span>
