@@ -69,7 +69,7 @@ const SCOPE_META: Record<RankBreakdown['scope_type'], {
   },
   decade: {
     Icon: Cake,
-    bg: 'from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/20',
+    bg: 'from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/20',
     iconColor: 'text-amber-600',
     barColor: 'bg-amber-500',
   },

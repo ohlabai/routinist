@@ -8,6 +8,7 @@
 // 원칙: 텍스트 최소 (제목 + 인사이트 한 줄), 데이터 성격에 맞는 폼 — 추이=막대, 주기=레이더.
 
 import { useMemo } from 'react';
+import Link from 'next/link';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   RadarChart, PolarGrid, PolarAngleAxis, Radar,
@@ -75,7 +76,10 @@ export default function HomeStatsGlance() {
       {daily30Total > 0 && (
         <div className="mx-4 card p-5">
           <div className="flex items-baseline justify-between mb-3">
-            <h3 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">{tt('최근 30일')}</h3>
+            <Link href="/stats" className="flex items-center gap-1">
+              <h3 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">{tt('최근 30일')}</h3>
+              <span className="text-sm font-bold text-[var(--muted)]">›</span>
+            </Link>
             <p className="text-xl font-extrabold tabular-nums text-[var(--accent)]">
               {daily30Total.toFixed(1)}<span className="text-lg font-bold text-[var(--muted)]"> km</span>
             </p>
@@ -102,7 +106,10 @@ export default function HomeStatsGlance() {
       {maxDay && (
         <div className="mx-4 card p-5">
           <div className="flex items-baseline justify-between mb-1">
-            <h3 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">{tt('요일 패턴')}</h3>
+            <Link href="/stats" className="flex items-center gap-1">
+              <h3 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">{tt('요일 패턴')}</h3>
+              <span className="text-sm font-bold text-[var(--muted)]">›</span>
+            </Link>
             <p className="text-lg font-semibold text-[var(--muted)]">
               {en
                 ? <>mostly <span className="text-[var(--accent)] font-extrabold">{maxDay.day}</span></>

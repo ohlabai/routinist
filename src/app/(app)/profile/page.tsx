@@ -166,12 +166,12 @@ export default function ProfilePage() {
 
   // 배지 계산 — 누적 거리/횟수 기반 성취 (label 은 unit 만 locale 무관하게 표시)
   const badges: { icon: string; label: string; gradient: string }[] = [];
-  if (totalKm >= 10) badges.push({ icon: '🏅', label: '10km', gradient: 'from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30' });
+  if (totalKm >= 10) badges.push({ icon: '🏅', label: '10km', gradient: 'from-amber-100 to-yellow-100 dark:from-amber-900/30 dark:to-yellow-900/30' });
   if (totalKm >= 50) badges.push({ icon: '🎖️', label: '50km', gradient: 'from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30' });
   if (totalKm >= 100) badges.push({ icon: '🏆', label: '100km', gradient: 'from-yellow-100 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30' });
   if (totalKm >= 500) badges.push({ icon: '💎', label: '500km', gradient: 'from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30' });
-  if (totalKm >= 1000) badges.push({ icon: '👑', label: '1000km', gradient: 'from-yellow-200 to-orange-200 dark:from-yellow-800/30 dark:to-orange-800/30' });
-  if (totalRuns >= 10) badges.push({ icon: '🔥', label: `10×`, gradient: 'from-red-100 to-orange-100 dark:from-red-900/30 dark:to-orange-900/30' });
+  if (totalKm >= 1000) badges.push({ icon: '👑', label: '1000km', gradient: 'from-amber-200 to-yellow-200 dark:from-amber-800/30 dark:to-yellow-800/30' });
+  if (totalRuns >= 10) badges.push({ icon: '🔥', label: `10×`, gradient: 'from-amber-100 to-yellow-100 dark:from-amber-900/30 dark:to-yellow-900/30' });
   if (totalRuns >= 50) badges.push({ icon: '⚡', label: `50×`, gradient: 'from-yellow-100 to-lime-100 dark:from-yellow-900/30 dark:to-lime-900/30' });
   if (streak >= 4) badges.push({ icon: '💪', label: '4주 🔥', gradient: 'from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30' });
   if (streak >= 12) badges.push({ icon: '🌟', label: '12주 🔥', gradient: 'from-indigo-100 to-violet-100 dark:from-indigo-900/30 dark:to-violet-900/30' });
@@ -373,7 +373,7 @@ export default function ProfilePage() {
             <p className="text-xs text-[var(--muted)] mt-0.5">{locale === 'en' ? 'Runs' : '러닝 횟수'}</p>
           </div>
           <div>
-            <p className="text-lg font-extrabold text-orange-500 tabular-nums">{streak}{locale === 'en' ? 'w' : '주'} 🔥</p>
+            <p className="text-lg font-extrabold text-emerald-600 tabular-nums">{streak}{locale === 'en' ? 'w' : '주'} 🔥</p>
             <p className="text-xs text-[var(--muted)] mt-0.5">{locale === 'en' ? 'Weekly streak' : '주간 연속'}</p>
           </div>
         </div>

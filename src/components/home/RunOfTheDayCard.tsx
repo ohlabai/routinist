@@ -73,7 +73,7 @@ export default function RunOfTheDayCard() {
   return (
     <Link
       href={`/activity?id=${pick.activity_id}`}
-      className="mx-4 block rounded-2xl bg-gradient-to-br from-yellow-50 via-amber-50 to-orange-50 dark:from-yellow-950/30 dark:via-amber-950/30 dark:to-orange-950/30 border border-amber-200 dark:border-amber-800 p-4 shadow-md shadow-amber-500/10 active:scale-[0.99] transition"
+      className="mx-4 block rounded-2xl bg-gradient-to-br from-amber-50 via-white to-amber-50/40 dark:from-amber-950/25 dark:via-zinc-900 dark:to-amber-950/10 border border-amber-200 dark:border-amber-800 p-4 shadow-md shadow-amber-500/10 active:scale-[0.99] transition"
     >
       <div className="flex items-center gap-2 mb-2">
         <Crown size={16} className="text-amber-500" />
@@ -84,7 +84,7 @@ export default function RunOfTheDayCard() {
         <span className="ml-auto text-[12px] text-[var(--muted)] font-semibold">{pick.pick_date}</span>
       </div>
       <div className="flex items-center gap-3">
-        <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center font-extrabold text-base shadow-md overflow-hidden">
+        <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 to-amber-500 text-white flex items-center justify-center font-extrabold text-base shadow-md overflow-hidden">
           {pick.avatar_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={pick.avatar_url} alt={pick.display_name ?? 'runner'} className="w-full h-full object-cover" />

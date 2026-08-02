@@ -51,18 +51,18 @@ export default function MonthlyRivalCard() {
 
   return (
     <div className="mx-4">
-      <div className="card p-4 bg-gradient-to-br from-amber-50 to-orange-50/40 dark:from-amber-950/30 dark:to-orange-950/15 border-amber-200/60 dark:border-amber-800/40">
+      <div className="card p-4 bg-gradient-to-br from-emerald-50 to-emerald-50/40 dark:from-emerald-950/30 dark:to-emerald-950/10 border-emerald-200/60 dark:border-emerald-800/40">
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-3">
           <div className="inline-flex items-center gap-1.5">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-sm">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-sm">
               <Swords size={14} className="text-white" strokeWidth={2.5} />
             </div>
             <h3 className="text-sm font-extrabold text-[var(--foreground)]">{locale === 'en' ? 'Monthly Pacemaker' : '이달의 페이스메이커'}</h3>
           </div>
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100/80 dark:bg-amber-900/30">
-            <Calendar size={11} className="text-amber-700 dark:text-amber-300" />
-            <span className="text-[12px] font-extrabold text-amber-700 dark:text-amber-300">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100/80 dark:bg-emerald-900/30">
+            <Calendar size={11} className="text-emerald-700 dark:text-emerald-300" />
+            <span className="text-[12px] font-extrabold text-emerald-700 dark:text-emerald-300">
               {monthLabel} · D-{rival.daysLeft}
             </span>
           </span>
@@ -80,7 +80,7 @@ export default function MonthlyRivalCard() {
           </div>
           {/* 라이벌 */}
           <Link href={`/social/user?id=${rival.rivalUserId}`}
-            className={`p-3 rounded-2xl text-center active:scale-[0.98] transition ${!winning && myKm < rivalKm ? 'bg-rose-100/60 dark:bg-rose-900/30 border-2 border-rose-300/60 dark:border-rose-700/40' : 'bg-[var(--card)]'}`}
+            className={`p-3 rounded-2xl text-center active:scale-[0.98] transition bg-[var(--card)]`}
           >
             <div className="flex items-center justify-center gap-1.5 mb-0.5">
               <div className="w-5 h-5 rounded-full bg-[var(--card-border)] overflow-hidden flex-shrink-0">
@@ -95,7 +95,7 @@ export default function MonthlyRivalCard() {
                 {rival.rivalDisplayName ?? (locale === 'en' ? 'Pacemaker' : '페이스메이커')}
               </p>
             </div>
-            <p className={`text-2xl font-extrabold ${!winning && myKm < rivalKm ? 'text-rose-600 dark:text-rose-400' : 'text-[var(--foreground)]'}`}>
+            <p className={`text-2xl font-extrabold text-[var(--foreground)]`}>
               {rivalKm.toFixed(1)}
             </p>
             <p className="text-[12px] text-[var(--muted)]">km</p>
@@ -106,7 +106,7 @@ export default function MonthlyRivalCard() {
         <div className="mt-3 h-2 rounded-full bg-[var(--card-border)]/30 overflow-hidden flex">
           <div className="bg-gradient-to-r from-emerald-400 to-emerald-500 transition-all"
                style={{ width: `${myPct}%` }} />
-          <div className="bg-gradient-to-r from-rose-400 to-rose-500 transition-all"
+          <div className="bg-gradient-to-r from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-500 transition-all"
                style={{ width: `${100 - myPct}%` }} />
         </div>
 

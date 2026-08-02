@@ -184,7 +184,7 @@ function SocialPageInner() {
               className="block card p-3 active:scale-[0.99] transition bg-gradient-to-br from-amber-50/60 to-transparent dark:from-amber-950/20"
             >
               <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center flex-shrink-0 shadow-md shadow-amber-500/30">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-md shadow-emerald-500/30">
                   <Trophy size={16} className="text-white" />
                 </div>
                 <div className="flex-1 min-w-0">

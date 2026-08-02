@@ -27,7 +27,7 @@ type CategoryKey = 'chat_message' | 'mileage_gift' | 'feedback_reply' | 'likes' 
   | 'friend_pb' | 'course_progress' | 'course_complete' | 'club_course_start' | 'club_course_complete'
   | 'world_chase' | 'idle_reminder' | 'month_end_recap'
   | 'weekly_recap' | 'streak_risk' | 'referral' | 'first_place_month' | 'pb_distance'
-  | 'weekly_best_quote' | 'review_request';
+  | 'weekly_best_quote' | 'review_request' | 'goal_achieved';
 
 // build 175 #5: 핵심 알림 4종을 상단에 노출 — 채팅·선물·답글·좋아요. 기본 ON.
 // 친선런(contest) 은 메뉴 숨김 (build 144) 과 동일하게 알림 설정에서도 표시 안 함.
@@ -58,6 +58,7 @@ function getCategories(tt: (ko: string) => string, locale: 'ko' | 'en'): Categor
     // weekly_recap — 2026-08-01 hans 지시로 폐기 (DB 함수 DROP)
     { key: 'month_end_recap', label: tt('월말 결산'), description: locale === 'en' ? 'Your monthly running recap at month-end' : '월말에 받아보는 이달의 내 러닝 요약', Icon: CalendarDays },
     { key: 'first_place_month', label: locale === 'en' ? 'Monthly 1st place' : '월간 1위 달성', description: locale === 'en' ? 'When you reach #1 in your ranking scope this month' : '이번 달 내 랭킹 범위에서 1위에 올랐을 때', Icon: Trophy },
+    { key: 'goal_achieved', label: locale === 'en' ? 'Goal achieved' : '월간 목표 달성', description: locale === 'en' ? 'A one-time cheer when you hit your monthly km goal' : '이달 목표 km 를 달성한 순간 축하해드려요 (월 1회)', Icon: Flag },
     { key: 'pb_distance', label: locale === 'en' ? 'New longest run' : '최장 거리 신기록', description: locale === 'en' ? 'When you set a new personal longest distance' : '내 최장 거리 기록을 갱신했을 때', Icon: Trophy },
     { key: 'weekly_best_quote', label: locale === 'en' ? 'Weekly best note' : '주간 베스트 한 줄', description: locale === 'en' ? 'When your note becomes a weekly favorite' : '내 러너 한 줄이 이번 주 베스트로 뽑혔을 때', Icon: Heart },
     { key: 'referral', label: locale === 'en' ? 'Invite updates' : '초대 소식', description: locale === 'en' ? 'When an invitee joins or earns you a reward' : '초대한 친구가 가입하거나 보상이 도착했을 때', Icon: UserPlus },
@@ -98,6 +99,7 @@ const DEFAULTS: Record<CategoryKey, boolean> = {
   pb_distance: true,
   weekly_best_quote: true,
   review_request: true,
+  goal_achieved: true,   // 2026-08-02 신설 — 월간 목표 100% 교차 순간 1회
 };
 
 export default function PushSettingsPage() {

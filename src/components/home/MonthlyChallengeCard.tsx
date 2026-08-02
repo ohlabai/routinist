@@ -83,21 +83,21 @@ export default function MonthlyChallengeCard({ embedded = false }: { embedded?: 
         className={`rounded-2xl border p-4 shadow-sm ${
           completed
             ? 'bg-gradient-to-br from-amber-50 via-white to-emerald-50/50 dark:from-amber-950/20 dark:via-zinc-900 dark:to-emerald-950/20 border-amber-200/70 dark:border-amber-900/40'
-            : 'bg-gradient-to-br from-orange-50 via-white to-rose-50/40 dark:from-orange-950/20 dark:via-zinc-900 dark:to-rose-950/10 border-orange-200/60 dark:border-orange-900/40'
+            : 'bg-gradient-to-br from-emerald-50 via-white to-emerald-50/40 dark:from-emerald-950/20 dark:via-zinc-900 dark:to-emerald-950/10 border-emerald-200/60 dark:border-emerald-900/40'
         }`}
       >
         {/* 헤더 */}
         <div className="flex items-center gap-2 mb-3">
           <div className={`w-9 h-9 rounded-2xl flex items-center justify-center ${
-            completed ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-orange-100 dark:bg-orange-900/40'
+            completed ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-emerald-100 dark:bg-emerald-900/40'
           }`}>
             {completed
               ? <Trophy size={18} className="text-amber-500" />
-              : <Flame size={18} className="text-orange-500" />}
+              : <Flame size={18} className="text-emerald-600" />}
           </div>
           <div className="flex-1 min-w-0">
             <p className={`text-[12px] font-extrabold tracking-widest uppercase ${
-              completed ? 'text-amber-600 dark:text-amber-400' : 'text-orange-600 dark:text-orange-400'
+              completed ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'
             }`}>
               {locale === 'en' ? 'Monthly Basic Challenge' : '이달의 기본 챌린지'}
             </p>
@@ -129,7 +129,7 @@ export default function MonthlyChallengeCard({ embedded = false }: { embedded?: 
             className={`h-full rounded-full transition-all duration-500 ${
               completed
                 ? 'bg-gradient-to-r from-amber-400 to-amber-500'
-                : 'bg-gradient-to-r from-orange-400 to-rose-500'
+                : 'bg-gradient-to-r from-emerald-500 to-emerald-400'
             }`}
             style={{ width: `${pct}%` }}
           />
@@ -161,7 +161,7 @@ export default function MonthlyChallengeCard({ embedded = false }: { embedded?: 
             </p>
             <button
               onClick={() => setConfirming(true)}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-orange-500 to-rose-500 text-white text-sm font-extrabold active:scale-[0.99] shadow-md shadow-orange-500/25 inline-flex items-center justify-center gap-1.5"
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-sm font-extrabold active:scale-[0.99] shadow-md shadow-emerald-500/25 inline-flex items-center justify-center gap-1.5"
             >
               <Flame size={15} />
               {locale === 'en'
@@ -178,15 +178,15 @@ export default function MonthlyChallengeCard({ embedded = false }: { embedded?: 
           onClick={() => !joining && setConfirming(false)}>
           <div className="w-full max-w-sm bg-[var(--background)] rounded-3xl p-5 shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="flex flex-col items-center gap-2 mb-4">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-100 to-rose-50 dark:from-orange-900/40 dark:to-rose-950/40 flex items-center justify-center">
-                <Coins size={24} className="text-orange-600" />
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-50 dark:from-emerald-900/40 dark:to-emerald-950/40 flex items-center justify-center">
+                <Coins size={24} className="text-emerald-600" />
               </div>
               <h3 className="text-base font-extrabold text-center">
                 🔥 {locale === 'en' ? 'Monthly Full Course' : '이달의 풀코스 챌린지'}
               </h3>
               <p className="text-sm text-[var(--muted)] text-center leading-relaxed">
                 {locale === 'en' ? 'Entry ' : '참가비 '}
-                <span className="font-extrabold text-orange-600">{data.entry_fee}{locale === 'en' ? 'P' : ' 마일리지'}</span>
+                <span className="font-extrabold text-emerald-700 dark:text-emerald-400">{data.entry_fee}{locale === 'en' ? 'P' : ' 마일리지'}</span>
                 {locale === 'en'
                   ? ` — run 42.195km before this month ends. This month's runs already count!`
                   : ` 차감하고 이달 안에 42.195km 도전!`}
@@ -199,7 +199,7 @@ export default function MonthlyChallengeCard({ embedded = false }: { embedded?: 
                 {locale === 'en' ? 'Cancel' : '취소'}
               </button>
               <button onClick={handleJoin} disabled={joining}
-                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-rose-500 text-white font-extrabold text-sm disabled:opacity-50 active:scale-95 inline-flex items-center justify-center gap-1">
+                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-extrabold text-sm disabled:opacity-50 active:scale-95 inline-flex items-center justify-center gap-1">
                 {joining ? <Loader2 size={14} className="animate-spin" /> : <Flame size={14} />}
                 {locale === 'en' ? 'Go!' : '출발! 🚀'}
               </button>
