@@ -20,6 +20,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { followUser, unfollowUser, isFollowing } from '@/lib/social-data';
 import { sendFriendRequest, getFriendshipStatus, cancelFriendRequest, type FriendshipStatus } from '@/lib/friend-requests-data';
 import CheerButton from '@/components/social/CheerButton';
+import ProfileChatBox from '@/components/social/ProfileChatBox';
 import { getOrCreateConversation, blockUser, unblockUser, isBlocked } from '@/lib/message-data';
 import { PUBLIC_PROFILE_FIELDS } from '@/lib/profile-fields';
 import type { Profile } from '@/types';
@@ -398,14 +399,18 @@ function UserProfileContent() {
         </div>
       </div>
 
-      {/* 응원 보내기 카드 — 통일 폼 (2026-07-30): 원탭 무제한 + 픽셀 하트 버스트 */}
+      {/* 응원 보내기 카드 — 통일 폼 (2026-07-30): 원탭 무제한 + 픽셀 하트 버스트.
+          2026-08-03 hans: 하트 아래 인라인 응원 챗 (최근 대화 미리보기 + 바로 전송) */}
       {user && !isMe && (
-        <div className="card p-4 flex items-center gap-3">
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-extrabold text-[var(--foreground)]">{tt('응원 보내기')}</p>
-            <p className="text-xs text-[var(--muted)] mt-0.5">{tt('하트는 몇 번이든 눌러도 돼요')}</p>
+        <div className="card p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-extrabold text-[var(--foreground)]">{tt('응원 보내기')}</p>
+              <p className="text-xs text-[var(--muted)] mt-0.5">{tt('하트는 몇 번이든 눌러도 돼요')}</p>
+            </div>
+            <CheerButton toUserId={profile.id} context="profile" />
           </div>
-          <CheerButton toUserId={profile.id} context="profile" />
+          {!blockedByMe && <ProfileChatBox otherUserId={profile.id} myUserId={user.id} />}
         </div>
       )}
 
@@ -473,17 +478,6 @@ function UserProfileContent() {
           </Link>
         </div>
       ))}
-
-      {/* build 290: 차단/해제 (Apple 1.2) — 액션 그리드 하단의 절제된 텍스트 버튼 */}
-      {user && !isMe && (
-        <button
-          onClick={handleBlockToggle}
-          disabled={blockToggling}
-          className="w-full py-2 text-xs font-semibold text-rose-500/80 disabled:opacity-50 active:opacity-70 transition"
-        >
-          {blockedByMe ? tt('차단 해제하기') : tt('이 사용자 차단하기')}
-        </button>
-      )}
 
       {/* 친구 이번 주 회고 (build 130) */}
       <FriendWeeklyRecap userId={profile.id} />
@@ -618,6 +612,18 @@ function UserProfileContent() {
             </BarChart>
           </ResponsiveContainer>
         </div>
+      )}
+
+      {/* build 290: 차단/해제 (Apple 1.2) — 2026-08-03 hans: 액션 그리드 아래에서 페이지
+          최하단으로 이동. 응원·챗 흐름 한가운데 부정 액션이 끼어 있던 것을 정리. */}
+      {user && !isMe && (
+        <button
+          onClick={handleBlockToggle}
+          disabled={blockToggling}
+          className="w-full py-2 text-xs font-semibold text-rose-500/80 disabled:opacity-50 active:opacity-70 transition"
+        >
+          {blockedByMe ? tt('차단 해제하기') : tt('이 사용자 차단하기')}
+        </button>
       )}
 
       {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2500} />}
