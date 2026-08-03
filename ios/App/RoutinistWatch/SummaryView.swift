@@ -17,28 +17,30 @@ struct SummaryView: View {
     private var scrollContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
+                // 2026-08-03 hans: 폭죽(🎉) 아이콘 제거 — 축하의 주인공은 블록동물.
+                // 완주 타이틀 옆에서 페이스 동물이 제자리 달리기하며 맞아준다.
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("완주! 🎉")
-                        .font(.system(size: 30, weight: .heavy, design: .rounded))
+                    HStack(alignment: .center, spacing: 10) {
+                        Text("완주!")
+                            .font(.system(size: 30, weight: .heavy, design: .rounded))
+                        if let s = workout.summary {
+                            ParadeRunnerInPlace(runner: paceAnimalMatch(paceSecPerKm: s.paceSecPerKm).runner, height: 34)
+                        }
+                    }
                     // 2026-08-02 hans: 종료 직후 따뜻한 한 줄
                     Text("오늘도 잘 달렸어요")
                         .font(.system(size: 16, weight: .semibold, design: .rounded))
                         .foregroundStyle(.secondary)
                 }
 
-                // 2026-07-30 (hans): 페이스 동물 축하 — 오늘의 페이스에 어울리는 블록동물이
-                // 제자리 달리기하며 축하 (웹 완료시트·공유카드와 같은 사다리).
+                // 페이스 동물 축하 카피 (웹 완료시트·공유카드와 같은 사다리)
                 if let s = workout.summary {
-                    let match = paceAnimalMatch(paceSecPerKm: s.paceSecPerKm)
-                    HStack(spacing: 9) {
-                        ParadeRunnerInPlace(runner: match.runner, height: 30)
-                        Text(match.copy)
-                            .font(.system(size: 14, weight: .heavy, design: .rounded))
-                            .foregroundStyle(emerald)
-                            .minimumScaleFactor(0.75)
-                            .lineLimit(2)
-                    }
-                    .padding(.vertical, 2)
+                    Text(paceAnimalMatch(paceSecPerKm: s.paceSecPerKm).copy)
+                        .font(.system(size: 14, weight: .heavy, design: .rounded))
+                        .foregroundStyle(emerald)
+                        .minimumScaleFactor(0.75)
+                        .lineLimit(2)
+                        .padding(.vertical, 2)
                 }
 
                 // v12: 다른 운동 앱이 세션을 가져가 종료된 경우 — 이유 안내 (버그 아님을 명확히)
@@ -64,7 +66,8 @@ struct SummaryView: View {
                     }
                 }
 
-                Text("Apple Health 에 저장했어요.\niPhone 의 Routinist 가 자동으로 가져가요 🏃")
+                // v24: WCSession 직송 — 폰 앱을 열면 즉시 기록이 도착한다 (HK 미러 대기 불필요)
+                Text("기록을 iPhone 으로 보냈어요.\nRoutinist 앱을 열면 바로 보여요 🏃")
                     .font(.system(size: 13, weight: .medium, design: .rounded))
                     .foregroundStyle(.secondary)
                     .padding(.top, 2)

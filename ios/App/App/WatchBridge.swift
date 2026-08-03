@@ -104,6 +104,36 @@ extension WatchBridge: WCSessionDelegate {
         }
     }
 
+    // v24 (2026-08-03 hans "동기화 오래 걸림"): 워치 완주 러닝 직송 수신.
+    // 워치가 transferUserInfo 로 보낸 러닝을 Capacitor Preferences 큐 watch_pending_runs
+    // (갤럭시워치 WatchRunReceiverService 와 동일 규약)에 쌓는다 → JS drainWatchRuns 가
+    // 앱 포그라운드에서 즉시 activities 로 저장. HK 미러 지연(수 분~수 시간)과 무관해짐.
+    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+        guard userInfo["type"] as? String == "watch_run" else { return }
+        WatchBridge.enqueuePendingRun(userInfo)
+    }
+
+    private static func enqueuePendingRun(_ info: [String: Any]) {
+        // @capacitor/preferences iOS 는 UserDefaults.standard 에 "CapacitorStorage." prefix 로 저장
+        let key = "CapacitorStorage.watch_pending_runs"
+        objc_sync_enter(WatchBridge.shared); defer { objc_sync_exit(WatchBridge.shared) }
+        var arr: [[String: Any]] = []
+        if let raw = UserDefaults.standard.string(forKey: key),
+           let data = raw.data(using: .utf8),
+           let parsed = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] {
+            arr = parsed
+        }
+        guard let rid = info["clientRecordId"] as? String, !rid.isEmpty,
+              !arr.contains(where: { ($0["clientRecordId"] as? String) == rid }) else { return }
+        var run = info
+        run.removeValue(forKey: "type")
+        arr.append(run)
+        if let data = try? JSONSerialization.data(withJSONObject: arr),
+           let raw = String(data: data, encoding: .utf8) {
+            UserDefaults.standard.set(raw, forKey: key)
+        }
+    }
+
     // v19: reply 프로토콜 — 폰이 "실제로 소리를 낼 수 있을 때"만 spoken:true.
     // 이어폰/BT 미연결(주머니 스피커)이거나 세션 활성화 실패면 false → 워치가 직접 발화.
     // 기존 무음 버그의 골자: 구 프로토콜은 전달만 되면 성공으로 쳐서 워치 폴백이 영영 안 탔다.

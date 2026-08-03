@@ -20,7 +20,6 @@ import NotificationBell from '@/components/NotificationBell';
 import HomeRankingHero from '@/components/home/HomeRankingHero';
 import SeasonRecapCard from '@/components/home/SeasonRecapCard';
 import StreakWarningCard from '@/components/home/StreakWarningCard';
-import WeeklyRecapCard from '@/components/home/WeeklyRecapCard';
 import HomeCalendarCard from '@/components/home/HomeCalendarCard';
 import { syncHealthData, isNativeApp } from '@/lib/health-sync';
 import WinnerPredictionWidget from '@/components/home/WinnerPredictionWidget';
@@ -265,14 +264,13 @@ export default function DashboardPage() {
   }, [profile, activities.length]);
 
   // Phase A (build 327, hans 홈 다이어트): 리캡류 동시 노출 방지 — 우선순위 1장만.
-  // 월말정산(말일·1일) > 주간리캡(월요일 오전) > 시즌결산(분기말 ±7일).
+  // 2026-08-03 hans: **주간 리캡 폐기** ("주간 단위는 너무 잦다") — 월간(월말정산)만 유지.
   // 각 카드의 자체 게이트는 유지 (여긴 겹칠 때 한 장만 고르는 상위 슬롯).
-  const recapSlot = useMemo<'monthEnd' | 'weekly' | 'season'>(() => {
+  const recapSlot = useMemo<'monthEnd' | 'season'>(() => {
     const now = new Date();
     const day = now.getUTCDate();
     const lastDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
     if (day === lastDay || day === 1) return 'monthEnd';
-    if (now.getDay() === 1 && now.getHours() < 12) return 'weekly';
     return 'season';
   }, []);
 
@@ -415,10 +413,7 @@ export default function DashboardPage() {
         <HomeOnboardingCard />
 
         {!isNewRunner && (<>
-        {/* Phase A: 리캡 슬롯 — 겹치는 날에도 1장만 (월말정산 > 주간 > 시즌) */}
-        {recapSlot === 'weekly' && (
-          <div className="mx-4"><WeeklyRecapCard activities={activities} /></div>
-        )}
+        {/* Phase A: 리캡 슬롯 — 겹치는 날에도 1장만 (월말정산 > 시즌). 주간은 2026-08-03 폐기 */}
         {recapSlot === 'monthEnd' && <MonthEndRecapCard activities={activities} />}
 
         {/* 4 {이름}님의 N월 헤더 */}

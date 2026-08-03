@@ -328,6 +328,11 @@ final class WorkoutManager: NSObject, ObservableObject {
     // 우리 세션을 강제 종료 (.ended). 사용자가 종료 버튼을 안 눌렀는데 끝난 경우 안내용.
     @Published var endedExternally = false
     private var endRequested = false
+    // v24: 폰 직송용 상태 — HK 미러를 기다리지 않는 즉시 동기화 경로
+    private var workoutStartDate: Date?
+    private var phoneRoutePoints: [[Double]] = []
+    private var lastPhonePointLoc: CLLocation?
+    private var sentRunToPhone = false
     // 심박 스파크라인용 최근 샘플 (심박 페이지 그래프)
     @Published var hrSamples: [Double] = []
     // 종료 요약
@@ -534,6 +539,11 @@ final class WorkoutManager: NSObject, ObservableObject {
             let start = Date()
             session.startActivity(with: start)
             builder.beginCollection(withStart: start) { _, _ in }
+            // v24: HK 워크아웃과 같은 시작 시각 — 폰 직송 행과 HK 임포트가 ±60s dedup 으로 만나는 키
+            workoutStartDate = start
+            phoneRoutePoints = []
+            lastPhonePointLoc = nil
+            sentRunToPhone = false
             phase = .active
             startMirroringToPhone()   // v22: 폰 잠금화면 Live Activity
         } catch {
@@ -575,9 +585,36 @@ final class WorkoutManager: NSObject, ObservableObject {
             zoneSeconds: zoneSeconds
         )
         persistPendingSummary()
+        sendRunToPhone()   // v24: 종료 즉시 폰 직송 — HK 미러 대기 없음
         phase = .ended
         speak("완주! 오늘도 잘 달렸어요.")
         session?.end()
+    }
+
+    // v24 (2026-08-03 hans "동기화 오래 걸림"): 워치 러닝을 HK 미러(수 분~수 시간 지연)
+    // 대신 WCSession transferUserInfo 로 폰에 직송. 폰 WatchBridge 가 watch_pending_runs
+    // 큐(갤럭시워치와 동일 규약)에 넣고, 앱을 열면 drainWatchRuns 가 바로 저장한다.
+    // transferUserInfo 는 폰이 꺼져 있어도 시스템 큐에 보존 → 유실 없음.
+    // 뒤따르는 health-sync HK 임포트는 started_at ±60s 겹침으로 dedup skip.
+    private func sendRunToPhone() {
+        guard !sentRunToPhone, distanceMeters >= 100, WCSession.isSupported() else { return }
+        sentRunToPhone = true
+        let startMs = (workoutStartDate ?? Date().addingTimeInterval(-elapsedSeconds))
+            .timeIntervalSince1970 * 1000
+        let avgHr = summary?.avgHeartRate
+            ?? (hrSamples.isEmpty ? 0 : hrSamples.reduce(0, +) / Double(hrSamples.count))
+        WCSession.default.transferUserInfo([
+            "type": "watch_run",
+            "clientRecordId": "aw-\(Int64(startMs))",
+            "startMs": startMs,
+            "endMs": Date().timeIntervalSince1970 * 1000,
+            "distanceMeters": distanceMeters,
+            "durationSec": elapsedSeconds,
+            "calories": activeCalories,
+            "avgHr": avgHr,
+            "device": "Apple Watch",
+            "route": phoneRoutePoints,
+        ])
     }
 
     // ── v20: 요약 영속 — UI 가 죽었다 깨어나도 축하·기록 화면을 되찾는다 ──
@@ -685,6 +722,21 @@ extension WorkoutManager: CLLocationManagerDelegate {
         Task { @MainActor in
             guard self.phase == .active, let rb = self.routeBuilder else { return }
             rb.insertRouteData(good) { _, _ in }
+            // v24: 폰 직송 경로 버퍼 — 8m/5s 데시메이션 (10km 러닝 ≈ 수백 점, plist 전송 가벼움)
+            for loc in good {
+                if let last = self.lastPhonePointLoc,
+                   loc.distance(from: last) < 8,
+                   loc.timestamp.timeIntervalSince(last.timestamp) < 5 { continue }
+                self.lastPhonePointLoc = loc
+                self.phoneRoutePoints.append([
+                    loc.coordinate.latitude, loc.coordinate.longitude,
+                    loc.altitude, loc.timestamp.timeIntervalSince1970 * 1000,
+                ])
+            }
+            if self.phoneRoutePoints.count > 2400 {
+                self.phoneRoutePoints = self.phoneRoutePoints.enumerated()
+                    .compactMap { $0.offset % 2 == 0 ? $0.element : nil }
+            }
         }
     }
 
@@ -748,6 +800,7 @@ extension WorkoutManager: HKWorkoutSessionDelegate {
                                 zoneSeconds: self.zoneSeconds
                             )
                             self.persistPendingSummary()
+                            self.sendRunToPhone()   // v24: 외부 종료 경로도 직송 (flag 로 1회 보장)
                             self.phase = .ended
                         }
                     }

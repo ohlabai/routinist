@@ -1,9 +1,11 @@
-// 갤럭시 워치(:wear) 완주 러닝 드레인.
+// 워치 완주 러닝 드레인 — 갤럭시(Wear OS) + 애플워치 공용.
 //
-// Wear OS 에는 Health Connect 가 없어(폰에 WRITE 권한 재추가는 Play 헬스 재심사 리스크),
-// 워치가 Wearable Data Layer 로 보낸 러닝을 폰의 WatchRunReceiverService(Kotlin)가
-// Capacitor Preferences 큐(watch_pending_runs)에 쌓아둔다. 앱 포그라운드 시 이 함수가
-// 큐를 읽어 기존 activities insert 플로우로 저장한다 (나이키·스트라바식 자체 저장소 직행).
+// Wear OS: 워치가 Wearable Data Layer 로 보낸 러닝을 폰의 WatchRunReceiverService(Kotlin)가
+// Capacitor Preferences 큐(watch_pending_runs)에 쌓아둔다.
+// Apple Watch (2026-08-03 hans "동기화 오래 걸림"): HK 미러 대기 없이 워치가 종료 즉시
+// WCSession transferUserInfo 로 직송 → WatchBridge 가 같은 큐에 쌓는다. 앱 열면 바로 기록 도착.
+// 나중에 도는 health-sync 는 started_at ±60s 겹침으로 dedup skip (is_native=true 라 덮어쓰기도 금지).
+// 앱 포그라운드 시 이 함수가 큐를 읽어 기존 activities insert 플로우로 저장한다.
 //
 // 저장 규약: source='gps' + is_native=true + memo='Galaxy Watch'
 //  - activities_source_check CHECK 제약이 'watch' 를 막으므로 'gps' 사용 (마이그 불필요)
@@ -25,6 +27,7 @@ interface PendingWatchRun {
   calories: number;
   avgHr: number;
   route: number[][]; // [[lat, lng, alt, epochMs], ...]
+  device?: string;   // 'Apple Watch' | undefined(Galaxy)
 }
 
 // 사용자 timezone 기준 YYYY-MM-DD (KST 룰 — reference_timezone_handling).
@@ -78,6 +81,20 @@ export async function drainWatchRuns(userId: string): Promise<number> {
     try {
       const startedAt = new Date(run.startMs).toISOString();
       const endedAt = new Date(run.endMs).toISOString();
+
+      // 애플워치 경로 가드: health-sync 가 먼저 돌아 같은 러닝의 health_kit 행이 이미
+      // 있으면 skip (upsert 의 onConflict 는 source 가 달라 못 잡음). ±60s = HK dedup 과 동일 창.
+      const { data: dupRows } = await supabase
+        .from('activities')
+        .select('id')
+        .eq('user_id', userId)
+        .gte('started_at', new Date(run.startMs - 60_000).toISOString())
+        .lte('started_at', new Date(run.startMs + 60_000).toISOString())
+        .limit(1);
+      if (dupRows && dupRows.length > 0) {
+        done.add(run.clientRecordId); // 이미 저장돼 있음 — 큐에서 제거
+        continue;
+      }
       const distanceMeters = Math.max(0, run.distanceMeters || 0);
       const durationSeconds = Math.max(0, Math.floor(run.durationSec || 0));
       const km = distanceMeters / 1000;
@@ -108,7 +125,7 @@ export async function drainWatchRuns(userId: string): Promise<number> {
             started_at: startedAt,
             ended_at: endedAt,
             visibility: 'public',
-            memo: 'Galaxy Watch',
+            memo: run.device === 'Apple Watch' ? 'Apple Watch' : 'Galaxy Watch',
           },
           { onConflict: 'user_id,source,started_at', ignoreDuplicates: true },
         );
