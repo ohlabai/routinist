@@ -1,25 +1,20 @@
-v1.2.14 — All-new Apple Watch ⌚ · Lock Screen live card · Bigger, cleaner UI
+v1.2.15 — Instant watch sync ⌚ · Pixel animals on Lock Screen · Profile refresh
 
 [Apple Watch]
-• Start a run on your watch and a live card appears on your iPhone Lock Screen — time, distance, pace and heart rate.
-• Voice cues now always play: through your phone's earbuds when connected, otherwise right on the watch.
-• Tap Finish and the celebration screen appears instantly, with pace animal and HR zone breakdown.
-• Heart rate and zones are back on the running screen.
+• Finish a run and it lands on your iPhone instantly — open the app and your record and map are right there.
+• The start screen now has a pixel-animal parade: the turtle crawls, the rabbit hops past.
+• A cleaner finish screen — your pace animal celebrates, with bigger text.
+• Fewer steps to start: one tap and you're running.
 
-[Bigger text]
-• We raised text sizes across the entire app, down to the calendar numbers.
+[Lock Screen]
+• The running card icon becomes the pixel animal matching your pace — cheetah when you fly, turtle when you cruise.
+• Tap the card to jump straight into the running screen. During watch runs, your phone now shows live time, distance, pace and heart rate.
 
-[Home]
-• Calendar now marks Sundays & Korean holidays in red, Saturdays in blue — with holiday names.
-• Five charts right on Home — last 30 days, pace trend, distance×pace, weekly rhythm, time of day.
-• Time-of-day analysis refined into five bands: dawn, morning, afternoon, evening and night.
-• WorldRun and the monthly full-course challenge merged into one card.
-
-[Analysis]
-• Pace graph and HR zone card on every run detail.
-• HR trend and zone analysis in My Stats.
-• Running Coach now predicts race times (5K to Full) and tracks weekly training load.
+[Profile]
+• Cheer with a quick message, not just hearts.
+• Weekly distance comparison with friends, recent runs, cheers received and running tenure.
+• Mutual friends and shared clubs at a glance.
 
 [More]
-• Display mode now follows your system setting — dark mode ready.
-• Winner-prediction rewards now notify you (+50P), plus many fixes.
+• A tidier Home — monthly recap stays, weekly cards retired.
+• Polish and stability improvements.
