@@ -67,6 +67,23 @@ public final class WorkoutMirrorReceiver: NSObject {
     private func detach() {
         RunLiveActivity.sessionEnded()
         session = nil
+        // 웹뷰 스냅샷 제거 → /track 의 "워치에서 달리는 중" 패널 즉시 내려감
+        UserDefaults.standard.removeObject(forKey: "CapacitorStorage.watch_live_run")
+    }
+
+    /// /track 웹뷰용 스냅샷 (2026-08-03 hans 승인 절충안): 잠금화면 LA 와 같은 데이터를
+    /// Capacitor Preferences 키에 병행 기록 → JS 가 3s 폴링으로 "워치에서 달리는 중" 패널 표시.
+    /// ts 로 신선도 판정 (20s 지나면 stale 로 간주) — 미러가 죽어도 패널이 늘어붙지 않는다.
+    private func publishForWebView(state: String) {
+        let obj: [String: Any] = [
+            "e": lastElapsed, "d": lastDistance,
+            "p": lastPace ?? 0, "h": lastHeartRate ?? 0,
+            "state": state, "ts": Date().timeIntervalSince1970 * 1000,
+        ]
+        if let data = try? JSONSerialization.data(withJSONObject: obj),
+           let s = String(data: data, encoding: .utf8) {
+            UserDefaults.standard.set(s, forKey: "CapacitorStorage.watch_live_run")
+        }
     }
 }
 
@@ -82,8 +99,10 @@ extension WorkoutMirrorReceiver: HKWorkoutSessionDelegate {
             // 시작 시각 보정 (재개 포함 근사 — 표시용이라 충분)
             startedAtMs = min(startedAtMs, (date.timeIntervalSince1970 - lastElapsed) * 1000)
             RunLiveActivity.sessionUpdated(snapshot(state: "running"), force: true)
+            publishForWebView(state: "running")
         case .paused:
             RunLiveActivity.sessionUpdated(snapshot(state: "paused"), force: true)
+            publishForWebView(state: "paused")
         case .ended, .stopped:
             detach()
         default:
@@ -109,5 +128,6 @@ extension WorkoutMirrorReceiver: HKWorkoutSessionDelegate {
         // 첫 페이로드에서 시작 시각을 실제값으로 보정
         startedAtMs = min(startedAtMs, (Date().timeIntervalSince1970 - lastElapsed) * 1000)
         RunLiveActivity.sessionUpdated(snapshot(state: stateRaw(workoutSession.state)))
+        publishForWebView(state: stateRaw(workoutSession.state))
     }
 }

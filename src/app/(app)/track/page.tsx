@@ -533,6 +533,38 @@ function TrackPageImpl() {
   // paused 상태에서도 watcher 살려두고 좌표 수신 → callback 안의 detectAutoResume 으로 정상 resume.
   const isTrackingActive = state !== null && state.status !== 'idle';
 
+  // ⌚ 워치 라이브 러닝 감지 (2026-08-03 hans 승인 절충안): WorkoutMirrorReceiver 가
+  // Preferences 'watch_live_run' 에 병행 기록하는 미러 스냅샷 {e,d,p,h,state,ts} 를
+  // 3s 폴링. ts 가 20s 내면 "워치에서 달리는 중" 패널을 시작 화면 대신 표시.
+  // 폰 러닝이 시작되면 폴링 중단 (중복 표시·중복 기록 혼선 방지).
+  type WatchLive = { e: number; d: number; p: number; h: number; state: string; ts: number };
+  const [watchLive, setWatchLive] = useState<WatchLive | null>(null);
+  const [watchNow, setWatchNow] = useState(0);
+  useEffect(() => {
+    const platform = (window as { Capacitor?: { getPlatform?: () => string } }).Capacitor?.getPlatform?.();
+    if (platform !== 'ios' || isTrackingActive) { setWatchLive(null); return; }
+    let alive = true;
+    const poll = async () => {
+      try {
+        const { Preferences } = await import('@capacitor/preferences');
+        const { value } = await Preferences.get({ key: 'watch_live_run' });
+        if (!alive) return;
+        if (!value) { setWatchLive(null); return; }
+        const obj = JSON.parse(value) as WatchLive;
+        setWatchLive(Date.now() - (obj.ts ?? 0) < 20_000 ? obj : null);
+      } catch { if (alive) setWatchLive(null); }
+    };
+    poll();
+    const t = setInterval(poll, 3000);
+    return () => { alive = false; clearInterval(t); };
+  }, [isTrackingActive, isAndroid]);
+  // 패널 타이머를 1초 단위로 매끈하게 (미러는 5s 간격이라 보간)
+  useEffect(() => {
+    if (!watchLive || watchLive.state !== 'running') return;
+    const t = setInterval(() => setWatchNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [watchLive]);
+
   // 2026-07-15 Android 리뷰 P0-1: 레거시 JS 엔진은 두뇌가 WebView 라 화면 잠금 = 측정 정지.
   // 트래킹 동안 navigator.wakeLock 으로 화면 꺼짐 방지 (WebView 지원, 플러그인 의존성 0).
   // 다른 앱 전환 후 복귀 시 OS 가 sentinel 을 회수하므로 visibilitychange 에서 재획득.
@@ -1148,7 +1180,56 @@ function TrackPageImpl() {
 
       {/* 데이터 + CTA 영역 — Garmin/Nike 스타일 hero stats */}
       <div className="bg-[var(--background)] border-t border-[var(--card-border)]/30 px-5 pt-5 pb-7 shadow-[0_-8px_24px_rgba(0,0,0,0.06)]">
-        {!hasState ? (
+        {!hasState && watchLive ? (
+          /* ⌚ 워치에서 달리는 중 — 잠금화면 카드와 같은 미러 데이터. 컨트롤·지도는
+             워치에 맡기고 (업계 표준: 시작한 기기가 조작), 여긴 라이브 지표만. */
+          (() => {
+            const live = watchLive;
+            const elapsed = live.e + (live.state === 'running' ? Math.max(0, (Math.max(watchNow, live.ts) - live.ts) / 1000) : 0);
+            const paceLbl = live.p > 0 ? `${Math.floor(live.p / 60)}'${String(Math.round(live.p % 60)).padStart(2, '0')}"` : '--';
+            return (
+              <div className="text-center">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/40 mb-4">
+                  {live.state === 'running' ? (
+                    <span className="relative flex w-2.5 h-2.5">
+                      <span className="absolute inset-0 rounded-full bg-emerald-500 opacity-75 animate-ping" />
+                      <span className="relative rounded-full w-2.5 h-2.5 bg-emerald-500" />
+                    </span>
+                  ) : (
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                  )}
+                  <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400 leading-none">
+                    {live.state === 'running'
+                      ? (locale === 'en' ? '⌚ Running on watch' : '⌚ 워치에서 달리는 중')
+                      : (locale === 'en' ? '⌚ Paused on watch' : '⌚ 워치에서 잠시 쉬는 중')}
+                  </span>
+                </div>
+                <p className="text-5xl font-extrabold tracking-tight text-[var(--foreground)] tabular-nums leading-none mb-4">
+                  {formatStopwatch(elapsed)}
+                </p>
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div>
+                    <p className="text-[12px] font-extrabold text-[var(--muted)] tracking-widest uppercase mb-1">{locale === 'en' ? 'DISTANCE' : '거리'}</p>
+                    <p className="text-2xl font-extrabold text-emerald-600 tabular-nums leading-none">{(live.d / 1000).toFixed(2)}<span className="text-xs text-[var(--muted)] ml-0.5 font-bold">km</span></p>
+                  </div>
+                  <div>
+                    <p className="text-[12px] font-extrabold text-[var(--muted)] tracking-widest uppercase mb-1">{locale === 'en' ? 'PACE' : '페이스'}</p>
+                    <p className="text-2xl font-extrabold text-[var(--foreground)] tabular-nums leading-none">{paceLbl}</p>
+                  </div>
+                  <div>
+                    <p className="text-[12px] font-extrabold text-[var(--muted)] tracking-widest uppercase mb-1">{locale === 'en' ? 'HEART' : '심박'}</p>
+                    <p className="text-2xl font-extrabold text-red-500 tabular-nums leading-none">{live.h > 0 ? Math.round(live.h) : '--'}<span className="text-xs text-[var(--muted)] ml-0.5 font-bold">bpm</span></p>
+                  </div>
+                </div>
+                <p className="text-[13px] text-[var(--muted)] break-keep">
+                  {locale === 'en'
+                    ? 'Your watch is measuring this run. Pause or finish on the watch — the record lands here automatically 🏃'
+                    : '워치가 기록을 측정하고 있어요. 일시정지·완주는 워치에서 — 완주하면 기록이 여기로 자동 저장돼요 🏃'}
+                </p>
+              </div>
+            );
+          })()
+        ) : !hasState ? (
           <div className="text-center">
             <p className="text-sm text-[var(--muted)] mb-1">
               {locale === 'en' ? 'Ready? Tap to auto-record your route.' : '준비됐어요? 시작하면 자동으로 경로를 기록해요'}
