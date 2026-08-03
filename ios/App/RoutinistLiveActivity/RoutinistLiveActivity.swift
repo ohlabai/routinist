@@ -150,6 +150,9 @@ private struct LockScreenView: View {
             GrassGauge(distanceM: state.distanceM)
         }
         .padding(16)
+        // 2026-08-03 hans: 카드 탭 → 러닝(트래킹) 화면 직행. 이전엔 앱 기본 복귀
+        // (마지막 화면 = 멈춘 지도)라 러닝 중 지표로 이어지지 않았다.
+        .widgetURL(URL(string: "routinist://track"))
     }
 }
 

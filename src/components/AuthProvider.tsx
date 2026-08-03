@@ -236,6 +236,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return;
           }
         }
+        // 2026-08-03: 잠금화면 Live Activity 탭 → 러닝 화면 직행 (routinist://track)
+        if (parsed.protocol === 'routinist:' && parsed.host === 'track') {
+          (window as Window & { __routinist_pending_deep_link?: string }).__routinist_pending_deep_link = 'track';
+          router.replace('/track');
+          return;
+        }
+
         // build 292: 친구 초대 딥링크 routinist://invite?code=ABC123 (/invite 랜딩의 "앱에서 가입하기").
         // 로그인 상태면 즉시 claim + 성공 토스트, 아니면 pending 저장 → 로그인 후 (app)/layout 이 claim.
         if (parsed.protocol === 'routinist:' && parsed.host === 'invite') {
