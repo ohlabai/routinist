@@ -166,9 +166,10 @@ private fun StartScreen(goal: RunGoal, error: String?, onStart: () -> Unit) {
                 )
             }
         }
-        GrassWave(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth(0.5f).padding(bottom = 6.dp),
-            blades = 9,
+        // v5 (애플워치 동등화): 잔디 물결 → 블록동물 퍼레이드 (체인 스케줄, 거북이를 토끼가 추월).
+        // 라운드 화면 하단 곡면에 잘리지 않게 폭 70%·바닥에서 14dp 띄움.
+        PixelParade(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth(0.7f).height(24.dp).padding(bottom = 14.dp),
         )
     }
 }
@@ -408,18 +409,24 @@ private fun Metric(value: String, unit: String, color: Color) {
 
 @Composable
 private fun SummaryScreen(summary: WorkoutManager.Summary?, onDone: () -> Unit) {
-    var confetti by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(Unit) {
-        val steps = 60
-        for (i in 0..steps) { confetti = i / steps.toFloat(); delay(25) }
-    }
+    // v5 (애플워치 동등화, hans): 컨페티 제거 — 축하의 주인공은 페이스 블록동물.
+    // 완주! 옆에서 제자리 달리기 + 축하 카피, 글씨 확대, 완료 버튼 딥 에메랄드.
+    val match = paceAnimalMatch(summary?.paceSecPerKm)
     Box(Modifier.fillMaxSize()) {
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 18.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            SproutMark(sizeDp = 26)
-            Text("완주! 오늘도 잘 달렸어요", color = Brand.EmeraldLight, fontSize = 20.sp, fontWeight = FontWeight.Black)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("완주!", color = Brand.Snow, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                RunnerInPlace(match.runner, heightDp = 26)
+            }
+            Text("오늘도 잘 달렸어요", color = Brand.Muted, fontSize = 13.sp)
+            Spacer(Modifier.height(2.dp))
+            Text(
+                match.copy, color = Brand.EmeraldLight, fontSize = 14.sp,
+                fontWeight = FontWeight.Black, textAlign = TextAlign.Center,
+            )
             Spacer(Modifier.height(8.dp))
             if (summary != null) {
                 Text(fmtDistance(summary.distanceMeters), color = Brand.Distance, fontSize = 44.sp, fontWeight = FontWeight.Black)
@@ -437,16 +444,16 @@ private fun SummaryScreen(summary: WorkoutManager.Summary?, onDone: () -> Unit) 
                 Metric(summary.calories.toInt().toString(), "kcal", Brand.Calorie)
             }
             Spacer(Modifier.height(6.dp))
-            Text("폰 앱에 자동으로 저장돼요", color = Brand.Muted, fontSize = 11.sp, textAlign = TextAlign.Center)
+            Text("기록을 폰으로 보냈어요.\nRoutinist 앱을 열면 바로 보여요", color = Brand.Muted, fontSize = 12.sp, textAlign = TextAlign.Center)
             Spacer(Modifier.height(10.dp))
             Button(
                 onClick = onDone,
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                modifier = Modifier.clip(RoundedCornerShape(22.dp)).background(Brand.CtaGradient),
-            ) { Text("완료", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Brand.Ink) }
+                // v5: 완주 버튼과 동일 톤 — 딥 에메랄드 (애플워치와 동일 컬러)
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF177354)),
+                modifier = Modifier.clip(RoundedCornerShape(22.dp)),
+            ) { Text("완료", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White) }
             Spacer(Modifier.height(30.dp))
         }
-        if (confetti < 1f) Confetti(Modifier.fillMaxSize(), confetti)
     }
 }
 

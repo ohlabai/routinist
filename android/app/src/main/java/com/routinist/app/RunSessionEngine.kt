@@ -786,10 +786,13 @@ object RunSessionEngine {
         val time = if (hh > 0) String.format(Locale.US, "%d:%02d:%02d", hh, mm, ss)
                    else String.format(Locale.US, "%02d:%02d", mm, ss)
         val isKo = sessionLocale.lowercase(Locale.US).startsWith("ko")
+        // 2026-08-03 (iOS Live Activity 동등화): 페이스도 잠금화면 알림에 표시
+        val paceSec = if (gpsDistanceM > 50) (secs / (gpsDistanceM / 1000.0)).toLong() else 0
+        val pace = if (paceSec > 0) String.format(Locale.US, " · %d'%02d\"/km", paceSec / 60, paceSec % 60) else ""
         return when (state) {
             State.PAUSED -> if (isKo) "일시정지 · $kmText km · $time" else "Paused · $kmText km · $time"
             State.AUTO_PAUSED -> if (isKo) "자동 일시정지 · $kmText km · $time" else "Auto paused · $kmText km · $time"
-            else -> "$kmText km · $time"
+            else -> "$kmText km · $time$pace"
         }
     }
 

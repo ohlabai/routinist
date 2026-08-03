@@ -28,6 +28,8 @@ interface PendingWatchRun {
   avgHr: number;
   route: number[][]; // [[lat, lng, alt, epochMs], ...]
   device?: string;   // 'Apple Watch' | undefined(Galaxy)
+  zoneSeconds?: number[]; // 존1~5 체류 초 (갤럭시워치 v5 — hr_zones 저장용)
+  maxHr?: number;
 }
 
 // 사용자 timezone 기준 YYYY-MM-DD (KST 룰 — reference_timezone_handling).
@@ -101,6 +103,13 @@ export async function drainWatchRuns(userId: string): Promise<number> {
       const paceAvgSec = km > 0 && durationSeconds > 0 ? Math.round(durationSeconds / km) : null;
       const cal = run.calories > 0 ? Math.round(run.calories) : Math.round(km * 60);
 
+      // 심박존 (갤럭시워치 v5): 워치가 적산한 존1~5 를 hr_zones 캐시 형식으로.
+      // iOS computeHrZones 와 동일 계약 ({z, max_hr, src}) — 활동 상세 심박존 카드가 그대로 읽음.
+      const zs = run.zoneSeconds;
+      const hrZones = zs && zs.length === 5 && zs.reduce((s, v) => s + v, 0) >= 60 && (run.maxHr ?? 0) > 0
+        ? { z: zs.map(v => Math.round(v)), max_hr: Math.round(run.maxHr!), src: 'watch', computed_at: new Date().toISOString() }
+        : null;
+
       // 워치 route [lat,lng,alt,ms] → GeoJSON LineString [lng,lat,alt,tsSec]
       const coords = (run.route || [])
         .filter((p) => Array.isArray(p) && p.length >= 2)
@@ -122,6 +131,7 @@ export async function drainWatchRuns(userId: string): Promise<number> {
             is_native: true,
             activity_type: 'running',
             route_data: routeData,
+            hr_zones: hrZones,
             started_at: startedAt,
             ended_at: endedAt,
             visibility: 'public',

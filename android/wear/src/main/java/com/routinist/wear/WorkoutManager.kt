@@ -290,6 +290,10 @@ object WorkoutManager {
                     _state.value = s.copy(elapsedSec = elapsed)
                     checkGoal()   // 시간 목표는 틱에서 판정
                 }
+                // v5 라이브 미러: 달리는 중·쉬는 중 모두 5s 스로틀 전송 (폰 알림 + /track 패널)
+                if (s.phase == Phase.ACTIVE || s.phase == Phase.PAUSED || s.phase == Phase.AUTO_PAUSED) {
+                    LiveMirror.tick(appContext, _state.value)
+                }
                 delay(250)
             }
         }
@@ -425,6 +429,7 @@ object WorkoutManager {
     private fun onEnded() {
         if (_state.value.phase == Phase.ENDED) return
         ticker?.cancel(); ticker = null
+        LiveMirror.ended(appContext)   // v5: 폰 라이브 알림·패널 즉시 내림
         val s = _state.value
         val avgHr = if (avgHrCount > 0) avgHrSum / avgHrCount else 0.0
         val summary = Summary(s.distanceMeters, s.elapsedSec, avgHr, s.calories, zoneSeconds.copyOf())
@@ -442,6 +447,8 @@ object WorkoutManager {
                     calories = s.calories,
                     avgHr = avgHr,
                     route = ArrayList(route),
+                    zoneSeconds = zoneSeconds.copyOf(),
+                    maxHr = s.maxHr,
                 ),
             )
         }

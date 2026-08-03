@@ -58,10 +58,12 @@
                 <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
                 <data android:scheme="wear" android:host="*" android:pathPrefix="/routinist/run" />
             </intent-filter>
-            <!-- 워치 음성 릴레이 (2026-08-02): 백그라운드에서도 /routinist/voice 메시지로 깨어나게 -->
+            <!-- 워치 음성 릴레이 (2026-08-02): 백그라운드에서도 /routinist/voice 메시지로 깨어나게
+                 + 라이브 미러 (2026-08-03): /routinist/live 지표 → 잠금화면 알림·/track 패널 -->
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
                 <data android:scheme="wear" android:host="*" android:pathPrefix="/routinist/voice" />
+                <data android:scheme="wear" android:host="*" android:pathPrefix="/routinist/live" />
             </intent-filter>
         </service>
 

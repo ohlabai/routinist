@@ -30,6 +30,9 @@ object RunSender {
         val calories: Double,
         val avgHr: Double,
         val route: List<DoubleArray>, // [lat, lng, alt, epochMs]
+        // v5 (애플 심박존 동등화): 존1~5 체류 초 + 기준 maxHr — 폰이 hr_zones 로 저장
+        val zoneSeconds: DoubleArray = DoubleArray(5),
+        val maxHr: Double = 0.0,
     )
 
     fun send(context: Context, run: CompletedRun) {
@@ -46,6 +49,10 @@ object RunSender {
             dataMap.putDouble("avgHr", run.avgHr)
             dataMap.putLong("sentAt", run.endMs) // DataItem 변경 보장
             dataMap.putAsset("route", asset)
+            // v5: 심박존 — 애플워치 러닝과 동일하게 활동 상세 심박존 카드 표시용.
+            // DataMap 에 double 배열 타입이 없어 JSON 문자열로 전달.
+            dataMap.putString("zoneSeconds", run.zoneSeconds.joinToString(prefix = "[", postfix = "]", separator = ","))
+            dataMap.putDouble("maxHr", run.maxHr)
         }.asPutDataRequest().setUrgent()
 
         Wearable.getDataClient(context).putDataItem(req)

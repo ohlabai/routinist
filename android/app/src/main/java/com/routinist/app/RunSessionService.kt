@@ -110,9 +110,12 @@ class RunSessionService : Service() {
     }
 
     private fun buildNotification(title: String, text: String): Notification {
+        // 2026-08-03 (iOS Live Activity 동등화): 탭 → 러닝 화면(/track) 직행 딥링크.
+        // 이전엔 MainActivity 만 열려 마지막 화면으로 복귀했다.
         val contentIntent = PendingIntent.getActivity(
             this, 0,
-            Intent(this, MainActivity::class.java).apply {
+            Intent(Intent.ACTION_VIEW, android.net.Uri.parse("routinist://track")).apply {
+                setPackage(packageName)
                 addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,

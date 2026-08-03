@@ -533,16 +533,17 @@ function TrackPageImpl() {
   // paused 상태에서도 watcher 살려두고 좌표 수신 → callback 안의 detectAutoResume 으로 정상 resume.
   const isTrackingActive = state !== null && state.status !== 'idle';
 
-  // ⌚ 워치 라이브 러닝 감지 (2026-08-03 hans 승인 절충안): WorkoutMirrorReceiver 가
-  // Preferences 'watch_live_run' 에 병행 기록하는 미러 스냅샷 {e,d,p,h,state,ts} 를
+  // ⌚ 워치 라이브 러닝 감지 (2026-08-03 hans 승인 절충안): 미러 스냅샷 {e,d,p,h,state,ts} 를
   // 3s 폴링. ts 가 20s 내면 "워치에서 달리는 중" 패널을 시작 화면 대신 표시.
+  // iOS = WorkoutMirrorReceiver → UserDefaults / Android = WatchRunReceiverService(/routinist/live)
+  // → SharedPreferences. 둘 다 Capacitor Preferences 'watch_live_run' 로 수렴 (동등화 v5).
   // 폰 러닝이 시작되면 폴링 중단 (중복 표시·중복 기록 혼선 방지).
   type WatchLive = { e: number; d: number; p: number; h: number; state: string; ts: number };
   const [watchLive, setWatchLive] = useState<WatchLive | null>(null);
   const [watchNow, setWatchNow] = useState(0);
   useEffect(() => {
     const platform = (window as { Capacitor?: { getPlatform?: () => string } }).Capacitor?.getPlatform?.();
-    if (platform !== 'ios' || isTrackingActive) { setWatchLive(null); return; }
+    if ((platform !== 'ios' && platform !== 'android') || isTrackingActive) { setWatchLive(null); return; }
     let alive = true;
     const poll = async () => {
       try {

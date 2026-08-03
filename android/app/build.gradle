@@ -21,7 +21,9 @@ android {
         //      워치 음성릴레이 수신부+MESSAGE_RECEIVED 필터). Wear 1000325 와 세트.
         // 331: 330 이 "검토 미전송" 상태로 잠들어 있던 것 발견 (2026-08-03) → 그간 쌓인
         //      달력 공휴일·시간대 5분할·프로필 6종+인라인챗·주간리캡 폐기까지 묶어 재업로드.
-        versionCode 331
+        // 332: 애플워치 동등화 사이클 — 워치 라이브 미러 알림·/track 패널·심박존 직송·
+        //      러닝 알림 페이스+/track 딥링크. Wear 1000326 과 세트. (업로드는 331 승인 후)
+        versionCode 332
         versionName "1.2.15"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
