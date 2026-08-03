@@ -406,10 +406,8 @@ final class WorkoutManager: NSObject, ObservableObject {
         ]
     }
 
-    // v21 (hans: "디폴트 동의 체크 안 되나"): 시스템 시트의 디폴트는 애플 정책상 못 바꾼다 —
-    // 대신 시트 직전에 "모두 허용" 안내 프라이머를 띄워 부분 허용(거리 유실 근원)을 줄인다.
-    @Published var pendingAuthPrimer = false
-
+    // v21 의 "모두 허용" 프라이머 알럿은 2026-08-03 hans 지시로 제거 —
+    // "버튼만 한번 더 누르는 것 같다". 시스템 시트로 바로 진행.
     func requestAuthorizationAndStart() {
         guard HKHealthStore.isHealthDataAvailable() else { return }
         phase = .requesting
@@ -422,19 +420,12 @@ final class WorkoutManager: NSObject, ObservableObject {
                     self.requestLocationThenCountdown()
                     return
                 }
-                // 첫 동의 (또는 새 타입 추가) — 프라이머 먼저, 확인 후 시스템 시트
-                self.pendingAuthPrimer = true
-            }
-        }
-    }
-
-    /// 프라이머 "확인" → 실제 시스템 권한 시트
-    func confirmAuthPrimer() {
-        pendingAuthPrimer = false
-        healthStore.requestAuthorization(toShare: typesToShare, read: typesToRead) { [weak self] ok, _ in
-            Task { @MainActor in
-                guard let self else { return }
-                if ok { self.requestLocationThenCountdown() } else { self.authDenied = true; self.phase = .idle }
+                self.healthStore.requestAuthorization(toShare: self.typesToShare, read: self.typesToRead) { [weak self] ok, _ in
+                    Task { @MainActor in
+                        guard let self else { return }
+                        if ok { self.requestLocationThenCountdown() } else { self.authDenied = true; self.phase = .idle }
+                    }
+                }
             }
         }
     }

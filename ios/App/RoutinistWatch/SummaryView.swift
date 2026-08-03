@@ -79,7 +79,8 @@ struct SummaryView: View {
                         .padding(.vertical, 4)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(emerald)
+                // 2026-08-03 hans: 완주 버튼과 동일한 딥 에메랄드로 통일
+                .tint(Color(red: 0.09, green: 0.45, blue: 0.33))
             }
             .padding(.horizontal, 4)
         }
