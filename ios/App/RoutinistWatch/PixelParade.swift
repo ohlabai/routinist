@@ -36,76 +36,46 @@ private struct SceneEntry {
     let speed: Double
 }
 
-/// 2026-08-03 (hans "초반에 너무 겹친다"): 자유 순환 트랙은 속도가 다른 14마리가
-/// 랜덤 시점에 뭉치는 걸 막을 수 없다 → **연출된 장면 6개를 순환**하는 방식으로 재설계.
-/// 추월 장면은 느린 동물이 먼저 입장하고 빠른 동물이 화면 한가운데(x≈26셀)에서
-/// 정확히 따라잡게 지연·속도를 계산해 뒀다. 대열 장면은 같은 템포 동물들이
-/// 일정 간격으로 나란히 달린다. 겹침은 추월 순간뿐 — 항상 조화롭게 보인다.
-/// 속도 = stepCells × 0.55 (동물 성격 유지).
-private let PARADE_SCENES: [[SceneEntry]] = [
-    // ① 거북이를 토끼가 깡충깡충 추월 (hans 예시 그대로)
-    [SceneEntry(name: "turtle", delay: 2, speed: 0.50),
-     SceneEntry(name: "rabbit", delay: 30, speed: 1.21)],
-    // ② 남자·여자·강아지 조깅 대열
-    [SceneEntry(name: "man", delay: 0, speed: 0.88),
-     SceneEntry(name: "woman", delay: 13, speed: 0.88),
-     SceneEntry(name: "dog", delay: 26, speed: 0.95)],
-    // ③ 코끼리를 치타가 전력질주로 추월
-    [SceneEntry(name: "elephant", delay: 0, speed: 0.53),
-     SceneEntry(name: "cheetah", delay: 38, speed: 1.87)],
-    // ④ 닭·고양이·원숭이 — 살짝씩 좁혀지는 경쾌한 행렬
-    [SceneEntry(name: "chicken", delay: 0, speed: 0.77),
-     SceneEntry(name: "cat", delay: 14, speed: 0.94),
-     SceneEntry(name: "monkey", delay: 27, speed: 0.99)],
-    // ⑤ 소를 말이 힘차게 추월
-    [SceneEntry(name: "cow", delay: 4, speed: 0.55),
-     SceneEntry(name: "horse", delay: 35, speed: 1.43)],
-    // ⑥ 기린과 용 — 느긋한 마무리 (용은 부양)
-    [SceneEntry(name: "giraffe", delay: 2, speed: 0.72),
-     SceneEntry(name: "dragon", delay: 20, speed: 0.83)],
+/// 2026-08-03 (hans "지나간 뒤 여백 그대로"): 장면 단위 순환은 장면 꼬리마다
+/// 밀도가 옅어지는 순간이 남는다 → **컨베이어 스케줄**로 재설계. 14마리가
+/// 13~35틱(1.6~4.2s) 간격으로 끊임없이 입장하고, 느린 동물이 화면을 건너는 동안
+/// 다음 동물이 들어와 화면이 빌 틈이 없다. 추월 3장면(토끼→거북, 치타→코끼리,
+/// 말→소)은 화면 중앙(x≈24~27셀)에서 일어나게 입장 시각을 계산해 뒀다.
+/// 속도 = stepCells × 0.55 (동물 성격 유지). entry 는 CYCLE 내 절대 입장 틱.
+private let PARADE_SCHEDULE: [SceneEntry] = [
+    SceneEntry(name: "turtle", delay: 0, speed: 0.50),
+    SceneEntry(name: "rabbit", delay: 28, speed: 1.21),    // 거북이 추월 (x≈24)
+    SceneEntry(name: "man", delay: 55, speed: 0.88),
+    SceneEntry(name: "woman", delay: 68, speed: 0.88),
+    SceneEntry(name: "dog", delay: 81, speed: 0.95),
+    SceneEntry(name: "elephant", delay: 105, speed: 0.53),
+    SceneEntry(name: "cheetah", delay: 140, speed: 1.87),  // 코끼리 추월 (x≈26)
+    SceneEntry(name: "chicken", delay: 165, speed: 0.77),
+    SceneEntry(name: "cat", delay: 178, speed: 0.94),
+    SceneEntry(name: "monkey", delay: 191, speed: 0.99),
+    SceneEntry(name: "cow", delay: 215, speed: 0.55),
+    SceneEntry(name: "horse", delay: 245, speed: 1.43),    // 소 추월 (x≈27)
+    SceneEntry(name: "giraffe", delay: 270, speed: 0.72),
+    SceneEntry(name: "dragon", delay: 285, speed: 0.83),
 ]
+/// 순환 주기 — 용 입장(285) 뒤 거북이(다음 바퀴 0)가 들어올 때 기린·용이 아직
+/// 화면에 있어 이음새가 자연스럽다 (두 레이어 렌더).
+private let PARADE_CYCLE = 334
 
 struct ParadeFrame: View {
     let tick: Int
     /// 기린(10행) 기준 셀 크기 — 작은 동물은 바닥 정렬로 자연히 작아짐
     private let maxRows = 10
 
-    /// 장면 길이를 화면 폭에서 동적 계산 — 마지막 멤버가 오른쪽으로 빠져나가기
-    /// 직전(-10틱)에 다음 장면 첫 멤버가 왼쪽에서 들어온다 (2026-08-03 hans
-    /// "대기 시간이 너무 길어" → 빈 화면 없이 자연스럽게 이어지는 행렬).
-    private func sceneDurations(cols: Int) -> [Int] {
-        PARADE_SCENES.map { scene in
-            let exitTick = scene.map { e -> Double in
-                let w = PARADE_RUNNERS.first(where: { $0.name == e.name })?.width ?? 12
-                return e.delay + (Double(cols) + Double(w)) / e.speed
-            }.max() ?? 60
-            return max(40, Int(exitTick.rounded(.up)) - 10)
-        }
-    }
-
-    /// 전체 순환에서 현재 장면 index 와 장면 내 시각
-    private func scenePosition(cols: Int) -> (index: Int, t: Double) {
-        let durs = sceneDurations(cols: cols)
-        let total = max(1, durs.reduce(0, +))
-        var m = tick % total
-        for (i, d) in durs.enumerated() {
-            if m < d { return (i, Double(m)) }
-            m -= d
-        }
-        return (0, 0)
-    }
-
     var body: some View {
         GeometryReader { geo in
             let cell = geo.size.height / CGFloat(maxRows)
             let cols = max(8, Int(geo.size.width / cell))
-            let durs = sceneDurations(cols: cols)
-            let pos = scenePosition(cols: cols)
-            let prevIdx = (pos.index + PARADE_SCENES.count - 1) % PARADE_SCENES.count
-            // 이음새: 이전 장면의 아직 안 빠져나간 멤버(오른쪽 끝)도 같이 그린다
+            let m = Double(tick % PARADE_CYCLE)
+            // 두 레이어: 이번 바퀴(t=m) + 지난 바퀴 잔여 멤버(t=m+CYCLE, 기린·용 꼬리)
             let layers: [(entries: [SceneEntry], t: Double)] = [
-                (PARADE_SCENES[prevIdx], pos.t + Double(durs[prevIdx])),
-                (PARADE_SCENES[pos.index], pos.t),
+                (PARADE_SCHEDULE, m + Double(PARADE_CYCLE)),
+                (PARADE_SCHEDULE, m),
             ]
 
             ZStack(alignment: .topLeading) {
