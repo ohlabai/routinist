@@ -36,11 +36,11 @@ private struct ParadeSlot {
     let speed: Double
 }
 
-/// 2026-08-03 3차 (hans "그룹으로 나왔다가 사라져"): 고정 입장 시각은 화면 폭이
-/// 넓으면(시작 버튼 스트립 ≈ 55셀+) 성기게 퍼진다 → **체인 스케줄**: 다음 동물은
-/// 이전 동물이 (몸길이+6셀) 들어온 순간 입장. 폭이 넓을수록 자연히 더 많은 동물이
-/// 동시에 보이고, 어떤 폭에서도 빈 프레임 0 (25~120셀 시뮬레이션 검증).
-/// 추월 3쌍(토끼→거북, 치타→코끼리, 말→소)은 화면 3/4 지점에서 따라잡게 역산.
+/// 2026-08-03 3차 (hans "그룹으로 나왔다가 사라져") + 4차 ("너무 많이 나와"):
+/// **체인 스케줄** — 다음 동물은 이전 동물이 화면 절반을 지난 순간 입장.
+/// 화면 폭에 자동 적응해 어떤 워치에서도 동시 1~2마리(추월 순간만 3마리),
+/// 빈 프레임 0 (25~120셀 시뮬레이션 검증).
+/// 추월 3쌍(토끼→거북, 치타→코끼리, 말→소)은 화면 55% 지점에서 따라잡게 역산.
 private let PARADE_BASE_ORDER = ["turtle", "man", "woman", "dog", "elephant", "chicken",
                                  "cat", "monkey", "cow", "giraffe", "dragon"]
 private let PARADE_OVERTAKERS: [(fast: String, slow: String)] =
@@ -56,7 +56,8 @@ private func paradeSchedule(cols: Int) -> (slots: [ParadeSlot], cycle: Int) {
         let v = r.stepCells * 0.55
         slots.append(ParadeSlot(runner: r, entry: t, speed: v))
         entryOf[name] = t
-        t += (Double(r.width) + 6) / v
+        // 4차 (hans "4~5마리는 많다"): 이전 동물이 화면 절반을 지나야 다음 입장
+        t += (Double(r.width) + Double(cols) * 0.5) / v
     }
     for (fastName, slowName) in PARADE_OVERTAKERS {
         guard let f = find(fastName), let s = find(slowName), let es = entryOf[slowName] else { continue }
