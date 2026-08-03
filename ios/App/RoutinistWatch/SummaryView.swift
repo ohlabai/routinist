@@ -10,8 +10,6 @@ struct SummaryView: View {
 
     var body: some View {
         scrollContent
-            // v5: 완주 잔디 컨페티 — 블록들이 흩날리며 떨어지는 축하
-            .overlay { GrassConfettiView() }
     }
 
     private var scrollContent: some View {
@@ -36,7 +34,7 @@ struct SummaryView: View {
                 // 페이스 동물 축하 카피 (웹 완료시트·공유카드와 같은 사다리)
                 if let s = workout.summary {
                     Text(paceAnimalMatch(paceSecPerKm: s.paceSecPerKm).copy)
-                        .font(.system(size: 14, weight: .heavy, design: .rounded))
+                        .font(.system(size: 17, weight: .heavy, design: .rounded))
                         .foregroundStyle(emerald)
                         .minimumScaleFactor(0.75)
                         .lineLimit(2)
@@ -46,7 +44,7 @@ struct SummaryView: View {
                 // v12: 다른 운동 앱이 세션을 가져가 종료된 경우 — 이유 안내 (버그 아님을 명확히)
                 if workout.endedExternally {
                     Text("다른 운동 앱이 시작되면서 러닝이 종료됐어요. 여기까지 기록은 저장했어요.")
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .foregroundStyle(.orange)
                 }
 
@@ -68,7 +66,7 @@ struct SummaryView: View {
 
                 // v24: WCSession 직송 — 폰 앱을 열면 즉시 기록이 도착한다 (HK 미러 대기 불필요)
                 Text("기록을 iPhone 으로 보냈어요.\nRoutinist 앱을 열면 바로 보여요 🏃")
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .font(.system(size: 15, weight: .medium, design: .rounded))
                     .foregroundStyle(.secondary)
                     .padding(.top, 2)
 
@@ -95,14 +93,14 @@ struct SummaryView: View {
         let total = max(1, secs.reduce(0, +))
         return VStack(alignment: .leading, spacing: 4) {
             Text("심박 영역")
-                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
                 .foregroundStyle(.secondary)
             ForEach(0..<5, id: \.self) { i in
                 HStack(spacing: 6) {
                     Text("영역 \(i + 1)")
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundStyle(Self.zoneColors[i])
-                        .frame(width: 48, alignment: .leading)
+                        .frame(width: 54, alignment: .leading)
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
                             Capsule().fill(Color.white.opacity(0.10))
@@ -114,10 +112,10 @@ struct SummaryView: View {
                     }
                     .frame(height: 7)
                     Text(formatZoneTime(secs[i]))
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(.secondary)
-                        .frame(width: 40, alignment: .trailing)
+                        .frame(width: 46, alignment: .trailing)
                 }
             }
         }

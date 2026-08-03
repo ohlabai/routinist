@@ -101,18 +101,18 @@ struct MetricsView: View {
                     .foregroundStyle(workout.currentZone > 0 ? Self.zoneColors[workout.currentZone - 1] : .white)
                 VStack(alignment: .leading, spacing: 2) {
                     Image(systemName: "heart.fill")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(.red)
                     if workout.currentZone > 0 {
                         Text("영역 \(workout.currentZone)")
-                            .font(.system(size: 12, weight: .heavy, design: .rounded))
+                            .font(.system(size: 14, weight: .heavy, design: .rounded))
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                             .background(Capsule().fill(Self.zoneColors[workout.currentZone - 1].opacity(0.85)))
                             .foregroundStyle(workout.currentZone >= 3 ? .black : .white)
                     } else {
                         Text("bpm")
-                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -120,7 +120,7 @@ struct MetricsView: View {
 
             if workout.phase == .paused {
                 Text(workout.isAutoPaused ? "자동 일시정지 — 움직이면 이어서" : "일시정지됨")
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
                     .foregroundStyle(.orange)
                     .minimumScaleFactor(0.8)
                     .lineLimit(1)
@@ -136,7 +136,7 @@ struct MetricsView: View {
                     }
                     .frame(height: 8)
                     Text("\(Int(progress * 100))%")
-                        .font(.system(size: 13, weight: .heavy, design: .rounded))
+                        .font(.system(size: 15, weight: .heavy, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(progress >= 1 ? emerald : .secondary)
                 }
@@ -289,9 +289,10 @@ struct ControlsView: View {
                             .padding(.vertical, 18)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(emerald)
+                    // 2026-08-03 hans: 배경이 너무 밝다 — 딥 에메랄드로 톤 다운 (아이콘 흰색 대비 유지)
+                    .tint(Color(red: 0.09, green: 0.45, blue: 0.33))
                     Text("완주")
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
                 }
                 VStack(spacing: 5) {
                     Button {
@@ -305,7 +306,7 @@ struct ControlsView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(.yellow.opacity(0.9))
                     Text(workout.phase == .paused ? "다시 달리기" : "잠시 쉼")
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
                         .minimumScaleFactor(0.8)
                         .lineLimit(1)
                 }

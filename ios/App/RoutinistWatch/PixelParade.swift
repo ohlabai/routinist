@@ -29,22 +29,55 @@ struct GrassParadeView: View {
     }
 }
 
+/// 퍼레이드 장면 멤버: 러너 이름 + 입장 지연(틱) + 속도(틱당 셀)
+private struct SceneEntry {
+    let name: String
+    let delay: Double
+    let speed: Double
+}
+
+/// 2026-08-03 (hans "초반에 너무 겹친다"): 자유 순환 트랙은 속도가 다른 14마리가
+/// 랜덤 시점에 뭉치는 걸 막을 수 없다 → **연출된 장면 6개를 순환**하는 방식으로 재설계.
+/// 추월 장면은 느린 동물이 먼저 입장하고 빠른 동물이 화면 한가운데(x≈26셀)에서
+/// 정확히 따라잡게 지연·속도를 계산해 뒀다. 대열 장면은 같은 템포 동물들이
+/// 일정 간격으로 나란히 달린다. 겹침은 추월 순간뿐 — 항상 조화롭게 보인다.
+/// 속도 = stepCells × 0.55 (동물 성격 유지).
+private let PARADE_SCENES: [[SceneEntry]] = [
+    // ① 거북이를 토끼가 깡충깡충 추월 (hans 예시 그대로)
+    [SceneEntry(name: "turtle", delay: 2, speed: 0.50),
+     SceneEntry(name: "rabbit", delay: 30, speed: 1.21)],
+    // ② 남자·여자·강아지 조깅 대열
+    [SceneEntry(name: "man", delay: 0, speed: 0.88),
+     SceneEntry(name: "woman", delay: 13, speed: 0.88),
+     SceneEntry(name: "dog", delay: 26, speed: 0.95)],
+    // ③ 코끼리를 치타가 전력질주로 추월
+    [SceneEntry(name: "elephant", delay: 0, speed: 0.53),
+     SceneEntry(name: "cheetah", delay: 38, speed: 1.87)],
+    // ④ 닭·고양이·원숭이 — 살짝씩 좁혀지는 경쾌한 행렬
+    [SceneEntry(name: "chicken", delay: 0, speed: 0.77),
+     SceneEntry(name: "cat", delay: 14, speed: 0.94),
+     SceneEntry(name: "monkey", delay: 27, speed: 0.99)],
+    // ⑤ 소를 말이 힘차게 추월
+    [SceneEntry(name: "cow", delay: 4, speed: 0.55),
+     SceneEntry(name: "horse", delay: 35, speed: 1.43)],
+    // ⑥ 기린과 용 — 느긋한 마무리 (용은 부양)
+    [SceneEntry(name: "giraffe", delay: 2, speed: 0.72),
+     SceneEntry(name: "dragon", delay: 20, speed: 0.83)],
+]
+
 struct ParadeFrame: View {
     let tick: Int
     /// 기린(10행) 기준 셀 크기 — 작은 동물은 바닥 정렬로 자연히 작아짐
     private let maxRows = 10
-
-    /// 트랙 길이 (셀) — 전체 폭 대비 넉넉히 잡아 화면엔 늘 2~3마리만 보이게.
-    /// 2026-08-03 (hans): 균일 대열 → **동물별 실제 속도** (stepCells 부활).
-    /// 거북이·코끼리는 느릿느릿 기어가고 치타·말·토끼가 자연스럽게 **추월**한다.
-    /// 순환 트랙이라 속도 차이만으로 만남·추월이 계속 생긴다 (별도 연출 코드 불필요).
-    private let trackCells = 220.0
+    /// 장면 길이 (틱, 0.12s) — 가장 느린 멤버가 넓은 화면도 끝까지 건너게 여유 포함 (~11.5s)
+    private let sceneTicks = 96
 
     var body: some View {
         GeometryReader { geo in
             let cell = geo.size.height / CGFloat(maxRows)
             let cols = max(8, Int(geo.size.width / cell))
-            let n = PARADE_RUNNERS.count
+            let scene = PARADE_SCENES[(tick / sceneTicks) % PARADE_SCENES.count]
+            let t = Double(tick % sceneTicks)
 
             ZStack(alignment: .topLeading) {
                 // 바닥 잔디 라인 — 러너들이 밟고 달리는 지면
@@ -58,23 +91,21 @@ struct ParadeFrame: View {
                 .frame(maxWidth: .infinity)
                 .offset(y: geo.size.height - cell * 0.4)
 
-                ForEach(0..<n, id: \.self) { i in
-                    let r = PARADE_RUNNERS[i]
-                    // 시작 위상 균등 분산 + 자기 속도로 전진. 결정적 계산이라 프레임 간 일관.
-                    let start = trackCells * Double(i) / Double(n)
-                    let raw = (start + Double(tick) * r.stepCells * 0.55)
-                        .truncatingRemainder(dividingBy: trackCells)
-                    let xCells = raw - Double(r.width)
-                    if xCells < Double(cols) && raw > 0 {
-                        let frameIdx = (tick / max(1, r.legEvery)) % 2
-                        let hop = r.bounce == 1 && frameIdx == 0 ? -cell * 0.9 : 0
-                        SpriteView(grid: r.frames[frameIdx], cell: cell)
-                            .offset(x: CGFloat(xCells) * cell,
-                                    y: geo.size.height - CGFloat(r.height) * cell - cell * 0.4 + hop)
-                            // 셀 단위 점프를 부드럽게 — 픽셀 마퀴 특유의 리듬은 유지
-                            .animation(.linear(duration: 0.12), value: tick)
-                            // 빠른 동물이 앞을 지나가게 — 추월 장면의 앞뒤 관계
-                            .zIndex(r.stepCells)
+                ForEach(0..<scene.count, id: \.self) { i in
+                    let e = scene[i]
+                    if let r = PARADE_RUNNERS.first(where: { $0.name == e.name }) {
+                        let xCells = (t - e.delay) * e.speed - Double(r.width)
+                        if xCells > -Double(r.width) && xCells < Double(cols) {
+                            let frameIdx = (tick / max(1, r.legEvery)) % 2
+                            let hop = r.bounce == 1 && frameIdx == 0 ? -cell * 0.9 : 0
+                            SpriteView(grid: r.frames[frameIdx], cell: cell)
+                                .offset(x: CGFloat(xCells) * cell,
+                                        y: geo.size.height - CGFloat(r.height) * cell - cell * 0.4 + hop)
+                                // 셀 단위 점프를 부드럽게 — 픽셀 마퀴 특유의 리듬은 유지
+                                .animation(.linear(duration: 0.12), value: tick)
+                                // 빠른 동물이 앞을 지나가게 — 추월 장면의 앞뒤 관계
+                                .zIndex(e.speed)
+                        }
                     }
                 }
             }

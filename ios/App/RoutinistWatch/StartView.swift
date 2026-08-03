@@ -59,9 +59,9 @@ struct StartView: View {
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "target")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.system(size: 14, weight: .bold))
                     Text(goalButtonLabel)
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
@@ -73,7 +73,7 @@ struct StartView: View {
             // v9: 이달 챌린지 진행률 (iPhone 에서 동기화되면 표시)
             if let target = connectivity.challengeTargetKm, target > 0 {
                 Text(String(format: "🌱 이달 %.1f / %.1fkm", connectivity.challengeProgressKm ?? 0, target))
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .foregroundStyle(.secondary)
             }
 
@@ -82,7 +82,7 @@ struct StartView: View {
             }
             if workout.authDenied {
                 Text("건강 권한이 필요해요.\n워치 설정 > 개인정보 보호 > 건강에서 허용해주세요")
-                    .font(.system(size: 12, design: .rounded))
+                    .font(.system(size: 14, design: .rounded))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
@@ -215,7 +215,7 @@ struct GoalPickerView: View {
     private func presetChip(_ label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
-                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                .font(.system(size: 15, weight: .heavy, design: .rounded))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 6)
         }
