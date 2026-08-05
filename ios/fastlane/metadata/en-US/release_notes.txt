@@ -1,4 +1,4 @@
-v1.2.16 — Smarter auto-pause 🏃
+v1.2.16 — Smarter auto-pause
 
 [Run tracking]
 • Fixed auto-pause kicking in mid-run — we now watch your body's motion too, so weak GPS spots (tall buildings, tunnels) won't stop your run while you're moving.
