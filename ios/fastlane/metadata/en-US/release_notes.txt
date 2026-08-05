@@ -1,7 +1,9 @@
-v1.2.16 — Smarter auto-pause
+v1.2.17 — Smarter auto-pause
 
 [Run tracking]
 • Fixed auto-pause kicking in mid-run — we now watch your body's motion too, so weak GPS spots (tall buildings, tunnels) won't stop your run while you're moving.
+• Fixed the watch too — no more pause/resume loop while GPS locks on right after you start.
+• Pocketing your phone during the start countdown no longer prevents recording.
 • It pauses only when you actually stop, and picks right back up when you run again.
 
 [Share card]

@@ -367,7 +367,11 @@ function TrackPageImpl() {
     );
   }, []);
 
+  // 2026-08-05 (Kevin LEE 신고): 카운트다운 중단 즉시시작과 타이머 완주 경로의 이중 시작 가드.
+  const beganRef = useRef(false);
   const beginTrackingAfterCountdown = useCallback(() => {
+    if (beganRef.current) return;
+    beganRef.current = true;
     if (useNative) {
       // 네이티브 엔진: start 가 세션 소유. JS state 는 렌더 미러만.
       void (async () => {
@@ -456,6 +460,7 @@ function TrackPageImpl() {
         mapRef.current.panTo(here);
         youMarkerRef.current?.setPosition(here);
       }
+      beganRef.current = false;
       setCountdown(3);
     } finally {
       startingRef.current = false;
@@ -525,6 +530,23 @@ function TrackPageImpl() {
     const t = setTimeout(() => setCountdown(c => (c !== null ? c - 1 : null)), COUNTDOWN_TICK_MS);
     return () => clearTimeout(t);
   }, [countdown, beginTrackingAfterCountdown, locale]);
+
+  // 2026-08-05 (Kevin LEE 신고): 카운트다운 중 화면 잠금/백그라운드 전환이면 JS 타이머가 얼어
+  // native start 가 영영 안 불림 — FGS 없는 앱을 OS 가 몇 분 내 kill ("벨트에 넣었더니 꺼짐").
+  // 화면이 사라지는 순간 남은 카운트다운을 생략하고 즉시 시작 — 전환 직후 짧은 창 안에
+  // native 호출이 실행돼 세션+FGS 가 살아난다. beganRef 가 타이머 완주 경로와 이중 시작 차단.
+  const countdownActive = countdown !== null;
+  useEffect(() => {
+    if (!countdownActive) return;
+    const onHide = () => {
+      if (document.visibilityState !== 'hidden') return;
+      void logClientInfo('track-start', 'countdown-interrupted → immediate start', {});
+      setCountdown(null);
+      beginTrackingAfterCountdown();
+    };
+    document.addEventListener('visibilitychange', onHide);
+    return () => document.removeEventListener('visibilitychange', onHide);
+  }, [countdownActive, beginTrackingAfterCountdown]);
 
   // build 283 (hans 2026-06-11 회귀 fix):
   // 이전 deps 가 `[state?.status]` 라서 active ↔ paused 전환마다 watcher cleanup + re-create.
