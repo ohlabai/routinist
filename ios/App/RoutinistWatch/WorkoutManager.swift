@@ -210,19 +210,55 @@ final class WorkoutManager: NSObject, ObservableObject {
         }
     }
 
-    // ── 자동 일시정지 (v7) — 15초간 거리 정지 → pause, 걸음 감지 → 자동 재개 ──
+    // ── 자동 일시정지 (v7 → 2026-08-05 재설계) — 폰 엔진 재설계 미러 (hans 실주행 신고 fix)
+    // 구 v7 은 출발 미무장 가드가 없어 GPS 콜드스타트 (거리 0) 15초 만에 오정지 → 스텝 12보로
+    // 재개 → 여전히 미획득이라 재정지 … 무한 루프 (첫 1km 정지↔재개 반복 + 거리 0 신고).
+    // 원칙: 정지 판정의 진실 소스는 몸 — 스텝이 흐르는 중엔 거리가 멈춰도 절대 정지하지 않는다.
     @Published var isAutoPaused = false
     private var lastDistanceChangeAt = Date()
     private var lastDistanceForStall: Double = 0
     private var stallTimer: Timer?
     private let pedometer = CMPedometer()
+    private var pedometerSteps = 0
+    private var lastStepChangeAt: Date?
+    private var stepsAtAutoPause = 0
+    /// 세션 중 거리가 실제로 한 번이라도 전진하기 전엔 자동정지 미무장 (폰 fix 295 미러).
+    private var hasMovedThisSession = false
 
     private func startStallWatch() {
         lastDistanceChangeAt = Date()
         lastDistanceForStall = distanceMeters
+        // 복구 세션 (이미 달리던 세션) 은 즉시 무장 — 신규 세션만 첫 전진까지 보류.
+        hasMovedThisSession = distanceMeters >= 25
+        pedometerSteps = 0
+        lastStepChangeAt = nil
+        startPedometerStream()
         stallTimer?.invalidate()
         stallTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.checkStall() }
+        }
+    }
+
+    /// 세션 내내 스텝 스트림 유지 — 정지 거부권 + 자동 재개 판정 공용 (구 v7 은 재개 전용).
+    private func startPedometerStream() {
+        guard CMPedometer.isStepCountingAvailable() else { return }
+        pedometer.stopUpdates()
+        pedometer.startUpdates(from: Date()) { [weak self] data, _ in
+            guard let steps = data?.numberOfSteps.intValue else { return }
+            Task { @MainActor in
+                guard let self, steps > self.pedometerSteps else { return }
+                self.pedometerSteps = steps
+                self.lastStepChangeAt = Date()
+                // 자동정지 중 12보+ → 자동 재개 (구 v7 로직 승계, 기준점만 정지 시점 스텝)
+                if self.isAutoPaused, steps - self.stepsAtAutoPause >= 12 {
+                    self.isAutoPaused = false
+                    self.lastDistanceChangeAt = Date()
+                    self.lastDistanceForStall = self.distanceMeters
+                    self.session?.resume()
+                    WKInterfaceDevice.current().play(.start)
+                    self.speak("다시 시작합니다. 같이 가요.")
+                }
+            }
         }
     }
 
@@ -231,33 +267,20 @@ final class WorkoutManager: NSObject, ObservableObject {
         if distanceMeters - lastDistanceForStall >= 3 {
             lastDistanceForStall = distanceMeters
             lastDistanceChangeAt = Date()
+            hasMovedThisSession = true
             return
         }
+        // 출발 전 미무장: GPS 콜드스타트에서 거리 0 이 길어지는 건 정상 — 오정지 금지.
+        guard hasMovedThisSession else { return }
+        // 스텝 거부권: 몸이 움직이는 중엔 거리가 멈춰도 정지하지 않는다 (터널·GPS 기아 오정지 차단).
+        if let lastStep = lastStepChangeAt, Date().timeIntervalSince(lastStep) < 5 { return }
         if Date().timeIntervalSince(lastDistanceChangeAt) >= 15 {
             // 자동 일시정지 (폰 엔진과 동일 컨셉)
             session?.pause()
             isAutoPaused = true
+            stepsAtAutoPause = pedometerSteps
             WKInterfaceDevice.current().play(.stop)
             speak("자동 일시정지. 다시 움직이면 이어서 잴게요.")
-            startPedometerResumeWatch()
-        }
-    }
-
-    private func startPedometerResumeWatch() {
-        guard CMPedometer.isStepCountingAvailable() else { return }
-        let from = Date()
-        pedometer.startUpdates(from: from) { [weak self] data, _ in
-            guard let steps = data?.numberOfSteps.intValue, steps >= 12 else { return }
-            Task { @MainActor in
-                guard let self, self.isAutoPaused else { return }
-                self.pedometer.stopUpdates()
-                self.isAutoPaused = false
-                self.lastDistanceChangeAt = Date()
-                self.lastDistanceForStall = self.distanceMeters
-                self.session?.resume()
-                WKInterfaceDevice.current().play(.start)
-                self.speak("다시 시작합니다. 같이 가요.")
-            }
         }
     }
 
@@ -547,8 +570,7 @@ final class WorkoutManager: NSObject, ObservableObject {
         if phase == .active {
             session.pause()
         } else if phase == .paused {
-            // 수동 재개 — 자동 일시정지 감시 상태 초기화
-            pedometer.stopUpdates()
+            // 수동 재개 — 자동 일시정지 감시 상태 초기화 (스텝 스트림은 세션 내내 유지)
             isAutoPaused = false
             lastDistanceChangeAt = Date()
             lastDistanceForStall = distanceMeters
