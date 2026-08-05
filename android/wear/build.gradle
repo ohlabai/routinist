@@ -10,11 +10,11 @@ android {
         // Play Multi-APK: 폰 앱과 동일 applicationId 로 한 리스팅에 배포.
         applicationId "com.routinist.app"
         minSdkVersion 30                              // Wear OS 3+
-        targetSdkVersion 34                           // Wear OS 5
+        targetSdkVersion 35                           // Play 정책: Wear 도 2026-08-31 까지 API 35 필수
         // versionCode 는 폰과 반드시 달라야 함 (같은 앱, 다른 폼팩터 APK).
         // 폰 build 324 → 워치는 1_000_000 오프셋 스킴으로 충돌 방지.
-        versionCode 1000326   // v5: 퍼레이드·완주 동물 축하·라이브 미러·심박존 직송 (애플워치 동등화)
-        versionName "1.2.15"
+        versionCode 1000327   // v6: Play 거절 fix — 검정 배경·ScrollIndicator + targetSdk 35
+        versionName "1.2.17"
     }
 
     signingConfigs {

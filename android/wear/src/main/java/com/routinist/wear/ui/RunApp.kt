@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.ScrollIndicator
 import androidx.wear.compose.material3.Text
 import com.routinist.wear.ExerciseRecordingService
 import com.routinist.wear.WorkoutManager
@@ -73,7 +74,8 @@ fun RunApp() {
         }
 
         Box(
-            Modifier.fillMaxSize().background(Brand.ScreenGradient),
+            // Play Wear 품질 가이드라인 (2026-08-05 거절): 배경은 순수 검정 — 네이비 그라데이션 금지.
+            Modifier.fillMaxSize().background(Color.Black),
             contentAlignment = Alignment.Center,
         ) {
             when (state.phase) {
@@ -290,8 +292,11 @@ private fun MetricsScreen(state: WorkoutManager.RunState) {
     val userPaused = state.phase == WorkoutManager.Phase.PAUSED
     val autoPaused = state.phase == WorkoutManager.Phase.AUTO_PAUSED
     val kmFraction = ((state.distanceMeters % 1000) / 1000.0).toFloat()
+    // Play Wear 품질 가이드라인 (2026-08-05 거절): 스크롤 화면은 위치 인디케이터 필수.
+    val scroll = rememberScrollState()
+    Box(Modifier.fillMaxSize()) {
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 16.dp),
+        Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal = 14.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         if (userPaused || autoPaused) {
@@ -377,6 +382,8 @@ private fun MetricsScreen(state: WorkoutManager.RunState) {
         // 라운드 화면 하단 곡면 여백 — 버튼이 원 안쪽 탭 가능 영역에 들어오도록
         Spacer(Modifier.height(30.dp))
     }
+    ScrollIndicator(state = scroll, modifier = Modifier.align(Alignment.CenterEnd))
+    }
 }
 
 /** v3: 심박 스파크라인 — 최근 샘플 min-max 정규화 폴리라인 */
@@ -412,9 +419,11 @@ private fun SummaryScreen(summary: WorkoutManager.Summary?, onDone: () -> Unit) 
     // v5 (애플워치 동등화, hans): 컨페티 제거 — 축하의 주인공은 페이스 블록동물.
     // 완주! 옆에서 제자리 달리기 + 축하 카피, 글씨 확대, 완료 버튼 딥 에메랄드.
     val match = paceAnimalMatch(summary?.paceSecPerKm)
+    // Play Wear 품질 가이드라인 (2026-08-05 거절): 스크롤 화면은 위치 인디케이터 필수.
+    val scroll = rememberScrollState()
     Box(Modifier.fillMaxSize()) {
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 18.dp),
+            Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal = 14.dp, vertical = 18.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -454,6 +463,7 @@ private fun SummaryScreen(summary: WorkoutManager.Summary?, onDone: () -> Unit) 
             ) { Text("완료", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White) }
             Spacer(Modifier.height(30.dp))
         }
+        ScrollIndicator(state = scroll, modifier = Modifier.align(Alignment.CenterEnd))
     }
 }
 
