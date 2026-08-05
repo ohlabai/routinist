@@ -738,7 +738,8 @@ function drawCard(
       return d.getFullYear() === activityYear && d.getMonth() === activityMonth;
     });
     monthSum = inMonth.reduce((s, a) => s + a.distance_km, 0);
-    monthRunCount = inMonth.length;
+    // 횟수는 3km 이상 러닝만 1회로 카운트 (걷기·짧은 활동 제외). 합계/그래프는 전체 거리 유지.
+    monthRunCount = inMonth.filter(a => a.activity_type !== 'walking' && a.distance_km >= 3).length;
 
     dailyKm = new Map<number, number>();
     monthlyActivities.forEach(a => {

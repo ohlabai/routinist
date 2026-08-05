@@ -72,6 +72,11 @@ export interface RunSessionSummary {
   activeSec: number;
   elapsedSec: number;
   autoPausedSec: number;
+  /** 2026-08-05 진단: 세션 중 자동정지 발생 횟수. 구버전 네이티브 빌드엔 없음. */
+  autoPauseCount?: number;
+  /** 2026-08-05 진단: 종료 시점 절전모드 여부 (Android isPowerSaveMode / iOS 저전력 모드).
+   *  GPS 기아 (fix burst → 침묵) 신고의 주 용의자 — UI 노출 없이 로그로만 쓴다. */
+  powerSaveMode?: boolean;
   avgPaceSecPerKm: number | null;
   route: RunCoord[];
 }

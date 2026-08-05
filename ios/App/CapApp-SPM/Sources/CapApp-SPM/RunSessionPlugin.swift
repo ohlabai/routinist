@@ -71,7 +71,11 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         static let autoResumeSpeedMps: Double = 1.4
         static let autoResumeHoldSec: TimeInterval = 3
         /// pedometer 콜백 주기(~2.5s) 감안 — 스텝 증가 흐름이 이 시간 끊기면 "걷는 중" 판정 리셋.
+        /// 2026-08-05 재설계: 같은 값이 "스텝이 방금까지 흐르고 있음" (자동정지 거부권) 판정에도 쓰인다.
         static let stepStallResetSec: TimeInterval = 5
+        /// 2026-08-05 (Android 이승우 오정지 신고의 iOS 대칭 fix): GPS-느림 자동정지는 speed
+        /// 샘플이 이 시간 안에 흐르는 중일 때만 — 신호 공백 중엔 판정 근거가 없다 (보류).
+        static let gpsSpeedFreshSec: TimeInterval = 5
 
         // --- GPS 신호 등급 / gap-fill ---
         static let gpsGoodAccuracyM: Double = 20
@@ -148,6 +152,8 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
     private var activeSegmentStart: Date?
     private var accumulatedAutoPausedSec: Double = 0
     private var autoPausedSegmentStart: Date?
+    /// 2026-08-05 진단 — 세션 중 자동정지 발생 횟수 (오정지 신고 추적용, stop 요약에 실림).
+    private var autoPauseCount = 0
 
     // 필터 파이프라인 상태
     private var inWarmup = true
@@ -431,6 +437,8 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
                 "activeSec": activeSec.rounded(),
                 "elapsedSec": ((now.timeIntervalSince1970 * 1000.0 - self.startedAtMs) / 1000.0).rounded(),
                 "autoPausedSec": self.accumulatedAutoPausedSec.rounded(),
+                "autoPauseCount": self.autoPauseCount,             // 2026-08-05 진단 — 오정지 신고 추적
+                "powerSaveMode": ProcessInfo.processInfo.isLowPowerModeEnabled,
                 "avgPaceSecPerKm": avgPace.map { $0 as Any } ?? NSNull(),
                 "route": self.route,
             ]
@@ -730,6 +738,11 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
             lastFixAt = Date()
             lastFixAccuracy = acc
 
+            // accuracy 게이트: 거리·경로 모두 제외 (계약 §1).
+            // 2026-08-05: 도플러 speed 판정도 게이트 뒤로 — 저품질 fix 의 엉터리 속도가
+            // 자동정지 타이머를 돌리지 못하게 (Android 절전모드 오정지의 한 축).
+            if acc > Tuning.accuracyGateM { continue }
+
             // 도플러 speed 처리: 순간 페이스 EMA + 자동 일시정지 히스테리시스 윈도우.
             let doppler = loc.speed
             if doppler >= 0 {
@@ -752,9 +765,6 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
                     fastSince = nil
                 }
             }
-
-            // accuracy 게이트: 거리·경로 모두 제외 (계약 §1).
-            if acc > Tuning.accuracyGateM { continue }
 
             // warmup: 콜드스타트 좌표는 앵커 후보로만.
             if inWarmup {
@@ -859,20 +869,32 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
 
     // MARK: - 자동 일시정지 (stateQueue)
 
+    // 2026-08-05 재설계 (Android 이승우 오정지 신고와 대칭): 모션(스텝)이 1차 신호, GPS 는 2차.
+    // 러닝은 저속이라 GPS 도플러의 노이즈 대역과 실페이스가 겹친다 — 정지 판정의 진실 소스는
+    // 위성이 아니라 몸의 움직임 (Strava 러닝 자동정지와 같은 원칙).
     private func evaluateAutoPause(now: Date) {
         switch state {
         case .running:
             // 첫 움직임 전에는 자동정지 미무장 — 출발 대기/워밍업 오정지 차단.
             guard hasMovedThisSession else { return }
+            // 모션 거부권: 스텝이 방금까지 흐르고 있으면 GPS 가 뭐라 하든 정지하지 않는다.
+            if pedometerActive, let lastStep = lastStepChangeAt,
+               now.timeIntervalSince(lastStep) < Tuning.stepStallResetSec {
+                return
+            }
             var shouldPause = false
-            // 1차: 도플러 speed < 0.5 m/s 가 12초 지속.
-            if let slow = slowSince, now.timeIntervalSince(slow) >= Tuning.autoPauseHoldSec {
+            // 1차 (모션): 스텝 12초 무변화 — GPS 신호 상태와 무관 (기존 lost 한정에서 승격).
+            // 단 GPS 가 "고속 이동 중" 이라고 말하면 보류 (유모차 거치 등 스텝 미감지 이동).
+            if pedometerActive, let lastStep = lastStepChangeAt,
+               now.timeIntervalSince(lastStep) >= Tuning.autoPauseHoldSec, fastSince == nil {
                 shouldPause = true
             }
-            // 2차: GPS lost 상태에선 pedometer 스텝 무변화 12초로 대체 판정 (계약 §3).
-            if !shouldPause, pedometerActive, gpsSignalString(now: now) == "lost",
-               let lastStep = lastStepChangeAt,
-               now.timeIntervalSince(lastStep) >= Tuning.autoPauseHoldSec {
+            // 2차 (GPS): 느림 12초 — speed 샘플이 실제로 흐르는 중일 때만. 신호 공백 중엔
+            // 판정 근거가 없다 — 정지가 아니라 보류 (느린 fix 한 방 + 침묵 12초 오정지 차단).
+            if !shouldPause, let slow = slowSince,
+               now.timeIntervalSince(slow) >= Tuning.autoPauseHoldSec,
+               let speedAt = lastSpeedUpdateAt,
+               now.timeIntervalSince(speedAt) <= Tuning.gpsSpeedFreshSec {
                 shouldPause = true
             }
             if shouldPause { enterAutoPause(now: now) }
@@ -900,6 +922,7 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         foldTimeSegments(now: now)
         state = .autoPaused
         autoPausedSegmentStart = now
+        autoPauseCount += 1
         resetAutoPauseWindows()
         speak(templates.autoPause)
         persist(now: now)
@@ -1133,6 +1156,7 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
             "activeSec": currentActiveSec(now: now),
             "autoPausedSec": accumulatedAutoPausedSec
                 + (state == .autoPaused ? autoPausedSegmentStart.map { now.timeIntervalSince($0) } ?? 0 : 0),
+            "autoPauseCount": autoPauseCount,
             "milestonesFired": milestonesFired,
             "milestoneEveryKm": milestoneEveryKm,
             "lastMilestoneDistanceM": lastMilestoneDistanceM,
@@ -1174,6 +1198,7 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         gapFillDistanceM = snapshot["gapFillDistanceM"] as? Double ?? 0
         accumulatedActiveSec = snapshot["activeSec"] as? Double ?? 0
         accumulatedAutoPausedSec = snapshot["autoPausedSec"] as? Double ?? 0
+        autoPauseCount = snapshot["autoPauseCount"] as? Int ?? 0
         milestonesFired = snapshot["milestonesFired"] as? Int ?? 0
         milestoneEveryKm = snapshot["milestoneEveryKm"] as? Double ?? 1
         // 키 부재 (구버전 snapshot) 시 현재 누적치를 기준점으로 — 다음 발화가 평균으로 오염되지 않게.
@@ -1238,6 +1263,7 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         activeSegmentStart = nil
         accumulatedAutoPausedSec = 0
         autoPausedSegmentStart = nil
+        autoPauseCount = 0
         inWarmup = true
         warmupCandidate = nil
         anchor = nil

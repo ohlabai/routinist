@@ -4,6 +4,10 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.location.Location
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
@@ -11,6 +15,7 @@ import android.media.AudioManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.PowerManager
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
@@ -26,6 +31,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.sqrt
 
 /**
  * 네이티브 러닝 세션 엔진 — iOS RunSessionPlugin.swift 의 Android 포팅 (Phase 2).
@@ -38,7 +45,8 @@ import java.util.Locale
  *  - pedometer 융합 없음 — Android 는 CMPedometer.distance 등가물이 없어 (STEP_COUNTER 는
  *    걸음수만, 거리 추정은 별도 보폭 모델 필요) gap-fill 을 생략. GPS 공백 복귀 좌표는
  *    거리 미적산 재앵커만 수행. pedometerDistanceM 은 계약 유지를 위해 항상 0.
- *  - 자동 일시정지 2차 판정 (GPS lost 시 스텝 무변화) 없음 — 1차 도플러 히스테리시스만.
+ *  - 자동 일시정지 모션 판정은 가속도계 에너지 (iOS 는 CMPedometer 스텝) — step detector 는
+ *    ACTIVITY_RECOGNITION 런타임 권한이 필요해 (Play 권한 최소화) 무권한 가속도계로 대체.
  *  - 음성은 android.speech.tts.TextToSpeech (AVSpeechSynthesizer 대응). 볼륨 0.65 동일
  *    (feedback: JS+native 동일 값 유지, pitch 변조 금지).
  *
@@ -63,6 +71,13 @@ object RunSessionEngine {
     private const val AUTO_PAUSE_HOLD_SEC = 12.0
     private const val AUTO_RESUME_SPEED_MPS = 1.4
     private const val AUTO_RESUME_HOLD_SEC = 3.0
+    // 2026-08-05 (이승우 "뛰는데 5번 정지" 신고): 자동정지 재설계 — 모션이 1차 신호 (Strava 계열).
+    // 절전모드가 GPS 를 굶기면 (fix burst→수십초 침묵) 저품질 도플러 한 방 + 공백 12초만으로
+    // 오정지됐음. 몸이 흔들리는 동안은 GPS 가 뭐라 하든 정지하지 않는다.
+    private const val MOTION_EMA_ALPHA = 0.1        // ~15Hz 샘플 기준 시정수 ≈ 0.7s
+    private const val MOTION_ACTIVE_MPS2 = 0.6      // |가속도-중력| EMA — 걷기/뛰기 ≫ 0.6, 정지 ≪ 0.3
+    private const val MOTION_FRESH_SEC = 5.0        // 이 안에 모션 있으면 자동정지 거부
+    private const val GPS_SPEED_FRESH_SEC = 5.0     // GPS-느림 정지는 speed 샘플이 흐르는 중일 때만
     private const val GPS_GOOD_ACCURACY_M = 20.0
     private const val GPS_LOST_SEC = 10.0
     // build 327 (강도균 "km 안 올라감" 신고): GPS 공백 gap-fill 속도 캡.
@@ -145,6 +160,13 @@ object RunSessionEngine {
     private var slowSinceMs: Long? = null
     private var fastSinceMs: Long? = null
     private var hasMovedThisSession = false
+
+    // 모션 (가속도계) 상태 — 콜백을 handler 로 배달시켜 필드 접근은 상태 스레드로 일원화.
+    private var accelSensorActive = false
+    private var accelEmaDev: Double? = null
+    private var lastMotionAtMs: Long? = null
+    private var motionSinceMs: Long? = null
+    private var autoPauseCount = 0
 
     private var milestonesFired = 0
     // 구간 페이스 기준점 — 직전 마일스톤 발화 시점의 누적 거리/활동시간.
@@ -272,6 +294,8 @@ object RunSessionEngine {
                 put("activeSec", Math.round(activeSec).toDouble())
                 put("elapsedSec", Math.round((nowMs - startedAtMs) / 1000.0).toDouble())
                 put("autoPausedSec", Math.round(accumulatedAutoPausedSec).toDouble())
+                put("autoPauseCount", autoPauseCount)              // 2026-08-05 진단 — 오정지 신고 추적
+                put("powerSaveMode", isPowerSaveMode())            // 절전모드 = GPS 기아의 주 용의자
                 put("avgPaceSecPerKm", avgPace ?: JSONObject.NULL)
                 put("route", routeToJson())
             }
@@ -300,6 +324,10 @@ object RunSessionEngine {
         }
     }
 
+    private fun isPowerSaveMode(): Boolean = try {
+        (appContext?.getSystemService(Context.POWER_SERVICE) as? PowerManager)?.isPowerSaveMode == true
+    } catch (_: Exception) { false }
+
     fun hasLocationPermission(context: Context): Boolean =
         ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
         ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -312,6 +340,29 @@ object RunSessionEngine {
             // requestLocationUpdates 에 stateThread.looper 를 넘겨 이 콜백은 이미 상태 스레드.
             processLocations(result.locations)
         }
+    }
+
+    private var sensorManager: SensorManager? = null
+    private val accelListener = object : SensorEventListener {
+        override fun onSensorChanged(event: SensorEvent) {
+            // registerListener 에 handler 를 넘겨 이 콜백도 상태 스레드.
+            if (state == State.IDLE) return
+            val x = event.values[0].toDouble()
+            val y = event.values[1].toDouble()
+            val z = event.values[2].toDouble()
+            val dev = abs(sqrt(x * x + y * y + z * z) - SensorManager.GRAVITY_EARTH.toDouble())
+            val ema = accelEmaDev?.let { MOTION_EMA_ALPHA * dev + (1 - MOTION_EMA_ALPHA) * it } ?: dev
+            accelEmaDev = ema
+            if (ema > MOTION_ACTIVE_MPS2) {
+                val nowMs = System.currentTimeMillis()
+                if (motionSinceMs == null) motionSinceMs = nowMs
+                lastMotionAtMs = nowMs
+            } else {
+                motionSinceMs = null
+            }
+        }
+
+        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
     }
 
     @SuppressLint("MissingPermission")   // 호출측(startSession)에서 권한 확인 후 진입
@@ -332,6 +383,18 @@ object RunSessionEngine {
             Log.e(TAG, "requestLocationUpdates failed", e)
         }
         try {
+            val sm = sensorManager
+                ?: (ctx.getSystemService(Context.SENSOR_SERVICE) as SensorManager).also { sensorManager = it }
+            val accel = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+            accelSensorActive = accel != null &&
+                sm.registerListener(accelListener, accel, SensorManager.SENSOR_DELAY_UI, handler)
+            // 센서 예열 전 stall 오판 방지 — 등록 시점을 첫 모션으로 간주.
+            if (accelSensorActive) lastMotionAtMs = System.currentTimeMillis()
+        } catch (e: Exception) {
+            Log.w(TAG, "accelerometer register failed — GPS 판정만으로 동작", e)
+            accelSensorActive = false
+        }
+        try {
             // 리뷰 P1: 서비스 START_STICKY 재기동 복원 경로에선 onStartCommand 의
             // startForeground 와 이 호출이 경합 — 백그라운드 상태로 판정되면
             // ForegroundServiceStartNotAllowedException 이 HandlerThread 를 죽인다.
@@ -348,6 +411,8 @@ object RunSessionEngine {
         trackingForReaders = false
         handler.removeCallbacks(tickRunnable)
         try { fusedClient?.removeLocationUpdates(locationCallback) } catch (_: Exception) {}
+        try { sensorManager?.unregisterListener(accelListener) } catch (_: Exception) {}
+        accelSensorActive = false
         appContext?.let { RunSessionService.stop(it) }
     }
 
@@ -445,6 +510,11 @@ object RunSessionEngine {
             lastFixAtMs = nowMs
             lastFixAccuracy = acc
 
+            // accuracy 게이트: 거리·경로 모두 제외.
+            // 2026-08-05: 도플러 speed 판정도 게이트 뒤로 — 저품질 fix 의 엉터리 속도가
+            // 자동정지 타이머를 돌리던 것이 절전모드 오정지의 한 축이었다.
+            if (acc > ACCURACY_GATE_M) continue
+
             // 도플러 speed: 순간 페이스 EMA + 자동 일시정지 히스테리시스 윈도우.
             val doppler = if (loc.hasSpeed()) loc.speed.toDouble() else -1.0
             if (doppler >= 0) {
@@ -467,9 +537,6 @@ object RunSessionEngine {
                     }
                 }
             }
-
-            // accuracy 게이트: 거리·경로 모두 제외.
-            if (acc > ACCURACY_GATE_M) continue
 
             // warmup: 콜드스타트 좌표는 앵커 후보로만.
             if (inWarmup) {
@@ -546,19 +613,48 @@ object RunSessionEngine {
         }
     }
 
-    // ── 자동 일시정지 (도플러 히스테리시스 — iOS 1차 판정과 동일) ────────────
+    // ── 자동 일시정지 (2026-08-05 재설계 — 모션 1차 + GPS 2차, iOS 와 대칭) ──
+    // 러닝은 저속이라 GPS 도플러의 노이즈 대역과 실페이스가 겹친다 — 정지 판정의 진실
+    // 소스는 위성이 아니라 몸의 움직임 (Strava 러닝 자동정지와 같은 원칙).
 
     private fun evaluateAutoPause(nowMs: Long) {
         when (state) {
             State.RUNNING -> {
                 // 첫 움직임 전에는 미무장 — 출발 대기/워밍업 오정지 차단 (실주행 fix 295 계승).
                 if (!hasMovedThisSession) return
+                // 모션 거부권: 몸이 흔들리는 중엔 GPS 가 뭐라 하든 정지하지 않는다.
+                val lastMotion = lastMotionAtMs
+                if (accelSensorActive && lastMotion != null &&
+                    (nowMs - lastMotion) / 1000.0 < MOTION_FRESH_SEC) return
+                var shouldPause = false
+                // 1차 (모션): 12초 모션 소실 — GPS 신호 상태와 무관하게 정지 (터널·절전모드 안 실정지).
+                // 단 GPS 가 "고속 이동 중" 이라고 말하면 보류 (거치대 고정 등 진동 미감지 이동).
+                if (accelSensorActive && lastMotion != null &&
+                    (nowMs - lastMotion) / 1000.0 >= AUTO_PAUSE_HOLD_SEC && fastSinceMs == null) {
+                    shouldPause = true
+                }
+                // 2차 (GPS): 느림 12초 — speed 샘플이 실제로 흐르는 중일 때만. 신호 공백 중엔
+                // 판정 근거가 없다 — 정지가 아니라 보류 (느린 fix 한 방 + 침묵 12초 오정지 차단).
                 val slow = slowSinceMs
-                if (slow != null && (nowMs - slow) / 1000.0 >= AUTO_PAUSE_HOLD_SEC) enterAutoPause(nowMs)
+                val speedAt = lastSpeedUpdateAtMs
+                if (!shouldPause && slow != null && (nowMs - slow) / 1000.0 >= AUTO_PAUSE_HOLD_SEC &&
+                    speedAt != null && (nowMs - speedAt) / 1000.0 <= GPS_SPEED_FRESH_SEC) {
+                    shouldPause = true
+                }
+                if (shouldPause) enterAutoPause(nowMs)
             }
             State.AUTO_PAUSED -> {
+                var shouldResume = false
+                // 1차: speed > 1.4 m/s 가 3초 지속.
                 val fast = fastSinceMs
-                if (fast != null && (nowMs - fast) / 1000.0 >= AUTO_RESUME_HOLD_SEC) exitAutoPause(nowMs)
+                if (fast != null && (nowMs - fast) / 1000.0 >= AUTO_RESUME_HOLD_SEC) shouldResume = true
+                // 2차: GPS 침묵 중엔 모션 재개 흐름 3초로 대체 (iOS pedometer 2차 판정의 대응물).
+                val motion = motionSinceMs
+                if (!shouldResume && accelSensorActive && gpsSignalString(nowMs) == "lost" &&
+                    motion != null && (nowMs - motion) / 1000.0 >= AUTO_RESUME_HOLD_SEC) {
+                    shouldResume = true
+                }
+                if (shouldResume) exitAutoPause(nowMs)
             }
             else -> Unit   // 수동 paused 는 자동 재개하지 않음
         }
@@ -568,6 +664,7 @@ object RunSessionEngine {
         foldTimeSegments(nowMs)
         state = State.AUTO_PAUSED
         autoPausedSegmentStartMs = nowMs
+        autoPauseCount += 1
         resetAutoPauseWindows()
         speak(templates.autoPause)
         persist(nowMs)
@@ -585,6 +682,7 @@ object RunSessionEngine {
     private fun resetAutoPauseWindows() {
         slowSinceMs = null
         fastSinceMs = null
+        motionSinceMs = null   // 재개 판정은 전이 후 새로 3초 채워야 (iOS stepIncreasingSince 와 동일)
     }
 
     /** 현재 state 의 진행 중 segment 를 누적치에 fold. 상태 전이 직전에 호출. */
@@ -821,6 +919,7 @@ object RunSessionEngine {
             put("activeSec", currentActiveSec(nowMs))
             put("autoPausedSec", accumulatedAutoPausedSec +
                 if (state == State.AUTO_PAUSED) (nowMs - (autoPausedSegmentStartMs ?: nowMs)) / 1000.0 else 0.0)
+            put("autoPauseCount", autoPauseCount)
             put("milestonesFired", milestonesFired)
             put("milestoneEveryKm", milestoneEveryKm)
             put("lastMilestoneDistanceM", lastMilestoneDistanceM)
@@ -866,6 +965,7 @@ object RunSessionEngine {
             gpsDistanceM = snap.optDouble("gpsDistanceM", 0.0)
             accumulatedActiveSec = snap.optDouble("activeSec", 0.0)
             accumulatedAutoPausedSec = snap.optDouble("autoPausedSec", 0.0)
+            autoPauseCount = snap.optInt("autoPauseCount", 0)
             milestonesFired = snap.optInt("milestonesFired", 0)
             milestoneEveryKm = snap.optDouble("milestoneEveryKm", 1.0)
             // 키 부재 (구버전 snapshot) 시 현재 누적치를 기준점으로 (iOS restore 와 동일 규칙).
@@ -946,6 +1046,10 @@ object RunSessionEngine {
         slowSinceMs = null
         fastSinceMs = null
         hasMovedThisSession = false
+        accelEmaDev = null
+        lastMotionAtMs = null
+        motionSinceMs = null
+        autoPauseCount = 0
         milestonesFired = 0
         lastMilestoneDistanceM = 0.0
         lastMilestoneActiveSec = 0.0

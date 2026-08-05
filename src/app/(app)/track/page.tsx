@@ -959,6 +959,8 @@ function TrackPageImpl() {
             active_s: Math.round(summary.activeSec),
             elapsed_s: Math.round(summary.elapsedSec),
             auto_paused_s: Math.round(summary.autoPausedSec),
+            auto_pause_n: summary.autoPauseCount ?? null,     // 2026-08-05 오정지 진단
+            power_save: summary.powerSaveMode ?? null,        // 절전모드 = GPS 기아 용의자
             coords_n: summary.route.length,
           });
         } catch (e) {

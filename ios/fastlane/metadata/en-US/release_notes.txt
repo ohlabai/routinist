@@ -1,20 +1,11 @@
-v1.2.15 — Instant watch sync ⌚ · Pixel animals on Lock Screen · Profile refresh
+v1.2.16 — Smarter auto-pause 🏃
 
-[Apple Watch]
-• Finish a run and it lands on your iPhone instantly — open the app and your record and map are right there.
-• The start screen now has a pixel-animal parade: the turtle crawls, the rabbit hops past.
-• A cleaner finish screen — your pace animal celebrates, with bigger text.
-• Fewer steps to start: one tap and you're running.
+[Run tracking]
+• Fixed auto-pause kicking in mid-run — we now watch your body's motion too, so weak GPS spots (tall buildings, tunnels) won't stop your run while you're moving.
+• It pauses only when you actually stop, and picks right back up when you run again.
 
-[Lock Screen]
-• The running card icon becomes the pixel animal matching your pace — cheetah when you fly, turtle when you cruise.
-• Tap the card to jump straight into the running screen. During watch runs, your phone now shows live time, distance, pace and heart rate.
-
-[Profile]
-• Cheer with a quick message, not just hearts.
-• Weekly distance comparison with friends, recent runs, cheers received and running tenure.
-• Mutual friends and shared clubs at a glance.
+[Share card]
+• Monthly run count now counts runs of 3 km or more — short strolls won't inflate the number.
 
 [More]
-• A tidier Home — monthly recap stays, weekly cards retired.
 • Polish and stability improvements.
