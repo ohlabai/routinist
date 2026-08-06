@@ -11,6 +11,7 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
@@ -28,6 +29,7 @@ import androidx.core.content.ContextCompat
 class RunSessionService : Service() {
 
     companion object {
+        private const val TAG = "RunSessionService"
         private const val CHANNEL_ID = "run_session"
         private const val NOTIFICATION_ID = 4001
         /** 마라톤 초과 안전망 — wake lock 최대 보유 시간 (10h). 세션 종료 시 즉시 해제. */
@@ -52,15 +54,30 @@ class RunSessionService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // 2026-08-06 (리뷰 P1): OS 가 START_STICKY 로 직접 재기동하는 경로는 엔진의 권한
+        // 게이트를 우회한다. 그 사이 사용자가 위치 권한을 회수했으면 FGS(location) 시작이
+        // SecurityException → sticky 라 재기동 반복 = 크래시 루프. 먼저 확인하고 접는다.
+        if (!RunSessionEngine.hasLocationPermission(this)) {
+            Log.w(TAG, "location permission missing on service start — self stop")
+            stopSelf()
+            return START_NOT_STICKY
+        }
         val notification = buildNotification(
             defaultTitle(),
             // 첫 텍스트는 즉시 tick 이 갱신 — placeholder 만.
             "0.00 km · 00:00"
         )
-        ServiceCompat.startForeground(
-            this, NOTIFICATION_ID, notification,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION else 0
-        )
+        try {
+            ServiceCompat.startForeground(
+                this, NOTIFICATION_ID, notification,
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION else 0
+            )
+        } catch (e: Exception) {
+            // 백그라운드 시작 제한 (ForegroundServiceStartNotAllowedException) 등 — 크래시 대신 정리.
+            Log.e(TAG, "startForeground failed — self stop", e)
+            stopSelf()
+            return START_NOT_STICKY
+        }
         if (wakeLock == null) {
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
             wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "routinist:run-session").apply {

@@ -612,6 +612,16 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
             stepIncreasingSince = nil
         }
 
+        // 2026-08-06 (리뷰 P1): speed 샘플이 끊기면 히스테리시스 윈도우를 만료시킨다.
+        // 없으면 ① 신호 소실 직전의 stale fastSince 가 "GPS 고속 이동 중" 으로 오인돼 터널
+        // 안에서 모션 정지를 영구 보류하고 ② stale slowSince 가 재획득 첫 느린 fix 한 방에
+        // 12초 조건을 즉시 충족시켜 달리는 중 오정지시킨다. 윈도우는 "연속 관측" 이 전제다.
+        if let updated = lastSpeedUpdateAt,
+           now.timeIntervalSince(updated) > Tuning.gpsSpeedFreshSec {
+            slowSince = nil
+            fastSince = nil
+        }
+
         evaluateAutoPause(now: now)
 
         // gap-fill: GPS 유효 좌표 공백 10s+ 구간을 pedometer 거리 delta 로 진행형으로 채움 —
@@ -905,8 +915,13 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
             if let fast = fastSince, now.timeIntervalSince(fast) >= Tuning.autoResumeHoldSec {
                 shouldResume = true
             }
-            // 2차: GPS lost 상태에선 스텝 증가 흐름 3초로 대체 판정.
-            if !shouldResume, pedometerActive, gpsSignalString(now: now) == "lost",
+            // 2차: GPS speed 판정을 못 믿을 때 스텝 증가 흐름 3초로 대체.
+            // 2026-08-06 (리뷰 P1): 조건을 "lost" → "fresh speed 샘플 없음" 으로 넓힘.
+            // 도플러 판정이 accuracy 게이트 뒤로 간 뒤로, 40~60m fix 가 계속 오는 도심에선
+            // 신호가 'weak' 라 lost 가 아니면서 fastSince 는 영영 안 채워져 재개 경로가
+            // 전멸했다 (자동정지 영구 잠금 = 거리·시간 동결).
+            let speedStale = lastSpeedUpdateAt.map { now.timeIntervalSince($0) > Tuning.gpsSpeedFreshSec } ?? true
+            if !shouldResume, pedometerActive, speedStale,
                let increasing = stepIncreasingSince,
                now.timeIntervalSince(increasing) >= Tuning.autoResumeHoldSec {
                 shouldResume = true

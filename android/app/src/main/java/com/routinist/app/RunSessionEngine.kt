@@ -264,6 +264,7 @@ object RunSessionEngine {
                 state = State.RUNNING
                 activeSegmentStartMs = nowMs
                 resetAutoPauseWindows()
+                armMotionClock(nowMs)
                 // 리뷰 P2: pause 중 설정에서 위치 권한을 회수한 경우 — 권한 없이 FGS(location)
                 // startForeground 는 Android 14+ 에서 SecurityException. 권한 있을 때만 재가동
                 // (시간 적산은 재개 — JS 화면에는 GPS lost 배지로 드러남).
@@ -434,6 +435,14 @@ object RunSessionEngine {
         if (state == State.IDLE) return
         val nowMs = System.currentTimeMillis()
         tickCount += 1
+        // 2026-08-06 (리뷰 P1, iOS 와 대칭): speed 샘플이 끊기면 히스테리시스 윈도우 만료.
+        // stale fastSinceMs 는 터널 안에서 모션 정지를 영구 보류시키고, stale slowSinceMs 는
+        // 재획득 첫 느린 fix 한 방으로 즉시 오정지시킨다. 윈도우는 "연속 관측" 이 전제.
+        val speedAt = lastSpeedUpdateAtMs
+        if (speedAt != null && (nowMs - speedAt) / 1000.0 > GPS_SPEED_FRESH_SEC) {
+            slowSinceMs = null
+            fastSinceMs = null
+        }
         evaluateAutoPause(nowMs)
         if (tickCount % PERSIST_EVERY_TICKS == 0) persist(nowMs)
         emitUpdate(nowMs)
@@ -648,9 +657,14 @@ object RunSessionEngine {
                 // 1차: speed > 1.4 m/s 가 3초 지속.
                 val fast = fastSinceMs
                 if (fast != null && (nowMs - fast) / 1000.0 >= AUTO_RESUME_HOLD_SEC) shouldResume = true
-                // 2차: GPS 침묵 중엔 모션 재개 흐름 3초로 대체 (iOS pedometer 2차 판정의 대응물).
+                // 2차: GPS speed 판정을 못 믿을 때 모션 재개 흐름 3초로 대체.
+                // 2026-08-06 (리뷰 P1): "lost" → "fresh speed 샘플 없음" 으로 완화. 도플러가
+                // accuracy 게이트 뒤로 간 뒤로 40~60m fix 가 계속 오는 도심에선 신호가 'weak'
+                // (lost 아님) 인데 fastSinceMs 는 안 채워져 재개 경로가 전멸했다 (영구 잠금).
                 val motion = motionSinceMs
-                if (!shouldResume && accelSensorActive && gpsSignalString(nowMs) == "lost" &&
+                val speedAtR = lastSpeedUpdateAtMs
+                val speedStale = speedAtR == null || (nowMs - speedAtR) / 1000.0 > GPS_SPEED_FRESH_SEC
+                if (!shouldResume && accelSensorActive && speedStale &&
                     motion != null && (nowMs - motion) / 1000.0 >= AUTO_RESUME_HOLD_SEC) {
                     shouldResume = true
                 }
@@ -675,6 +689,7 @@ object RunSessionEngine {
         state = State.RUNNING
         activeSegmentStartMs = nowMs
         resetAutoPauseWindows()
+        armMotionClock(nowMs)
         speak(templates.autoResume)
         persist(nowMs)
     }
@@ -683,6 +698,13 @@ object RunSessionEngine {
         slowSinceMs = null
         fastSinceMs = null
         motionSinceMs = null   // 재개 판정은 전이 후 새로 3초 채워야 (iOS stepIncreasingSince 와 동일)
+    }
+
+    /** RUNNING 진입 시 모션 시계도 함께 리셋 (2026-08-06 리뷰 P1).
+     *  없으면: 신호등에서 12초+ 정지 (모션 소실로 lastMotionAtMs 노후) → 수동 재개 →
+     *  다음 tick 이 곧바로 "모션 12초 소실" 을 만족해 재개하자마자 자동정지가 걸린다. */
+    private fun armMotionClock(nowMs: Long) {
+        if (accelSensorActive) lastMotionAtMs = nowMs
     }
 
     /** 현재 state 의 진행 중 segment 를 누적치에 fold. 상태 전이 직전에 호출. */

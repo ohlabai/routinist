@@ -252,6 +252,7 @@ final class WorkoutManager: NSObject, ObservableObject {
                 // 자동정지 중 12보+ → 자동 재개 (구 v7 로직 승계, 기준점만 정지 시점 스텝)
                 if self.isAutoPaused, steps - self.stepsAtAutoPause >= 12 {
                     self.isAutoPaused = false
+                    UserDefaults.standard.removeObject(forKey: "wasAutoPaused")
                     self.lastDistanceChangeAt = Date()
                     self.lastDistanceForStall = self.distanceMeters
                     self.session?.resume()
@@ -279,6 +280,9 @@ final class WorkoutManager: NSObject, ObservableObject {
             session?.pause()
             isAutoPaused = true
             stepsAtAutoPause = pedometerSteps
+            // 2026-08-06 (리뷰 P1): UI 프로세스가 죽었다 복원돼도 "자동정지였음" 을 알아야
+            // 12보 자동재개 감시가 다시 붙는다 (없으면 paused 로만 복원돼 영구 정지).
+            UserDefaults.standard.set(true, forKey: "wasAutoPaused")
             WKInterfaceDevice.current().play(.stop)
             speak("자동 일시정지. 다시 움직이면 이어서 잴게요.")
         }
@@ -527,11 +531,23 @@ final class WorkoutManager: NSObject, ObservableObject {
                 self.builder = builder
                 self.phase = recovered.state == .paused ? .paused : .active
                 self.syncElapsed(builder.elapsedTime)
+                // 2026-08-06 (리뷰 P1): startStallWatch 의 "distanceMeters >= 25 면 즉시 무장"
+                // 판정이 항상 false 였다 — 이 시점 distanceMeters 는 새 프로세스 초기값 0 이고
+                // 거리는 이후 builder 콜백에서야 채워지기 때문. builder 통계로 먼저 복원한다.
+                if let stat = builder.statistics(for: HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning)!),
+                   let meters = stat.sumQuantity()?.doubleValue(for: .meter()), meters > self.distanceMeters {
+                    self.distanceMeters = meters
+                }
                 self.loadGoal()
                 self.loadMaxHeartRate()
                 self.activateAudioSession()
                 self.registerAudioInterruptionObserverOnce()
                 self.startStallWatch()
+                // 자동정지 중 UI 가 죽은 경우 — 감시 상태를 되살려야 12보 자동재개가 동작한다.
+                if recovered.state == .paused, UserDefaults.standard.bool(forKey: "wasAutoPaused") {
+                    self.isAutoPaused = true
+                    self.stepsAtAutoPause = self.pedometerSteps
+                }
                 self.startMirroringToPhone()   // v22: UI 재실행 복구 시에도 미러 재개
             }
         }
@@ -572,6 +588,7 @@ final class WorkoutManager: NSObject, ObservableObject {
         } else if phase == .paused {
             // 수동 재개 — 자동 일시정지 감시 상태 초기화 (스텝 스트림은 세션 내내 유지)
             isAutoPaused = false
+            UserDefaults.standard.removeObject(forKey: "wasAutoPaused")
             lastDistanceChangeAt = Date()
             lastDistanceForStall = distanceMeters
             session.resume()
@@ -585,6 +602,7 @@ final class WorkoutManager: NSObject, ObservableObject {
         pedometer.stopUpdates()
         stopLocationUpdates()
         isAutoPaused = false
+        UserDefaults.standard.removeObject(forKey: "wasAutoPaused")
         // v20 (hans: "종료 누르면 바로 첫화면"): 요약을 HK 콜백에 묶지 않는다 —
         // finishWorkout 이 느리거나 그 사이 손목을 내려 watchOS 가 UI 를 죽이면
         // 축하 화면 없이 시작 화면으로 떨어졌다. 종료 즉시 로컬 값으로 요약 표시,
@@ -789,6 +807,14 @@ extension WorkoutManager: HKWorkoutSessionDelegate {
             case .ended:
                 // v12: 종료 버튼 없이 끝남 = 외부 종료 (다른 운동 앱이 세션을 가져감)
                 self.endedExternally = !self.endRequested
+                // 2026-08-06 (리뷰 P1): 외부 종료 경로엔 감시 정리가 없었다 — 스텝 스트림이
+                // 세션 내내 살아있게 바뀐 뒤로, 요약 화면에서 12보 걸으면 이미 끝난 세션에
+                // resume() + "다시 시작합니다" 오발화가 났다. 종료 시 반드시 함께 접는다.
+                self.stallTimer?.invalidate()
+                self.stallTimer = nil
+                self.pedometer.stopUpdates()
+                self.isAutoPaused = false
+                UserDefaults.standard.removeObject(forKey: "wasAutoPaused")
                 // 수집 종료 → HealthKit 저장 → 요약
                 self.stopLocationUpdates()
                 self.builder?.endCollection(withEnd: date) { [weak self] _, _ in
@@ -824,7 +850,16 @@ extension WorkoutManager: HKWorkoutSessionDelegate {
     }
 
     nonisolated func workoutSession(_ workoutSession: HKWorkoutSession, didFailWithError error: Error) {
-        Task { @MainActor in self.phase = .idle }
+        Task { @MainActor in
+            // 2026-08-06 (리뷰 P1): 실패 경로도 감시·위치를 정리해야 좀비 타이머/스트림이 안 남는다.
+            self.stallTimer?.invalidate()
+            self.stallTimer = nil
+            self.pedometer.stopUpdates()
+            self.isAutoPaused = false
+            UserDefaults.standard.removeObject(forKey: "wasAutoPaused")
+            self.stopLocationUpdates()
+            self.phase = .idle
+        }
     }
 }
 
