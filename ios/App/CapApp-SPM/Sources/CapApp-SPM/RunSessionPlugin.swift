@@ -909,13 +909,18 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
     // 2026-08-05 재설계 (Android 이승우 오정지 신고와 대칭): 모션(스텝)이 1차 신호, GPS 는 2차.
     // 러닝은 저속이라 GPS 도플러의 노이즈 대역과 실페이스가 겹친다 — 정지 판정의 진실 소스는
     // 위성이 아니라 몸의 움직임 (Strava 러닝 자동정지와 같은 원칙).
-    /// 현재 케이던스 (steps/sec). 표본 부족·pedometer 미가용이면 nil.
+    /// 현재 케이던스 (steps/sec). 표본 부족·pedometer 미가용·신선하지 않으면 nil.
+    /// 2026-08-09 리뷰 P0: stepSamples 분기에 신선도 가드가 없어, 정지로 CMPedometer 콜백이
+    /// 끊기면 "달리던 시절" 걸음 델타가 창에 그대로 얼어붙어 영원히 러닝 대역을 반환했다.
+    /// → 완전 정지 시 거리 기반 자동정지가 영구 차단되고(신호등에서 안 멈춤), autoPaused
+    /// 에선 1Hz 정지↔재개 발진을 일으켰다. 마지막 표본이 창을 벗어나면 케이던스를 버린다.
     private func currentCadence(now: Date) -> Double? {
         var best: Double?
         if let os = lastOsCadence, now.timeIntervalSince(os.at) <= Tuning.cadenceWindowSec {
             best = os.value
         }
-        if let first = stepSamples.first, let last = stepSamples.last {
+        if let first = stepSamples.first, let last = stepSamples.last,
+           now.timeIntervalSince(last.at) <= Tuning.stepStallResetSec {   // 최근 걸음이 있어야 신뢰
             let dt = last.at.timeIntervalSince(first.at)
             if dt >= 4 {
                 let measured = Double(last.steps - first.steps) / dt
@@ -935,16 +940,18 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
             // 0차 (케이던스): 걷기 감지 — 2026-08-09 hans "힘들어서 걸었는데 정지 안 됨".
             // 걷기는 스텝이 흐르므로 아래 모션 거부권에 막혀 영영 안 잡혔다. 케이던스로
             // 걷기(<132spm)와 달리기(≥150spm)를 갈라 12초 지속 시 정지한다.
+            // 2026-08-09 리뷰 P1: 중립대(132~150spm)에서 창을 유지하면, 걷기 샘플 한 번이
+            // 창을 세운 뒤 140spm 으로 꾸준히 달려도 12초 뒤 정지한다(초보 러너 대역).
+            // → 러닝 대역 미달이면 창을 세우되, 걷기 대역이 실제로 지속될 때만 정지한다.
             if let cad = currentCadence(now: now) {
-                if cad >= Tuning.runCadenceMin {
-                    slowCadenceSince = nil          // 달리는 중 — 창 리셋
-                } else if cad < Tuning.walkCadenceMax {
+                if cad >= Tuning.walkCadenceMax {
+                    slowCadenceSince = nil          // 걷기 대역이 아니면 창 리셋 (중립대 포함)
+                } else {
                     if slowCadenceSince == nil { slowCadenceSince = now }
                     if now.timeIntervalSince(slowCadenceSince!) >= Tuning.autoPauseHoldSec {
                         shouldPause = true
                     }
                 }
-                // 중립대 (132~150spm): 아주 느린 조깅 — 창 유지도 리셋도 하지 않는다.
             }
 
             // 모션 거부권: 스텝이 방금까지 흐르고 있으면 GPS 가 뭐라 하든 정지하지 않는다.
@@ -971,14 +978,12 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
 
         case .autoPaused:
             var shouldResume = false
-            // 0차 (케이던스): 걷기로 멈춘 뒤엔 "다시 뛰기 시작" 만 재개 조건이다. 케이던스가
-            // 걷기 대역이면 GPS·스텝 경로의 재개도 막는다 (걷기 중 재개 → 재정지 발진 차단).
-            if let cad = currentCadence(now: now) {
-                if cad >= Tuning.runCadenceMin {
-                    shouldResume = true
-                } else if cad < Tuning.walkCadenceMax {
-                    return   // 아직 걷는 중 — 재개하지 않음
-                }
+            // 0차 (케이던스): 달리기 대역이면 즉시 재개. 2026-08-09 리뷰 P0 수정 — 이전엔
+            // 걷기 대역에서 `return` 으로 아래 GPS·스텝 재개 경로를 전부 막아, 케이던스를
+            // 못 믿는 상황(유모차·주머니·핸들바 파지)에서 러닝이 영구 동결됐다.
+            // 이제 케이던스는 재개를 "가속" 만 하고 "막지" 않는다 — 기존 경로는 항상 살아있다.
+            if let cad = currentCadence(now: now), cad >= Tuning.runCadenceMin {
+                shouldResume = true
             }
             // 1차: speed > 1.4 m/s 가 3초 지속.
             if !shouldResume, let fast = fastSince, now.timeIntervalSince(fast) >= Tuning.autoResumeHoldSec {

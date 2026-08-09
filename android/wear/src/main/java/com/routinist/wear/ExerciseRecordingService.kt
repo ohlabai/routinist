@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.content.ContextCompat
 
 /**
@@ -20,9 +21,21 @@ class ExerciseRecordingService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForegroundCompat()
-        // 서비스가 살아난 뒤 실제 운동 시작 (ExerciseClient 는 이 프로세스에서 유지됨)
-        WorkoutManager.beginExercise(applicationContext)
+        // 2026-08-09 리뷰 P0: startForeground 는 카운트다운 중 손목을 내리면 API 31+ 에서
+        // ForegroundServiceStartNotAllowedException, API 34+ 권한 미비면 SecurityException 을
+        // 던진다 — try/catch 없으면 주 진입 경로 하드 크래시. 실패 시 정리하고 접는다.
+        try {
+            startForegroundCompat()
+        } catch (e: Exception) {
+            Log.e("ExerciseRecording", "startForeground failed — self stop", e)
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        // START_STICKY 재기동 (null intent) 은 이미 러닝 중인 세션을 beginExercise 로 초기화
+        // (route.clear·startMs 리셋)해 진행 기록을 날린다 → 실제 시작 요청(intent != null)만 처리.
+        if (intent != null && !WorkoutManager.isRunning()) {
+            WorkoutManager.beginExercise(applicationContext)
+        }
         return START_STICKY
     }
 

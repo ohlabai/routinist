@@ -119,6 +119,8 @@ object WorkoutManager {
     private var runCadenceSinceMs = 0L
     /// 우리가 "걷기" 로 멈춘 상태 — 네이티브 AUTO_PAUSED 와 구분해 재개를 우리가 소유한다.
     private var walkPaused = false
+    /// 이 기기가 STEPS_PER_MINUTE 를 지원하는지 (미지원이면 케이던스 걷기 감지 비활성).
+    private var cadenceSupported = false
     private var ticker: Job? = null
 
     // GPS 경로 [[lat, lng, alt, epochMs], ...]
@@ -245,6 +247,11 @@ object WorkoutManager {
 
     // ── 상태 전이 ────────────────────────────────────────────────
 
+    /** 진행 중인 세션이 있는지 (START_STICKY 재기동이 기록을 초기화하지 않게 서비스가 확인). */
+    fun isRunning(): Boolean = _state.value.phase.let {
+        it == Phase.ACTIVE || it == Phase.PAUSED || it == Phase.AUTO_PAUSED
+    }
+
     fun requestCountdown() {
         if (_state.value.phase != Phase.IDLE) return
         _state.value = _state.value.copy(phase = Phase.COUNTDOWN, error = null)
@@ -271,24 +278,33 @@ object WorkoutManager {
 
         client.setUpdateCallback(callback)
 
-        val config = ExerciseConfig(
-            exerciseType = androidx.health.services.client.data.ExerciseType.RUNNING,
-            dataTypes = setOf(
-                DataType.HEART_RATE_BPM,
-                DataType.LOCATION,
-                DataType.DISTANCE_TOTAL,
-                DataType.CALORIES_TOTAL,
-                // 2026-08-09: 걷기 감지용 케이던스 (hans "힘들어서 걸었는데 정지 안 됨").
-                // 네이티브 자동정지는 "완전 정지" 만 잡아 걷기는 러닝 시간에 계속 포함됐다.
-                DataType.STEPS_PER_MINUTE,
-            ),
-            // v3: 자동 일시정지 — Health Services 네이티브 감지 (신호 대기 등).
-            // 상태 전이는 reflectState 의 AUTO_PAUSED 처리로 음성·타이머 보정.
-            isAutoPauseAndResumeEnabled = true,
-            isGpsEnabled = true,
-        )
         scope.launch {
             try {
+                // 2026-08-09 리뷰 P0: STEPS_PER_MINUTE 를 capability 확인 없이 구독하면, 이 타입을
+                // RUNNING 에 노출하지 않는 Wear 기기(픽셀워치·티크워치 등 OEM 편차)에서
+                // startExerciseAsync 가 throw → 러닝 자체가 시작 불가. 지원 기기에서만 추가한다.
+                val supported = runCatching {
+                    client.getCapabilitiesAsync().await()
+                        .getExerciseTypeCapabilities(androidx.health.services.client.data.ExerciseType.RUNNING)
+                        .supportedDataTypes
+                }.getOrNull() ?: emptySet()
+                cadenceSupported = DataType.STEPS_PER_MINUTE in supported
+
+                val dataTypes = buildSet {
+                    add(DataType.HEART_RATE_BPM)
+                    add(DataType.LOCATION)
+                    add(DataType.DISTANCE_TOTAL)
+                    add(DataType.CALORIES_TOTAL)
+                    if (cadenceSupported) add(DataType.STEPS_PER_MINUTE)   // 걷기 감지용
+                }
+                val config = ExerciseConfig(
+                    exerciseType = androidx.health.services.client.data.ExerciseType.RUNNING,
+                    dataTypes = dataTypes,
+                    // v3: 자동 일시정지 — Health Services 네이티브 감지 (완전 정지). 걷기 감지는
+                    // 우리 케이던스가 담당하고, 이건 완전 정지의 폴백으로 공존한다.
+                    isAutoPauseAndResumeEnabled = true,
+                    isGpsEnabled = true,
+                )
                 client.startExerciseAsync(config).await()
                 runStartWallMs = System.currentTimeMillis()
                 _state.value = _state.value.copy(phase = Phase.ACTIVE)
@@ -428,15 +444,23 @@ object WorkoutManager {
 
     /** 케이던스(spm)로 걷기/달리기를 갈라 자동정지·재개를 구동. iOS·애플워치와 동일 임계값. */
     private fun evaluateCadence(spm: Double, nowMs: Long) {
+        // 2026-08-09 리뷰 P0: 걷기 정지에 Health Services pauseExerciseAsync 를 쓰지 않는다.
+        // pause 하면 HS 가 STEPS_PER_MINUTE 배달을 끊는데, 이 함수는 그 데이터 수신에서만
+        // 호출되므로 → 재개 판정이 영영 안 돌아 walkPaused 영구(=러닝 동결).
+        // 대신 phase 만 AUTO_PAUSED 로 둔다: ticker 가 elapsedSec 를 ACTIVE 일 때만 갱신하므로
+        // 시간은 멈추고(pausedAccumMs 로 보정), 세션은 살아있어 데이터가 계속 흘러 재개가 된다.
         if (walkPaused) {
             // 걷는 동안엔 재개하지 않는다 — "다시 뛰기 시작" 만 재개 조건 (발진 차단).
             if (spm >= RUN_CADENCE_MIN_SPM) {
                 if (runCadenceSinceMs == 0L) runCadenceSinceMs = nowMs
                 if (nowMs - runCadenceSinceMs >= RESUME_HOLD_MS) {
+                    if (pauseStartMs > 0L) { pausedAccumMs += nowMs - pauseStartMs; pauseStartMs = 0L }
                     walkPaused = false
                     runCadenceSinceMs = 0L
                     slowCadenceSinceMs = 0L
-                    exerciseClient?.let { c -> scope.launch { runCatching { c.resumeExerciseAsync().await() } } }
+                    haptic(80)
+                    speak("다시 시작합니다. 같이 가요.")
+                    _state.value = _state.value.copy(phase = Phase.ACTIVE)
                 }
             } else {
                 runCadenceSinceMs = 0L
@@ -444,9 +468,10 @@ object WorkoutManager {
             return
         }
         if (_state.value.phase != Phase.ACTIVE) return
-        if (spm >= RUN_CADENCE_MIN_SPM) {
+        // 러닝 대역 미달이면 창을 세우되, 걷기 대역 지속만 정지 (중립대는 창 리셋 — 리뷰 P1).
+        if (spm >= WALK_CADENCE_MAX_SPM) {
             slowCadenceSinceMs = 0L
-        } else if (spm < WALK_CADENCE_MAX_SPM) {
+        } else {
             if (slowCadenceSinceMs == 0L) slowCadenceSinceMs = nowMs
             if (nowMs - slowCadenceSinceMs >= WALK_HOLD_MS) {
                 walkPaused = true
@@ -455,10 +480,8 @@ object WorkoutManager {
                 haptic(150)
                 speak("걷기 감지. 잠시 멈출게요.")
                 _state.value = _state.value.copy(phase = Phase.AUTO_PAUSED)
-                exerciseClient?.let { c -> scope.launch { runCatching { c.pauseExerciseAsync().await() } } }
             }
         }
-        // 중립대 (132~150spm): 아주 느린 조깅 — 어느 쪽도 카운트하지 않는다.
     }
 
     private fun reflectState(exState: ExerciseState) {
@@ -466,6 +489,9 @@ object WorkoutManager {
         when {
             exState.isEnded -> onEnded()
             exState == ExerciseState.ACTIVE -> {
+                // 걷기 정지(walkPaused)는 HS 를 pause 하지 않으므로 HS 는 계속 ACTIVE 를 보낸다.
+                // 이때 phase 를 되돌리면 우리가 건 걷기 정지가 즉시 풀린다 — 재개는 evaluateCadence 소유.
+                if (walkPaused) return
                 if (cur == Phase.PAUSED || cur == Phase.AUTO_PAUSED) {
                     if (pauseStartMs > 0) pausedAccumMs += System.currentTimeMillis() - pauseStartMs
                     pauseStartMs = 0

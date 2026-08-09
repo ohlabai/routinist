@@ -288,6 +288,9 @@ final class WorkoutManager: NSObject, ObservableObject {
     /// 창 안의 Δ걸음/Δ시간 (steps/sec). 샘플이 모자라면 nil.
     private func measuredCadence(now: Date) -> Double? {
         guard let first = stepSamples.first, let last = stepSamples.last else { return nil }
+        // 2026-08-09 리뷰 P0: 최근 걸음이 없으면 창이 "달리던 시절" 값으로 얼어붙는다.
+        // 정지로 CMPedometer 콜백이 끊긴 상황에서 러닝 대역을 반환해 거리 정지가 차단됐다.
+        guard now.timeIntervalSince(last.at) <= 5 else { return nil }
         let dt = last.at.timeIntervalSince(first.at)
         guard dt >= 4 else { return nil }   // 최소 4초는 모여야 신뢰
         return Double(last.steps - first.steps) / dt
@@ -314,15 +317,16 @@ final class WorkoutManager: NSObject, ObservableObject {
         }
 
         guard phase == .active, hasMovedThisSession else { return }
-        if cadence >= Cadence.runMin {
-            slowCadenceSince = nil          // 달리는 중 — 창 리셋
-        } else if cadence < Cadence.walkMax {
+        // 2026-08-09 리뷰 P1: 러닝 대역 미달이면 창을 세우되, 걷기 대역 지속만 정지시킨다.
+        // (중립대에서 창을 유지하면 140spm 초보 러너가 걷기 샘플 하나로 12초 뒤 오정지)
+        if cadence >= Cadence.walkMax {
+            slowCadenceSince = nil
+        } else {
             if slowCadenceSince == nil { slowCadenceSince = now }
             if now.timeIntervalSince(slowCadenceSince!) >= Cadence.walkHoldSec {
                 enterAutoPause(reason: cadence < 0.5 ? "정지" : "걷기")
             }
         }
-        // 중립대 (walkMax ~ runMin): 아주 느린 조깅 — 창 유지도 리셋도 하지 않는다.
     }
 
     private func enterAutoPause(reason: String) {
@@ -352,6 +356,16 @@ final class WorkoutManager: NSObject, ObservableObject {
     /// 거리 기반 폴백 — pedometer 미가용/미승인 기기 전용. 케이던스가 살아 있으면
     /// 걷기·정지 판정은 evaluateCadence 가 전담하고 여기서는 무장 추적만 한다.
     private func checkStall() {
+        // 2026-08-09 리뷰 P0: autoPaused 재개 폴백. evaluateCadence 는 pedometer 콜백에서만
+        // 도는데, 유모차·주머니·핸들바 파지처럼 손목이 안 흔들려 콜백이 끊기면 재개 판정이
+        // 영영 안 돌아 러닝이 영구 동결됐다. 이 5초 타이머는 콜백과 무관하게 뛰므로,
+        // autoPaused 중 거리가 실제로 전진하면(다시 뛰는 중) 여기서 재개시킨다.
+        if isAutoPaused {
+            if distanceMeters - lastDistanceForStall >= 8 {   // 걷기 jitter 위로 확실한 전진
+                resumeFromAutoPause()
+            }
+            return
+        }
         guard phase == .active else { return }
         if distanceMeters - lastDistanceForStall >= 3 {
             lastDistanceForStall = distanceMeters
@@ -359,7 +373,7 @@ final class WorkoutManager: NSObject, ObservableObject {
             hasMovedThisSession = true
             return
         }
-        guard hasMovedThisSession, !isAutoPaused else { return }
+        guard hasMovedThisSession else { return }
         // 케이던스를 신뢰할 수 있으면 정지 판정은 그쪽 몫 (걷기까지 잡는다).
         if measuredCadence(now: Date()) != nil { return }
         // 스텝 거부권: 몸이 움직이는 중엔 거리가 멈춰도 정지하지 않는다 (터널·GPS 기아 오정지 차단).

@@ -426,6 +426,12 @@ object RunSessionEngine {
     private fun currentCadenceSpm(nowMs: Long): Double? {
         if (!accelSensorActive) return null
         val since = cadenceStartedAtMs ?: return null
+        // 2026-08-09 리뷰 P2: stepTimes 정리가 센서 콜백에서만 일어나므로, Doze·센서 배칭으로
+        // 콜백이 끊기면 오래된 걸음이 창에 남아 케이던스가 부풀어(오재개) 또는 얼어붙는다.
+        // 여기서 창 밖 항목을 한 번 걷어내 벽시계 기준으로 정합을 맞춘다.
+        while (stepTimes.isNotEmpty() && nowMs - stepTimes.first() > CADENCE_WINDOW_MS) {
+            stepTimes.removeFirst()
+        }
         val span = minOf(nowMs - since, CADENCE_WINDOW_MS)
         if (span < CADENCE_MIN_SPAN_MS) return null
         return stepTimes.size * 60_000.0 / span
@@ -715,14 +721,17 @@ object RunSessionEngine {
                     if (cadence >= RUN_CADENCE_MIN_SPM) {
                         cadenceTrusted = true       // 이 기기·거치에서 피크 검출이 동작함을 확인
                         slowCadenceSinceMs = null
-                    } else if (cadence < WALK_CADENCE_MAX_SPM) {
+                    } else if (cadence >= WALK_CADENCE_MAX_SPM) {
+                        // 중립대 (132~150spm): 아주 느린 조깅 — 창 리셋 (걷기 샘플 하나가 창을
+                        // 래치해 140spm 초보 러너를 오정지시키던 리뷰 P1 fix).
+                        slowCadenceSinceMs = null
+                    } else {
                         if (slowCadenceSinceMs == null) slowCadenceSinceMs = nowMs
                         if (cadenceTrusted &&
                             (nowMs - slowCadenceSinceMs!!) / 1000.0 >= AUTO_PAUSE_HOLD_SEC) {
                             shouldPause = true
                         }
                     }
-                    // 중립대 (132~150spm): 아주 느린 조깅 — 어느 쪽도 카운트하지 않는다.
                 }
 
                 // 모션 거부권: 몸이 흔들리는 중엔 GPS 가 뭐라 하든 정지하지 않는다.
@@ -748,12 +757,13 @@ object RunSessionEngine {
             }
             State.AUTO_PAUSED -> {
                 var shouldResume = false
-                // 0차 (케이던스): 걷기로 멈춘 뒤엔 "다시 뛰기 시작" 만 재개 조건이다.
-                // 걷는 동안엔 GPS·모션 경로의 재개도 막는다 (정지↔재개 발진 차단).
+                // 0차 (케이던스): 달리기 대역이면 즉시 재개. 2026-08-09 리뷰 P0 수정 —
+                // 이전엔 걷기 대역에서 `return` 으로 GPS·모션 재개 경로를 전부 막아, 폰을
+                // 배낭·힙색으로 옮겨 피크 검출이 무너지면 러닝이 영구 동결됐다.
+                // 케이던스는 재개를 "가속" 만 하고 "막지" 않는다 (기존 경로는 항상 살아있음).
                 val cadenceR = currentCadenceSpm(nowMs)
-                if (cadenceR != null && cadenceTrusted) {
-                    if (cadenceR >= RUN_CADENCE_MIN_SPM) shouldResume = true
-                    else if (cadenceR < WALK_CADENCE_MAX_SPM) return
+                if (cadenceR != null && cadenceTrusted && cadenceR >= RUN_CADENCE_MIN_SPM) {
+                    shouldResume = true
                 }
                 // 1차: speed > 1.4 m/s 가 3초 지속.
                 val fast = fastSinceMs
