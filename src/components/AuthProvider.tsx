@@ -217,6 +217,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let removeUrlListener: (() => void) | null = null;
     let processing = false;
 
+    /** 초대 코드 저장 + (로그인 상태면) 즉시 claim. 스킴·https 두 경로 공용. */
+    const claimInviteCode = async (code: string | null) => {
+      if (!code) return;
+      try {
+        const { storePendingReferral, claimPendingReferral, claimSuccessMessage } = await import('@/lib/referral-data');
+        storePendingReferral(code);
+        const { data: { session: s } } = await getSupabase().auth.getSession();
+        if (s?.user) {
+          const ok = await claimPendingReferral();
+          if (ok) setReferralToast(claimSuccessMessage());
+        }
+      } catch { /* RPC 미배포 등 — 조용히 (pending 은 이미 저장됨) */ }
+    };
+
     const processCallbackUrl = async (url: string) => {
       // build 136: 공유 링크로 들어온 routinist://activity?id=... → 활동 상세로 라우팅.
       // 카톡/인스타에서 routinist.kr/r/{id} 클릭 → /r/{id} 페이지가 deep link 호출 → 앱이 열리면 이 핸들러.
@@ -246,19 +260,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // build 292: 친구 초대 딥링크 routinist://invite?code=ABC123 (/invite 랜딩의 "앱에서 가입하기").
         // 로그인 상태면 즉시 claim + 성공 토스트, 아니면 pending 저장 → 로그인 후 (app)/layout 이 claim.
         if (parsed.protocol === 'routinist:' && parsed.host === 'invite') {
-          const code = parsed.searchParams.get('code');
-          if (code) {
-            try {
-              const { storePendingReferral, claimPendingReferral, claimSuccessMessage } = await import('@/lib/referral-data');
-              storePendingReferral(code);
-              const { data: { session: s } } = await getSupabase().auth.getSession();
-              if (s?.user) {
-                const ok = await claimPendingReferral();
-                if (ok) setReferralToast(claimSuccessMessage());
-              }
-            } catch { /* RPC 미배포 등 — 조용히 (pending 은 이미 저장됨) */ }
-          }
+          await claimInviteCode(parsed.searchParams.get('code'));
           return;
+        }
+
+        // 2026-08-09: 유니버설 링크 / Android App Links (https://app.routinist.kr/...) 라우팅.
+        // iOS AASA(applinks:app.routinist.kr)는 이미 앱을 열어주는데 아래 분기가 전부
+        // `routinist:` 스킴만 검사해서 "앱만 열리고 아무 일도 안 일어나는" 상태였다.
+        // 공유·광고 링크의 종착점이라 여기서 인앱 화면으로 보내줘야 유입이 완성된다.
+        if ((parsed.protocol === 'https:' || parsed.protocol === 'http:')
+            && (parsed.host === 'app.routinist.kr' || parsed.host === 'routinist.kr')) {
+          const path = parsed.pathname.replace(/\/+$/, '');   // trailingSlash:true 대응
+          const share = path.match(/^\/r\/([^/]+)$/);
+          if (share) {
+            const aid = decodeURIComponent(share[1]);
+            (window as Window & { __routinist_pending_deep_link?: string }).__routinist_pending_deep_link = aid;
+            router.replace(`/activity?id=${encodeURIComponent(aid)}`);
+            return;
+          }
+          if (path === '/invite') {
+            await claimInviteCode(parsed.searchParams.get('code'));
+            router.replace('/dashboard');
+            return;
+          }
+          if (path === '/activity') {
+            const aid = parsed.searchParams.get('id');
+            if (aid) {
+              (window as Window & { __routinist_pending_deep_link?: string }).__routinist_pending_deep_link = aid;
+              router.replace(`/activity?id=${encodeURIComponent(aid)}`);
+              return;
+            }
+          }
+          // 그 밖의 앱 내 경로 (클럽 초대 등) 는 경로 그대로 이동 — 없으면 홈으로.
+          if (path && path !== '/') {
+            router.replace(`${path}${parsed.search}`);
+            return;
+          }
         }
 
         // build 189: 토스 결제 후 routinist:// 스킴 deep link 복귀 처리.

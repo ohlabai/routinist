@@ -645,35 +645,25 @@ function MapPageInner() {
           <p className="text-4xl">🗺️</p>
           <p className="text-base font-semibold text-[var(--foreground)]">{tt('아직 GPS 러닝 기록이 없습니다')}</p>
           <p className="text-xs text-[var(--muted)]">
-            {tt('Apple Health만 연동하면 거리·시간은 보이지만 GPS 경로는 포함되지 않아요.')}<br />
-            {tt('아래 앱에서 달리면 자동으로 이 지도에 경로가 쌓입니다.')}
+            {/* 2026-08-09: 여기 있던 경쟁 앱(나이키런클럽·런데이) 앱스토어 링크 제거.
+                자체 GPS 트래킹이 없던 시절의 잔재라 신규 유저를 경쟁 앱으로 내보내고 있었다. */}
+            {tt('Routinist로 달리면 경로가 자동으로 이 지도에 쌓여요.')}<br />
+            {tt('Apple Health만 연동하면 거리·시간은 보이지만 GPS 경로는 포함되지 않아요.')}
           </p>
 
           <div className="space-y-2 pt-2">
             <Link
+              href="/track"
+              className="block w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-bold text-sm"
+            >
+              🏃 {tt('달리기 시작하기')}
+            </Link>
+            <Link
               href="/connect"
-              className="block w-full py-3 rounded-xl bg-red-500 text-white font-semibold text-sm"
+              className="block w-full py-2.5 rounded-xl border border-[var(--card-border)] text-[var(--foreground)] font-semibold text-xs"
             >
               ❤️ {tt('Apple Health 연동하기')}
             </Link>
-            <div className="grid grid-cols-2 gap-2">
-              <a
-                href="https://apps.apple.com/kr/app/nike-run-club/id387771637"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="py-2.5 rounded-xl border border-[var(--card-border)] text-[var(--foreground)] font-semibold text-xs flex items-center justify-center gap-1.5"
-              >
-                👟 Nike Run Club
-              </a>
-              <a
-                href="https://apps.apple.com/kr/app/%EB%9F%B0%EB%8D%B0%EC%9D%B4-%EC%B4%88%EB%B3%B4-%EB%8B%AC%EB%A6%AC%EA%B8%B0-%EC%95%B1/id1061944231"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="py-2.5 rounded-xl border border-[var(--card-border)] text-[var(--foreground)] font-semibold text-xs flex items-center justify-center gap-1.5"
-              >
-                🏃 {tt('런데이')}
-              </a>
-            </div>
           </div>
         </div>
       )}

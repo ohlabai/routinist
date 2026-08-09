@@ -1148,6 +1148,7 @@ const EXTRAS_EN: Record<string, string> = {
   '상품 관리': 'Products',
   // 트래킹
   '달리기 시작하기': 'Start running',
+  'Routinist로 달리면 경로가 자동으로 이 지도에 쌓여요.': 'Run with Routinist and your routes fill this map automatically.',
   'GPS 로 경로·거리·시간이 자동 기록돼요': 'GPS auto-records route, distance, and time',
   '달리기 완료!': 'Run complete!',
   '저장하기': 'Save',

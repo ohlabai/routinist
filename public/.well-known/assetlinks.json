@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.routinist.app",
+      "sha256_cert_fingerprints": [
+        "C3:21:E6:65:1D:53:9F:F0:88:32:F9:E7:6C:FF:3D:DA:0F:9E:05:A9:67:26:1B:3C:52:D7:F3:02:30:C2:90:90"
+      ]
+    }
+  }
+]

@@ -33,6 +33,20 @@
                 <data android:scheme="@string/custom_url_scheme" />
             </intent-filter>
 
+            <!-- 2026-08-09 Android App Links (iOS AASA 대응물).
+                 이게 없어서 광고·공유의 https://app.routinist.kr/... 링크가 안드로이드에서
+                 앱을 열지 못했다 (카톡 인앱 웹뷰는 커스텀 스킴도 자주 차단 → 실질 유입 0).
+                 autoVerify 는 https://app.routinist.kr/.well-known/assetlinks.json 을 대조하며,
+                 그 파일에는 Play 앱 서명 인증서의 SHA-256 이 들어가야 한다 (업로드 키 아님). -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="app.routinist.kr" android:pathPrefix="/r/" />
+                <data android:scheme="https" android:host="app.routinist.kr" android:pathPrefix="/invite" />
+                <data android:scheme="https" android:host="app.routinist.kr" android:pathPrefix="/activity" />
+            </intent-filter>
+
         </activity>
 
         <!-- Health Connect 권한 rationale UI 는 @capgo/capacitor-health 가 자체 제공
