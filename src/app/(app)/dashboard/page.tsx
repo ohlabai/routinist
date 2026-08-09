@@ -677,10 +677,14 @@ export default function DashboardPage() {
             <div className="animate-spin w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full" />
           </div>
         ) : recentActivities.length === 0 ? (
-          <div className="text-center py-6 space-y-2">
+          <div className="text-center py-6 space-y-3">
             <p className="text-3xl">👟</p>
             <p className="text-sm font-medium text-[var(--foreground)]">{t('home.noActivityYet')}</p>
-            <Link href="/connect" className="text-sm text-[var(--accent)] font-semibold inline-block">
+            {/* 2026-08-09: 첫 활동 없는 유저의 1차 CTA 를 "달리기 시작" 으로. 건강 연동은 보조. */}
+            <Link href="/track" className="block mx-auto max-w-[220px] py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-bold text-sm">
+              🏃 {t('home.startFirstRunCta')}
+            </Link>
+            <Link href="/connect" className="text-xs text-[var(--muted)] font-semibold inline-block">
               {t('home.connectHealthCta')}
             </Link>
           </div>

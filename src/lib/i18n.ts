@@ -83,6 +83,7 @@ export type TranslationKey =
   | 'home.viewAllHistory'
   | 'home.noActivityYet'
   | 'home.connectHealthCta'
+  | 'home.startFirstRunCta'
   | 'home.regionNotSet'
   | 'home.regionNotSetSub'
   | 'home.set'
@@ -291,6 +292,7 @@ export type TranslationKey =
   | 'homeHero.conditionDone'
   | 'homeHero.edit'
   | 'homeHero.waitingForOthers'
+  | 'homeHero.noRunThisPeriod'
   | 'homeHero.holdSpot'
   | 'homeHero.viewFullRanking'
   | 'homeHero.tierChamp'
@@ -427,6 +429,7 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'home.viewAllHistory': '전체 기록',
     'home.noActivityYet': '아직 기록이 없습니다',
     'home.connectHealthCta': '건강 앱 연동하기 →',
+    'home.startFirstRunCta': '달리기 시작하기',
     'home.regionNotSet': '지역을 설정하면 랭킹에 참여할 수 있어요!',
     'home.regionNotSetSub': '프로필에서 시/구/동을 선택해보세요',
     'home.set': '설정',
@@ -634,6 +637,7 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'homeHero.conditionDone': '조건 입력 완료',
     'homeHero.edit': '수정',
     'homeHero.waitingForOthers': '같은 동네·또래 러너들을 모으는 중이에요. 한 번 달려보고, 친구도 초대해보세요 🏃',
+    'homeHero.noRunThisPeriod': '아직 이 기간 기록이 없어요. 첫 러닝을 시작하면 순위표에 이름을 올릴 수 있어요.',
     'homeHero.holdSpot': '자리를 지키고 있어요',
     'homeHero.viewFullRanking': '전체 랭킹 보기',
     'homeHero.tierChamp': '챔피언',
@@ -768,6 +772,7 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'home.viewAllHistory': 'View all',
     'home.noActivityYet': 'No activity yet',
     'home.connectHealthCta': 'Connect health app →',
+    'home.startFirstRunCta': 'Start running',
     'home.regionNotSet': 'Set your region to join the ranking!',
     'home.regionNotSetSub': 'Pick city / district in your profile',
     'home.set': 'Set up',
@@ -975,6 +980,7 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'homeHero.conditionDone': 'Profile complete',
     'homeHero.edit': 'Edit',
     'homeHero.waitingForOthers': "We're gathering runners in your area and age range. Try a run and invite friends 🏃",
+    'homeHero.noRunThisPeriod': 'No runs yet this period. Start your first run to claim a spot on the leaderboard.',
     'homeHero.holdSpot': 'Holding the top spot',
     'homeHero.viewFullRanking': 'View full ranking',
     'homeHero.tierChamp': 'Champion',

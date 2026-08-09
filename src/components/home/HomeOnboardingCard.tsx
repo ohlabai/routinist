@@ -541,10 +541,12 @@ export default function HomeOnboardingCard() {
   const items: Item[] = [
     { id: 'profile', label: locale === 'en' ? 'Enter region, birth year, gender' : '지역·생년·성별 입력', done: profileDone, inline: 'profile' },
   ];
+  // 2026-08-09: 광고 전환 이벤트(첫 러닝)를 온보딩 최상단 액션으로. 이전엔 iOS 에 첫 러닝
+  // 항목이 아예 없었고, 안드로이드는 '첫 러닝 기록' 이 /connect(건강 연동) 로 가서 정작
+  // 앱에서 달리기를 시작하는 진입점이 체크리스트에 없었다. → 전 플랫폼 /track 로 통일.
+  items.push({ id: 'first_run', label: locale === 'en' ? 'Start your first run' : '첫 러닝 시작하기', done: runCount >= 1, href: '/track' });
   if (iosNative) {
     items.push({ id: 'health', label: locale === 'en' ? 'Connect Apple Health' : 'Apple 건강 앱 연동하기', done: healthDone, inline: 'health' });
-  } else {
-    items.push({ id: 'first_run', label: locale === 'en' ? 'First run' : '첫 러닝 기록', done: runCount >= 1, href: '/connect' });
   }
   // build 166 #2: 사용자 요청 — 친구 1명 추가 → 5월 목표 정하기 순서.
   // (마지막 항목이 완료되면 시작 가이드 카드 자체가 사라지므로, 목표 정하기를 마지막에 둠.)
@@ -579,9 +581,11 @@ export default function HomeOnboardingCard() {
         </p>
         <h3 className="text-lg font-extrabold text-[var(--foreground)] mt-0.5">{locale === 'en' ? 'Getting started' : '시작 가이드'}</h3>
         <p className="text-xs text-[var(--muted)] mt-0.5">
+          {/* 2026-08-09: "마일리지 보너스" 는 온보딩 완료 이벤트가 없어 지키지 못하는 약속이었다.
+              진행 격려 카피로 교체 (허위 인센티브 제거). */}
           {locale === 'en'
-            ? `${doneCount}/${items.length} done · Complete all for a mileage bonus!`
-            : `${doneCount}/${items.length} 완료 · 모두 채우면 마일리지 보너스!`}
+            ? `${doneCount}/${items.length} done · Set up your running home`
+            : `${doneCount}/${items.length} 완료 · 나만의 러닝 홈을 완성해요`}
         </p>
       </div>
       <ul className="space-y-2">

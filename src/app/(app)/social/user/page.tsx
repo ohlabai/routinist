@@ -1099,13 +1099,14 @@ function FriendRankingBlock({ userId, monthlyKm }: { userId: string; monthlyKm: 
             p_month: now.getMonth() + 1,
           }),
         ]);
-        if (rankRes.data && rankRes.data.length > 0) {
+        // 2026-08-09: rank_position 0 = 이달 기록 없음. rank 를 세팅하지 않아 "이달 랭킹 —
+        // / N명" 이 뜨지 않게 한다 (아래 rank && 렌더 가드가 섹션을 통째로 숨김).
+        if (rankRes.data && rankRes.data.length > 0 && (rankRes.data[0].rank_position ?? 0) > 0) {
           const r = rankRes.data[0];
-          // find_my_combined_ranking 반환: scope_label / rank_position / total_in_scope / ...
           // scope_label 이 "전체" 면 country + region_si 가 null 인 사용자 → fallback 으로 표시 그대로.
           setRank({
             scope_label: r.scope_label || '전체',
-            rank_position: r.rank_position ?? 0,
+            rank_position: r.rank_position,
             total_in_scope: r.total_in_scope ?? 0,
           });
         }

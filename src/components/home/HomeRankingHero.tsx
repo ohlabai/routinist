@@ -321,7 +321,10 @@ export default function HomeRankingHero() {
     );
   }
 
-  if (!rank) {
+  // 2026-08-09: rank_position === 0 = "이 기간 기록 없음" (RPC 가 COALESCE(rank,0) 반환).
+  // 이걸 rank 로 그리면 getRankTier(0) 이 top10 에 걸려 "0위 + ⭐TOP10 + 100% 게이지" 라는
+  // 민망한 화면이 나온다. null 과 동일하게 "아직 순위 없음 + 첫 러닝 CTA" 로 처리.
+  if (!rank || rank.rank_position < 1) {
     const birthLabel = profile?.birth_year ? (locale === 'en' ? `Born ${profile.birth_year}` : `${profile.birth_year}년생`) : null;
     const genderLabel = profile?.gender === 'male' ? t('profile.male') : profile?.gender === 'female' ? t('profile.female') : null;
     const conditionLabel = [
@@ -353,8 +356,15 @@ export default function HomeRankingHero() {
           </Link>
         </div>
         <p className="text-sm text-[var(--muted)] leading-snug">
-          {t('homeHero.waitingForOthers')}
+          {rank && rank.rank_position < 1 ? t('homeHero.noRunThisPeriod') : t('homeHero.waitingForOthers')}
         </p>
+        {/* 무기록이면 첫 러닝으로 유도 — 순위표에 오르는 유일한 방법이다. */}
+        <Link
+          href="/track"
+          className="mt-3 block text-center py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-bold text-sm active:scale-[0.99] transition"
+        >
+          🏃 {t('home.startFirstRunCta')}
+        </Link>
       </div>
     );
   }
