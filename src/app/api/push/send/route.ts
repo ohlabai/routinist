@@ -177,6 +177,9 @@ async function sendApn(supabase: SupabaseClient, deviceToken: string, payload: {
   return { ok: false, reason: `${statusCode}: ${text.slice(0, 300)}` };
 }
 
+// 2026-08-09: Vercel 함수 실행 상한 명시 — 배치가 커지면(500건) 60초를 넘길 수 있다.
+export const maxDuration = 300;
+
 export async function POST(req: NextRequest) {
   // build 237: timing-safe Bearer 비교 + query token fallback 제거 (access log/referer 누출 위험).
   if (!isCronAuthenticated(req, 'PUSH_CRON_SECRET')) {
@@ -214,7 +217,9 @@ export async function POST(req: NextRequest) {
     .eq('status', 'pending')
     .or(`send_after.is.null,send_after.lte.${nowIso}`)
     .order('created_at', { ascending: true })
-    .limit(100);
+    // 2026-08-09: 100→500. 분당 크론에 100/8동시성이면 하루 상한 14.4만·저녁 동시만기 때
+    // 회원 5천이면 마지막 유저가 1시간 넘게 밀렸다. 500/25 로 상한 72만/일, 저녁 배치도 몇 분 내.
+    .limit(500);
   if (claimSelErr) {
     return NextResponse.json({ error: claimSelErr.message }, { status: 500 });
   }
@@ -237,12 +242,16 @@ export async function POST(req: NextRequest) {
   // 사용자별 토큰을 한 번에 조회 (N+1 → 1)
   // Android Phase A②: ios 전용 필터 제거 — ios(APNs) + android(FCM) 라우팅. web 은 발송 경로 없음.
   const userIds = Array.from(new Set((logs as PushLogRow[]).map(l => l.user_id)));
+  // 2026-08-09: limit 명시 — 없으면 PostgREST 기본 1000행 상한에 걸려 배치 뒤쪽 유저의
+  // 토큰이 조용히 누락되고, 그 유저는 "활성 토큰 없음"(재시도 없는 skipped)으로 기록됐다.
+  // 배치 500명 × 유저당 최대 ~10 토큰(재설치·OS복원 누적) 여유로 커버.
   const { data: allTokens } = await supabase
     .from('push_device_tokens')
     .select('id, user_id, platform, token, enabled')
     .in('user_id', userIds)
     .eq('enabled', true)
-    .in('platform', ['ios', 'android']);
+    .in('platform', ['ios', 'android'])
+    .limit(10000);
   const tokensByUser = new Map<string, DeviceTokenRow[]>();
   for (const t of (allTokens ?? []) as DeviceTokenRow[]) {
     if (!tokensByUser.has(t.user_id)) tokensByUser.set(t.user_id, []);
@@ -363,7 +372,7 @@ export async function POST(req: NextRequest) {
 
   // 동시 8개 로그 처리 (직렬 보다 8x 빠름, APN connection limit 고려)
   let sent = 0, skipped = 0, failed = 0, requeued = 0;
-  const CONCURRENCY = 8;
+  const CONCURRENCY = 25;   // 2026-08-09: 8→25 (배치 500 을 몇 분 내 소진)
   const queue = (logs as PushLogRow[]).slice();
   const workers = Array.from({ length: Math.min(CONCURRENCY, queue.length) }, async () => {
     while (true) {

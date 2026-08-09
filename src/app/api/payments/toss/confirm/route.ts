@@ -149,13 +149,15 @@ export async function POST(req: NextRequest) {
   });
 
   if (error) {
-    // build 186: "이미 결제된 주문" 류 에러는 자동 cancel 하면 안 됨.
-    // confirm 이 두 번 호출되거나 webhook race 가 있을 때 두 번째 호출은
-    // mark_order_paid 안의 EXISTS 가드를 통과 못 하고 RAISE 되지만, 그건
-    // 실제 결제가 이미 정상 처리된 상태라 cancel 시 진짜 환불됨.
+    // build 186: "이미 결제된 주문" 류 에러는 자동 cancel 하면 안 됨 (진짜 중복 결제라 환불 위험).
+    // 2026-08-09 리뷰 P0 수정: '결제 가능 상태가 아닙니다' 를 이 목록에서 제거한다.
+    //   mark_order_paid 를 보면 진짜 중복 confirm 은 shop_payments EXISTS 에서 RETURN true 로
+    //   잡히고(에러 아님), 이 메시지는 오직 주문이 pending 이 아닐 때만 난다 — 즉 stale 취소
+    //   (cleanup_stale_pending_orders) 로 cancelled 된 주문에 카드사 인증 지연으로 뒤늦게
+    //   결제가 승인된 케이스다. 이걸 성공으로 반환하면 "돈은 빠졌는데 주문도 환불도 없음".
+    //   → 아래 else(자동 tossCancel + 실패 반환) 경로로 보내 결제금을 환불한다.
     const msg = error.message ?? '';
     const isAlreadyPaid =
-      msg.includes('결제 가능 상태가 아닙니다') ||
       msg.includes('duplicate key') ||
       msg.includes('provider_payment_key') ||
       (error as { code?: string }).code === '23505';
