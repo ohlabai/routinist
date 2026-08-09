@@ -32,6 +32,7 @@ import org.json.JSONObject
 import java.io.File
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.math.exp
 import kotlin.math.sqrt
 
 /**
@@ -74,10 +75,23 @@ object RunSessionEngine {
     // 2026-08-05 (이승우 "뛰는데 5번 정지" 신고): 자동정지 재설계 — 모션이 1차 신호 (Strava 계열).
     // 절전모드가 GPS 를 굶기면 (fix burst→수십초 침묵) 저품질 도플러 한 방 + 공백 12초만으로
     // 오정지됐음. 몸이 흔들리는 동안은 GPS 가 뭐라 하든 정지하지 않는다.
-    private const val MOTION_EMA_ALPHA = 0.1        // ~15Hz 샘플 기준 시정수 ≈ 0.7s
+    private const val MOTION_TAU_SEC = 0.7          // 모션 EMA 시정수 (샘플레이트 무관)
     private const val MOTION_ACTIVE_MPS2 = 0.6      // |가속도-중력| EMA — 걷기/뛰기 ≫ 0.6, 정지 ≪ 0.3
     private const val MOTION_FRESH_SEC = 5.0        // 이 안에 모션 있으면 자동정지 거부
     private const val GPS_SPEED_FRESH_SEC = 5.0     // GPS-느림 정지는 speed 샘플이 흐르는 중일 때만
+
+    // 2026-08-09 걷기 감지 (hans): 가속도 피크로 케이던스 추정 — iOS/워치의 CMPedometer·
+    // Health Services 대응물. Android 폰은 step detector 가 ACTIVITY_RECOGNITION 권한을
+    // 요구해 (Play 권한 최소화) 무권한 가속도계로 직접 센다.
+    private const val STEP_TAU_SEC = 0.06           // 피크 검출용 가벼운 필터
+    private const val STEP_PEAK_HIGH_MPS2 = 1.1     // 이 위로 오르면 1보
+    private const val STEP_PEAK_LOW_MPS2 = 0.4      // 이 아래로 내려가야 다음 보 무장 (히스테리시스)
+    private const val STEP_MIN_INTERVAL_MS = 250L   // 240spm 상한 — 한 봉우리 이중 카운트 차단
+    private const val CADENCE_WINDOW_MS = 8_000L
+    private const val CADENCE_MIN_SPAN_MS = 4_000L  // 이만큼은 모여야 케이던스를 신뢰
+    // 임계값은 iOS·애플워치·갤럭시워치와 동일 (걷기 100~125spm / 달리기 150~180spm)
+    private const val WALK_CADENCE_MAX_SPM = 132.0
+    private const val RUN_CADENCE_MIN_SPM = 150.0
     private const val GPS_GOOD_ACCURACY_M = 20.0
     private const val GPS_LOST_SEC = 10.0
     // build 327 (강도균 "km 안 올라감" 신고): GPS 공백 gap-fill 속도 캡.
@@ -167,6 +181,22 @@ object RunSessionEngine {
     private var lastMotionAtMs: Long? = null
     private var motionSinceMs: Long? = null
     private var autoPauseCount = 0
+
+    // 케이던스 추정 상태 (전부 handler 스레드 전용)
+    private var lastAccelAtMs: Long? = null
+    private var stepSignal: Double? = null
+    private var stepPeakArmed = true
+    private var lastStepAtMs: Long? = null
+    private val stepTimes = ArrayDeque<Long>()
+    private var cadenceStartedAtMs: Long? = null
+    private var slowCadenceSinceMs: Long? = null
+    /// 이번 세션에서 "달리기 케이던스" 를 한 번이라도 관측했는지 — 자체 추정이라 거치 위치에
+    /// 따라 피크가 안 잡히는 기기가 있다. 한 번도 러닝 대역을 못 본 세션에선 케이던스로
+    /// 정지시키지 않는다 (오검출 → 달리는 중 오정지 방지, 기존 판정으로 폴백).
+    private var cadenceTrusted = false
+    // 진단 (실주행 임계값 튜닝용) — 세션 평균 케이던스 + 러닝 대역 관측 여부
+    private var cadenceSampleSum = 0.0
+    private var cadenceSampleCount = 0
 
     private var milestonesFired = 0
     // 구간 페이스 기준점 — 직전 마일스톤 발화 시점의 누적 거리/활동시간.
@@ -296,6 +326,9 @@ object RunSessionEngine {
                 put("elapsedSec", Math.round((nowMs - startedAtMs) / 1000.0).toDouble())
                 put("autoPausedSec", Math.round(accumulatedAutoPausedSec).toDouble())
                 put("autoPauseCount", autoPauseCount)              // 2026-08-05 진단 — 오정지 신고 추적
+                // 2026-08-09 진단 — 케이던스 추정 품질 (임계값 실주행 튜닝용)
+                put("cadenceAvgSpm", if (cadenceSampleCount > 0) Math.round(cadenceSampleSum / cadenceSampleCount).toDouble() else 0.0)
+                put("cadenceTrusted", cadenceTrusted)
                 put("powerSaveMode", isPowerSaveMode())            // 절전모드 = GPS 기아의 주 용의자
                 put("avgPaceSecPerKm", avgPace ?: JSONObject.NULL)
                 put("route", routeToJson())
@@ -352,18 +385,50 @@ object RunSessionEngine {
             val y = event.values[1].toDouble()
             val z = event.values[2].toDouble()
             val dev = abs(sqrt(x * x + y * y + z * z) - SensorManager.GRAVITY_EARTH.toDouble())
-            val ema = accelEmaDev?.let { MOTION_EMA_ALPHA * dev + (1 - MOTION_EMA_ALPHA) * it } ?: dev
+            val nowMs = System.currentTimeMillis()
+
+            // 시간 기반 EMA — 샘플레이트가 바뀌어도 시정수가 유지된다 (SENSOR_DELAY 변경 안전).
+            val dtSec = lastAccelAtMs?.let { ((nowMs - it) / 1000.0).coerceIn(0.001, 0.5) } ?: 0.02
+            lastAccelAtMs = nowMs
+            val aMotion = 1.0 - exp(-dtSec / MOTION_TAU_SEC)
+            val ema = accelEmaDev?.let { it + aMotion * (dev - it) } ?: dev
             accelEmaDev = ema
             if (ema > MOTION_ACTIVE_MPS2) {
-                val nowMs = System.currentTimeMillis()
                 if (motionSinceMs == null) motionSinceMs = nowMs
                 lastMotionAtMs = nowMs
             } else {
                 motionSinceMs = null
             }
+
+            // ── 케이던스 추정 (2026-08-09): 가벼운 필터 + 히스테리시스 피크 카운트.
+            // 러닝은 초당 2.5~3보의 뚜렷한 수직 진동을 만든다. 상단 임계 진입 시 1보로 세고,
+            // 하단 임계 아래로 내려가야 다음 보를 셀 수 있게 무장 (한 봉우리 이중 카운트 차단).
+            val aStep = 1.0 - exp(-dtSec / STEP_TAU_SEC)
+            val sig = stepSignal?.let { it + aStep * (dev - it) } ?: dev
+            stepSignal = sig
+            if (stepPeakArmed && sig > STEP_PEAK_HIGH_MPS2 &&
+                (nowMs - (lastStepAtMs ?: 0L)) >= STEP_MIN_INTERVAL_MS) {
+                stepPeakArmed = false
+                lastStepAtMs = nowMs
+                stepTimes.addLast(nowMs)
+            } else if (!stepPeakArmed && sig < STEP_PEAK_LOW_MPS2) {
+                stepPeakArmed = true
+            }
+            while (stepTimes.isNotEmpty() && nowMs - stepTimes.first() > CADENCE_WINDOW_MS) {
+                stepTimes.removeFirst()
+            }
         }
 
         override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+    }
+
+    /** 최근 창의 케이던스 (spm). 표본 부족이면 null. */
+    private fun currentCadenceSpm(nowMs: Long): Double? {
+        if (!accelSensorActive) return null
+        val since = cadenceStartedAtMs ?: return null
+        val span = minOf(nowMs - since, CADENCE_WINDOW_MS)
+        if (span < CADENCE_MIN_SPAN_MS) return null
+        return stepTimes.size * 60_000.0 / span
     }
 
     @SuppressLint("MissingPermission")   // 호출측(startSession)에서 권한 확인 후 진입
@@ -388,9 +453,13 @@ object RunSessionEngine {
                 ?: (ctx.getSystemService(Context.SENSOR_SERVICE) as SensorManager).also { sensorManager = it }
             val accel = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
             accelSensorActive = accel != null &&
-                sm.registerListener(accelListener, accel, SensorManager.SENSOR_DELAY_UI, handler)
+                sm.registerListener(accelListener, accel, SensorManager.SENSOR_DELAY_GAME, handler)
             // 센서 예열 전 stall 오판 방지 — 등록 시점을 첫 모션으로 간주.
-            if (accelSensorActive) lastMotionAtMs = System.currentTimeMillis()
+            if (accelSensorActive) {
+                val t = System.currentTimeMillis()
+                lastMotionAtMs = t
+                cadenceStartedAtMs = t      // 케이던스 창 기산점
+            }
         } catch (e: Exception) {
             Log.w(TAG, "accelerometer register failed — GPS 판정만으로 동작", e)
             accelSensorActive = false
@@ -414,6 +483,8 @@ object RunSessionEngine {
         try { fusedClient?.removeLocationUpdates(locationCallback) } catch (_: Exception) {}
         try { sensorManager?.unregisterListener(accelListener) } catch (_: Exception) {}
         accelSensorActive = false
+        cadenceStartedAtMs = null
+        stepTimes.clear()
         appContext?.let { RunSessionService.stop(it) }
     }
 
@@ -442,6 +513,9 @@ object RunSessionEngine {
         if (speedAt != null && (nowMs - speedAt) / 1000.0 > GPS_SPEED_FRESH_SEC) {
             slowSinceMs = null
             fastSinceMs = null
+        }
+        if (state == State.RUNNING) {
+            currentCadenceSpm(nowMs)?.let { cadenceSampleSum += it; cadenceSampleCount++ }
         }
         evaluateAutoPause(nowMs)
         if (tickCount % PERSIST_EVERY_TICKS == 0) persist(nowMs)
@@ -631,11 +705,31 @@ object RunSessionEngine {
             State.RUNNING -> {
                 // 첫 움직임 전에는 미무장 — 출발 대기/워밍업 오정지 차단 (실주행 fix 295 계승).
                 if (!hasMovedThisSession) return
-                // 모션 거부권: 몸이 흔들리는 중엔 GPS 가 뭐라 하든 정지하지 않는다.
-                val lastMotion = lastMotionAtMs
-                if (accelSensorActive && lastMotion != null &&
-                    (nowMs - lastMotion) / 1000.0 < MOTION_FRESH_SEC) return
                 var shouldPause = false
+
+                // 0차 (케이던스): 걷기 감지 — 2026-08-09 hans "힘들어서 걸었는데 정지 안 됨".
+                // 걷기는 모션이 흐르므로 아래 거부권에 막혀 영영 안 잡혔다. 속도로는 걷기와
+                // 초보 조깅이 겹쳐 못 가르지만 케이던스는 갈라진다.
+                val cadence = currentCadenceSpm(nowMs)
+                if (cadence != null) {
+                    if (cadence >= RUN_CADENCE_MIN_SPM) {
+                        cadenceTrusted = true       // 이 기기·거치에서 피크 검출이 동작함을 확인
+                        slowCadenceSinceMs = null
+                    } else if (cadence < WALK_CADENCE_MAX_SPM) {
+                        if (slowCadenceSinceMs == null) slowCadenceSinceMs = nowMs
+                        if (cadenceTrusted &&
+                            (nowMs - slowCadenceSinceMs!!) / 1000.0 >= AUTO_PAUSE_HOLD_SEC) {
+                            shouldPause = true
+                        }
+                    }
+                    // 중립대 (132~150spm): 아주 느린 조깅 — 어느 쪽도 카운트하지 않는다.
+                }
+
+                // 모션 거부권: 몸이 흔들리는 중엔 GPS 가 뭐라 하든 정지하지 않는다.
+                // (케이던스가 이미 "걷기" 로 판정했으면 그건 존중 — 아래 GPS 경로만 막는다)
+                val lastMotion = lastMotionAtMs
+                if (!shouldPause && accelSensorActive && lastMotion != null &&
+                    (nowMs - lastMotion) / 1000.0 < MOTION_FRESH_SEC) return
                 // 1차 (모션): 12초 모션 소실 — GPS 신호 상태와 무관하게 정지 (터널·절전모드 안 실정지).
                 // 단 GPS 가 "고속 이동 중" 이라고 말하면 보류 (거치대 고정 등 진동 미감지 이동).
                 if (accelSensorActive && lastMotion != null &&
@@ -654,9 +748,16 @@ object RunSessionEngine {
             }
             State.AUTO_PAUSED -> {
                 var shouldResume = false
+                // 0차 (케이던스): 걷기로 멈춘 뒤엔 "다시 뛰기 시작" 만 재개 조건이다.
+                // 걷는 동안엔 GPS·모션 경로의 재개도 막는다 (정지↔재개 발진 차단).
+                val cadenceR = currentCadenceSpm(nowMs)
+                if (cadenceR != null && cadenceTrusted) {
+                    if (cadenceR >= RUN_CADENCE_MIN_SPM) shouldResume = true
+                    else if (cadenceR < WALK_CADENCE_MAX_SPM) return
+                }
                 // 1차: speed > 1.4 m/s 가 3초 지속.
                 val fast = fastSinceMs
-                if (fast != null && (nowMs - fast) / 1000.0 >= AUTO_RESUME_HOLD_SEC) shouldResume = true
+                if (!shouldResume && fast != null && (nowMs - fast) / 1000.0 >= AUTO_RESUME_HOLD_SEC) shouldResume = true
                 // 2차: GPS speed 판정을 못 믿을 때 모션 재개 흐름 3초로 대체.
                 // 2026-08-06 (리뷰 P1): "lost" → "fresh speed 샘플 없음" 으로 완화. 도플러가
                 // accuracy 게이트 뒤로 간 뒤로 40~60m fix 가 계속 오는 도심에선 신호가 'weak'
@@ -698,6 +799,7 @@ object RunSessionEngine {
         slowSinceMs = null
         fastSinceMs = null
         motionSinceMs = null   // 재개 판정은 전이 후 새로 3초 채워야 (iOS stepIncreasingSince 와 동일)
+        slowCadenceSinceMs = null
     }
 
     /** RUNNING 진입 시 모션 시계도 함께 리셋 (2026-08-06 리뷰 P1).
@@ -1072,6 +1174,16 @@ object RunSessionEngine {
         lastMotionAtMs = null
         motionSinceMs = null
         autoPauseCount = 0
+        lastAccelAtMs = null
+        stepSignal = null
+        stepPeakArmed = true
+        lastStepAtMs = null
+        stepTimes.clear()
+        cadenceStartedAtMs = null
+        slowCadenceSinceMs = null
+        cadenceTrusted = false
+        cadenceSampleSum = 0.0
+        cadenceSampleCount = 0
         milestonesFired = 0
         lastMilestoneDistanceM = 0.0
         lastMilestoneActiveSec = 0.0

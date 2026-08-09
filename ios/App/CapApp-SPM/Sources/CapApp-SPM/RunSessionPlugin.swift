@@ -193,6 +193,9 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
     private var stepSamples: [(at: Date, steps: Int)] = []
     private var slowCadenceSince: Date?
     private var lastOsCadence: (at: Date, value: Double)?
+    /// 진단 (실주행 임계값 튜닝용) — 세션 평균 케이던스.
+    private var cadenceSampleSum: Double = 0
+    private var cadenceSampleCount = 0
     /// 마지막 앵커(=마지막 GPS 채택 시점)의 pedometer 누적 거리 — gap-fill delta 기준점.
     private var pedDistAtAnchor: Double = 0
 
@@ -449,6 +452,9 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
                 "elapsedSec": ((now.timeIntervalSince1970 * 1000.0 - self.startedAtMs) / 1000.0).rounded(),
                 "autoPausedSec": self.accumulatedAutoPausedSec.rounded(),
                 "autoPauseCount": self.autoPauseCount,             // 2026-08-05 진단 — 오정지 신고 추적
+                // 2026-08-09 진단 — 케이던스 (걷기 감지 임계값 실주행 튜닝용)
+                "cadenceAvgSpm": self.cadenceSampleCount > 0
+                    ? (self.cadenceSampleSum / Double(self.cadenceSampleCount)).rounded() : 0,
                 "powerSaveMode": ProcessInfo.processInfo.isLowPowerModeEnabled,
                 "avgPaceSecPerKm": avgPace.map { $0 as Any } ?? NSNull(),
                 "route": self.route,
@@ -636,6 +642,11 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
            now.timeIntervalSince(updated) > Tuning.gpsSpeedFreshSec {
             slowSince = nil
             fastSince = nil
+        }
+
+        if state == .running, let cad = currentCadence(now: now) {
+            cadenceSampleSum += cad * 60.0   // steps/sec → spm
+            cadenceSampleCount += 1
         }
 
         evaluateAutoPause(now: now)
@@ -1355,6 +1366,8 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         stepSamples = []
         slowCadenceSince = nil
         lastOsCadence = nil
+        cadenceSampleSum = 0
+        cadenceSampleCount = 0
         pedDistAtAnchor = 0
         milestonesFired = 0
         lastMilestoneDistanceM = 0

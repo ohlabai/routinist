@@ -983,6 +983,8 @@ function TrackPageImpl() {
             auto_paused_s: Math.round(summary.autoPausedSec),
             auto_pause_n: summary.autoPauseCount ?? null,     // 2026-08-05 오정지 진단
             power_save: summary.powerSaveMode ?? null,        // 절전모드 = GPS 기아 용의자
+            cadence_spm: summary.cadenceAvgSpm ?? null,       // 2026-08-09 걷기 감지 튜닝
+            cadence_trusted: summary.cadenceTrusted ?? null,
             coords_n: summary.route.length,
           });
         } catch (e) {

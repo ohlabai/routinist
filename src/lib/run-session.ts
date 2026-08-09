@@ -77,6 +77,10 @@ export interface RunSessionSummary {
   /** 2026-08-05 진단: 종료 시점 절전모드 여부 (Android isPowerSaveMode / iOS 저전력 모드).
    *  GPS 기아 (fix burst → 침묵) 신고의 주 용의자 — UI 노출 없이 로그로만 쓴다. */
   powerSaveMode?: boolean;
+  /** 2026-08-09 진단: 세션 평균 케이던스(spm). 걷기 감지 임계값(132/150) 튜닝용. */
+  cadenceAvgSpm?: number;
+  /** Android 전용: 가속도 피크 추정이 러닝 대역을 관측했는지 (false 면 케이던스 정지 미적용). */
+  cadenceTrusted?: boolean;
   avgPaceSecPerKm: number | null;
   route: RunCoord[];
 }
