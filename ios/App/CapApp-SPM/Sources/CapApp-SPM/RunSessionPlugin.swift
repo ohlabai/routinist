@@ -77,6 +77,13 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         /// 샘플이 이 시간 안에 흐르는 중일 때만 — 신호 공백 중엔 판정 근거가 없다 (보류).
         static let gpsSpeedFreshSec: TimeInterval = 5
 
+        // --- 케이던스 기반 걷기 감지 (2026-08-09, hans "힘들어서 걸었는데 정지 안 됨") ---
+        // 속도로는 걷기(4~5km/h)와 초보 조깅(7~8분/km)이 겹쳐 임계값을 못 잡는다. 케이던스는
+        // 걷기 100~125spm / 달리기 150~180spm 로 갈라진다. 중립대는 아주 느린 조깅의 완충.
+        static let walkCadenceMax: Double = 2.2    // steps/sec (132spm) 미만 지속 = 걷기/정지
+        static let runCadenceMin: Double = 2.5     // steps/sec (150spm) 이상 = 달리는 중
+        static let cadenceWindowSec: TimeInterval = 8
+
         // --- GPS 신호 등급 / gap-fill ---
         static let gpsGoodAccuracyM: Double = 20
         /// 마지막 수신 후 이 시간 무수신이면 'lost'. gap-fill 트리거 기준과 동일 (계약 §4).
@@ -182,6 +189,10 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
     private var pedometerSteps = 0
     private var lastStepChangeAt: Date?
     private var stepIncreasingSince: Date?
+    /// (시각, 누적 걸음) 샘플 — 창 안의 Δ걸음/Δ시간 으로 케이던스 산출 (걷기 감지).
+    private var stepSamples: [(at: Date, steps: Int)] = []
+    private var slowCadenceSince: Date?
+    private var lastOsCadence: (at: Date, value: Double)?
     /// 마지막 앵커(=마지막 GPS 채택 시점)의 pedometer 누적 거리 — gap-fill delta 기준점.
     private var pedDistAtAnchor: Double = 0
 
@@ -586,6 +597,11 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
                 if let dist = data.distance?.doubleValue, dist > self.pedometerDistanceM {
                     self.pedometerDistanceM = dist
                 }
+                // 케이던스 창 — OS 즉시값이 있으면 그것도 함께 반영 (반응 속도).
+                let now = Date()
+                self.stepSamples.append((at: now, steps: steps))
+                self.stepSamples.removeAll { now.timeIntervalSince($0.at) > Tuning.cadenceWindowSec }
+                if let osCad = data.currentCadence?.doubleValue { self.lastOsCadence = (now, osCad) }
             }
         }
     }
@@ -882,17 +898,50 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
     // 2026-08-05 재설계 (Android 이승우 오정지 신고와 대칭): 모션(스텝)이 1차 신호, GPS 는 2차.
     // 러닝은 저속이라 GPS 도플러의 노이즈 대역과 실페이스가 겹친다 — 정지 판정의 진실 소스는
     // 위성이 아니라 몸의 움직임 (Strava 러닝 자동정지와 같은 원칙).
+    /// 현재 케이던스 (steps/sec). 표본 부족·pedometer 미가용이면 nil.
+    private func currentCadence(now: Date) -> Double? {
+        var best: Double?
+        if let os = lastOsCadence, now.timeIntervalSince(os.at) <= Tuning.cadenceWindowSec {
+            best = os.value
+        }
+        if let first = stepSamples.first, let last = stepSamples.last {
+            let dt = last.at.timeIntervalSince(first.at)
+            if dt >= 4 {
+                let measured = Double(last.steps - first.steps) / dt
+                best = max(best ?? 0, measured)
+            }
+        }
+        return best
+    }
+
     private func evaluateAutoPause(now: Date) {
         switch state {
         case .running:
             // 첫 움직임 전에는 자동정지 미무장 — 출발 대기/워밍업 오정지 차단.
             guard hasMovedThisSession else { return }
+            var shouldPause = false
+
+            // 0차 (케이던스): 걷기 감지 — 2026-08-09 hans "힘들어서 걸었는데 정지 안 됨".
+            // 걷기는 스텝이 흐르므로 아래 모션 거부권에 막혀 영영 안 잡혔다. 케이던스로
+            // 걷기(<132spm)와 달리기(≥150spm)를 갈라 12초 지속 시 정지한다.
+            if let cad = currentCadence(now: now) {
+                if cad >= Tuning.runCadenceMin {
+                    slowCadenceSince = nil          // 달리는 중 — 창 리셋
+                } else if cad < Tuning.walkCadenceMax {
+                    if slowCadenceSince == nil { slowCadenceSince = now }
+                    if now.timeIntervalSince(slowCadenceSince!) >= Tuning.autoPauseHoldSec {
+                        shouldPause = true
+                    }
+                }
+                // 중립대 (132~150spm): 아주 느린 조깅 — 창 유지도 리셋도 하지 않는다.
+            }
+
             // 모션 거부권: 스텝이 방금까지 흐르고 있으면 GPS 가 뭐라 하든 정지하지 않는다.
-            if pedometerActive, let lastStep = lastStepChangeAt,
+            // (케이던스가 이미 "걷기" 로 판정했으면 그건 존중 — 아래 GPS 경로만 막는다)
+            if !shouldPause, pedometerActive, let lastStep = lastStepChangeAt,
                now.timeIntervalSince(lastStep) < Tuning.stepStallResetSec {
                 return
             }
-            var shouldPause = false
             // 1차 (모션): 스텝 12초 무변화 — GPS 신호 상태와 무관 (기존 lost 한정에서 승격).
             // 단 GPS 가 "고속 이동 중" 이라고 말하면 보류 (유모차 거치 등 스텝 미감지 이동).
             if pedometerActive, let lastStep = lastStepChangeAt,
@@ -911,8 +960,17 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
 
         case .autoPaused:
             var shouldResume = false
+            // 0차 (케이던스): 걷기로 멈춘 뒤엔 "다시 뛰기 시작" 만 재개 조건이다. 케이던스가
+            // 걷기 대역이면 GPS·스텝 경로의 재개도 막는다 (걷기 중 재개 → 재정지 발진 차단).
+            if let cad = currentCadence(now: now) {
+                if cad >= Tuning.runCadenceMin {
+                    shouldResume = true
+                } else if cad < Tuning.walkCadenceMax {
+                    return   // 아직 걷는 중 — 재개하지 않음
+                }
+            }
             // 1차: speed > 1.4 m/s 가 3초 지속.
-            if let fast = fastSince, now.timeIntervalSince(fast) >= Tuning.autoResumeHoldSec {
+            if !shouldResume, let fast = fastSince, now.timeIntervalSince(fast) >= Tuning.autoResumeHoldSec {
                 shouldResume = true
             }
             // 2차: GPS speed 판정을 못 믿을 때 스텝 증가 흐름 3초로 대체.
@@ -960,6 +1018,7 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         slowSince = nil
         fastSince = nil
         stepIncreasingSince = nil
+        slowCadenceSince = nil
     }
 
     /// 현재 state 의 진행 중 segment 를 누적치에 fold. 상태 전이 직전에 호출.
@@ -1293,6 +1352,9 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         pedometerSteps = 0
         lastStepChangeAt = nil
         stepIncreasingSince = nil
+        stepSamples = []
+        slowCadenceSince = nil
+        lastOsCadence = nil
         pedDistAtAnchor = 0
         milestonesFired = 0
         lastMilestoneDistanceM = 0

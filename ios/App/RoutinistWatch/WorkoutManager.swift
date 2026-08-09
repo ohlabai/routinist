@@ -225,6 +225,26 @@ final class WorkoutManager: NSObject, ObservableObject {
     /// 세션 중 거리가 실제로 한 번이라도 전진하기 전엔 자동정지 미무장 (폰 fix 295 미러).
     private var hasMovedThisSession = false
 
+    // ── 케이던스 기반 걷기 감지 (2026-08-09, hans "힘들어서 걸었는데 정지 안 됨") ──
+    // 속도로는 걷기(4~5km/h)와 초보 조깅(7~8분/km)이 겹쳐 임계값을 못 잡는다. 케이던스는
+    // 걷기 100~125spm / 달리기 150~180spm 로 갈라져 오작동 없이 구분된다.
+    // 중립대(132~150spm)는 어느 쪽도 아님 — 아주 느린 조깅이 오정지되지 않게 하는 완충.
+    private enum Cadence {
+        /// 이 미만이 지속되면 "달리는 중이 아님" (걷기 또는 정지). 132spm.
+        static let walkMax: Double = 2.2      // steps/sec
+        /// 이 이상이면 달리는 중 — 정지 거부 + 자동 재개. 150spm.
+        static let runMin: Double = 2.5       // steps/sec
+        /// 폰 엔진 autoPauseHoldSec 과 동일 — 신호 흔들림 흡수.
+        static let walkHoldSec: TimeInterval = 12
+        static let resumeHoldSec: TimeInterval = 3
+        /// 케이던스 산출 창 — CMPedometer 콜백(~2.5s) 2~3회분.
+        static let windowSec: TimeInterval = 8
+    }
+    /// (시각, 누적 걸음) 샘플 — 창 안에서 Δ걸음/Δ시간 으로 케이던스 산출.
+    private var stepSamples: [(at: Date, steps: Int)] = []
+    private var slowCadenceSince: Date?
+    private var runCadenceSince: Date?
+
     private func startStallWatch() {
         lastDistanceChangeAt = Date()
         lastDistanceForStall = distanceMeters
@@ -232,6 +252,9 @@ final class WorkoutManager: NSObject, ObservableObject {
         hasMovedThisSession = distanceMeters >= 25
         pedometerSteps = 0
         lastStepChangeAt = nil
+        stepSamples.removeAll()
+        slowCadenceSince = nil
+        runCadenceSince = nil
         startPedometerStream()
         stallTimer?.invalidate()
         stallTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
@@ -239,30 +262,95 @@ final class WorkoutManager: NSObject, ObservableObject {
         }
     }
 
-    /// 세션 내내 스텝 스트림 유지 — 정지 거부권 + 자동 재개 판정 공용 (구 v7 은 재개 전용).
+    /// 세션 내내 스텝 스트림 유지 — 케이던스 산출 + 자동 재개 판정 공용.
     private func startPedometerStream() {
         guard CMPedometer.isStepCountingAvailable() else { return }
         pedometer.stopUpdates()
         pedometer.startUpdates(from: Date()) { [weak self] data, _ in
-            guard let steps = data?.numberOfSteps.intValue else { return }
+            guard let data else { return }
+            let steps = data.numberOfSteps.intValue
+            // OS 가 주는 즉시 케이던스가 있으면 우선 (없는 기기/버전은 스텝 델타로 산출).
+            let osCadence = data.currentCadence?.doubleValue
             Task { @MainActor in
-                guard let self, steps > self.pedometerSteps else { return }
-                self.pedometerSteps = steps
-                self.lastStepChangeAt = Date()
-                // 자동정지 중 12보+ → 자동 재개 (구 v7 로직 승계, 기준점만 정지 시점 스텝)
-                if self.isAutoPaused, steps - self.stepsAtAutoPause >= 12 {
-                    self.isAutoPaused = false
-                    UserDefaults.standard.removeObject(forKey: "wasAutoPaused")
-                    self.lastDistanceChangeAt = Date()
-                    self.lastDistanceForStall = self.distanceMeters
-                    self.session?.resume()
-                    WKInterfaceDevice.current().play(.start)
-                    self.speak("다시 시작합니다. 같이 가요.")
+                guard let self else { return }
+                let now = Date()
+                if steps > self.pedometerSteps {
+                    self.pedometerSteps = steps
+                    self.lastStepChangeAt = now
                 }
+                self.stepSamples.append((at: now, steps: steps))
+                self.stepSamples.removeAll { now.timeIntervalSince($0.at) > Cadence.windowSec }
+                self.evaluateCadence(now: now, osCadence: osCadence)
             }
         }
     }
 
+    /// 창 안의 Δ걸음/Δ시간 (steps/sec). 샘플이 모자라면 nil.
+    private func measuredCadence(now: Date) -> Double? {
+        guard let first = stepSamples.first, let last = stepSamples.last else { return nil }
+        let dt = last.at.timeIntervalSince(first.at)
+        guard dt >= 4 else { return nil }   // 최소 4초는 모여야 신뢰
+        return Double(last.steps - first.steps) / dt
+    }
+
+    /// 케이던스로 걷기/달리기를 판정해 자동정지·재개를 구동 (걷기 감지의 본체).
+    private func evaluateCadence(now: Date, osCadence: Double?) {
+        // OS 값은 "현재 케이던스" 라 반응이 빠르지만 정지 직후 nil/0 이 되므로 창 계산과 max.
+        let cadence = max(osCadence ?? 0, measuredCadence(now: now) ?? 0)
+        guard cadence > 0 || !stepSamples.isEmpty else { return }
+
+        if isAutoPaused {
+            // 재개: 달리기 케이던스가 3초 지속. 걷는 동안엔 절대 재개되지 않는다
+            // (구 로직은 "12보 증가" 라 걷기만 해도 재개 → 정지↔재개 발진했다).
+            if cadence >= Cadence.runMin {
+                if runCadenceSince == nil { runCadenceSince = now }
+                if now.timeIntervalSince(runCadenceSince!) >= Cadence.resumeHoldSec {
+                    resumeFromAutoPause()
+                }
+            } else {
+                runCadenceSince = nil
+            }
+            return
+        }
+
+        guard phase == .active, hasMovedThisSession else { return }
+        if cadence >= Cadence.runMin {
+            slowCadenceSince = nil          // 달리는 중 — 창 리셋
+        } else if cadence < Cadence.walkMax {
+            if slowCadenceSince == nil { slowCadenceSince = now }
+            if now.timeIntervalSince(slowCadenceSince!) >= Cadence.walkHoldSec {
+                enterAutoPause(reason: cadence < 0.5 ? "정지" : "걷기")
+            }
+        }
+        // 중립대 (walkMax ~ runMin): 아주 느린 조깅 — 창 유지도 리셋도 하지 않는다.
+    }
+
+    private func enterAutoPause(reason: String) {
+        session?.pause()
+        isAutoPaused = true
+        stepsAtAutoPause = pedometerSteps
+        slowCadenceSince = nil
+        runCadenceSince = nil
+        // UI 프로세스가 죽었다 복원돼도 "자동정지였음" 을 알아야 재개 감시가 다시 붙는다.
+        UserDefaults.standard.set(true, forKey: "wasAutoPaused")
+        WKInterfaceDevice.current().play(.stop)
+        speak(reason == "걷기" ? "걷기 감지. 잠시 멈출게요." : "자동 일시정지. 다시 움직이면 이어서 잴게요.")
+    }
+
+    private func resumeFromAutoPause() {
+        isAutoPaused = false
+        slowCadenceSince = nil
+        runCadenceSince = nil
+        UserDefaults.standard.removeObject(forKey: "wasAutoPaused")
+        lastDistanceChangeAt = Date()
+        lastDistanceForStall = distanceMeters
+        session?.resume()
+        WKInterfaceDevice.current().play(.start)
+        speak("다시 시작합니다. 같이 가요.")
+    }
+
+    /// 거리 기반 폴백 — pedometer 미가용/미승인 기기 전용. 케이던스가 살아 있으면
+    /// 걷기·정지 판정은 evaluateCadence 가 전담하고 여기서는 무장 추적만 한다.
     private func checkStall() {
         guard phase == .active else { return }
         if distanceMeters - lastDistanceForStall >= 3 {
@@ -271,20 +359,13 @@ final class WorkoutManager: NSObject, ObservableObject {
             hasMovedThisSession = true
             return
         }
-        // 출발 전 미무장: GPS 콜드스타트에서 거리 0 이 길어지는 건 정상 — 오정지 금지.
-        guard hasMovedThisSession else { return }
+        guard hasMovedThisSession, !isAutoPaused else { return }
+        // 케이던스를 신뢰할 수 있으면 정지 판정은 그쪽 몫 (걷기까지 잡는다).
+        if measuredCadence(now: Date()) != nil { return }
         // 스텝 거부권: 몸이 움직이는 중엔 거리가 멈춰도 정지하지 않는다 (터널·GPS 기아 오정지 차단).
         if let lastStep = lastStepChangeAt, Date().timeIntervalSince(lastStep) < 5 { return }
         if Date().timeIntervalSince(lastDistanceChangeAt) >= 15 {
-            // 자동 일시정지 (폰 엔진과 동일 컨셉)
-            session?.pause()
-            isAutoPaused = true
-            stepsAtAutoPause = pedometerSteps
-            // 2026-08-06 (리뷰 P1): UI 프로세스가 죽었다 복원돼도 "자동정지였음" 을 알아야
-            // 12보 자동재개 감시가 다시 붙는다 (없으면 paused 로만 복원돼 영구 정지).
-            UserDefaults.standard.set(true, forKey: "wasAutoPaused")
-            WKInterfaceDevice.current().play(.stop)
-            speak("자동 일시정지. 다시 움직이면 이어서 잴게요.")
+            enterAutoPause(reason: "정지")
         }
     }
 

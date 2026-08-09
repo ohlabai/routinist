@@ -39,6 +39,12 @@ import java.util.Locale
  */
 object WorkoutManager {
 
+    // 걷기 감지 임계값 — iOS(RunSessionPlugin)·애플워치(WorkoutManager.swift) 와 동일 값.
+    private const val WALK_CADENCE_MAX_SPM = 132.0   // 미만이 12초 지속 = 걷기/정지
+    private const val RUN_CADENCE_MIN_SPM = 150.0    // 이상 = 달리는 중
+    private const val WALK_HOLD_MS = 12_000L
+    private const val RESUME_HOLD_MS = 3_000L
+
     enum class Phase { IDLE, REQUESTING, COUNTDOWN, ACTIVE, PAUSED, AUTO_PAUSED, ENDED }
 
     /** 목표 — 거리(m) 또는 시간(초). 둘 다 null 이면 자유 러닝. */
@@ -105,6 +111,14 @@ object WorkoutManager {
     @Volatile private var runStartWallMs: Long = 0
     @Volatile private var pausedAccumMs: Long = 0
     @Volatile private var pauseStartMs: Long = 0
+
+    // ── 케이던스 기반 걷기 감지 (2026-08-09, iOS·애플워치와 동일 임계값) ──────
+    // 속도로는 걷기(4~5km/h)와 초보 조깅(7~8분/km)이 겹쳐 임계값을 못 잡는다.
+    // 케이던스는 걷기 100~125spm / 달리기 150~180spm 로 갈라진다. 중립대는 완충.
+    private var slowCadenceSinceMs = 0L
+    private var runCadenceSinceMs = 0L
+    /// 우리가 "걷기" 로 멈춘 상태 — 네이티브 AUTO_PAUSED 와 구분해 재개를 우리가 소유한다.
+    private var walkPaused = false
     private var ticker: Job? = null
 
     // GPS 경로 [[lat, lng, alt, epochMs], ...]
@@ -248,6 +262,9 @@ object WorkoutManager {
         avgHrSum = 0.0; avgHrCount = 0
         pausedAccumMs = 0
         pauseStartMs = 0
+        slowCadenceSinceMs = 0L
+        runCadenceSinceMs = 0L
+        walkPaused = false
         startMs = System.currentTimeMillis()
         loadMaxHr()
         _state.value = _state.value.copy(goalAchieved = false, lastSplitSecPerKm = null, hrSamples = emptyList())
@@ -261,6 +278,9 @@ object WorkoutManager {
                 DataType.LOCATION,
                 DataType.DISTANCE_TOTAL,
                 DataType.CALORIES_TOTAL,
+                // 2026-08-09: 걷기 감지용 케이던스 (hans "힘들어서 걸었는데 정지 안 됨").
+                // 네이티브 자동정지는 "완전 정지" 만 잡아 걷기는 러닝 시간에 계속 포함됐다.
+                DataType.STEPS_PER_MINUTE,
             ),
             // v3: 자동 일시정지 — Health Services 네이티브 감지 (신호 대기 등).
             // 상태 전이는 reflectState 의 AUTO_PAUSED 처리로 음성·타이머 보정.
@@ -301,6 +321,12 @@ object WorkoutManager {
 
     fun togglePause() {
         val client = exerciseClient ?: return
+        // 사용자가 직접 조작하면 걷기 감지 소유권을 놓는다 — 안 그러면 수동 재개 직후
+        // 걷기 판정이 남아 있어 다시 멈추거나, USER_PAUSED 반영이 walkPaused 에 막힌다.
+        val wasWalkPaused = walkPaused
+        walkPaused = false
+        slowCadenceSinceMs = 0L
+        runCadenceSinceMs = 0L
         scope.launch {
             runCatching {
                 when (_state.value.phase) {
@@ -308,7 +334,7 @@ object WorkoutManager {
                     Phase.PAUSED, Phase.AUTO_PAUSED -> client.resumeExerciseAsync().await()
                     else -> {}
                 }
-            }
+            }.onFailure { walkPaused = wasWalkPaused }
         }
     }
 
@@ -365,6 +391,10 @@ object WorkoutManager {
                 route.add(doubleArrayOf(loc.latitude, loc.longitude, loc.altitude ?: 0.0, now.toDouble()))
             }
 
+            m.getData(DataType.STEPS_PER_MINUTE).lastOrNull()?.let {
+                evaluateCadence(it.value.toDouble(), now)
+            }
+
             announceKmIfNeeded()
             checkGoal()   // 거리 목표는 거리 갱신에서 판정
             reflectState(update.exerciseStateInfo.state)
@@ -396,6 +426,41 @@ object WorkoutManager {
         }
     }
 
+    /** 케이던스(spm)로 걷기/달리기를 갈라 자동정지·재개를 구동. iOS·애플워치와 동일 임계값. */
+    private fun evaluateCadence(spm: Double, nowMs: Long) {
+        if (walkPaused) {
+            // 걷는 동안엔 재개하지 않는다 — "다시 뛰기 시작" 만 재개 조건 (발진 차단).
+            if (spm >= RUN_CADENCE_MIN_SPM) {
+                if (runCadenceSinceMs == 0L) runCadenceSinceMs = nowMs
+                if (nowMs - runCadenceSinceMs >= RESUME_HOLD_MS) {
+                    walkPaused = false
+                    runCadenceSinceMs = 0L
+                    slowCadenceSinceMs = 0L
+                    exerciseClient?.let { c -> scope.launch { runCatching { c.resumeExerciseAsync().await() } } }
+                }
+            } else {
+                runCadenceSinceMs = 0L
+            }
+            return
+        }
+        if (_state.value.phase != Phase.ACTIVE) return
+        if (spm >= RUN_CADENCE_MIN_SPM) {
+            slowCadenceSinceMs = 0L
+        } else if (spm < WALK_CADENCE_MAX_SPM) {
+            if (slowCadenceSinceMs == 0L) slowCadenceSinceMs = nowMs
+            if (nowMs - slowCadenceSinceMs >= WALK_HOLD_MS) {
+                walkPaused = true
+                slowCadenceSinceMs = 0L
+                pauseStartMs = nowMs
+                haptic(150)
+                speak("걷기 감지. 잠시 멈출게요.")
+                _state.value = _state.value.copy(phase = Phase.AUTO_PAUSED)
+                exerciseClient?.let { c -> scope.launch { runCatching { c.pauseExerciseAsync().await() } } }
+            }
+        }
+        // 중립대 (132~150spm): 아주 느린 조깅 — 어느 쪽도 카운트하지 않는다.
+    }
+
     private fun reflectState(exState: ExerciseState) {
         val cur = _state.value.phase
         when {
@@ -409,6 +474,8 @@ object WorkoutManager {
                 }
             }
             exState == ExerciseState.USER_PAUSED -> {
+                // 걷기 감지로 우리가 건 정지는 화면상 '자동 일시정지' 로 유지 (재개도 우리 소유).
+                if (walkPaused) return
                 if (cur == Phase.ACTIVE || cur == Phase.AUTO_PAUSED) {
                     if (pauseStartMs == 0L) pauseStartMs = System.currentTimeMillis()
                     _state.value = _state.value.copy(phase = Phase.PAUSED)
