@@ -87,7 +87,9 @@ export default function DashboardPage() {
     // 기존 유저는 display_name/total_runs 게이트에서 걸러지므로 키 마이그레이션 불필요.
     const dismissed = typeof window !== 'undefined' && user
       && localStorage.getItem(`onboarding_done:${user.id}`);
-    if (!dismissed && profile && profile.display_name === '러너' && profile.total_runs === 0) {
+    // 2026-08-09: display_name 휴리스틱 → onboarded_at 플래그. 구 게이트는 OAuth name 이
+    // display_name 에 들어가는 Google 가입자(실측 61%)를 통째로 건너뛰었다.
+    if (!dismissed && profile && !profile.onboarded_at) {
       setShowOnboarding(true);
     }
   }, [profile, user]);

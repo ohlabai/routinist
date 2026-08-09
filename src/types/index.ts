@@ -99,6 +99,8 @@ export interface Profile {
   // build 156: 이달 캐시 — activities 도착 전 즉시 표시. activity trigger 가 자동 갱신.
   this_month_distance_km?: number;
   this_month_runs?: number;
+  /** 온보딩 완료 시각. NULL 이면 앱이 온보딩을 띄운다 (2026-08-09). */
+  onboarded_at?: string | null;
   this_month_updated_at?: string | null;
   // build 198: 러닝 코치 (AI) opt-in. weight/max_hr/resting_hr 는 본인만 보임 (랭킹·비교 X).
   weight_kg?: number | null;

@@ -7,19 +7,25 @@ import AppLogo from '@/components/AppLogo';
 import { Target, MapPin, ChevronRight } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
 import { useDisplayNameCheck } from '@/lib/useDisplayNameCheck';
+import { KR_REGIONS } from '@/lib/regions';
+import { useI18n } from '@/lib/i18n';
 import DisplayNameStatusHint from '@/components/DisplayNameStatusHint';
 
 interface OnboardingProps {
   onComplete: () => void;
 }
 
-const REGIONS = ['강남구','강동구','강북구','강서구','관악구','광진구','구로구','금천구','노원구','도봉구','동대문구','동작구','마포구','서대문구','서초구','성동구','성북구','송파구','양천구','영등포구','용산구','은평구','종로구','중구','중랑구'];
+// 2026-08-09: 서울 25개 구 하드코딩 → 전국 (KR_REGIONS). 부산·경기 유저가 자기 지역을
+// 고를 수 없어 '서울특별시' 로 강제 저장되던 문제. 시/도 선택 후 구/군을 고르는 2단계.
+const SIDO_LIST = Object.keys(KR_REGIONS);
 
 export default function Onboarding({ onComplete }: OnboardingProps) {
   const { user, profile, refreshProfile } = useAuth();
+  const { tt } = useI18n();
   const [step, setStep] = useState(0);
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
   const [goalKm, setGoalKm] = useState(30);
+  const [regionSi, setRegionSi] = useState('');
   const [regionGu, setRegionGu] = useState('');
   const [saving, setSaving] = useState(false);
   // 본인 row 는 trigger 로 이미 만들어져있음 → 본인 id 제외해서 검증
@@ -33,9 +39,13 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
 
       const supabase = getSupabase();
       // 지역 설정
-      if (regionGu) {
-        await supabase.from('profiles').update({ region_si: '서울특별시', region_gu: regionGu }).eq('id', user.id);
+      // 온보딩 완료 표시 — 지역을 건너뛰어도 반드시 기록한다 (재노출 방지).
+      const patch: Record<string, unknown> = { onboarded_at: new Date().toISOString() };
+      if (regionSi) {
+        patch.region_si = regionSi;
+        patch.region_gu = regionGu || null;
       }
+      await supabase.from('profiles').update(patch).eq('id', user.id);
 
       // 월간 목표 설정
       const now = new Date();
@@ -136,22 +146,46 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     <div key="region">
       <div className="flex items-center gap-2 mb-2">
         <MapPin size={20} className="text-[var(--accent)]" />
-        <h2 className="text-xl font-bold text-[var(--foreground)]">어디서 달리시나요?</h2>
+        <h2 className="text-xl font-bold text-[var(--foreground)]">{tt('어디서 달리시나요?')}</h2>
       </div>
-      <p className="text-xs text-[var(--muted)] mb-6">지역 랭킹에 참여할 수 있어요 (선택사항)</p>
-      <div className="grid grid-cols-3 gap-2 mb-6 max-h-48 overflow-y-auto">
-        {REGIONS.map((gu) => (
+      <p className="text-xs text-[var(--muted)] mb-4">
+        {regionSi ? tt('시·군·구를 골라주세요 (선택)') : tt('지역 랭킹에 참여할 수 있어요 (선택사항)')}
+      </p>
+      {!regionSi ? (
+        <div className="grid grid-cols-2 gap-2 mb-6 max-h-56 overflow-y-auto">
+          {SIDO_LIST.map((si) => (
+            <button
+              key={si}
+              onClick={() => setRegionSi(si)}
+              className="py-2.5 rounded-lg text-sm font-semibold bg-[var(--card)] border border-[var(--card-border)] text-[var(--foreground)] transition-all"
+            >
+              {si}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <>
           <button
-            key={gu}
-            onClick={() => setRegionGu(regionGu === gu ? '' : gu)}
-            className={`py-2 rounded-lg text-sm font-semibold transition-all ${
-              regionGu === gu ? 'bg-[var(--accent)] text-white' : 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--foreground)]'
-            }`}
+            onClick={() => { setRegionSi(''); setRegionGu(''); }}
+            className="text-xs text-[var(--accent)] font-semibold mb-2"
           >
-            {gu}
+            ← {regionSi}
           </button>
-        ))}
-      </div>
+          <div className="grid grid-cols-3 gap-2 mb-6 max-h-48 overflow-y-auto">
+            {(KR_REGIONS[regionSi] ?? []).map((gu) => (
+              <button
+                key={gu}
+                onClick={() => setRegionGu(regionGu === gu ? '' : gu)}
+                className={`py-2 rounded-lg text-sm font-semibold transition-all ${
+                  regionGu === gu ? 'bg-[var(--accent)] text-white' : 'bg-[var(--card)] border border-[var(--card-border)] text-[var(--foreground)]'
+                }`}
+              >
+                {gu}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
       <button
         onClick={handleFinish}
         disabled={saving}

@@ -223,6 +223,12 @@ export type TranslationKey =
   | 'rankingHero.starExample'
   | 'rankingHero.toTop10'
   | 'rankingHero.peopleSlash'
+  | 'rankingHero.outOfTotal'
+  | 'rankingHero.vsDay'
+  | 'rankingHero.vsWeek'
+  | 'rankingHero.vsMonth'
+  | 'rankingHero.trendTitle'
+  | 'rankingHero.trendBest'
   | 'rankingHero.viewAll'
   | 'rankingHero.regionTitle'
   | 'rankingHero.regionSub'
@@ -560,6 +566,12 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'rankingHero.starExample': '예: 같은 동네에선 1위라도, 전 세계 기준에서는 순위가 달라질 수 있어요.',
     'rankingHero.toTop10': 'TOP 10 까지 {km}km',
     'rankingHero.peopleSlash': '/ {n}명',
+    'rankingHero.outOfTotal': '총 {total}명 중 {rank}등',
+    'rankingHero.vsDay': '어제',
+    'rankingHero.vsWeek': '지난주',
+    'rankingHero.vsMonth': '지난달',
+    'rankingHero.trendTitle': '순위 변화',
+    'rankingHero.trendBest': '최고 {rank}등',
     'rankingHero.viewAll': '전체 보기',
     'rankingHero.regionTitle': '우리 동네 TOP 10',
     'rankingHero.regionSub': '같은 구 러너끼리',
@@ -895,6 +907,12 @@ const DICT: Record<Locale, Record<TranslationKey, string>> = {
     'rankingHero.starExample': 'e.g. You might be #1 in your neighborhood but ranked differently worldwide.',
     'rankingHero.toTop10': '{km}km to TOP 10',
     'rankingHero.peopleSlash': '/ {n} people',
+    'rankingHero.outOfTotal': '{rank} of {total} runners',
+    'rankingHero.vsDay': 'vs yesterday',
+    'rankingHero.vsWeek': 'vs last week',
+    'rankingHero.vsMonth': 'vs last month',
+    'rankingHero.trendTitle': 'Rank trend',
+    'rankingHero.trendBest': 'Best #{rank}',
     'rankingHero.viewAll': 'View all',
     'rankingHero.regionTitle': 'My area TOP 10',
     'rankingHero.regionSub': 'Same district',

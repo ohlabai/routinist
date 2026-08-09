@@ -54,6 +54,84 @@ const UNIFIED_STYLE = {
   medalShadow: 'shadow-[0_8px_24px_-4px_rgba(16,185,129,0.4)]',
 };
 
+interface RankPoint {
+  date: string;
+  rank: number;
+  deltaDay: number | null;
+  deltaWeek: number | null;
+  deltaMonth: number | null;
+}
+
+/** 전일/전주/전월 대비 등락 배지 (2026-08-09 hans 요청).
+ *  delta = 이전 순위 - 현재 순위 → 양수면 상승. 변동 없거나 비교 기록이 없으면 숨긴다. */
+function RankDeltaBadges({ history, t, accent }: {
+  history: RankPoint[]; t: (k: TranslationKey) => string; accent: string;
+}) {
+  const last = history.length ? history[history.length - 1] : null;
+  if (!last) return null;
+  const items: { key: string; label: string; delta: number }[] = [];
+  if (last.deltaDay) items.push({ key: 'd', label: t('rankingHero.vsDay'), delta: last.deltaDay });
+  if (last.deltaWeek) items.push({ key: 'w', label: t('rankingHero.vsWeek'), delta: last.deltaWeek });
+  if (last.deltaMonth) items.push({ key: 'm', label: t('rankingHero.vsMonth'), delta: last.deltaMonth });
+  if (!items.length) return null;
+  return (
+    <div className="flex flex-col gap-0.5 items-start">
+      {items.map((it) => {
+        const up = it.delta > 0;
+        return (
+          <div key={it.key} className="flex items-center gap-1 whitespace-nowrap">
+            <span className="text-[10px] font-bold text-[var(--muted)]">{it.label}</span>
+            <span className={`text-[11px] font-extrabold tabular-nums ${up ? accent : 'text-rose-500 dark:text-rose-400'}`}>
+              {up ? '▲' : '▼'}{Math.abs(it.delta)}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** 최근 순위 추이 스파크라인. 순위는 낮을수록 좋으므로 y 를 뒤집어 그린다
+ *  (위로 갈수록 상위권). 점이 2개 미만이면 그리지 않는다. */
+function RankSparkline({ history, t }: { history: RankPoint[]; t: (k: TranslationKey) => string }) {
+  if (history.length < 2) return null;
+  const W = 260, H = 44, PAD = 4;
+  const ranks = history.map(h => h.rank);
+  const best = Math.min(...ranks);          // 가장 좋은(작은) 순위
+  const worst = Math.max(...ranks);
+  const span = Math.max(worst - best, 1);
+  const pts = history.map((h, i) => {
+    const x = PAD + (i * (W - PAD * 2)) / (history.length - 1);
+    // rank 가 작을수록 위 → (rank - best) 비율만큼 아래로.
+    const y = PAD + ((h.rank - best) / span) * (H - PAD * 2);
+    return [x, y] as const;
+  });
+  const d = pts.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+  const area = `${d} L${pts[pts.length - 1][0].toFixed(1)},${H} L${pts[0][0].toFixed(1)},${H} Z`;
+  const lastPt = pts[pts.length - 1];
+  return (
+    <div className="mt-4">
+      <div className="flex items-center justify-between mb-1 px-0.5">
+        <span className="text-[11px] font-bold text-[var(--muted)]">{t('rankingHero.trendTitle')}</span>
+        <span className="text-[11px] font-bold text-[var(--muted)] tabular-nums">
+          {t('rankingHero.trendBest').replace('{rank}', String(best))}
+        </span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: H }} preserveAspectRatio="none" aria-hidden>
+        <defs>
+          <linearGradient id="rankTrendFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgb(16,185,129)" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="rgb(16,185,129)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={area} fill="url(#rankTrendFill)" />
+        <path d={d} fill="none" stroke="rgb(16,185,129)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx={lastPt[0]} cy={lastPt[1]} r="3.5" fill="rgb(16,185,129)" />
+      </svg>
+    </div>
+  );
+}
+
 export default function HomeRankingHero() {
   const { user, profile } = useAuth();
   const { t, locale } = useI18n();
@@ -68,6 +146,8 @@ export default function HomeRankingHero() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
+  // 랭킹 변동 (2026-08-09) — 최근 14일 시계열 + 전일/전주/전월 대비 등락
+  const [history, setHistory] = useState<RankPoint[]>([]);
   // build 208 #3: /ranking 탭과 필터 공유. 변경되면 즉시 재호출.
   const [filters, setFilters] = useState<RankingFilters>(() => readRankingFilters());
 
@@ -146,6 +226,25 @@ export default function HomeRankingHero() {
         setRank(value);
         dataCache.set(cacheKey, value);
         logClientInfo('HomeRankingHero', 'RPC ok', { ms: Date.now() - t0, hasRow: !!row, axis, filterKey });
+
+        // 2026-08-09: 오늘 순위를 하루 1행으로 적재 → 변동 그래프·등락 배지의 원천.
+        // 이미 계산해서 받은 값을 그대로 넘기므로 추가 집계 비용이 없다. 실패해도 무시.
+        if (value && value.rank_position > 0) {
+          void supabase.rpc('record_rank_snapshot', {
+            p_axis: axis, p_rank: value.rank_position,
+            p_total: value.total_in_scope, p_km: value.my_km,
+          }).then(() => supabase.rpc('get_rank_history', { p_axis: axis, p_days: 14 }))
+            .then(({ data: h }) => {
+              if (cancelled || !Array.isArray(h)) return;
+              setHistory(h.map((r: Record<string, unknown>) => ({
+                date: String(r.snapshot_date),
+                rank: Number(r.rank_position) || 0,
+                deltaDay: r.delta_day == null ? null : Number(r.delta_day),
+                deltaWeek: r.delta_week == null ? null : Number(r.delta_week),
+                deltaMonth: r.delta_month == null ? null : Number(r.delta_month),
+              })));
+            }, () => {});
+        }
       } catch (e) {
         const reason = e instanceof Error ? e.message : String(e);
         logClientWarn('HomeRankingHero', 'RPC fail', { reason, ms: Date.now() - t0, axis, hasCached });
@@ -317,36 +416,45 @@ export default function HomeRankingHero() {
             <div className="flex items-center justify-center gap-2">
               <Crown size={32} className={`${style.accent} drop-shadow`} strokeWidth={2.5} />
               <span
-                className={`leading-[0.85] font-extrabold tracking-tighter tabular-nums ${style.numberText}`}
-                style={{ fontSize: '128px' }}
+                className={`leading-[0.9] font-extrabold tracking-tighter tabular-nums ${style.numberText}`}
+                style={{ fontSize: '80px' }}
               >
                 1
               </span>
-              <span className="text-3xl font-extrabold text-[var(--foreground)] self-end pb-2">{rankSuffix(1, locale)}</span>
+              <span className="text-2xl font-extrabold text-[var(--foreground)] self-end pb-2">{rankSuffix(1, locale)}</span>
+              <RankDeltaBadges history={history} t={t} accent={style.accent} />
             </div>
             <p className={`text-sm font-extrabold ${style.accent} mt-1`}>{t('homeHero.holdSpot')}</p>
+            <p className="mt-0.5 text-[13px] text-[var(--muted)] font-bold">
+              {t('rankingHero.outOfTotal')
+                .replace('{total}', rank.total_in_scope.toLocaleString())
+                .replace('{rank}', '1')}
+            </p>
           </div>
         ) : (
-          // 2위 이하 — 기존 압축형 (메달은 top3 만, 숫자 + 위)
+          // 2위 이하 — 2026-08-09 hans: 숫자 축소(96→64px) + "총 N명 중 M등" 로 문맥 제공.
           <>
             <div className="flex items-center justify-center gap-3">
               {isTop3 && (
-                <div className={`w-14 h-14 rounded-2xl ${style.medalBg} ${style.medalShadow} flex items-center justify-center flex-shrink-0`}>
-                  <span className="text-2xl drop-shadow-sm">{tier.icon}</span>
+                <div className={`w-12 h-12 rounded-2xl ${style.medalBg} ${style.medalShadow} flex items-center justify-center flex-shrink-0`}>
+                  <span className="text-xl drop-shadow-sm">{tier.icon}</span>
                 </div>
               )}
               <div className="flex items-baseline">
                 <span
-                  className={`leading-[0.85] font-extrabold tracking-tighter tabular-nums ${style.numberText}`}
-                  style={{ fontSize: '96px' }}
+                  className={`leading-[0.9] font-extrabold tracking-tighter tabular-nums ${style.numberText}`}
+                  style={{ fontSize: '64px' }}
                 >
                   {rank.rank_position}
                 </span>
-                <span className="text-3xl font-extrabold text-[var(--foreground)] ml-1">{rankSuffix(rank.rank_position, locale)}</span>
+                <span className="text-2xl font-extrabold text-[var(--foreground)] ml-1">{rankSuffix(rank.rank_position, locale)}</span>
               </div>
+              <RankDeltaBadges history={history} t={t} accent={style.accent} />
             </div>
-            <p className="mt-1 text-xs text-[var(--muted)] font-bold">
-              {t('rankingHero.peopleSlash').replace('{n}', rank.total_in_scope.toLocaleString())}
+            <p className="mt-1 text-[13px] text-[var(--muted)] font-bold">
+              {t('rankingHero.outOfTotal')
+                .replace('{total}', rank.total_in_scope.toLocaleString())
+                .replace('{rank}', rank.rank_position.toLocaleString())}
             </p>
           </>
         )}
@@ -373,6 +481,8 @@ export default function HomeRankingHero() {
             </div>
           </div>
         )}
+
+        <RankSparkline history={history} t={t} />
 
         {!isTopRank && (
           <div className="mt-3 flex items-center justify-center gap-1 text-xs font-bold text-[var(--muted)]">
