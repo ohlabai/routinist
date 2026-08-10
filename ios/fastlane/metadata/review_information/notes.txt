@@ -1,91 +1,30 @@
-[Korean] / [English below]
+Review guide (v1.2.18 build 349)
 
-== 한국어 ==
+1. Sign in: use the demo account above, or Sign in with Apple.
 
-심사 가이드 (v1.2.18 build 348):
+2. Guideline 1.2 (UGC) — response to the Aug 5, 2026 rejection (Submission b8addbe4). All five required precautions are implemented:
+- EULA: users must check an explicit consent checkbox on the sign-in screen before signing in or registering; sign-in is blocked until consent. Terms Article 5 states a zero-tolerance policy for objectionable content and abusive users (https://routinist.kr/terms).
+- Filtering: all user-generated text (comments, direct messages, quotes, club names, profile names/bios) must pass a server-side objectionable-word filter before being stored.
+- Flagging: report buttons with reason categories on every UGC surface — photos, photo comments, activity comments, quotes, user profiles, direct messages.
+- Blocking: available from the photo report dialog, user profiles, and chat. Blocking instantly removes the blocked user's content from the blocker's feed (enforced server-side), prevents further messages, and automatically notifies our operations team.
+- 24-hour response: every report/block immediately pushes a notification to our operations team; the admin console removes the content and can delete the offending account. The 24-hour commitment is stated in our Terms.
 
-0. Guideline 1.2 (UGC) 대응 — 2026-08-05 거절 건 (Submission b8addbe4)
-요구된 예방장치 5종을 모두 구현했으며, 실기기 녹화 3종:
-- 녹화 1 (로그인 전 EULA 동의 강제): https://linkabdqhnzanmbmwyzp.supabase.co/storage/v1/object/public/review-assets/apple-1-2/1-eula-agreement.mp4
-- 녹화 2 (불쾌 콘텐츠 신고): https://linkabdqhnzanmbmwyzp.supabase.co/storage/v1/object/public/review-assets/apple-1-2/2-report-content.mp4
-- 녹화 3 (악성 사용자 차단 — 피드에서 즉시 제거): https://linkabdqhnzanmbmwyzp.supabase.co/storage/v1/object/public/review-assets/apple-1-2/3-block-user.mp4
-상세: 아래 4번 항목.
+Screen recordings on a physical iPhone:
+- EULA before login: https://linkabdqhnzanmbmwyzp.supabase.co/storage/v1/object/public/review-assets/apple-1-2/1-eula-agreement.mp4
+- Flagging content: https://linkabdqhnzanmbmwyzp.supabase.co/storage/v1/object/public/review-assets/apple-1-2/2-report-content.mp4
+- Blocking a user (content removed instantly): https://linkabdqhnzanmbmwyzp.supabase.co/storage/v1/object/public/review-assets/apple-1-2/3-block-user.mp4
 
-1. 로그인
-- 데모 계정으로 이메일 로그인 (위 demo_user / demo_password)
-- 또는 Sign in with Apple 새 계정 가능 (로그인 화면 → "Apple로 로그인")
+3. Background audio (re: prior 2.5.4 review): UIBackgroundModes "audio" is used solely for TTS voice coaching during an active GPS run. Start a run (Home > Start), lock the device, and move — distance/pace cues play in the background every km; stopping plays an "auto-paused" cue, moving again plays "resumed". The app does NOT activate an audio session when merely launched.
 
-2. 백그라운드 오디오 시연 (이전 심사 2.5.4 관련 — 약속드린 확인 방법)
-UIBackgroundModes 의 "audio" 는 GPS 러닝 트래킹 중 음성 코칭(TTS) 전용입니다. 확인 절차:
-- 홈 상단 "달리기 시작" 버튼 → 위치 권한 허용 → START
-- 시작 직후 홈 화면으로 나가거나 화면을 잠급니다 (러닝은 계속 기록됨)
-- 이동을 시작하면 (실기기 기준) 1km 마다 거리·페이스 음성 안내가 백그라운드에서 재생됩니다
-- 멈춰 서면 "자동 일시정지", 다시 움직이면 "재개" 음성이 백그라운드에서 재생됩니다
-- 실내 심사 환경에서는 GPS 이동이 없어 1km 안내가 어려울 수 있으나, 자동 일시정지/재개 음성은 짧은 이동만으로 확인 가능합니다
-- 앱을 실행만 한 상태(트래킹 미시작)에서는 오디오 세션을 활성화하지 않습니다
+4. HealthKit (2.5.1 resolution, unchanged): "Apple Health Connected" chip with Sync button at the top of Home after sign-in; full card under My Info > Health App Connect. NSHealthShareUsageDescription lists the data read (distance, duration, calories, heart rate, pace) and purposes (statistics, personal bests, ranking).
 
-3. HealthKit UI (2.5.1 해결 유지)
-- 로그인 직후 홈 최상단에 "Apple Health 연동" 칩 + "동기화" 버튼
-- 내 정보 → "건강 앱 연동" 에서 연동 카드 + 진행률
-- NSHealthShareUsageDescription 에 읽는 데이터(거리·시간·칼로리·심박·페이스)와 용도(통계·개인 최고 기록·랭킹) 명시
+5. Account deletion: My Info > "Delete account" > warning > type confirmation > permanent erase.
 
-4. UGC 안전장치 (Guideline 1.2 — v1.2.18 에서 전면 구현)
-- EULA 동의: 로그인/가입 화면에서 이용약관 동의 체크박스 필수 — 미체크 시 진행 불가. 약관 제5조에 불쾌 콘텐츠·악성 사용자 무관용(zero tolerance) 명시 (https://routinist.kr/terms)
-- 콘텐츠 필터링: 모든 텍스트 UGC(댓글·쪽지·명언·클럽명·프로필)는 서버측 금칙어 필터를 통과해야 저장됨
-- 신고: 사진·포토댓글·활동댓글·명언·프로필·쪽지 전 표면에 신고 버튼 (사유 선택)
-- 차단: 사진 신고 다이얼로그·프로필·쪽지에서 차단 가능. 차단 즉시 해당 사용자 콘텐츠가 피드에서 제거되고(서버 강제) 쪽지 수신 차단, 운영팀에 자동 접수됨
-- 24시간 조치: 신고·차단 발생 시 운영팀 4명에게 즉시 푸시 통보 → 어드민 콘솔에서 콘텐츠 제거·계정 삭제. 약관에 24시간 내 조치 명시
-- 계정 탈퇴: 내 정보 하단 "계정 탈퇴" → 경고 → "탈퇴" 입력 → 영구 삭제
+6. Mileage / Shop: mileage is auto-earned from running distance and spent only on physical running goods in the in-app shop (My Info > Shop). No digital goods or subscriptions, so IAP is not required (3.1.1 physical-goods exception; payments via Toss Payments PG).
 
-5. 마일리지 / 쇼핑
-- 마일리지는 러닝 거리에서 자동 적립. 사용처는 앱 내 쇼핑(피지컬 러닝 굿즈 전용, 내 정보 → 쇼핑)
-- 디지털 콘텐츠·구독 없음 → IAP 의무 아님 (3.1.1 피지컬 굿즈 예외, 결제는 PG 토스페이먼츠)
-
-6. 권한
-- HealthKit / 위치(GPS 트래킹·지역 랭킹) / 사진(포토 업로드·공유카드 저장) / 카메라(포토 촬영) / 알림(응원·리포트)
-
-== English ==
-
-Review guide (v1.2.18 build 348):
-
-0. Guideline 1.2 (UGC) response — re: rejection on Aug 5, 2026 (Submission b8addbe4)
-All five required precautions are implemented. Screen recordings captured on a physical iPhone:
-- Recording 1 (EULA agreement required before login): https://linkabdqhnzanmbmwyzp.supabase.co/storage/v1/object/public/review-assets/apple-1-2/1-eula-agreement.mp4
-- Recording 2 (flagging objectionable content): https://linkabdqhnzanmbmwyzp.supabase.co/storage/v1/object/public/review-assets/apple-1-2/2-report-content.mp4
-- Recording 3 (blocking an abusive user — content removed from feed instantly): https://linkabdqhnzanmbmwyzp.supabase.co/storage/v1/object/public/review-assets/apple-1-2/3-block-user.mp4
-Details in section 4 below.
-
-1. Sign in
-- Use the demo account above (demo_user / demo_password)
-- Or Sign in with Apple to create a new account
-
-2. Background audio demonstration (re: prior 2.5.4 review — as promised)
-UIBackgroundModes "audio" is used solely for TTS voice coaching during an active GPS run. To verify:
-- Home → "Start Running" button → allow Location → START
-- Immediately go to the Home Screen or lock the device (the run keeps recording)
-- While moving (on a real device), distance/pace voice cues play in the background at every km
-- When you stop moving, an "auto-paused" voice cue plays in the background; moving again plays "resumed"
-- In an indoor review environment the 1km cue may be hard to trigger, but the auto-pause/resume cues can be verified with just a short walk
-- The app does NOT activate an audio session when merely launched (tracking not started)
-
-3. HealthKit UI (2.5.1 resolution, unchanged)
-- Persistent "Apple Health Connected" chip with a "Sync" button at the top of Home right after sign-in
-- My Info → "Health App Connect" for the full card with progress
-- NSHealthShareUsageDescription lists the data we read (distance, duration, calories, heart rate, pace) and purposes (statistics, personal bests, ranking)
-
-4. UGC precautions (Guideline 1.2 — fully implemented in v1.2.18)
-- EULA agreement: users must check an explicit consent checkbox on the sign-in/registration screen; sign-in is blocked until consent. Terms Article 5 states a zero-tolerance policy for objectionable content and abusive users (https://routinist.kr/terms)
-- Content filtering: all user-generated text (comments, direct messages, quotes, club names, profile names/bios) must pass a server-side objectionable-word filter before being stored
-- Flagging: report buttons on every UGC surface — photos, photo comments, activity comments, quotes, user profiles, and direct messages (with reason categories)
-- Blocking: available from the photo report dialog, user profiles, and chat. Blocking instantly removes the blocked user's content from the blocker's feed (enforced server-side), prevents further messages, and automatically notifies the operations team (developer notification)
-- 24-hour response: every report/block immediately sends push notifications to our 4-person operations team; the admin console removes the content and can delete the offending account. The 24-hour commitment is stated in our Terms
-- Account deletion: My Info → "Delete account" → warning → type confirmation → permanent erase
-
-5. Mileage / Shop
-- Mileage auto-earned from running distance. Spent only in the in-app shop (physical running goods only, My Info → Shop)
-- No digital goods or subscriptions → IAP not required (3.1.1 physical-goods exception; payments via Toss Payments PG)
-
-6. Permissions
-- HealthKit / Location (GPS tracking, regional ranking) / Photo Library (photo upload, share-card save) / Camera (photo capture) / Notifications (cheers, reports)
+7. Permissions: HealthKit / Location (GPS tracking, regional ranking) / Photo Library (photo upload, share-card save) / Camera (photo capture) / Notifications (cheers, reports).
 
 Contact: hans@openhan.kr
+
+== 한국어 요약 ==
+가이드라인 1.2 대응: EULA 동의 체크박스(미체크 시 로그인 불가), 서버측 금칙어 필터, 전 UGC 표면 신고 버튼, 차단 시 피드 즉시 제거+운영팀 자동 통보, 신고 24시간 내 조치. 실기기 녹화 3종은 위 링크 참조.

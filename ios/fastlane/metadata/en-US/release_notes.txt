@@ -1,13 +1,19 @@
-v1.2.17 — Smarter auto-pause
+v1.2.18 — A safer community and richer rankings
 
-[Run tracking]
-• Fixed auto-pause kicking in mid-run — we now watch your body's motion too, so weak GPS spots (tall buildings, tunnels) won't stop your run while you're moving.
-• Fixed the watch too — no more pause/resume loop while GPS locks on right after you start.
-• Pocketing your phone during the start countdown no longer prevents recording.
-• It pauses only when you actually stop, and picks right back up when you run again.
+[Community safety]
+• Report inappropriate content anywhere — comments, messages, and profiles. Our team acts within 24 hours.
+• Blocking a user instantly removes their photos, comments, and messages from your feed.
+• Profanity and hateful language are filtered automatically before posting.
 
-[Share card]
-• Monthly run count now counts runs of 3 km or more — short strolls won't inflate the number.
+[Ranking]
+• See how your rank moved at a glance — a new trend graph plus day/week change badges.
+• "Ranked M out of N" makes your position clearer.
 
-[More]
-• Polish and stability improvements.
+[Running]
+• Auto-pause responds more accurately when you start walking (iPhone and Apple Watch).
+• Fixed the Health permission sheet reappearing on every run start on Apple Watch.
+
+[And more]
+• The weekly streak card now describes last week more accurately.
+• Onboarding now offers every region in Korea.
+• Small polish and stability improvements.
