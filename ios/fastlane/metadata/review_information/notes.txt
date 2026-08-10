@@ -2,7 +2,14 @@
 
 == 한국어 ==
 
-심사 가이드 (v1.2.8 build 298):
+심사 가이드 (v1.2.18 build 348):
+
+0. Guideline 1.2 (UGC) 대응 — 2026-08-05 거절 건 (Submission b8addbe4)
+요구된 예방장치 5종을 모두 구현했으며, 실기기 녹화 3종:
+- 녹화 1 (로그인 전 EULA 동의 강제): https://linkabdqhnzanmbmwyzp.supabase.co/storage/v1/object/public/review-assets/apple-1-2/1-eula-agreement.mp4
+- 녹화 2 (불쾌 콘텐츠 신고): https://linkabdqhnzanmbmwyzp.supabase.co/storage/v1/object/public/review-assets/apple-1-2/2-report-content.mp4
+- 녹화 3 (악성 사용자 차단 — 피드에서 즉시 제거): https://linkabdqhnzanmbmwyzp.supabase.co/storage/v1/object/public/review-assets/apple-1-2/3-block-user.mp4
+상세: 아래 4번 항목.
 
 1. 로그인
 - 데모 계정으로 이메일 로그인 (위 demo_user / demo_password)
@@ -22,10 +29,13 @@ UIBackgroundModes 의 "audio" 는 GPS 러닝 트래킹 중 음성 코칭(TTS) �
 - 내 정보 → "건강 앱 연동" 에서 연동 카드 + 진행률
 - NSHealthShareUsageDescription 에 읽는 데이터(거리·시간·칼로리·심박·페이스)와 용도(통계·개인 최고 기록·랭킹) 명시
 
-4. 계정/UGC (유지)
+4. UGC 안전장치 (Guideline 1.2 — v1.2.18 에서 전면 구현)
+- EULA 동의: 로그인/가입 화면에서 이용약관 동의 체크박스 필수 — 미체크 시 진행 불가. 약관 제5조에 불쾌 콘텐츠·악성 사용자 무관용(zero tolerance) 명시 (https://routinist.kr/terms)
+- 콘텐츠 필터링: 모든 텍스트 UGC(댓글·쪽지·명언·클럽명·프로필)는 서버측 금칙어 필터를 통과해야 저장됨
+- 신고: 사진·포토댓글·활동댓글·명언·프로필·쪽지 전 표면에 신고 버튼 (사유 선택)
+- 차단: 사진 신고 다이얼로그·프로필·쪽지에서 차단 가능. 차단 즉시 해당 사용자 콘텐츠가 피드에서 제거되고(서버 강제) 쪽지 수신 차단, 운영팀에 자동 접수됨
+- 24시간 조치: 신고·차단 발생 시 운영팀 4명에게 즉시 푸시 통보 → 어드민 콘솔에서 콘텐츠 제거·계정 삭제. 약관에 24시간 내 조치 명시
 - 계정 탈퇴: 내 정보 하단 "계정 탈퇴" → 경고 → "탈퇴" 입력 → 영구 삭제
-- 사진 신고: 타인 포토 → ⋯ → "신고" (사유 선택, 24h 내 검토) / 본인 포토 삭제: ⋯ → "삭제"
-- 이용약관·개인정보처리방침: 내 정보 및 가입 화면 하단
 
 5. 마일리지 / 쇼핑
 - 마일리지는 러닝 거리에서 자동 적립. 사용처는 앱 내 쇼핑(피지컬 러닝 굿즈 전용, 내 정보 → 쇼핑)
@@ -36,7 +46,14 @@ UIBackgroundModes 의 "audio" 는 GPS 러닝 트래킹 중 음성 코칭(TTS) �
 
 == English ==
 
-Review guide (v1.2.8 build 298):
+Review guide (v1.2.18 build 348):
+
+0. Guideline 1.2 (UGC) response — re: rejection on Aug 5, 2026 (Submission b8addbe4)
+All five required precautions are implemented. Screen recordings captured on a physical iPhone:
+- Recording 1 (EULA agreement required before login): https://linkabdqhnzanmbmwyzp.supabase.co/storage/v1/object/public/review-assets/apple-1-2/1-eula-agreement.mp4
+- Recording 2 (flagging objectionable content): https://linkabdqhnzanmbmwyzp.supabase.co/storage/v1/object/public/review-assets/apple-1-2/2-report-content.mp4
+- Recording 3 (blocking an abusive user — content removed from feed instantly): https://linkabdqhnzanmbmwyzp.supabase.co/storage/v1/object/public/review-assets/apple-1-2/3-block-user.mp4
+Details in section 4 below.
 
 1. Sign in
 - Use the demo account above (demo_user / demo_password)
@@ -56,10 +73,13 @@ UIBackgroundModes "audio" is used solely for TTS voice coaching during an active
 - My Info → "Health App Connect" for the full card with progress
 - NSHealthShareUsageDescription lists the data we read (distance, duration, calories, heart rate, pace) and purposes (statistics, personal bests, ranking)
 
-4. Account / UGC (unchanged)
+4. UGC precautions (Guideline 1.2 — fully implemented in v1.2.18)
+- EULA agreement: users must check an explicit consent checkbox on the sign-in/registration screen; sign-in is blocked until consent. Terms Article 5 states a zero-tolerance policy for objectionable content and abusive users (https://routinist.kr/terms)
+- Content filtering: all user-generated text (comments, direct messages, quotes, club names, profile names/bios) must pass a server-side objectionable-word filter before being stored
+- Flagging: report buttons on every UGC surface — photos, photo comments, activity comments, quotes, user profiles, and direct messages (with reason categories)
+- Blocking: available from the photo report dialog, user profiles, and chat. Blocking instantly removes the blocked user's content from the blocker's feed (enforced server-side), prevents further messages, and automatically notifies the operations team (developer notification)
+- 24-hour response: every report/block immediately sends push notifications to our 4-person operations team; the admin console removes the content and can delete the offending account. The 24-hour commitment is stated in our Terms
 - Account deletion: My Info → "Delete account" → warning → type confirmation → permanent erase
-- Photo reporting: other user's photo → ⋯ → "Report" (reason options, reviewed within 24h) / own photo deletion via ⋯ → "Delete"
-- Terms of Service and Privacy Policy: My Info and sign-in screen footer
 
 5. Mileage / Shop
 - Mileage auto-earned from running distance. Spent only in the in-app shop (physical running goods only, My Info → Shop)
