@@ -26,9 +26,11 @@ const SECTIONS_KO: { title: string; items: string[] }[] = [
     '서비스를 영리 목적의 광고/스팸에 사용할 수 없습니다.',
     '비밀번호와 계정 보안은 사용자가 직접 관리해야 합니다.',
   ]},
-  { title: '제5조 (콘텐츠 신고 및 제재)', items: [
-    '부적절한 콘텐츠는 앱 내 신고 기능으로 알릴 수 있으며, 운영팀이 24시간 안에 검토·조치합니다.',
-    '신고 누적, 약관 위반 시 콘텐츠 삭제 또는 계정 이용이 제한될 수 있습니다.',
+  { title: '제5조 (콘텐츠 신고 및 제재 — 무관용 원칙)', items: [
+    'Routinist 는 불쾌감을 주는 콘텐츠와 악성 사용자에 대해 무관용(zero tolerance) 원칙을 적용합니다.',
+    '부적절한 콘텐츠는 앱 내 신고 기능으로 알릴 수 있으며, 운영팀이 24시간 안에 검토하여 해당 콘텐츠를 삭제하고 게시자를 제재합니다.',
+    '욕설·성적·혐오 콘텐츠, 괴롭힘 등 약관 위반 시 사전 경고 없이 콘텐츠 삭제 및 계정 영구 정지(추방)될 수 있습니다.',
+    '다른 사용자를 차단하면 그 사용자의 콘텐츠가 내 피드에서 즉시 사라지며, 차단 사실은 운영팀에 자동 접수됩니다.',
   ]},
   { title: '제6조 (마일리지)', items: [
     '마일리지는 러닝 거리(1km = 10P)에 따라 자동 적립되며 현금 환불은 되지 않습니다.',
@@ -73,9 +75,11 @@ const SECTIONS_EN: { title: string; items: string[] }[] = [
     'You may not use the Service for commercial advertising or spam.',
     'You are responsible for managing your password and account security.',
   ]},
-  { title: 'Article 5 (Content Reports and Sanctions)', items: [
-    'Inappropriate content can be reported via the in-app report feature; the operations team reviews and acts within 24 hours.',
-    'Accumulated reports or Terms violations may result in content removal or account restriction.',
+  { title: 'Article 5 (Content Reports and Sanctions — Zero Tolerance)', items: [
+    'Routinist applies a zero-tolerance policy toward objectionable content and abusive users.',
+    'Inappropriate content can be reported via the in-app report feature; the operations team reviews within 24 hours, removes the content, and sanctions the poster.',
+    'Profanity, sexual or hateful content, and harassment may result in immediate content removal and permanent account suspension (ejection) without prior warning.',
+    'Blocking another user instantly removes their content from your feed, and the block is automatically reported to the operations team.',
   ]},
   { title: 'Article 6 (Mileage)', items: [
     'Mileage is auto-credited based on running distance (1km = 10P) and is not refundable to cash.',

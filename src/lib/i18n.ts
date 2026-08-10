@@ -2061,6 +2061,13 @@ const EXTRAS_EN: Record<string, string> = {
 '차단 실패': 'Block failed',
 '이미 신고하신 사진이에요': "You've already reported this photo",
 '신고 실패': 'Report failed',
+// UGC 안전장치 (Apple 1.2 재제출, 2026-08-10)
+'이용약관 동의가 필요해요. 아래 체크박스를 확인해주세요.': 'Please agree to the Terms of Service — check the box below.',
+'댓글 신고': 'Report comment',
+'사용자 신고': 'Report user',
+'이 사용자 신고하기': 'Report this user',
+'메시지를 보낼 수 없는 상대예요.': 'You can no longer message this user.',
+'사용할 수 없는 단어가 포함되어 있어요.': 'This text contains words that are not allowed.',
 '사진을 삭제했어요': 'Photo deleted',
 '사진 크게 보기': 'View photo',
 '좋아요': 'Like',

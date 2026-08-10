@@ -3,11 +3,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { fetchComments, addComment, deleteComment } from '@/lib/comment-data';
-import { Send, Trash2 } from 'lucide-react';
+import { Send, Trash2, Flag } from 'lucide-react';
 import Link from 'next/link';
 import type { ActivityComment } from '@/types';
 import AppLogo from '@/components/AppLogo';
 import CheerButton from '@/components/social/CheerButton';
+import AppToast from '@/components/AppToast';
+import ReportDialog from '@/components/ReportDialog';
+import { moderationError } from '@/lib/moderation';
 
 interface CommentSectionProps {
   activityId: string;
@@ -19,6 +22,9 @@ export default function CommentSection({ activityId, activityOwnerId }: CommentS
   const [comments, setComments] = useState<ActivityComment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [sending, setSending] = useState(false);
+  // Apple 1.2: 타인 댓글 신고
+  const [reportTarget, setReportTarget] = useState<ActivityComment | null>(null);
+  const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
 
   const loadData = useCallback(async () => {
     setComments(await fetchComments(activityId));
@@ -28,13 +34,23 @@ export default function CommentSection({ activityId, activityOwnerId }: CommentS
 
   const handleSubmit = async () => {
     if (!newComment.trim() || sending) return;
+    // 클라 1차 금칙어 필터 — 서버 트리거 (is_clean_text) 가 최종 방어선
+    const modErr = moderationError(newComment);
+    if (modErr) {
+      setToast({ text: modErr, tone: 'warn' });
+      return;
+    }
     setSending(true);
     try {
       const comment = await addComment(activityId, newComment.trim());
       setComments((prev) => [...prev, comment]);
       setNewComment('');
-    } catch {
-      // ignore
+    } catch (e) {
+      const msg = typeof e === 'object' && e !== null && 'message' in e ? String((e as { message: unknown }).message) : '';
+      setToast({
+        text: msg.includes('objectionable') ? '사용할 수 없는 단어가 포함되어 있어요.' : '댓글 등록에 실패했어요. 잠시 후 다시 시도해주세요',
+        tone: 'warn',
+      });
     } finally {
       setSending(false);
     }
@@ -91,9 +107,14 @@ export default function CommentSection({ activityId, activityOwnerId }: CommentS
                     {comment.profile?.display_name ?? '러너'}
                   </Link>
                   <span className="text-xs text-[var(--muted)]">{formatTime(comment.created_at)}</span>
-                  {comment.user_id === user?.id && (
+                  {comment.user_id === user?.id ? (
                     <button onClick={() => handleDelete(comment.id)} className="text-[var(--muted)] hover:text-red-500 ml-auto">
                       <Trash2 size={12} />
+                    </button>
+                  ) : (
+                    // Apple 1.2: 타인 댓글 신고 진입점
+                    <button onClick={() => setReportTarget(comment)} aria-label="신고" className="text-[var(--muted)] hover:text-amber-500 ml-auto">
+                      <Flag size={12} />
                     </button>
                   )}
                 </div>
@@ -123,6 +144,18 @@ export default function CommentSection({ activityId, activityOwnerId }: CommentS
           <Send size={18} />
         </button>
       </div>
+
+      {reportTarget && (
+        <ReportDialog
+          targetType="activity_comment"
+          targetId={reportTarget.id}
+          title="댓글 신고"
+          detail={reportTarget.body.slice(0, 200)}
+          onClose={() => setReportTarget(null)}
+          onDone={(ok, message) => setToast({ text: message, tone: ok ? 'ok' : 'warn' })}
+        />
+      )}
+      {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2500} />}
     </div>
   );
 }

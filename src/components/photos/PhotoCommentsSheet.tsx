@@ -6,7 +6,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { X, Send, Trash2, MessageCircle, UserCircle2 } from 'lucide-react';
+import { X, Send, Trash2, MessageCircle, UserCircle2, Flag } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import {
   fetchPhotoComments,
@@ -16,6 +16,8 @@ import {
 } from '@/lib/photo-comments';
 import AppToast from '@/components/AppToast';
 import { useI18n } from '@/lib/i18n';
+import { moderationError } from '@/lib/moderation';
+import ReportDialog from '@/components/ReportDialog';
 
 interface Props {
   photoId: string;
@@ -52,6 +54,8 @@ export default function PhotoCommentsSheet({ photoId, onClose, onCountChange }: 
   const [body, setBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
+  // Apple 1.2: 타인 댓글 신고 (사유 선택 다이얼로그)
+  const [reportTarget, setReportTarget] = useState<PhotoComment | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -83,6 +87,12 @@ export default function PhotoCommentsSheet({ photoId, onClose, onCountChange }: 
     if (!trimmed) return;
     if (!user) {
       setToast({ text: tt('로그인이 필요해요'), tone: 'warn' });
+      return;
+    }
+    // 클라 1차 금칙어 필터 — 서버 트리거 (is_clean_text) 가 최종 방어선
+    const modErr = moderationError(trimmed, locale === 'en' ? 'en' : 'ko');
+    if (modErr) {
+      setToast({ text: modErr, tone: 'warn' });
       return;
     }
     setSubmitting(true);
@@ -200,13 +210,22 @@ export default function PhotoCommentsSheet({ photoId, onClose, onCountChange }: 
                         {c.body}
                       </p>
                     </div>
-                    {isMine && (
+                    {isMine ? (
                       <button
                         onClick={() => handleDelete(c.id)}
                         aria-label={tt('삭제')}
                         className="w-7 h-7 rounded-full flex items-center justify-center text-[var(--muted)] hover:text-rose-500 active:scale-90 transition flex-shrink-0"
                       >
                         <Trash2 size={13} />
+                      </button>
+                    ) : (
+                      // Apple 1.2: 타인 댓글 신고 진입점
+                      <button
+                        onClick={() => setReportTarget(c)}
+                        aria-label={tt('신고')}
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-[var(--muted)] hover:text-amber-500 active:scale-90 transition flex-shrink-0"
+                      >
+                        <Flag size={13} />
                       </button>
                     )}
                   </li>
@@ -250,6 +269,17 @@ export default function PhotoCommentsSheet({ photoId, onClose, onCountChange }: 
           <p className="text-[12px] text-[var(--muted)] mt-1 text-right">{body.length}/500</p>
         </div>
       </div>
+
+      {reportTarget && (
+        <ReportDialog
+          targetType="photo_comment"
+          targetId={reportTarget.id}
+          title={tt('댓글 신고')}
+          detail={reportTarget.body.slice(0, 200)}
+          onClose={() => setReportTarget(null)}
+          onDone={(ok, message) => setToast({ text: message, tone: ok ? 'ok' : 'warn' })}
+        />
+      )}
 
       {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2500} />}
     </div>

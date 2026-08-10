@@ -7,7 +7,9 @@ import { fetchMessages, sendMessage, markAsRead, getOrCreateConversation, blockU
 import { requestBadgeRefresh } from '@/lib/notifications-data';
 import { getSupabase } from '@/lib/supabase';
 import { PUBLIC_PROFILE_FIELDS } from '@/lib/profile-fields';
-import { ArrowLeft, Send, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, Send, ShieldAlert, Flag } from 'lucide-react';
+import ReportDialog from '@/components/ReportDialog';
+import AppToast from '@/components/AppToast';
 import Link from 'next/link';
 import type { Message, Profile } from '@/types';
 import AppLogo from '@/components/AppLogo';
@@ -115,8 +117,19 @@ function ChatView() {
   }, [conversationId, user]);
 
   const [sendError, setSendError] = useState<string | null>(null);
+  // Apple 1.2: 대화 상대 신고
+  const [showReport, setShowReport] = useState(false);
+  const [reportToast, setReportToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
   const handleSend = async () => {
     if (!newMessage.trim() || !conversationId || sending) return;
+    // 클라 1차 금칙어 필터 — 서버 트리거 (is_clean_text) 가 최종 방어선
+    const { moderationError } = await import('@/lib/moderation');
+    const modErr = moderationError(newMessage, locale === 'en' ? 'en' : 'ko');
+    if (modErr) {
+      setSendError(modErr);
+      setTimeout(() => setSendError(null), 3500);
+      return;
+    }
     setSending(true);
     setSendError(null);
     try {
@@ -124,7 +137,13 @@ function ChatView() {
       setNewMessage('');
     } catch (e) {
       logClientWarn('chat', 'sendMessage 실패', { conversationId, err: String(e) });
-      setSendError(tt('전송 실패. 네트워크 확인 후 다시 시도해주세요.'));
+      const msg = String(e);
+      setSendError(
+        msg.includes('objectionable') ? tt('사용할 수 없는 단어가 포함되어 있어요.')
+        : msg.includes('row-level security') || msg.includes('violates')
+          ? tt('메시지를 보낼 수 없는 상대예요.')
+          : tt('전송 실패. 네트워크 확인 후 다시 시도해주세요.')
+      );
       setTimeout(() => setSendError(null), 3500);
     } finally {
       setSending(false);
@@ -175,6 +194,17 @@ function ChatView() {
             {otherUser?.display_name ?? tt('러너')}
           </span>
         </Link>
+        {/* Apple 1.2: 대화 상대 신고 (2026-08-10) */}
+        {otherUser && (
+          <button
+            onClick={() => setShowReport(true)}
+            className="p-2 text-[var(--muted)] active:opacity-60"
+            aria-label={tt('신고')}
+            title={tt('신고')}
+          >
+            <Flag size={19} />
+          </button>
+        )}
         {/* build 290: 차단 (Apple 1.2) — 차단 후 대화 목록으로 복귀 (목록에서 자동 숨김) */}
         {otherUser && (
           <button
@@ -256,6 +286,20 @@ function ChatView() {
           </button>
         </div>
       </div>
+
+      {showReport && otherUser && (
+        <ReportDialog
+          targetType="user"
+          targetId={otherUser.id}
+          title={tt('사용자 신고')}
+          detail={conversationId ? `대화: ${conversationId}` : undefined}
+          onClose={() => setShowReport(false)}
+          onDone={(ok, message) => setReportToast({ text: message, tone: ok ? 'ok' : 'warn' })}
+        />
+      )}
+      {reportToast && (
+        <AppToast text={reportToast.text} tone={reportToast.tone} onClose={() => setReportToast(null)} durationMs={2500} />
+      )}
     </div>
   );
 }

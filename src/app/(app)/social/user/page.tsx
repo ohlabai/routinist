@@ -30,6 +30,7 @@ import type { Profile } from '@/types';
 import AppLogo from '@/components/AppLogo';
 import AppToast from '@/components/AppToast';
 import GenderBadge from '@/components/profile/GenderBadge';
+import ReportDialog from '@/components/ReportDialog';
 import AchievementsCard from '@/components/profile/AchievementsCard';
 import { logClientWarn } from '@/lib/error-logger';
 import { daysAgoStr, toLocalMonthStr, toLocalDateStr } from '@/lib/kst';
@@ -166,6 +167,8 @@ function UserProfileContent() {
   // build 290: 차단 상태 (Apple 1.2 — 사용자 차단 진입점)
   const [blockedByMe, setBlockedByMe] = useState(false);
   const [blockToggling, setBlockToggling] = useState(false);
+  // Apple 1.2: 사용자 신고 다이얼로그
+  const [showReportUser, setShowReportUser] = useState(false);
 
   // 2026-08-03 hans 프로필 개선: 받은 응원 ❤️ + 함께 아는 친구/같은 클럽
   const [cheerCounts, setCheerCounts] = useState<ReceivedCheerCounts | null>(null);
@@ -718,15 +721,38 @@ function UserProfileContent() {
       )}
 
       {/* build 290: 차단/해제 (Apple 1.2) — 2026-08-03 hans: 액션 그리드 아래에서 페이지
-          최하단으로 이동. 응원·챗 흐름 한가운데 부정 액션이 끼어 있던 것을 정리. */}
+          최하단으로 이동. 응원·챗 흐름 한가운데 부정 액션이 끼어 있던 것을 정리.
+          2026-08-10: 사용자 신고 진입점 추가 (심사 1.2 — flag mechanism 은 유저 대상도 필요) */}
       {user && !isMe && (
-        <button
-          onClick={handleBlockToggle}
-          disabled={blockToggling}
-          className="w-full py-2 text-xs font-semibold text-rose-500/80 disabled:opacity-50 active:opacity-70 transition"
-        >
-          {blockedByMe ? tt('차단 해제하기') : tt('이 사용자 차단하기')}
-        </button>
+        <div className="flex items-center justify-center gap-4">
+          <button
+            onClick={() => setShowReportUser(true)}
+            className="py-2 text-xs font-semibold text-amber-600/80 active:opacity-70 transition"
+          >
+            {tt('이 사용자 신고하기')}
+          </button>
+          <span className="text-[var(--card-border)]">·</span>
+          <button
+            onClick={handleBlockToggle}
+            disabled={blockToggling}
+            className="py-2 text-xs font-semibold text-rose-500/80 disabled:opacity-50 active:opacity-70 transition"
+          >
+            {blockedByMe ? tt('차단 해제하기') : tt('이 사용자 차단하기')}
+          </button>
+        </div>
+      )}
+
+      {showReportUser && (
+        <ReportDialog
+          targetType="user"
+          targetId={userId}
+          title={tt('사용자 신고')}
+          detail={profile?.display_name ? `대상: ${profile.display_name}` : undefined}
+          onClose={() => setShowReportUser(false)}
+          onDone={(ok, message) => setToast({ text: message, tone: ok ? 'ok' : 'warn' })}
+          blockLabel={blockedByMe ? undefined : tt('이 사용자 차단하기')}
+          onBlock={blockedByMe ? undefined : handleBlockToggle}
+        />
       )}
 
       {toast && <AppToast text={toast.text} tone={toast.tone} onClose={() => setToast(null)} durationMs={2500} />}

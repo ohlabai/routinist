@@ -17,6 +17,8 @@ const REASON_LABEL: Record<string, string> = {
   inappropriate: '부적절',
   spam: '스팸',
   harassment: '괴롭힘',
+  copyright: '저작권',
+  block: '차단 (자동)',
   other: '기타',
 };
 
@@ -24,6 +26,11 @@ const TARGET_LABEL: Record<string, string> = {
   photo: '사진',
   user: '사용자',
   message: '쪽지',
+  quote: '명언',
+  feedback: '제안',
+  photo_comment: '포토 댓글',
+  activity_comment: '활동 댓글',
+  club: '클럽',
 };
 
 interface Report {
@@ -37,6 +44,13 @@ interface Report {
   created_at: string;
 }
 
+/** 신고 대상 콘텐츠 미리보기 — UUID 만으론 24시간 내 판단 불가 (2026-08-10 감사 G11) */
+interface Preview {
+  text?: string;
+  imageUrl?: string;
+  authorId?: string;
+}
+
 export default function AdminReportsPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -46,6 +60,7 @@ export default function AdminReportsPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
   const [filter, setFilter] = useState<'open' | 'reviewed' | 'removed'>('open');
+  const [previews, setPreviews] = useState<Record<string, Preview>>({});
 
   useEffect(() => {
     if (authLoading) return;
@@ -66,13 +81,54 @@ export default function AdminReportsPage() {
         .order('created_at', { ascending: false })
         .limit(100);
       if (error) throw error;
-      setReports((data ?? []) as Report[]);
+      const rows = (data ?? []) as Report[];
+      setReports(rows);
+      void loadPreviews(rows);
     } catch (e) {
       console.warn('[admin/reports] load 실패', e);
     } finally {
       setLoading(false);
     }
   }, [isAdmin, filter]);
+
+  // 대상 콘텐츠 미리보기 배치 로드 — 타입별로 IN 쿼리 1회씩
+  const loadPreviews = async (rows: Report[]) => {
+    const supabase = getSupabase();
+    const byType = (t: string) => rows.filter(r => r.target_type === t).map(r => r.target_id);
+    const next: Record<string, Preview> = {};
+    const key = (t: string, id: string) => `${t}:${id}`;
+    try {
+      const photoIds = byType('photo');
+      if (photoIds.length) {
+        const { data } = await supabase.from('activity_photos')
+          .select('id, photo_url, caption, user_id').in('id', photoIds);
+        data?.forEach(p => { next[key('photo', p.id)] = { imageUrl: p.photo_url, text: p.caption ?? undefined, authorId: p.user_id }; });
+      }
+      const pcIds = byType('photo_comment');
+      if (pcIds.length) {
+        const { data } = await supabase.from('photo_comments').select('id, body, user_id').in('id', pcIds);
+        data?.forEach(c => { next[key('photo_comment', c.id)] = { text: c.body, authorId: c.user_id }; });
+      }
+      const acIds = byType('activity_comment');
+      if (acIds.length) {
+        const { data } = await supabase.from('activity_comments').select('id, body, user_id').in('id', acIds);
+        data?.forEach(c => { next[key('activity_comment', c.id)] = { text: c.body, authorId: c.user_id }; });
+      }
+      const quoteIds = byType('quote').filter(id => /^\d+$/.test(id) || id.length > 10);
+      if (quoteIds.length) {
+        const { data } = await supabase.from('quotes').select('id, text, user_id').in('id', quoteIds);
+        data?.forEach(q => { next[key('quote', String(q.id))] = { text: q.text, authorId: q.user_id ?? undefined }; });
+      }
+      const userIds = byType('user');
+      if (userIds.length) {
+        const { data } = await supabase.from('profiles').select('id, display_name, bio').in('id', userIds);
+        data?.forEach(p => { next[key('user', p.id)] = { text: [p.display_name, p.bio].filter(Boolean).join(' — '), authorId: p.id }; });
+      }
+    } catch (e) {
+      console.warn('[admin/reports] preview 로드 실패', e);
+    }
+    setPreviews(next);
+  };
 
   useEffect(() => { load(); }, [load]);
 
@@ -96,17 +152,38 @@ export default function AdminReportsPage() {
   };
 
   // photo 신고일 때 해당 사진 hide (실제 삭제는 admin 이 별도 결정)
+  // 2026-08-10: .select() 로 실제 갱신 행 검증 — 이전엔 UPDATE RLS 정책 부재로 0행 갱신이
+  // 조용히 성공 토스트를 띄웠다 (감사 G18). 마이그로 정책 추가 + 여기선 결과 확인.
   const hidePhoto = async (photoId: string, reportId: string) => {
     setBusy(reportId);
     try {
       const supabase = getSupabase();
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('activity_photos')
         .update({ share_in_gallery: false })
-        .eq('id', photoId);
+        .eq('id', photoId)
+        .select('id');
       if (error) throw error;
+      if (!data || data.length === 0) throw new Error('갱신된 행이 없어요 — RLS/대상 확인 필요');
       await updateStatus(reportId, 'removed');
       setToast({ text: '사진 비공개 처리 + 신고 닫음', tone: 'ok' });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '실패';
+      setToast({ text: msg, tone: 'warn' });
+      setBusy(null);
+    }
+  };
+
+  // 신고된 댓글 삭제 (photo_comment / activity_comment) — RLS delete 에 is_shop_admin 포함
+  const deleteComment = async (table: 'photo_comments' | 'activity_comments', commentId: string, reportId: string) => {
+    setBusy(reportId);
+    try {
+      const supabase = getSupabase();
+      const { data, error } = await supabase.from(table).delete().eq('id', commentId).select('id');
+      if (error) throw error;
+      if (!data || data.length === 0) throw new Error('삭제된 행이 없어요 — 이미 삭제됐거나 RLS 확인 필요');
+      await updateStatus(reportId, 'removed');
+      setToast({ text: '댓글 삭제 + 신고 닫음', tone: 'ok' });
     } catch (e) {
       const msg = e instanceof Error ? e.message : '실패';
       setToast({ text: msg, tone: 'warn' });
@@ -184,6 +261,27 @@ export default function AdminReportsPage() {
                     {r.detail}
                   </p>
                 )}
+                {/* 대상 콘텐츠 미리보기 — 어드민이 내용을 보고 판단 (G11) */}
+                {(() => {
+                  const pv = previews[`${r.target_type}:${r.target_id}`];
+                  if (!pv) return null;
+                  return (
+                    <div className="mb-2 rounded-lg border border-amber-200/60 dark:border-amber-800/40 bg-amber-50/50 dark:bg-amber-950/20 p-2">
+                      {pv.imageUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={pv.imageUrl} alt="" className="w-full max-h-40 object-cover rounded-md mb-1.5" />
+                      )}
+                      {pv.text && (
+                        <p className="text-xs text-[var(--foreground)] whitespace-pre-wrap break-words">{pv.text}</p>
+                      )}
+                      {pv.authorId && (
+                        <Link href={`/admin/users/detail?id=${pv.authorId}`} className="text-[12px] font-semibold text-emerald-700 dark:text-emerald-400 underline">
+                          작성자 상세 (정지/삭제) →
+                        </Link>
+                      )}
+                    </div>
+                  );
+                })()}
                 <p className="text-[12px] text-[var(--muted)] font-mono mb-3 break-all">
                   ID: {r.target_id}
                 </p>
@@ -204,6 +302,26 @@ export default function AdminReportsPage() {
                       >
                         <EyeOff size={12} /> 사진 비공개
                       </button>
+                    )}
+                    {(r.target_type === 'photo_comment' || r.target_type === 'activity_comment') && (
+                      <button
+                        onClick={() => deleteComment(
+                          r.target_type === 'photo_comment' ? 'photo_comments' : 'activity_comments',
+                          r.target_id, r.id,
+                        )}
+                        disabled={busy === r.id}
+                        className="flex-1 py-2 rounded-xl bg-amber-500 text-white text-xs font-bold disabled:opacity-50 inline-flex items-center justify-center gap-1"
+                      >
+                        <EyeOff size={12} /> 댓글 삭제
+                      </button>
+                    )}
+                    {r.target_type === 'user' && (
+                      <Link
+                        href={`/admin/users/detail?id=${r.target_id}`}
+                        className="flex-1 py-2 rounded-xl bg-amber-500 text-white text-xs font-bold inline-flex items-center justify-center gap-1"
+                      >
+                        회원 상세
+                      </Link>
                     )}
                     <button
                       onClick={() => updateStatus(r.id, 'removed')}

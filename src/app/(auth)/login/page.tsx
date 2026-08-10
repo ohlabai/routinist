@@ -32,6 +32,10 @@ export default function LoginPage() {
   const displayNameCheck = useDisplayNameCheck(displayName);
   const [showDebug, setShowDebug] = useState(false);
   const [debugLog, setDebugLog] = useState('');
+  // Apple 1.2 (UGC): 명시적 EULA 동의 — 체크 전에는 로그인/가입 진행 불가.
+  // 이전의 "시작하면 동의로 간주" 수동 문구는 심사 거절 사유 (2026-08-05 rejection).
+  const [agreedTerms, setAgreedTerms] = useState(false);
+  const [termsNudge, setTermsNudge] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -100,6 +104,11 @@ export default function LoginPage() {
   };
 
   const handleSocialLogin = async (provider: Provider) => {
+    if (!agreedTerms) {
+      setTermsNudge(true);
+      setError(tt('이용약관 동의가 필요해요. 아래 체크박스를 확인해주세요.'));
+      return;
+    }
     setError(null);
     setInfo(null);
     setLoadingProvider(provider);
@@ -126,6 +135,11 @@ export default function LoginPage() {
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!agreedTerms) {
+      setTermsNudge(true);
+      setError(tt('이용약관 동의가 필요해요. 아래 체크박스를 확인해주세요.'));
+      return;
+    }
     setError(null);
     setInfo(null);
     setLoadingProvider('email');
@@ -456,33 +470,53 @@ export default function LoginPage() {
         </Link>
       </div>
 
-      <p className="mt-8 text-sm text-gray-500 text-center max-w-xs relative z-10">
-        {locale === 'en' ? (
-          <>
-            By continuing, you agree to our{' '}
-            <Link href="/terms" className="underline font-semibold text-emerald-700">
-              Terms of Service
-            </Link>
-            {' '}and{' '}
-            <Link href="/privacy" className="underline font-semibold text-emerald-700">
-              Privacy Policy
-            </Link>
-            .
-          </>
-        ) : (
-          <>
-            시작하면{' '}
-            <Link href="/terms" className="underline font-semibold text-emerald-700">
-              이용약관
-            </Link>
-            과{' '}
-            <Link href="/privacy" className="underline font-semibold text-emerald-700">
-              개인정보처리방침
-            </Link>
-            에 동의하는 것으로 간주합니다.
-          </>
-        )}
-      </p>
+      {/* Apple 1.2: 명시적 EULA 동의 체크박스 — 무관용 정책 명시. 체크 전 로그인/가입 차단 */}
+      <label
+        className={`mt-8 flex items-start gap-2.5 max-w-xs relative z-10 cursor-pointer select-none rounded-xl px-3 py-2.5 border transition ${
+          termsNudge && !agreedTerms
+            ? 'border-red-400 bg-red-50/90'
+            : 'border-emerald-200/60 bg-white/60'
+        }`}
+      >
+        <input
+          type="checkbox"
+          checked={agreedTerms}
+          onChange={(e) => {
+            setAgreedTerms(e.target.checked);
+            if (e.target.checked) {
+              setTermsNudge(false);
+              setError(null);
+            }
+          }}
+          className="mt-0.5 w-4 h-4 accent-emerald-600 flex-shrink-0"
+        />
+        <span className="text-[13px] leading-snug text-gray-600 text-left">
+          {locale === 'en' ? (
+            <>
+              I agree to the{' '}
+              <Link href="/terms" onClick={(e) => e.stopPropagation()} className="underline font-semibold text-emerald-700">
+                Terms of Service
+              </Link>
+              {' '}and{' '}
+              <Link href="/privacy" onClick={(e) => e.stopPropagation()} className="underline font-semibold text-emerald-700">
+                Privacy Policy
+              </Link>
+              , including the zero-tolerance policy for objectionable content and abusive users.
+            </>
+          ) : (
+            <>
+              <Link href="/terms" onClick={(e) => e.stopPropagation()} className="underline font-semibold text-emerald-700">
+                이용약관
+              </Link>
+              과{' '}
+              <Link href="/privacy" onClick={(e) => e.stopPropagation()} className="underline font-semibold text-emerald-700">
+                개인정보처리방침
+              </Link>
+              에 동의합니다. 불쾌 콘텐츠와 악성 사용자에 대한 무관용 정책을 포함합니다.
+            </>
+          )}
+        </span>
+      </label>
     </div>
   );
 }
