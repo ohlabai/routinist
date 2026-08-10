@@ -75,7 +75,7 @@ struct StartView: View {
                 ProgressView()
             }
             if workout.authDenied {
-                Text("건강 권한이 필요해요.\n워치 설정 > 개인정보 보호 > 건강에서 허용해주세요")
+                Text("건강 권한이 필요해요.\n아이폰 건강 앱 > 공유 > 앱 > Routinist에서 모두 켜주세요\n(또는 워치 설정 > 개인정보 보호 > 건강)")
                     .font(.system(size: 14, design: .rounded))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

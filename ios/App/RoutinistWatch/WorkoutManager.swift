@@ -531,44 +531,51 @@ final class WorkoutManager: NSObject, ObservableObject {
     // v21 의 "모두 허용" 프라이머 알럿은 2026-08-03 hans 지시로 제거 —
     // "버튼만 한번 더 누르는 것 같다". 시스템 시트로 바로 진행.
 
-    /// 요청 타입 목록의 서명 — 타입이 추가/제거되면 값이 달라져 동의 시트를 다시 허용.
-    private var authTypesSignature: String {
-        (typesToShare.map(\.identifier) + typesToRead.map(\.identifier)).sorted().joined(separator: ",")
+    /// 라이브 수집에 필수인 share 타입 — 전부 허용돼야 거리·심박·칼로리 수집과 워크아웃 저장이 동작.
+    /// 경로(workoutRoute)·생년월일은 검토 시트에 행이 없어 영영 '미결정'일 수 있으므로 필수에서 제외
+    /// (미허용이어도 러닝은 기록됨 — 지도/심박존만 빠짐).
+    private var criticalShareTypes: [HKSampleType] {
+        [
+            HKObjectType.workoutType(),
+            HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning)!,
+            HKQuantityType.quantityType(forIdentifier: .heartRate)!,
+            HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)!,
+        ]
     }
-    private static let authCompletedKey = "hkAuthCompletedTypes"
+    private var criticalSharesAuthorized: Bool {
+        criticalShareTypes.allSatisfy { healthStore.authorizationStatus(for: $0) == .sharingAuthorized }
+    }
 
+    // v26 fix (2026-08-11 hans 실주행 — 거리 0.00 사고): 판정 기준 = **실제 share 권한 상태**.
+    // 이전 두 방식의 함정:
+    //  - getRequestStatusForAuthorization: 경로/생년월일이 영영 미결정이라 항상 shouldRequest → 매 러닝 시트 (v15~).
+    //  - requestAuthorization 의 ok: '요청이 처리됨'일 뿐 허용 아님 — 시트를 X 로 닫아도 true 가 와서
+    //    v25 가 완료로 기록 → 이후 영영 무권한 세션 시작 (거리·심박 0). authorizationStatus 만이 진실.
     func requestAuthorizationAndStart() {
         guard HKHealthStore.isHealthDataAvailable() else { return }
         phase = .requesting
-        // v15 fix (hans 실기기): 이미 응답한 권한인데도 시작할 때마다 동의 시트가 뜨던 문제 —
-        // "요청이 필요한 상태" 일 때만 시트를 띄우고, 아니면 바로 진행.
-        healthStore.getRequestStatusForAuthorization(toShare: typesToShare, read: typesToRead) { [weak self] status, _ in
+        authDenied = false
+        let shareStates = criticalShareTypes
+            .map { "\($0.identifier)=\(healthStore.authorizationStatus(for: $0).rawValue)" }
+            .sorted().joined(separator: " ")
+        print("[HKAuth] share[\(shareStates)]")
+
+        if criticalSharesAuthorized {
+            requestLocationThenCountdown()
+            return
+        }
+        // 미결정 타입이 있으면 시트가 뜨고, 전부 '거부' 상태면 시트 없이 바로 완료 콜백이 온다 —
+        // 어느 쪽이든 콜백 뒤 실제 권한을 다시 검사해서만 진행.
+        healthStore.requestAuthorization(toShare: typesToShare, read: typesToRead) { [weak self] _, _ in
             Task { @MainActor in
                 guard let self else { return }
-                // 진단 (2026-08-10 hans 실기기: 뛸 때마다 시트 재출현) — 어떤 share 타입이 미결정으로
-                // 남아 status 를 shouldRequest 로 고정시키는지 확인용. Xcode 콘솔에서 확인.
-                let shareStates = self.typesToShare
-                    .map { "\($0.identifier)=\(self.healthStore.authorizationStatus(for: $0).rawValue)" }
-                    .sorted().joined(separator: " ")
-                print("[HKAuth] requestStatus=\(status.rawValue) share[\(shareStates)]")
-
-                // v25 fix: 시트를 한 번 완료해도 일부 타입(경로/생년월일 등)이 워치 검토 화면에
-                // 행으로 안 나와 영영 '미결정' 으로 남으면 getRequestStatus 가 매번 shouldRequest 를
-                // 반환 → 뛸 때마다 시트. 같은 타입 목록으로 이미 완료했으면 재프롬프트하지 않는다.
-                let alreadyCompleted = UserDefaults.standard.string(forKey: Self.authCompletedKey) == self.authTypesSignature
-                if status == .unnecessary || alreadyCompleted {
+                if self.criticalSharesAuthorized {
                     self.requestLocationThenCountdown()
-                    return
-                }
-                self.healthStore.requestAuthorization(toShare: self.typesToShare, read: self.typesToRead) { [weak self] ok, _ in
-                    Task { @MainActor in
-                        guard let self else { return }
-                        if ok {
-                            // 완료 기록은 성공 시에만 — X 로 닫으면 ok=false 라 다음에 다시 요청됨.
-                            UserDefaults.standard.set(self.authTypesSignature, forKey: Self.authCompletedKey)
-                            self.requestLocationThenCountdown()
-                        } else { self.authDenied = true; self.phase = .idle }
-                    }
+                } else {
+                    // 허용 안 됨 (X 로 닫음 / 일부만 켬 / 이전에 거부) — 무권한 세션을 시작하는 대신
+                    // StartView 의 안내 문구 (워치 설정 > 개인정보 보호 > 건강) 로 유도.
+                    self.authDenied = true
+                    self.phase = .idle
                 }
             }
         }
