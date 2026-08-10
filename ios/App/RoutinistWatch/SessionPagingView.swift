@@ -20,17 +20,10 @@ struct SessionPagingView: View {
     }
 
     var body: some View {
-        // v7: watchOS 10+ 는 세로 페이징 (Apple 운동앱 문법) — 크라운으로도 페이지 전환.
-        // watchOS 9 는 기존 가로 페이징 폴백.
-        Group {
-            if #available(watchOS 10.0, *) {
-                TabView(selection: $selection) { pages }
-                    .tabViewStyle(.verticalPage)
-            } else {
-                TabView(selection: $selection) { pages }
-                    .tabViewStyle(.page)
-            }
-        }
+        // 2026-08-11 hans: 페이지 전환 = 좌우 스와이프 (건강/피트니스 앱 문법).
+        // v7 의 세로 페이징(.verticalPage) 은 폐기 — 상하 스와이프가 불편하다는 피드백.
+        TabView(selection: $selection) { pages }
+            .tabViewStyle(.page)
         // 2026-08-02 hans: 다시 달리기 (수동·자동 재개) 후 컨트롤에 머물지 말고
         // 기록 화면으로 — 달리기 시작했으면 보이는 건 메트릭이어야 한다.
         // (watchOS 9 타겟: onChange 는 1-param 형만)
