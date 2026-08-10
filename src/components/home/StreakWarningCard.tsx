@@ -57,14 +57,19 @@ export default function StreakWarningCard({
     thisWeekRunDays >= goal ||
     [...(freezeUses ?? [])].some(d => d >= thisWeekStart);
 
-  // 구출 모드: 지난주가 통째로 비어 스트릭이 죽었을 때, 보호권으로 지난주를 메꾸면 살아나는 스트릭.
+  // 구출 모드: 지난주가 목표 미달로 스트릭이 죽었을 때, 보호권으로 지난주를 메꾸면 살아나는 스트릭.
   // use_streak_freeze 는 어제/그제까지만 허용 → 지난주에 속하는 가장 최근 spendable 날짜를 찾는다.
+  // 2026-08-10 hans 실기기: RPC 는 그날 러닝이 이미 있으면 already_covered 로 거절한다 —
+  // 어제 달렸으면 어제는 못 쓰고 그제를 골라야 함. 러닝 있는 날·이미 freeze 쓴 날은 후보에서 제외.
+  const runDates = useMemo(
+    () => new Set(runningOnly(activities).map(a => a.activity_date)),
+    [activities],
+  );
+  const spendable = (d: string) =>
+    d >= lastWeekStart && d < thisWeekStart && !runDates.has(d) && !(freezeUses?.has(d));
   const yesterday = daysAgoStr(1);
   const dayBefore = daysAgoStr(2);
-  const rescueDate =
-    yesterday >= lastWeekStart && yesterday < thisWeekStart ? yesterday
-    : dayBefore >= lastWeekStart && dayBefore < thisWeekStart ? dayBefore
-    : null;
+  const rescueDate = spendable(yesterday) ? yesterday : spendable(dayBefore) ? dayBefore : null;
 
   // 지난주 실제 달린 일수 — "쉬어갔어요" (0일) 와 "목표 미달" (1일~) 카피를 구분.
   // 주 5회 목표 유저가 3일 달리고도 "쉬어갔어요" 를 보면 버그로 오인한다 (2026-08-10 hans 신고).
