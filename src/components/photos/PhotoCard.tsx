@@ -113,11 +113,17 @@ export default function PhotoCard({ photo, onToggle, onDeleted, compact }: Props
       await reportPhoto(photo.photo_id, reason);
       setToast({ text: tt('신고가 접수됐어요. 24시간 안에 검토합니다'), tone: 'ok' });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const friendly =
-        msg.includes('duplicate key') || msg.includes('unique') ? tt('이미 신고하신 사진이에요') :
-        `${tt('신고 실패')} — ${msg.slice(0, 80)}`;
-      setToast({ text: friendly, tone: 'warn' });
+      // Supabase PostgrestError 는 Error instanceof false — String(err)='[object Object]' 가 되어
+      // 중복 신고 감지가 안 됐음 (2026-08-10 hans 실기기). message 필드 직접 추출.
+      const msg =
+        err instanceof Error ? err.message
+        : typeof err === 'object' && err !== null && 'message' in err ? String((err as { message: unknown }).message)
+        : String(err);
+      const isDup = msg.includes('duplicate key') || msg.includes('unique');
+      const friendly = isDup
+        ? tt('이미 신고하신 사진이에요. 24시간 안에 검토됩니다')
+        : `${tt('신고 실패')} — ${msg.slice(0, 80)}`;
+      setToast({ text: friendly, tone: isDup ? 'ok' : 'warn' });
     } finally {
       setShowReport(false);
       setReporting(false);

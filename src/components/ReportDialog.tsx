@@ -37,8 +37,18 @@ export default function ReportDialog({
       await reportContent(targetType, targetId, reason, detail);
       onDone(true, tt('신고가 접수됐어요. 24시간 안에 검토합니다'));
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      onDone(false, `${tt('신고 실패')} — ${msg.slice(0, 80)}`);
+      // Supabase PostgrestError 는 Error instanceof false — message 필드 직접 추출
+      // (String(err) 은 '[object Object]', 2026-08-10 hans 실기기 신고)
+      const msg =
+        err instanceof Error ? err.message
+        : typeof err === 'object' && err !== null && 'message' in err ? String((err as { message: unknown }).message)
+        : String(err);
+      // UNIQUE(reporter, target) 제약 — 같은 콘텐츠 재신고는 이미 접수된 상태 (ok 취급)
+      const isDup = msg.includes('duplicate key') || msg.includes('unique');
+      onDone(
+        isDup,
+        isDup ? tt('이미 신고하신 콘텐츠예요. 24시간 안에 검토됩니다') : `${tt('신고 실패')} — ${msg.slice(0, 80)}`,
+      );
     } finally {
       setBusy(false);
       onClose();

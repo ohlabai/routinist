@@ -2060,6 +2060,8 @@ const EXTRAS_EN: Record<string, string> = {
   // PhotoCard
 '차단 실패': 'Block failed',
 '이미 신고하신 사진이에요': "You've already reported this photo",
+'이미 신고하신 사진이에요. 24시간 안에 검토됩니다': "You've already reported this photo. It will be reviewed within 24 hours",
+'이미 신고하신 콘텐츠예요. 24시간 안에 검토됩니다': "You've already reported this content. It will be reviewed within 24 hours",
 '신고 실패': 'Report failed',
 // UGC 안전장치 (Apple 1.2 재제출, 2026-08-10)
 '이용약관 동의가 필요해요. 아래 체크박스를 확인해주세요.': 'Please agree to the Terms of Service — check the box below.',
