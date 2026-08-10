@@ -70,7 +70,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const isMap = normalizedPath === '/map';
   // build 209 #6: /track 도 자체 header (← 뒤로, 달리는 중, LIVE 배지) 가 있으므로 layout header 숨김.
   const isTrack = normalizedPath === '/track' || normalizedPath.startsWith('/track/');
-  const hideLayoutHeader = isShop || isChat || isHome || isSocial || isProfile || isRanking || isMap || isTrack;
+  // /notifications 도 자체 sticky header (← 알림 · 모두 읽음) — 공통 헤더와 이중이면 safe-area 가 겹쳐 처짐.
+  const isNotifications = normalizedPath === '/notifications';
+  const hideLayoutHeader = isShop || isChat || isHome || isSocial || isProfile || isRanking || isMap || isTrack || isNotifications;
   const lastSyncRef = useRef<number>(0);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
 

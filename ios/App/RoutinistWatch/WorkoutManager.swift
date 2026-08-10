@@ -530,6 +530,13 @@ final class WorkoutManager: NSObject, ObservableObject {
 
     // v21 의 "모두 허용" 프라이머 알럿은 2026-08-03 hans 지시로 제거 —
     // "버튼만 한번 더 누르는 것 같다". 시스템 시트로 바로 진행.
+
+    /// 요청 타입 목록의 서명 — 타입이 추가/제거되면 값이 달라져 동의 시트를 다시 허용.
+    private var authTypesSignature: String {
+        (typesToShare.map(\.identifier) + typesToRead.map(\.identifier)).sorted().joined(separator: ",")
+    }
+    private static let authCompletedKey = "hkAuthCompletedTypes"
+
     func requestAuthorizationAndStart() {
         guard HKHealthStore.isHealthDataAvailable() else { return }
         phase = .requesting
@@ -538,14 +545,29 @@ final class WorkoutManager: NSObject, ObservableObject {
         healthStore.getRequestStatusForAuthorization(toShare: typesToShare, read: typesToRead) { [weak self] status, _ in
             Task { @MainActor in
                 guard let self else { return }
-                if status == .unnecessary {
+                // 진단 (2026-08-10 hans 실기기: 뛸 때마다 시트 재출현) — 어떤 share 타입이 미결정으로
+                // 남아 status 를 shouldRequest 로 고정시키는지 확인용. Xcode 콘솔에서 확인.
+                let shareStates = self.typesToShare
+                    .map { "\($0.identifier)=\(self.healthStore.authorizationStatus(for: $0).rawValue)" }
+                    .sorted().joined(separator: " ")
+                print("[HKAuth] requestStatus=\(status.rawValue) share[\(shareStates)]")
+
+                // v25 fix: 시트를 한 번 완료해도 일부 타입(경로/생년월일 등)이 워치 검토 화면에
+                // 행으로 안 나와 영영 '미결정' 으로 남으면 getRequestStatus 가 매번 shouldRequest 를
+                // 반환 → 뛸 때마다 시트. 같은 타입 목록으로 이미 완료했으면 재프롬프트하지 않는다.
+                let alreadyCompleted = UserDefaults.standard.string(forKey: Self.authCompletedKey) == self.authTypesSignature
+                if status == .unnecessary || alreadyCompleted {
                     self.requestLocationThenCountdown()
                     return
                 }
                 self.healthStore.requestAuthorization(toShare: self.typesToShare, read: self.typesToRead) { [weak self] ok, _ in
                     Task { @MainActor in
                         guard let self else { return }
-                        if ok { self.requestLocationThenCountdown() } else { self.authDenied = true; self.phase = .idle }
+                        if ok {
+                            // 완료 기록은 성공 시에만 — X 로 닫으면 ok=false 라 다음에 다시 요청됨.
+                            UserDefaults.standard.set(self.authTypesSignature, forKey: Self.authCompletedKey)
+                            self.requestLocationThenCountdown()
+                        } else { self.authDenied = true; self.phase = .idle }
                     }
                 }
             }

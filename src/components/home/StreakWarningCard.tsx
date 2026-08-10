@@ -13,7 +13,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Flame, Shield } from 'lucide-react';
 import { todayStr, daysAgoStr, startOfWeekStr } from '@/lib/kst';
-import { getWeeklyStreak, addDaysStr } from '@/lib/routinist-data';
+import { getWeeklyStreak, addDaysStr, runningOnly } from '@/lib/routinist-data';
 import type { Activity } from '@/types';
 import { useI18n } from '@/lib/i18n';
 import AppToast from '@/components/AppToast';
@@ -65,6 +65,17 @@ export default function StreakWarningCard({
     yesterday >= lastWeekStart && yesterday < thisWeekStart ? yesterday
     : dayBefore >= lastWeekStart && dayBefore < thisWeekStart ? dayBefore
     : null;
+
+  // 지난주 실제 달린 일수 — "쉬어갔어요" (0일) 와 "목표 미달" (1일~) 카피를 구분.
+  // 주 5회 목표 유저가 3일 달리고도 "쉬어갔어요" 를 보면 버그로 오인한다 (2026-08-10 hans 신고).
+  const lastWeekRunDays = useMemo(() => {
+    const days = new Set(
+      runningOnly(activities)
+        .map(a => a.activity_date)
+        .filter(d => d >= lastWeekStart && d < thisWeekStart)
+    );
+    return days.size;
+  }, [activities, lastWeekStart, thisWeekStart]);
 
   const rescueStreak = useMemo(() => {
     if (weeklyStreak > 0 || thisWeekCovered || !rescueDate) return 0;
@@ -156,9 +167,13 @@ export default function StreakWarningCard({
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-[var(--foreground)]">
-                {locale === 'en'
-                  ? `Last week was a rest week — you can still save your ${rescueStreak}-week streak`
-                  : `지난주는 쉬어갔어요 — 아직 ${rescueStreak}주 연속을 지킬 수 있어요`}
+                {lastWeekRunDays > 0
+                  ? (locale === 'en'
+                      ? `Last week fell just short (${lastWeekRunDays}/${goal} days) — you can still save your ${rescueStreak}-week streak`
+                      : `지난주는 목표에 조금 못 미쳤어요 (${lastWeekRunDays}/${goal}일) — 아직 ${rescueStreak}주 연속을 지킬 수 있어요`)
+                  : (locale === 'en'
+                      ? `Last week was a rest week — you can still save your ${rescueStreak}-week streak`
+                      : `지난주는 쉬어갔어요 — 아직 ${rescueStreak}주 연속을 지킬 수 있어요`)}
               </p>
               <p className="text-xs text-[var(--muted)] mt-0.5">
                 {buyMode

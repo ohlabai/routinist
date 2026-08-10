@@ -221,8 +221,8 @@ export default function NotificationsPage() {
 
   return (
     <div className="min-h-screen bg-[var(--background)] flex flex-col">
-      {/* sticky 헤더 */}
-      <header className="sticky top-0 z-30 bg-[var(--header-bg)]/90 backdrop-blur-xl border-b border-[var(--card-border)]/40 pt-[max(env(safe-area-inset-top),12px)]">
+      {/* sticky 헤더 — safe-area 는 layout 의 status bar spacer 가 처리 (여기 또 넣으면 이중으로 처짐) */}
+      <header className="sticky top-0 z-30 bg-[var(--header-bg)]/90 backdrop-blur-xl border-b border-[var(--card-border)]/40">
         <div className="flex items-center gap-2 px-3 py-3">
           <button onClick={() => router.back()}
             aria-label={tt('뒤로')}
