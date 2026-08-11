@@ -1,0 +1,57 @@
+Run Your Routine.
+
+Routinist is a running app that makes running fun to keep — GPS tracking, local rankings, crews, and rewards in one place. One tap starts recording your distance, pace, heart rate, and route, with voice coaching every kilometer. Today's run moves your neighborhood ranking, and your friends' cheers arrive as you go. From your first jog to 10K, half, and full marathon prep.
+
+▶ Highlights
+
+• GPS run tracking
+- One tap records distance, time, pace, heart rate, and route
+- Voice cues every kilometer, auto-pause when you stop
+- Starts pausing when you walk, resumes when you run again
+- Runs save automatically when you finish — no buttons to hunt for
+
+• Apple Watch standalone runs
+- Leave your iPhone at home — the watch records everything, GPS route included
+- Big-number metrics, heart-rate zone graph, grass gauge
+- Live distance and pace on your iPhone Lock Screen while you run
+
+• Neighborhood and age-group rankings
+- Monthly distance ranking by city and district — "ranked M out of N"
+- Rank trend graph with day-over-day and week-over-week badges
+- Compare only with runners in your age group and gender — no pressure
+
+• Friends, clubs, cheers
+- Get notified when a friend is out running — send a cheer
+- Pacemaker: a friendly monthly distance race with a runner like you
+- Join a club, run together, take on challenges
+
+• Routine photos + share cards
+- Share photos from your runs to the feed, with likes and comments
+- Auto-generated share cards with distance and pace — Instagram-ready
+
+• Weekly streaks + mileage rewards
+- Hit your weekly goal to grow your streak — a freeze covers a rest week
+- Earn mileage for every kilometer (double if you also ran yesterday)
+- Milestone bonuses for your first 5K, 10K, half, and full
+- Spend mileage on running gear
+
+• Marathon prep
+- Pace trends and personal bests
+- World Marathon: virtually run the world's famous marathon courses
+
+• Calendar + stats dashboard
+- A grass calendar shows the rhythm of your month
+- Daily to yearly distance trends, split paces, day-of-week patterns
+
+• Apple Health integration
+- Runs recorded with other apps or devices flow in through Apple Health
+- Start with your existing running history intact
+
+▶ Made for runners who
+
+- Want to build a daily running habit
+- Find solo running getting lonely
+- Want a low-pressure way to compete with their neighborhood and age group
+- Love running light with just an Apple Watch
+
+One step at a time, with Routinist.
