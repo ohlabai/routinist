@@ -239,7 +239,9 @@ function ActivityDetail() {
           </svg>
         </button>
         <h2 className="text-lg font-bold text-[var(--foreground)] flex-1">{t('activity.title')}</h2>
-        {!isGuest && (
+        {/* 2026-08-12 (hans): 내 기록이면 아래 큰 CTA 가 바로 첫 화면에 있으므로 헤더 아이콘은 중복.
+            남의 기록을 볼 때만 헤더 아이콘을 남긴다. */}
+        {!isGuest && activity.user_id !== user?.id && (
           <button onClick={() => setShowShare(true)} className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-[var(--card-border)] text-[var(--accent)]">
             <Share2 size={20} />
           </button>
@@ -253,6 +255,20 @@ function ActivityDetail() {
             {ttl('이번 주 {n}번째 러닝 🔥').replace('{n}', String(weekRunCount))}
           </span>
         </div>
+      )}
+
+      {/* 공유카드 만들기 — 사용자 피드백 #11: Apple Health sync 데이터 정합성 위해
+          기록 삭제는 제거. 활동 상세의 주된 동기는 공유이므로 큰 진입점으로 대체.
+          2026-08-12 (hans "너무 아래에 있다"): 페이지 맨 끝(지도·차트·스플릿·댓글 아래)에서
+          맨 위로 올림 — 완주 직후 착지하는 화면이라 스크롤 없이 바로 보여야 하는 액션이다. */}
+      {activity.user_id === user?.id && (
+        <button
+          onClick={() => setShowShare(true)}
+          className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-emerald-500 text-white font-bold text-base active:scale-95 transition shadow-sm"
+        >
+          <Share2 size={20} />
+          {t('activity.createShareCard')}
+        </button>
       )}
 
       {/* 공유 카드 모달 */}
@@ -397,17 +413,6 @@ function ActivityDetail() {
         </div>
       )}
 
-      {/* 공유카드 만들기 — 사용자 피드백 #11: Apple Health sync 데이터 정합성 위해
-          기록 삭제는 제거. 활동 상세의 주된 동기는 공유이므로 큰 진입점으로 대체. */}
-      {activity.user_id === user?.id && (
-        <button
-          onClick={() => setShowShare(true)}
-          className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-emerald-500 text-white font-bold text-base active:scale-95 transition shadow-sm"
-        >
-          <Share2 size={20} />
-          {t('activity.createShareCard')}
-        </button>
-      )}
     </div>
   );
 }
