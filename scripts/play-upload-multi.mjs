@@ -49,12 +49,17 @@ const edit = await jfetch(`${base}/edits`, { method: 'POST', body: '{}', headers
 console.log('edit:', edit.id);
 
 // 2) 모든 AAB 업로드
-const versionCodes = [];
+// 2026-08-12: Play 가 폼팩터 트랙을 강제하게 됨. 워치 AAB 를 폰과 같은 트랙에 넣으면 commit 이
+// 400 "requires the Wear OS system feature android.hardware.type.watch" 로 거절된다.
+// → 경로에 /wear/ 가 있는 아티팩트는 `wear:<track>` 로 자동 분리 (콘솔의 Wear OS 트랙과 동일).
+const byTrack = new Map();   // track → [versionCode]
 for (const p of aabPaths) {
   const up = await jfetch(`${upBase}/edits/${edit.id}/bundles?uploadType=media`,
     { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: readFileSync(p) });
-  console.log('bundle:', p.split('/').pop(), '→ versionCode', up.versionCode);
-  versionCodes.push(String(up.versionCode));
+  const isWear = /(^|\/)wear[\/-]/.test(p);
+  const t = isWear ? `wear:${track}` : track;
+  console.log('bundle:', p.split('/').pop(), '→ versionCode', up.versionCode, `(track: ${t})`);
+  byTrack.set(t, [...(byTrack.get(t) || []), String(up.versionCode)]);
 }
 
 // 3) Wear 스크린샷 best-effort (실패해도 계속)
@@ -82,12 +87,15 @@ for (const lang of LANGS) {
   if (existsSync(f)) releaseNotes.push({ language: lang, text: readFileSync(f, 'utf8').trim() });
 }
 
-// 5) 트랙에 versionCodes 함께 배정
-const rel = await jfetch(`${base}/edits/${edit.id}/tracks/${track}`, {
-  method: 'PUT', headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ track, releases: [{ versionCodes, status: 'completed', releaseNotes }] }),
-});
-console.log('track:', JSON.stringify(rel.releases?.[0]?.versionCodes));
+// 5) 각 트랙에 versionCodes 배정 (폰 = <track>, 워치 = wear:<track>). 같은 edit 안이라
+//    commit 한 번으로 폰·워치가 세트로 함께 올라간다.
+for (const [t, versionCodes] of byTrack) {
+  const rel = await jfetch(`${base}/edits/${edit.id}/tracks/${encodeURIComponent(t)}`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ track: t, releases: [{ versionCodes, status: 'completed', releaseNotes }] }),
+  });
+  console.log('track:', t, JSON.stringify(rel.releases?.[0]?.versionCodes));
+}
 
 // 6) commit (관리형 게시/정책 앱은 changesNotSentForReview 폴백)
 let done;
@@ -99,4 +107,4 @@ try {
     console.log('⚠️  검토 미전송 모드로 commit — Play Console 게시 개요에서 "변경사항 전송" 필요');
   } else throw e;
 }
-console.log('committed:', done.id, '→', track, 'versionCodes', versionCodes.join(','));
+console.log('committed:', done.id, '→', [...byTrack].map(([t, v]) => `${t}=${v.join(",")}`).join(" | "));

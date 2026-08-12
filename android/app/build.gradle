@@ -23,8 +23,10 @@ android {
         //      달력 공휴일·시간대 5분할·프로필 6종+인라인챗·주간리캡 폐기까지 묶어 재업로드.
         // 332: 애플워치 동등화 사이클 — 워치 라이브 미러 알림·/track 패널·심박존 직송·
         //      러닝 알림 페이스+/track 딥링크. Wear 1000326 과 세트. (업로드는 331 승인 후)
-        versionCode 333
-        versionName "1.2.17"
+        // 334: Wear 1000327 이 "스플래시 앱 아이콘 누락" 으로 거절 (8/11) → Wear 1000328 과 세트로
+        //      재제출. 폰 쪽 탑재분 = 8/9 이후 웹 변경 (활동 상세 공유 CTA 상단 이동 등).
+        versionCode 334
+        versionName "1.2.19"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
