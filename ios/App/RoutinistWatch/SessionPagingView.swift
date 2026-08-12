@@ -42,12 +42,29 @@ struct SessionPagingView: View {
 
 // ── 메트릭 (기본 페이지) ────────────────────────────────────────
 
+/// 심박 존 팔레트 — 메트릭 행 / 심박 페이지 / 존 바가 같은 색을 쓴다.
+/// 직사광 가독성을 위해 시스템 기본색보다 한 톤 밝게 뽑음.
+enum HRZone {
+    static let colors: [Color] = [
+        Color(red: 0.42, green: 0.75, blue: 1.00),   // 1 웜업
+        Color(red: 0.20, green: 0.83, blue: 0.60),   // 2 이지 (브랜드 에메랄드)
+        Color(red: 1.00, green: 0.84, blue: 0.30),   // 3 에어로빅
+        Color(red: 1.00, green: 0.62, blue: 0.22),   // 4 역치
+        Color(red: 1.00, green: 0.40, blue: 0.40),   // 5 최대
+    ]
+    /// 심박 숫자 고정색 — 존에 따라 색이 바뀌면 4행이 전부 다른 색으로 요동친다.
+    /// 숫자는 늘 이 코랄, 존은 아래 작은 라벨에서만 색으로 말한다.
+    static let ink = Color(red: 1.00, green: 0.47, blue: 0.47)
+
+    static func color(_ zone: Int) -> Color {
+        colors[min(max(zone, 1), 5) - 1]
+    }
+}
+
 struct MetricsView: View {
     @EnvironmentObject var workout: WorkoutManager
 
     private let emerald = Color(red: 0.20, green: 0.83, blue: 0.60)
-
-    private static let zoneColors: [Color] = [.blue, .green, .yellow, .orange, .red]
 
     var body: some View {
         // v10 (Apple 운동앱 실측 문법): 각 지표가 화면 폭을 거의 채우는 초대형 숫자,
@@ -68,48 +85,20 @@ struct MetricsView: View {
             // 거리
             bigMetric(String(format: "%.2f", workout.distanceMeters / 1000), unit: "km", color: emerald, size: 58)
 
-            // 페이스 — 직전 KM 우선, 라벨 2줄 (Apple 문법)
-            HStack(alignment: .center, spacing: 6) {
-                Text(formatPace(workout.lastSplitPaceSecPerKm ?? workout.paceSecPerKm))
-                    .font(.system(size: 52, weight: .heavy, design: .rounded))
-                    .monospacedDigit()
-                    .minimumScaleFactor(0.6)
-                    .lineLimit(1)
-                    .foregroundStyle(.white)
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(workout.lastSplitPaceSecPerKm != nil ? "직전KM" : "평균")
-                    Text("/km")
-                }
-                .font(.system(size: 15, weight: .bold, design: .rounded))
-                .foregroundStyle(.secondary)
-            }
+            // 페이스 — 직전 KM 우선. v21: 라벨 1줄.
+            // "/km" 은 페이스 표기(4'42") 자체가 이미 말하는 정보라 뺐다 (워치는 km 고정).
+            bigMetric(formatPace(workout.lastSplitPaceSecPerKm ?? workout.paceSecPerKm),
+                      unit: workout.lastSplitPaceSecPerKm != nil ? "직전KM" : "평균",
+                      color: .white, size: 52)
 
-            // 심박 — 존 색 숫자 + 영역 1~5 칩 (자세한 그래프는 다음 페이지)
-            HStack(alignment: .center, spacing: 6) {
-                Text(workout.heartRate > 0 ? String(format: "%.0f", workout.heartRate) : "--")
-                    .font(.system(size: 52, weight: .heavy, design: .rounded))
-                    .monospacedDigit()
-                    .minimumScaleFactor(0.6)
-                    .lineLimit(1)
-                    .foregroundStyle(workout.currentZone > 0 ? Self.zoneColors[workout.currentZone - 1] : .white)
-                VStack(alignment: .leading, spacing: 2) {
-                    Image(systemName: "heart.fill")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.red)
-                    if workout.currentZone > 0 {
-                        Text("영역 \(workout.currentZone)")
-                            .font(.system(size: 14, weight: .heavy, design: .rounded))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(Self.zoneColors[workout.currentZone - 1].opacity(0.85)))
-                            .foregroundStyle(workout.currentZone >= 3 ? .black : .white)
-                    } else {
-                        Text("bpm")
-                            .font(.system(size: 15, weight: .bold, design: .rounded))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
+            // 심박 — v21 (2026-08-12, hans): 라벨은 한 줄 한 토큰.
+            // 큰 숫자는 고정 코랄(존마다 색이 바뀌면 노란 타이머와 부딪힌다),
+            // 존은 라벨 자리에서 색과 글자로 한 번만 말한다. 존을 모르는 동안만 "bpm".
+            bigMetric(workout.heartRate > 0 ? String(format: "%.0f", workout.heartRate) : "--",
+                      unit: workout.currentZone > 0 ? "영역 \(workout.currentZone)" : "bpm",
+                      color: HRZone.ink, size: 52,
+                      unitColor: workout.currentZone > 0
+                          ? HRZone.color(workout.currentZone) : nil)
 
             if workout.phase == .paused {
                 Text(workout.isAutoPaused ? "자동 일시정지 — 움직이면 이어서" : "일시정지됨")
@@ -145,8 +134,11 @@ struct MetricsView: View {
         .padding(.trailing, 4)
     }
 
-    private func bigMetric(_ value: String, unit: String, color: Color, size: CGFloat) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 4) {
+    /// 큰 숫자 + 오른쪽 한 줄 라벨 — v21 부터 거리·페이스·심박이 전부 이 한 가지 폼을 쓴다.
+    /// unitColor 를 주면 라벨만 그 색으로 (심박 존).
+    private func bigMetric(_ value: String, unit: String, color: Color, size: CGFloat,
+                           unitColor: Color? = nil) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 5) {
             Text(value)
                 .font(.system(size: size, weight: .heavy, design: .rounded))
                 .monospacedDigit()
@@ -154,8 +146,10 @@ struct MetricsView: View {
                 .lineLimit(1)
                 .foregroundStyle(color)
             Text(unit)
-                .font(.system(size: 18, weight: .bold, design: .rounded))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .lineLimit(1)
+                .fixedSize()          // 라벨은 온전히, 줄어드는 건 숫자 쪽
+                .foregroundStyle(unitColor ?? .secondary)
         }
     }
 }
@@ -169,44 +163,50 @@ struct HeartRateView: View {
         workout.hrSamples.isEmpty ? 0 : workout.hrSamples.reduce(0, +) / Double(workout.hrSamples.count)
     }
 
-    private static let zoneColors: [Color] = [.blue, .green, .yellow, .orange, .red]
+    /// 2026-08-12 fix: "최대" 자리에 workout.maxHeartRate (= 220-나이 추정 최대심박) 를 찍고 있었다.
+    /// 평균 옆의 최대는 "이번 러닝에서 가장 높았던 심박" 이어야 한다.
+    private var peakHr: Double { workout.hrSamples.max() ?? 0 }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(alignment: .center, spacing: 7) {
+        // v21 (2026-08-12, hans "하트랑 영역 표시가 2중이라 복잡"):
+        // 하트 아이콘은 장식일 뿐이라 삭제, 존은 **한 번만** 말한다 —
+        // 숫자 옆 라벨은 단위(bpm) 만, 존은 아래 세그먼트 바 + 그 옆 라벨이 한 덩어리로.
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .center, spacing: 6) {
                 Text(workout.heartRate > 0 ? String(format: "%.0f", workout.heartRate) : "--")
                     .font(.system(size: 56, weight: .heavy, design: .rounded))
                     .monospacedDigit()
                     .minimumScaleFactor(0.6)
-                    .foregroundStyle(.white)
-                Image(systemName: "heart.fill")
-                    .font(.system(size: 28))
-                    .foregroundStyle(.red)
-                // v7: 현재 심박 존 칩 (영역 1~5, Apple 컬러 문법)
-                if workout.currentZone > 0 {
-                    Text("영역 \(workout.currentZone)")
-                        .font(.system(size: 16, weight: .heavy, design: .rounded))
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 4)
-                        .background(Capsule().fill(Self.zoneColors[workout.currentZone - 1].opacity(0.85)))
-                        .foregroundStyle(workout.currentZone >= 3 ? .black : .white)
-                }
+                    .lineLimit(1)
+                    .foregroundStyle(HRZone.ink)
+                Text("bpm")
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
             }
 
-            // v7: 존 세그먼트 바 — 현재 존이 크고 밝게
-            HStack(spacing: 3) {
-                ForEach(1...5, id: \.self) { z in
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(Self.zoneColors[z - 1].opacity(z == workout.currentZone ? 1.0 : 0.28))
-                        .frame(height: z == workout.currentZone ? 10 : 6)
+            // 존 = 바 + 라벨 한 줄. 현재 존이 크고 밝게.
+            HStack(spacing: 6) {
+                HStack(spacing: 3) {
+                    ForEach(1...5, id: \.self) { z in
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(HRZone.colors[z - 1].opacity(z == workout.currentZone ? 1.0 : 0.24))
+                            .frame(height: z == workout.currentZone ? 10 : 6)
+                    }
                 }
+                Text(workout.currentZone > 0 ? "영역 \(workout.currentZone)" : "측정 중")
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .lineLimit(1)
+                    .fixedSize()
+                    .foregroundStyle(workout.currentZone > 0
+                                     ? HRZone.color(workout.currentZone) : .secondary)
             }
 
             HeartSparkline(samples: workout.hrSamples)
                 .frame(height: 52)
 
             if avgHr > 0 {
-                Text(String(format: "평균 %.0f bpm · 최대 %.0f", avgHr, workout.maxHeartRate))
+                Text(String(format: "평균 %.0f · 최대 %.0f bpm", avgHr, peakHr))
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .foregroundStyle(.secondary)
             } else {
@@ -248,10 +248,10 @@ struct HeartSparkline: View {
             fill.addLine(to: CGPoint(x: 0, y: size.height))
             fill.closeSubpath()
             ctx.fill(fill, with: .linearGradient(
-                Gradient(colors: [Color.red.opacity(0.35), Color.red.opacity(0.02)]),
+                Gradient(colors: [HRZone.ink.opacity(0.32), HRZone.ink.opacity(0.02)]),
                 startPoint: .zero, endPoint: CGPoint(x: 0, y: size.height)))
 
-            ctx.stroke(line, with: .color(.red), style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+            ctx.stroke(line, with: .color(HRZone.ink), style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
 
             // 현재 값 점
             let last = point(samples.count - 1)

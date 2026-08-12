@@ -87,7 +87,8 @@ struct SummaryView: View {
         .navigationBarBackButtonHidden(true)
     }
 
-    private static let zoneColors: [Color] = [.blue, .green, .yellow, .orange, .red]
+    /// 2026-08-12: 러닝 화면(HRZone.colors) 과 같은 팔레트를 쓴다 — 존 색은 앱 전체에서 하나.
+    private static let zoneColors: [Color] = HRZone.colors
 
     /// v19: 심박 영역 1~5 체류 시간 — 색 라벨 + 비례 바 + 시간
     private func zoneBreakdown(_ secs: [Double]) -> some View {
