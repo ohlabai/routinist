@@ -4,4 +4,14 @@
     <style name="RoutinistWearTheme" parent="@android:style/Theme.DeviceDefault">
         <item name="android:windowBackground">@android:color/black</item>
     </style>
+
+    <!-- 2026-08-12: Play 거절 fix — "Wear 앱 품질 가이드라인: 스플래시 화면에서 앱 아이콘 누락".
+         minSdk 30 (Wear OS 3) 은 시스템 스플래시(API 31+)가 없어서 콜드스타트가 그냥 검은 화면이었다.
+         core-splashscreen 이 아이콘 스플래시를 API 23+ 로 백포트한다.
+         배경은 앱 첫 화면과 같은 검정 — 스플래시→본화면 전환에 색 튐이 없다. -->
+    <style name="RoutinistWearSplashTheme" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@android:color/black</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="postSplashScreenTheme">@style/RoutinistWearTheme</item>
+    </style>
 </resources>

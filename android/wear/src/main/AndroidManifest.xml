@@ -30,11 +30,13 @@
             android:name="com.google.android.wearable.standalone"
             android:value="true" />
 
+        <!-- theme = 스플래시 (2026-08-12 Play 거절 fix). installSplashScreen() 이
+             onCreate 에서 postSplashScreenTheme(RoutinistWearTheme) 로 갈아끼운다. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:taskAffinity=""
-            android:theme="@style/RoutinistWearTheme">
+            android:theme="@style/RoutinistWearSplashTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
