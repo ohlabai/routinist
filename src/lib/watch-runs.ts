@@ -70,8 +70,29 @@ async function removeFromQueue(processedIds: Set<string>): Promise<void> {
  * pending 워치 러닝을 activities 로 저장. 앱 포그라운드/로그인 시 호출.
  * @returns 저장(또는 이미 존재로 스킵)한 건수
  */
+/**
+ * 2026-08-13: 워치 미러(폰 잠금화면 Live Activity) 는 네이티브에서만 돌아 실패가 조용하다.
+ * 실제로 RunSessionPlugin.load() 의 고아 정리가 미러 LA 를 죽이고 있었는데 관측할 방법이
+ * 없어 실주행 신고로만 알았다. 네이티브가 남긴 빵부스러기를 앱 열 때 서버 로그로 올린다.
+ * (WorkoutMirrorReceiver 가 watch_mirror_diag 키에 최근 이벤트를 기록)
+ */
+async function flushMirrorDiag(): Promise<void> {
+  try {
+    const { value } = await Preferences.get({ key: 'watch_mirror_diag' });
+    if (!value) return;
+    await Preferences.remove({ key: 'watch_mirror_diag' });
+    const events = JSON.parse(value) as unknown[];
+    if (Array.isArray(events) && events.length > 0) {
+      logClientInfo('watch-mirror', 'diag', { events });
+    }
+  } catch {
+    /* 진단이 본 흐름을 막지 않는다 */
+  }
+}
+
 export async function drainWatchRuns(userId: string): Promise<number> {
   if (!userId) return 0;
+  void flushMirrorDiag();
   const queue = await readQueue();
   if (queue.length === 0) return 0;
 

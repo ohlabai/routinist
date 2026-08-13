@@ -33,6 +33,8 @@ final class WatchBridge: NSObject {
     @discardableResult
     fileprivate func speakRelayed(_ text: String) -> Bool {
         // AppDelegate 가 카테고리 등록 (.playback + .spokenAudio + .duckOthers) — 발화 직전 lazy activate
+        // deactivateIfIdle 이 발화가 끝날 때마다 세션을 내리므로, 큐가 비어 있으면 = 지금 깨우는 중.
+        let wasIdle = !speech.isSpeaking
         do {
             try AVAudioSession.sharedInstance().setActive(true)
         } catch {
@@ -43,6 +45,11 @@ final class WatchBridge: NSObject {
         u.voice = AVSpeechSynthesisVoice(language: "ko-KR")
         u.volume = 0.65   // 폰 음성 톤 규칙 (feedback_voice_cue_tuning)
         u.rate = AVSpeechUtteranceDefaultSpeechRate * 0.95
+        // 2026-08-13 fix (hans "음성 도입부가 짤린다" — 유튜브 재생 중 워치 출발):
+        // 음악/영상이 돌고 있으면 .duckOthers 가 원음을 200~400ms 에 걸쳐 내린다. 그 램프가
+        // 끝나기 전에 말을 시작하면 첫 음절이 원음에 묻힌다. 릴레이는 발화마다 세션을
+        // 재활성화하므로(deactivateIfIdle) 이 경로가 잘림의 주범이다.
+        u.preUtteranceDelay = wasIdle ? 0.4 : 0
         speech.speak(u)
         return true
     }

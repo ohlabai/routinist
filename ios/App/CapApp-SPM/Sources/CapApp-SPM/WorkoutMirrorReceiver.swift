@@ -1,5 +1,6 @@
 import Foundation
 import HealthKit
+import UIKit
 
 // 워치 러닝 → 폰 잠금화면 Live Activity 미러 (2026-08-02 hans 승인 — Runna·애플 운동앱 방식).
 //
@@ -33,8 +34,34 @@ public final class WorkoutMirrorReceiver: NSObject {
         }
     }
 
+    /// 2026-08-13: 미러 경로는 네이티브 전용이라 실패가 조용하다 (NSLog 는 실기기에서 못 본다).
+    /// 최근 이벤트를 Preferences 에 남기고, 앱을 열면 watch-runs.ts 가 client_error_logs 로 올린다.
+    private func diag(_ event: String, _ extra: [String: Any] = [:]) {
+        let key = "CapacitorStorage.watch_mirror_diag"
+        var events: [[String: Any]] = []
+        if let raw = UserDefaults.standard.string(forKey: key),
+           let data = raw.data(using: .utf8),
+           let parsed = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+            events = parsed
+        }
+        var row: [String: Any] = ["e": event, "t": Date().timeIntervalSince1970 * 1000]
+        row.merge(extra) { a, _ in a }
+        events.append(row)
+        if events.count > 20 { events.removeFirst(events.count - 20) }   // 무한 성장 방지
+        if let data = try? JSONSerialization.data(withJSONObject: events),
+           let s = String(data: data, encoding: .utf8) {
+            UserDefaults.standard.set(s, forKey: key)
+        }
+    }
+
     private func attach(_ mirrored: HKWorkoutSession) {
         NSLog("[WorkoutMirror] mirrored session attached (state=\(mirrored.state.rawValue))")
+        diag("attach", [
+            "state": mirrored.state.rawValue,
+            "laEnabled": RunLiveActivity.activitiesEnabled,
+            // applicationState 는 main 전용 — 핸들러가 어느 큐로 올지 보장이 없어 가드 (-1 = 미확인)
+            "appState": Thread.isMainThread ? UIApplication.shared.applicationState.rawValue : -1,
+        ])
         session = mirrored
         mirrored.delegate = self
         // 시작 시각은 첫 페이로드의 elapsed 로 보정되기 전까지 근사치 (위젯의 시작 라벨용)
@@ -45,6 +72,7 @@ public final class WorkoutMirrorReceiver: NSObject {
         lastHeartRate = nil
         // 10초 창구 안에서 즉시 LA 시작 — 지표는 워치 첫 페이로드가 곧바로 채운다
         RunLiveActivity.sessionStarted(snapshot(state: stateRaw(mirrored.state)))
+        diag("la-requested", ["live": RunLiveActivity.hasLiveActivity])
     }
 
     private func stateRaw(_ s: HKWorkoutSessionState) -> String {
@@ -65,6 +93,7 @@ public final class WorkoutMirrorReceiver: NSObject {
     }
 
     private func detach() {
+        diag("detach", ["live": RunLiveActivity.hasLiveActivity])
         RunLiveActivity.sessionEnded()
         session = nil
         // 웹뷰 스냅샷 제거 → /track 의 "워치에서 달리는 중" 패널 즉시 내려감

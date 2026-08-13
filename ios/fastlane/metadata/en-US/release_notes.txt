@@ -1,14 +1,11 @@
-v1.2.19 — Walk it off, then pick right back up
+v1.2.20 — Three fixes found on an actual run
 
 [Auto-pause]
-• Pauses when you slow to a walk and resumes within 3–4 seconds once you run again — much faster than before.
-• Fixed false pauses that interrupted runs at crossings and on hills.
-• Even when your wrist isn't swinging (phone in a pocket, hands on a stroller), GPS speed detects that you're running again.
+• Fixed runs resuming on their own while you were still walking. It now waits until you're really running again.
+• Resume is judged from the path you actually covered rather than a single GPS speed reading, so a noisy signal no longer triggers it.
 
-[Apple Watch]
-• Cleaner heart rate display — one big number with a single-line label, readable at a glance.
-• Time, distance, pace and heart rate now share the same layout, so the whole screen reads in one look.
-• The summary's "max" now shows this run's peak heart rate.
+[Voice cues]
+• Fixed the first word of a voice cue being cut off while music or video was playing.
 
-[Records]
-• Create a share card right from the top of the run detail screen.
+[Lock screen]
+• Distance and time now show correctly on your iPhone lock screen during an Apple Watch run — the phone app was clearing the watch's run display.

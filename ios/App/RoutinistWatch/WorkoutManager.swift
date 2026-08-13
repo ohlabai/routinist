@@ -65,12 +65,19 @@ final class WorkoutManager: NSObject, ObservableObject {
 
     private func speakLocally(_ text: String) {
         // v10 fix: watchOS 는 AVAudioSession .playback 활성화 없이 TTS 스피커 무음.
+        // 세션이 이미 떠 있으면(연속 발화) 활성화도 램프도 필요 없다.
+        let wasIdle = !speech.isSpeaking
         activateAudioSession()
         let u = AVSpeechUtterance(string: text)
         u.voice = AVSpeechSynthesisVoice(language: "ko-KR")
         // 워치 스피커는 출력이 작아 0.9 — 이어폰 연결 시에도 과하지 않은 선
         u.volume = 0.9
         u.rate = AVSpeechUtteranceDefaultSpeechRate * 0.95
+        // 2026-08-13 fix (hans "음성 도입부가 짤린다", 유튜브 재생 중 출발):
+        // setActive(true) 는 즉시 반환하지만 오디오 라우트 전환과 .duckOthers 덕킹 램프는
+        // 200~400ms 가 더 걸린다. 그 사이에 발화를 시작하면 첫 음절이 원음에 묻혀 잘린 것처럼
+        // 들린다. 세션을 막 깨운 경우에만 램프만큼 늦춰 말한다 (연속 발화는 지연 0).
+        u.preUtteranceDelay = wasIdle ? 0.35 : 0
         speech.speak(u)
     }
 
@@ -242,10 +249,13 @@ final class WorkoutManager: NSObject, ObservableObject {
         /// 판정 스트림이 이보다 오래 끊기면 누적 타이머를 접는다 (구멍 양쪽 샘플로
         /// 12초가 차서 오정지되는 것 방지).
         static let signalGapSec: TimeInterval = 6
-        /// GPS 속도 재개 임계 (m/s). 빠른 걷기(~1.8) 위, 느린 조깅(8'/km = 2.08) 아래.
-        static let resumeSpeed: Double = 2.0
-        /// 마지막 안전망 — 정지 지점에서 이만큼 벗어났으면 무조건 재개 (영구 동결 차단).
-        static let resumeDisplacementM: Double = 75
+        /// GPS 재개 임계 (m/s). 2026-08-13 실주행 기준: hans 걷기 1.16~1.46, 러닝 2.4~3.4.
+        /// 그 사이 2.3 이면 걷기를 절대 안 넘고 느린 조깅은 케이던스가 잡는다.
+        static let resumeSpeed: Double = 2.3
+        /// 재개 속도를 재는 창 — 이 길이의 궤적으로 평균 속도를 낸다.
+        static let resumeWindowSec: TimeInterval = 25
+        /// 최소 이만큼의 궤적이 모여야 판정 (짧으면 GPS 흔들림이 그대로 속도가 된다).
+        static let resumeMinSpanSec: TimeInterval = 10
     }
     /// (시각, 누적 걸음) 샘플 — 창 안에서 Δ걸음/Δ시간 으로 케이던스 산출.
     private var stepSamples: [(at: Date, steps: Int)] = []
@@ -253,12 +263,8 @@ final class WorkoutManager: NSObject, ObservableObject {
     private var runCadenceSince: Date?
     /// 마지막으로 케이던스 판정이 실제로 돈 시각 (신호 구멍 감지용).
     private var lastCadenceEvalAt: Date?
-    /// GPS 속도가 러닝 대역을 유지하기 시작한 시각 (pedometer 독립 재개 경로).
-    private var runSpeedSince: Date?
-    /// 정확도 필터를 통과한 마지막 위치 — 자동정지 중에도 갱신 (재개 판정 전용).
-    private var lastGoodLocation: CLLocation?
-    /// 자동정지가 걸린 지점 — 변위 안전망의 기준점.
-    private var autoPauseAnchorLoc: CLLocation?
+    /// 자동정지 중 위치 궤적 (최근 resumeWindowSec) — 재개 판정 전용.
+    private var pausedTrack: [(at: Date, loc: CLLocation)] = []
 
     private func startStallWatch() {
         lastDistanceChangeAt = Date()
@@ -271,8 +277,6 @@ final class WorkoutManager: NSObject, ObservableObject {
         slowCadenceSince = nil
         runCadenceSince = nil
         lastCadenceEvalAt = nil
-        runSpeedSince = nil
-        autoPauseAnchorLoc = nil
         startPedometerStream()
         stallTimer?.invalidate()
         stallTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
@@ -381,9 +385,8 @@ final class WorkoutManager: NSObject, ObservableObject {
         stepsAtAutoPause = pedometerSteps
         slowCadenceSince = nil
         runCadenceSince = nil
-        runSpeedSince = nil
         lastCadenceEvalAt = nil
-        autoPauseAnchorLoc = lastGoodLocation
+        pausedTrack.removeAll()
         // 정지 직전 걷기 샘플이 창에 남아 있으면 재개 판정을 눌러 앉힌다 — 접고 시작.
         stepSamples.removeAll()
         // UI 프로세스가 죽었다 복원돼도 "자동정지였음" 을 알아야 재개 감시가 다시 붙는다.
@@ -396,9 +399,8 @@ final class WorkoutManager: NSObject, ObservableObject {
         isAutoPaused = false
         slowCadenceSince = nil
         runCadenceSince = nil
-        runSpeedSince = nil
         lastCadenceEvalAt = nil
-        autoPauseAnchorLoc = nil
+        pausedTrack.removeAll()
         UserDefaults.standard.removeObject(forKey: "wasAutoPaused")
         lastDistanceChangeAt = Date()
         lastDistanceForStall = distanceMeters
@@ -415,14 +417,12 @@ final class WorkoutManager: NSObject, ObservableObject {
         // 영영 안 돌아 러닝이 영구 동결됐다.
         // 2026-08-12: 그때 심은 "distanceMeters 8m 전진" 폴백은 **죽은 코드였다** —
         // distanceMeters 는 HKLiveWorkoutBuilder 통계라 세션이 pause 된 동안엔 아예 안 늘어난다.
-        // 실제 재개 안전망은 (1) GPS 속도 (evaluateResumeBySpeed) (2) 아래 변위 판정.
-        if isAutoPaused {
-            if let anchor = autoPauseAnchorLoc, let cur = lastGoodLocation,
-               cur.distance(from: anchor) >= Cadence.resumeDisplacementM {
-                resumeFromAutoPause()
-            }
-            return
-        }
+        // 2026-08-13: 대체로 넣었던 "정지 지점에서 75m 벗어나면 재개" 안전망도 **제거**.
+        // 걷기로도 55초면 75m 를 간다 — 8/13 로그의 오재개 5건(77~84m 지점)이 전부 이거였다.
+        // 게다가 이 판정은 위치가 들어와야 도는데, 위치가 들어오면 evaluateResumeByMovement
+        // 가 이미 같은 일을 더 정확히 한다 → 커버리지 추가 없이 오재개만 만들던 코드.
+        // 두 신호(케이던스·궤적)가 다 죽는 상황의 최후 수단은 수동 "다시 달리기" 버튼이다.
+        if isAutoPaused { return }
         guard phase == .active else { return }
         if distanceMeters - lastDistanceForStall >= 3 {
             lastDistanceForStall = distanceMeters
@@ -440,20 +440,24 @@ final class WorkoutManager: NSObject, ObservableObject {
         }
     }
 
-    /// GPS 속도로 재개 판정 — pedometer 콜백이 끊긴 상황(주머니·유모차·손목 고정)에서도
-    /// 재개가 돌게 하는 독립 경로. 위치는 ~1초마다 들어오므로 3초 홀드면 3~4초 안에 되살아난다.
-    /// 임계 2.0 m/s (8'20"/km) — 빠른 걷기(~1.8) 위, 느린 조깅 아래.
-    private func evaluateResumeBySpeed(_ locs: [CLLocation], now: Date) {
+    /// 위치 궤적으로 재개 판정 — pedometer 콜백이 끊긴 상황(주머니·유모차·손목 고정)에서도
+    /// 재개가 돌게 하는 독립 경로.
+    ///
+    /// 2026-08-13 실주행 fix (hans "더 빠르게 걷지 않고 동일 속도로 걸어도 재개된다"):
+    /// 이전 구현은 `locs.map(\.speed).max()` — **배치 안의 최댓값** 이라 걷는 중에도 GPS
+    /// 순간속도가 한 번만 2.0 을 튀면 통과했다. 8/13 로그에서 1.16~1.46 m/s 로 걷던 구간
+    /// 4곳이 16~21초 만에 오재개됐다.
+    /// → 순간속도를 아예 쓰지 않고 **10초 이상 궤적의 실제 변위/시간** 으로만 판정한다.
+    ///   직선거리라 코너가 많으면 과소평가되는데, 그건 "덜 재개되는" 안전한 방향이다.
+    private func evaluateResumeByMovement(_ locs: [CLLocation], now: Date) {
         guard isAutoPaused else { return }
-        let speeds = locs.compactMap { $0.speed >= 0 ? $0.speed : nil }
-        guard let speed = speeds.max() else { return }   // 속도 미지원 fix 는 판정 보류
-        if speed >= Cadence.resumeSpeed {
-            if runSpeedSince == nil { runSpeedSince = now }
-            if now.timeIntervalSince(runSpeedSince!) >= Cadence.resumeHoldSec {
-                resumeFromAutoPause()
-            }
-        } else {
-            runSpeedSince = nil
+        for l in locs { pausedTrack.append((at: l.timestamp, loc: l)) }
+        pausedTrack.removeAll { now.timeIntervalSince($0.at) > Cadence.resumeWindowSec }
+        guard let first = pausedTrack.first, let last = pausedTrack.last else { return }
+        let dt = last.at.timeIntervalSince(first.at)
+        guard dt >= Cadence.resumeMinSpanSec else { return }
+        if last.loc.distance(from: first.loc) / dt >= Cadence.resumeSpeed {
+            resumeFromAutoPause()
         }
     }
 
@@ -899,10 +903,8 @@ final class WorkoutManager: NSObject, ObservableObject {
         stepSamples.removeAll()
         slowCadenceSince = nil
         runCadenceSince = nil
-        runSpeedSince = nil
         lastCadenceEvalAt = nil
-        autoPauseAnchorLoc = nil
-        lastGoodLocation = nil
+        pausedTrack.removeAll()
         goalAnnounced = false
         pendingCountdownAfterLocationAuth = false
         mirrorStarted = false
@@ -956,11 +958,10 @@ extension WorkoutManager: CLLocationManagerDelegate {
         let good = locations.filter { $0.horizontalAccuracy > 0 && $0.horizontalAccuracy <= 50 }
         guard !good.isEmpty else { return }
         Task { @MainActor in
-            self.lastGoodLocation = good.last
             // 2026-08-12: 자동정지 중에도 위치는 계속 들어온다 — pedometer 콜백과 무관한
             // 두 번째 재개 신호. 경로에는 넣지 않는다 (정지 구간은 기록에서 빠지는 게 맞다).
             if self.isAutoPaused {
-                self.evaluateResumeBySpeed(good, now: Date())
+                self.evaluateResumeByMovement(good, now: Date())
                 return
             }
             guard self.phase == .active, let rb = self.routeBuilder else { return }

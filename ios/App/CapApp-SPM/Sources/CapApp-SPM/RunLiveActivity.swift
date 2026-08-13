@@ -49,10 +49,29 @@ enum RunLiveActivity {
         }
     }
 
-    /// 앱 시작 시 세션이 idle 인데 남아있는 고아 activity 정리 (크래시 잔존물).
+    /// 진단용 — LA 권한이 켜져 있나 (설정에서 끄면 request 자체가 무의미).
+    static var activitiesEnabled: Bool {
+        if #available(iOS 16.1, *) { return ActivityAuthorizationInfo().areActivitiesEnabled }
+        return false
+    }
+
+    /// 진단용 — 지금 살아있는 activity 가 있나.
+    static var hasLiveActivity: Bool {
+        if #available(iOS 16.1, *) { return !Activity<RunActivityAttributes>.activities.isEmpty }
+        return false
+    }
+
+    /// 앱 시작 시 폰 세션이 idle 인데 남아있는 고아 activity 정리 (크래시 잔존물).
+    ///
+    /// 2026-08-13 fix (hans "워치로 달렸는데 폰 잠금화면에 아무것도 안 뜬다"):
+    /// **워치 러닝 중이면 고아가 아니다.** 워치가 미러링을 시작하면 시스템이 폰 앱을 깨우고
+    /// WorkoutMirrorReceiver 가 LA 를 만드는데, 같은 실행에서 RunSessionPlugin.load() 가
+    /// "폰 세션 idle" 을 보고 endAll() 로 그걸 지워버렸다. endAll 은 wantsActive=false 까지
+    /// 세팅해서 이후 워치 지표 update() 가 전부 early-return → 러닝 내내 LA 가 안 뜬다.
+    /// → 이 프로세스에서 누가 이미 점유(wantsActive)했으면 손대지 않는다.
     static func endOrphans() {
         if #available(iOS 16.1, *) {
-            RunLiveActivityController.shared.endAll()
+            RunLiveActivityController.shared.endIfUnowned()
         }
     }
 }
@@ -125,17 +144,28 @@ private final class RunLiveActivityController {
     }
 
     func endAll() {
+        queue.async { self.endAllLocked() }
+    }
+
+    /// 고아 정리 전용 — 이 프로세스에서 누가 점유 중이면(워치 미러가 먼저 붙은 경우) no-op.
+    func endIfUnowned() {
         queue.async {
-            self.wantsActive = false
-            self.lastSnapshot = nil
-            let toEnd = Activity<RunActivityAttributes>.activities
-            self.activity = nil
-            self.lastSentState = ""
-            self.lastSentDistanceM = -1
-            self.lastSentAt = .distantPast
-            for act in toEnd {
-                Task { await act.end(dismissalPolicy: .immediate) }
-            }
+            guard !self.wantsActive else { return }
+            self.endAllLocked()
+        }
+    }
+
+    /// queue 전용.
+    private func endAllLocked() {
+        wantsActive = false
+        lastSnapshot = nil
+        let toEnd = Activity<RunActivityAttributes>.activities
+        activity = nil
+        lastSentState = ""
+        lastSentDistanceM = -1
+        lastSentAt = .distantPast
+        for act in toEnd {
+            Task { await act.end(dismissalPolicy: .immediate) }
         }
     }
 
