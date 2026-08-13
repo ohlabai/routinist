@@ -70,33 +70,47 @@ struct MetricsView: View {
         // v10 (Apple 운동앱 실측 문법): 각 지표가 화면 폭을 거의 채우는 초대형 숫자,
         // 라벨은 값 오른쪽 아주 작은 2줄. 야외 직사광에서 흘끗 봐도 읽히게.
         // v19 (2026-08-01, 회원 요청): 심박 행 복원 — 존 색 숫자 + 영역 칩을 메인 화면에.
-        // 4행이 들어가도록 v10 스케일 (64/58/52/52) 로 재조정.
+        // v22 (2026-08-13): compressed 폭 + 센티초 분리로 스케일 재조정 (72/70/62/62).
+        //   히어로(거리만 초대형) 안도 만들어 비교했으나 hans 가 균등안 선택 — 달리는 중
+        //   페이스를 자주 확인하는 편이라 4지표가 모두 큰 쪽이 맞다. 히어로안은 폐기.
         VStack(alignment: .leading, spacing: 2) {
-            // 시간 — hero, 0.01초 단위
+            // 시간 — hero. v22: 센티초를 본문에서 분리.
+            // "21:04.00" 8자를 한 덩어리로 그리면 폭(208pt)에 안 맞아 minimumScaleFactor 가
+            // 65% 로 줄여버렸다 — 크게 쓴 줄 알았는데 실제론 작게 렌더되던 것이 가독성의 진범.
+            // 분·초만 큰 글씨로, 센티초는 작고 흐리게 (흔들리는 숫자는 시선을 뺏기만 한다).
             TimelineView(.animation(minimumInterval: 0.03, paused: workout.phase != .active)) { ctx in
-                Text(formatElapsedCenti(workout.displayElapsed(at: ctx.date)))
-                    .font(.system(size: 64, weight: .heavy, design: .rounded))
-                    .monospacedDigit()
-                    .minimumScaleFactor(0.5)
-                    .lineLimit(1)
-                    .foregroundStyle(.yellow)
+                let t = splitElapsed(workout.displayElapsed(at: ctx.date))
+                HStack(alignment: .firstTextBaseline, spacing: 1) {
+                    Text(t.main)
+                        .font(runFont(72))
+                        .monospacedDigit()
+                        .minimumScaleFactor(0.6)
+                        .lineLimit(1)
+                        .foregroundStyle(.yellow)
+                    if let cs = t.centi {
+                        Text(cs)
+                            .font(runFont(30))
+                            .monospacedDigit()
+                            .foregroundStyle(.yellow.opacity(0.55))
+                    }
+                }
             }
 
             // 거리
-            bigMetric(String(format: "%.2f", workout.distanceMeters / 1000), unit: "km", color: emerald, size: 58)
+            bigMetric(String(format: "%.2f", workout.distanceMeters / 1000), unit: "km", color: emerald, size: 70)
 
             // 페이스 — 직전 KM 우선. v21: 라벨 1줄.
             // "/km" 은 페이스 표기(4'42") 자체가 이미 말하는 정보라 뺐다 (워치는 km 고정).
             bigMetric(formatPace(workout.lastSplitPaceSecPerKm ?? workout.paceSecPerKm),
                       unit: workout.lastSplitPaceSecPerKm != nil ? "직전KM" : "평균",
-                      color: .white, size: 52)
+                      color: .white, size: 62)
 
             // 심박 — v21 (2026-08-12, hans): 라벨은 한 줄 한 토큰.
             // 큰 숫자는 고정 코랄(존마다 색이 바뀌면 노란 타이머와 부딪힌다),
             // 존은 라벨 자리에서 색과 글자로 한 번만 말한다. 존을 모르는 동안만 "bpm".
             bigMetric(workout.heartRate > 0 ? String(format: "%.0f", workout.heartRate) : "--",
                       unit: workout.currentZone > 0 ? "영역 \(workout.currentZone)" : "bpm",
-                      color: HRZone.ink, size: 52,
+                      color: HRZone.ink, size: 62,
                       unitColor: workout.currentZone > 0
                           ? HRZone.color(workout.currentZone) : nil)
 
@@ -140,7 +154,7 @@ struct MetricsView: View {
                            unitColor: Color? = nil) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 5) {
             Text(value)
-                .font(.system(size: size, weight: .heavy, design: .rounded))
+                .font(runFont(size))
                 .monospacedDigit()
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
@@ -325,6 +339,26 @@ struct ControlsView: View {
 }
 
 // ── 포맷터 ─────────────────────────────────────────────────────
+
+/// v22 (2026-08-13, hans "글씨가 통통해서 달리면서 식별이 안 된다"):
+/// 러닝 지표 전용 폰트 = **둥근 서체 유지 + compressed 폭**.
+/// 둥근 heavy 는 귀엽지만 자간이 넓어 화면 폭(46mm = 208pt)을 금방 넘고, 그러면
+/// minimumScaleFactor 가 통째로 축소해 실제 렌더 크기가 오히려 작아졌다.
+/// compressed 는 글자를 ~25% 좁게 그려서 같은 폭에 더 큰 글씨를 담는다 —
+/// 애플 운동앱이 초대형 숫자를 넣는 방식과 같다. 귀여움은 그대로, 크기만 커진다.
+func runFont(_ size: CGFloat) -> Font {
+    .system(size: size, weight: .heavy, design: .rounded).width(.compressed)
+}
+
+/// "MM:SS" + ".CC" 분리 — 센티초를 따로 작게 그리기 위해. 1시간 넘으면 센티초 없음.
+func splitElapsed(_ seconds: TimeInterval) -> (main: String, centi: String?) {
+    let cs = max(0, Int((seconds * 100).rounded()))
+    let totalS = cs / 100
+    if totalS >= 3600 {
+        return (String(format: "%d:%02d:%02d", totalS / 3600, (totalS % 3600) / 60, totalS % 60), nil)
+    }
+    return (String(format: "%02d:%02d", totalS / 60, totalS % 60), String(format: ".%02d", cs % 100))
+}
 
 func formatElapsed(_ seconds: TimeInterval) -> String {
     let total = Int(seconds)
