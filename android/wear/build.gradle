@@ -67,7 +67,28 @@ dependencies {
     implementation "com.google.android.gms:play-services-wearable:20.0.1"
 
     // 컴플리케이션 (워치페이스 런처) — 2026-08-02
-    implementation "androidx.wear.watchface:watchface-complications-data-source-ktx:1.2.1"
+    // 2026-08-14: 1.2.1 → 1.3.0. Play SDK 권고 대응 —
+    // 1.2.1 이 protolayout-proto 1.0.0-beta01 을 끌고 오는데 그 안의 protobuf 가
+    // CVE-2024-7254 (중첩 데이터 파싱 DoS) 대상이다. proto 만 강제로 올리면
+    // 같은 계열의 expression/pipeline 은 beta01 로 남아 런타임에 깨질 수 있어
+    // 부모를 올려 계열 전체를 일관되게 맞춘다.
+    implementation "androidx.wear.watchface:watchface-complications-data-source-ktx:1.3.0"
+
+    constraints {
+        // Play SDK 권고: wear AAB 에 fragment 1.1.0 이 실려 있었다 (폰은 1.8.9 로 해결됨).
+        // wear 모듈엔 fragment 를 끌어올릴 상위 의존성이 없어 play-services-wearable 이
+        // 요구하는 1.1.0 에 머물렀다. 폰과 같은 선으로 맞춘다.
+        implementation("androidx.fragment:fragment:1.8.9") {
+            because "Play SDK 권고 — 1.1.0 은 구버전, 폰 모듈과 동일선 정렬"
+        }
+        // watchface 1.3.0 은 protolayout 1.0.0 을 끌고 온다. Google 권고 버전은 1.2.1 —
+        // proto 하나만 올리면 expression/pipeline 과 세대가 어긋나므로 **계열 전체**를 맞춘다.
+        ["protolayout-proto", "protolayout-expression", "protolayout-expression-pipeline"].each { m ->
+            implementation("androidx.wear.protolayout:$m:1.2.1") {
+                because "CVE-2024-7254 (protobuf) — Google 권고 1.2.1"
+            }
+        }
+    }
 
     // Compose for Wear OS
     def composeBom = platform("androidx.compose:compose-bom:2026.06.01")
