@@ -494,7 +494,7 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     const existingResult = await withTimeout(
       supabase
         .from('activities')
-        .select('id, started_at, activity_date, distance_km, duration_seconds, source, is_native')
+        .select('id, started_at, ended_at, activity_date, distance_km, duration_seconds, source, is_native')
         .eq('user_id', userId)
         .gte('activity_date', startDate.slice(0, 10)),
       10000,
@@ -520,16 +520,20 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     // build 245 #15: 같은 started_at 윈도우에 source='gps' 행이 있을 때 Apple Health 가 더 정확한
     // 데이터라면 GPS 행을 덮어쓰기. 이전 로직은 GPS 가 먼저 박혀 있으면 Apple Health 를 무조건 dedup 으로
     // 스킵 → broken GPS (0.56km / 0.04km 같은 클립) 가 영원히 회복 안 됨.
-    type ExistingRow = { id: string; ms: number; distance_km: number; duration_seconds: number | null; source: string; is_native: boolean };
+    type ExistingRow = { id: string; ms: number; endMs: number | null; distance_km: number; duration_seconds: number | null; source: string; is_native: boolean };
     const existingByTime: ExistingRow[] = [];
     // existingByDate 는 옛 데이터 (started_at NULL) 호환용 fallback. started_at 있는 행을
     // 여기 넣으면 같은 날 같은 거리 두 번 뛴 경우 두 번째가 false-positive 중복으로 스킵됨 (build 204 회귀).
     const existingByDateLegacy = new Map<string, number[]>();
-    (existingAll ?? []).forEach((row: { id: string; started_at: string | null; activity_date: string; distance_km: number | string; duration_seconds: number | null; source: string | null; is_native: boolean | null }) => {
+    (existingAll ?? []).forEach((row: { id: string; started_at: string | null; ended_at?: string | null; activity_date: string; distance_km: number | string; duration_seconds: number | null; source: string | null; is_native: boolean | null }) => {
       if (row.started_at) {
+        const startMs = new Date(row.started_at).getTime();
         existingByTime.push({
           id: row.id,
-          ms: new Date(row.started_at).getTime(),
+          ms: startMs,
+          // ended_at 이 없으면 duration 으로 근사 (일시정지 제외분이라 약간 짧지만 겹침 판정엔 충분)
+          endMs: row.ended_at ? new Date(row.ended_at).getTime()
+               : (row.duration_seconds ? startMs + row.duration_seconds * 1000 : null),
           distance_km: Number(row.distance_km),
           duration_seconds: row.duration_seconds,
           source: row.source ?? '',
@@ -544,17 +548,37 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
     existingByTime.sort((a, b) => a.ms - b.ms);
 
     const TOLERANCE_MS = 60_000;
-    const findOverlap = (workoutMs: number): ExistingRow | null => {
+    // 2026-08-15 (hans "5km 두 번 뛰었는데 오늘 14.8km"): 시작 시각 ±60초만 보던 판정이
+    // 같은 러닝을 두 번 넣었다. 같은 아침 러닝이 네이티브 01:21:05 / HK 01:23:14 로
+    // **129초** 벌어져 있었다 (기기가 다르면 시작 시각이 이 정도는 어긋난다).
+    // → 시작 근접에 더해 **시간 구간 겹침**으로도 같은 러닝을 잡는다.
+    //   서로 다른 러닝은 시간이 겹칠 수 없으므로 겹침 판정은 오검출 위험이 거의 없다.
+    const OVERLAP_RATIO = 0.5;
+    // 겹침 후보 스캔 시작점 — 이보다 앞서 시작한 러닝은 아무리 길어도 안 겹친다고 본다.
+    const MAX_RUN_MS = 6 * 60 * 60 * 1000;
+    const findOverlap = (workoutMs: number, workoutEndMs: number | null): ExistingRow | null => {
       let lo = 0, hi = existingByTime.length;
       while (lo < hi) {
         const mid = (lo + hi) >> 1;
-        if (existingByTime[mid].ms < workoutMs - TOLERANCE_MS) lo = mid + 1;
+        if (existingByTime[mid].ms < workoutMs - MAX_RUN_MS) lo = mid + 1;
         else hi = mid;
       }
-      if (lo < existingByTime.length && existingByTime[lo].ms <= workoutMs + TOLERANCE_MS) {
-        return existingByTime[lo];
+      let startNear: ExistingRow | null = null;
+      for (let i = lo; i < existingByTime.length; i++) {
+        const row = existingByTime[i];
+        // 후보 시작이 이 워크아웃 종료보다 뒤면 이후는 볼 것도 없다 (정렬돼 있음)
+        if (workoutEndMs != null && row.ms > workoutEndMs + TOLERANCE_MS) break;
+        if (workoutEndMs == null && row.ms > workoutMs + TOLERANCE_MS) break;
+        // (1) 기존 판정 — 시작 시각 근접
+        if (Math.abs(row.ms - workoutMs) <= TOLERANCE_MS) { startNear ??= row; continue; }
+        // (2) 신규 판정 — 시간 구간 겹침
+        if (workoutEndMs == null || row.endMs == null) continue;
+        const overlapMs = Math.min(row.endMs, workoutEndMs) - Math.max(row.ms, workoutMs);
+        if (overlapMs <= 0) continue;
+        const shorter = Math.min(row.endMs - row.ms, workoutEndMs - workoutMs);
+        if (shorter > 0 && overlapMs / shorter >= OVERLAP_RATIO) return row;
       }
-      return null;
+      return startNear;
     };
 
     let syncedCount = 0;
@@ -595,7 +619,9 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
       if (activityType === 'walking' && distanceKm < 0.5) { walkingFiltered++; continue; }
 
       const workoutMs = new Date(workout.startDate).getTime();
-      const overlap = findOverlap(workoutMs);
+      const workoutEndMs = workout.endDate ? new Date(workout.endDate).getTime()
+                         : (durationSeconds ? workoutMs + durationSeconds * 1000 : null);
+      const overlap = findOverlap(workoutMs, workoutEndMs);
       if (overlap) {
         // upgrade 조건: 기존이 source='gps' 이고 health 와 의미 있는 차이가 있을 때.
         // build 255: 양방향 보정. 이전엔 (gps < health × 0.5 || health > gps + 1km) — GPS underreport
@@ -705,7 +731,7 @@ async function syncFromHealthKit(userId: string, options?: SyncOptions): Promise
 
       toInsert.push(insertData);
       // binary search invariant — 새 행 추가 후 정렬 유지.
-      existingByTime.push({ id: '__pending__', ms: workoutMs, distance_km: distanceKm, duration_seconds: durationSeconds, source: 'health_kit', is_native: false });
+      existingByTime.push({ id: '__pending__', ms: workoutMs, endMs: workoutEndMs, distance_km: distanceKm, duration_seconds: durationSeconds, source: 'health_kit', is_native: false });
       existingByTime.sort((a, b) => a.ms - b.ms);
     }
 
