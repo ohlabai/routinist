@@ -44,7 +44,9 @@ struct StartView: View {
                     .fill(GrassPalette.bg)
                     .overlay(RoundedRectangle(cornerRadius: 24).stroke(GrassPalette.mid.opacity(0.55), lineWidth: 1.5))
             )
-            .disabled(workout.phase == .requesting)
+            // 2026-08-15 (hans "달리기를 눌러도 작동을 안 한다"): .requesting 중 disabled 를 뺐다.
+            // 권한 콜백이 안 오면 phase 가 .requesting 에 갇히는데, 버튼까지 죽어 있으면
+            // 사용자가 할 수 있는 게 아무것도 없다. 다시 누르면 처음부터 재시도된다.
             // v21 프라이머 알럿은 2026-08-03 hans 지시로 제거 — 탭 한 번 아끼고 시트 직행
 
             // v14 (hans): "목표 없음" 대신 친근한 초대 카피 — 누르면 목표 설정
@@ -74,6 +76,18 @@ struct StartView: View {
             if workout.phase == .requesting {
                 ProgressView()
             }
+            if workout.startStalled {
+                VStack(spacing: 2) {
+                    Text("권한 확인이 응답하지 않았어요.\n한 번 더 눌러주세요")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.orange)
+                    // 원인 추적용 — 재발 시 이 줄을 찍어 보내주면 어디서 막혔는지 안다.
+                    Text(workout.startStallDiag)
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+                .multilineTextAlignment(.center)
+            }
             if workout.authDenied {
                 Text("건강 권한이 필요해요.\n아이폰 건강 앱 > 공유 > 앱 > Routinist에서 모두 켜주세요\n(또는 워치 설정 > 개인정보 보호 > 건강)")
                     .font(.system(size: 14, design: .rounded))
@@ -82,7 +96,13 @@ struct StartView: View {
             }
         }
         .padding(.horizontal, 6)
-        .onAppear { workout.loadGoal() }
+        .onAppear {
+            workout.loadGoal()
+            // DEBUG 스크린샷: -uipreview-goal 로 목표 시트를 바로 띄운다 (레이아웃 검증용)
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-uipreview-goal") { showGoalPicker = true }
+            #endif
+        }
         .sheet(isPresented: $showGoalPicker) { GoalPickerView() }
     }
 
@@ -112,10 +132,15 @@ struct GoalPickerView: View {
     @State private var minutes: Int = 30
 
     var body: some View {
+        // 2026-08-15 (hans "완료 버튼이 아래쪽에 있다 — 워치 화면에 딱 맞추는 게 좋지 않나"):
+        // ScrollView 안에 다 넣으니 완료 버튼이 화면 밖으로 밀려 스크롤해야 보였다.
+        // 목표 설정은 "고르고 확정" 두 동작뿐이라 한 화면에 들어가야 한다.
+        // → 완료를 safeAreaInset 으로 **바닥에 고정**하고, 위 내용만 필요 시 스크롤.
+        //   숫자·버튼 치수도 한 화면에 들어가게 조였다 (스테퍼 44→38, 값 40→34).
         ScrollView {
-            VStack(spacing: 8) {
+            VStack(spacing: 4) {
                 Text("오늘은 얼마쯤 달릴까? 🏃")
-                    .font(.system(size: 15, weight: .heavy, design: .rounded))
+                    .font(.system(size: 14, weight: .heavy, design: .rounded))
                     .minimumScaleFactor(0.8)
                     .lineLimit(1)
 
@@ -128,7 +153,7 @@ struct GoalPickerView: View {
                             Text(m.rawValue)
                                 .font(.system(size: 14, weight: .heavy, design: .rounded))
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 7)
+                                .padding(.vertical, 5)
                         }
                         .buttonStyle(.plain)
                         .background(Capsule().fill(mode == m ? emerald.opacity(0.85) : Color.white.opacity(0.1)))
@@ -151,23 +176,29 @@ struct GoalPickerView: View {
                                minus: { minutes = max(5, minutes - 5) }, plus: { minutes = min(300, minutes + 5) })
                 }
 
-                Button {
-                    switch mode {
-                    case .distance: workout.goal = .distanceKm(km)
-                    case .time: workout.goal = .timeMin(minutes)
-                    }
-                    dismiss()
-                } label: {
-                    Text("완료")
-                        .font(.system(size: 16, weight: .heavy, design: .rounded))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 9)
-                }
-                .buttonStyle(.plain)
-                .background(RoundedRectangle(cornerRadius: 14).fill(emerald))
-                .foregroundStyle(.black)
             }
             .padding(.horizontal, 4)
+            .padding(.bottom, 4)
+        }
+        .safeAreaInset(edge: .bottom) {
+            // 바닥 고정 — 스크롤 위치와 무관하게 늘 손가락 닿는 곳에 있다.
+            Button {
+                switch mode {
+                case .distance: workout.goal = .distanceKm(km)
+                case .time: workout.goal = .timeMin(minutes)
+                }
+                dismiss()
+            } label: {
+                Text("완료")
+                    .font(.system(size: 16, weight: .heavy, design: .rounded))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+            }
+            .buttonStyle(.plain)
+            .background(RoundedRectangle(cornerRadius: 14).fill(emerald))
+            .foregroundStyle(.black)
+            .padding(.horizontal, 4)
+            .padding(.bottom, 2)
         }
         .onAppear {
             // 현재 목표로 초기화 (미설정이면 거리 5km 기본)
@@ -180,11 +211,11 @@ struct GoalPickerView: View {
     }
 
     private func stepperRow(value: String, unit: String, minus: @escaping () -> Void, plus: @escaping () -> Void) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             stepBtn("minus") { minus() }
             HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(value)
-                    .font(.system(size: 40, weight: .heavy, design: .rounded))
+                    .font(.system(size: 30, weight: .heavy, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(emerald)
                 Text(unit)
@@ -199,8 +230,8 @@ struct GoalPickerView: View {
     private func stepBtn(_ symbol: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 20, weight: .heavy))
-                .frame(width: 44, height: 44)
+                .font(.system(size: 18, weight: .heavy))
+                .frame(width: 34, height: 34)
         }
         .buttonStyle(.plain)
         .background(Circle().fill(Color.white.opacity(0.14)))
@@ -209,9 +240,9 @@ struct GoalPickerView: View {
     private func presetChip(_ label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
-                .font(.system(size: 15, weight: .heavy, design: .rounded))
+                .font(.system(size: 14, weight: .heavy, design: .rounded))
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
+                .padding(.vertical, 4)
         }
         .buttonStyle(.plain)
         .background(Capsule().fill(Color.white.opacity(0.1)))

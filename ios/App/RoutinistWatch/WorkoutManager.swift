@@ -629,10 +629,51 @@ final class WorkoutManager: NSObject, ObservableObject {
     //  - getRequestStatusForAuthorization: 경로/생년월일이 영영 미결정이라 항상 shouldRequest → 매 러닝 시트 (v15~).
     //  - requestAuthorization 의 ok: '요청이 처리됨'일 뿐 허용 아님 — 시트를 X 로 닫아도 true 가 와서
     //    v25 가 완료로 기록 → 이후 영영 무권한 세션 시작 (거리·심박 0). authorizationStatus 만이 진실.
+    /// .requesting 에 물려 영영 안 풀리는 것 방지 (2026-08-15 hans "달리기를 눌러도 작동을 안 한다").
+    /// HealthKit requestAuthorization 콜백은 iOS 가 HealthPrivacyService assertion 을 못 잡으면
+    /// **아예 호출되지 않는다** (8/12 폰 로그에 실제로 찍힘: "Unable to acquire legacy assertion").
+    /// 그러면 phase 가 .requesting 에 갇히고 시작 버튼은 disabled 라 사용자가 할 수 있는 게 없다.
+    /// 프로세스가 살아있는 한 복구도 안 된다 (WorkoutManager 는 싱글턴).
+    private var requestWatchdog: Task<Void, Never>?
+
+    private func armRequestWatchdog() {
+        requestWatchdog?.cancel()
+        requestWatchdog = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 12_000_000_000)
+            guard let self, !Task.isCancelled, self.phase == .requesting else { return }
+            self.captureStallDiag()
+            self.phase = .idle
+            self.startStalled = true
+        }
+    }
+
+    private func clearRequestWatchdog() {
+        requestWatchdog?.cancel()
+        requestWatchdog = nil
+    }
+
+    /// 권한 요청이 응답 없이 끝났음 — StartView 가 "다시 눌러주세요" 안내를 띄운다.
+    @Published var startStalled = false
+    /// 멈춘 시점의 권한 상태 — 워치는 로그를 볼 수 없으니 화면에 남겨야 원인을 안다.
+    /// (0=미결정 1=거부 2=허용, 순서는 criticalShareTypes)
+    @Published var startStallDiag = ""
+
+    private func captureStallDiag() {
+        let hk = criticalShareTypes
+            .map { String(healthStore.authorizationStatus(for: $0).rawValue) }
+            .joined()
+        startStallDiag = "HK\(hk)·LOC\(locationManager.authorizationStatus.rawValue)"
+            + (pendingCountdownAfterLocationAuth ? "·위치대기" : "")
+    }
+
     func requestAuthorizationAndStart() {
         guard HKHealthStore.isHealthDataAvailable() else { return }
+        // 이미 요청 중인데 또 눌렀다 = 사용자가 멈춰 있다고 느낀 것. 처음부터 다시 건다.
+        clearRequestWatchdog()
         phase = .requesting
         authDenied = false
+        startStalled = false
+        armRequestWatchdog()
         let shareStates = criticalShareTypes
             .map { "\($0.identifier)=\(healthStore.authorizationStatus(for: $0).rawValue)" }
             .sorted().joined(separator: " ")
@@ -652,6 +693,7 @@ final class WorkoutManager: NSObject, ObservableObject {
                 } else {
                     // 허용 안 됨 (X 로 닫음 / 일부만 켬 / 이전에 거부) — 무권한 세션을 시작하는 대신
                     // StartView 의 안내 문구 (워치 설정 > 개인정보 보호 > 건강) 로 유도.
+                    self.clearRequestWatchdog()
                     self.authDenied = true
                     self.phase = .idle
                 }
@@ -663,10 +705,19 @@ final class WorkoutManager: NSObject, ObservableObject {
     /// 세션 시작과 겹쳤다 (크래시와 맞물려 동의가 영영 저장 안 되는 루프).
     /// 거부해도 러닝은 정상 진행 (경로만 없음).
     private func requestLocationThenCountdown() {
+        clearRequestWatchdog()
         locationManager.delegate = self
         if locationManager.authorizationStatus == .notDetermined {
             pendingCountdownAfterLocationAuth = true
             locationManager.requestWhenInUseAuthorization()
+            // 2026-08-15: 위치 응답을 무한정 기다리지 않는다. 프롬프트가 안 뜨거나 delegate 가
+            // 안 오면 여기서 영영 멈춰 있었다 — 경로는 있으면 좋은 것이지 러닝의 전제조건이 아니다.
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: 8_000_000_000)
+                guard let self, self.pendingCountdownAfterLocationAuth else { return }
+                self.pendingCountdownAfterLocationAuth = false
+                self.phase = .countdown   // 경로 없이 진행
+            }
             return
         }
         phase = .countdown
