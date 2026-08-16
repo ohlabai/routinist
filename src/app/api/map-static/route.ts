@@ -24,8 +24,15 @@ export async function GET(req: Request) {
   // 2026-08-16 v7: 경로 박스(1.75:1) → **카드 상단 전체**(1080×1060 ≈ 1.019:1) 로.
   // 박스가 작아 동네 이름이 안 읽혔다 (hans). 640×628 @scale2 = 1280×1256.
   // (각 변 640 이 Static Maps 상한)
+  //
+  // ⚠️ 2026-08-17: 크기를 **버전별로** 준다. v 는 캐시 키일 뿐이라고 두고 항상 최신 크기를 주면,
+  // 이미 배포된 구버전 앱(v6 이하 = 840×480 박스에 cover-fit)이 1.019:1 이미지를 받아
+  // 좌우 42%가 잘린 지도를 그린다. 실측으로 확인 — 안드 335 가 심사 중이라 그대로 나갈 뻔했다.
+  // 클라이언트는 배포 후에도 오래 남는다. 프록시는 **요청한 버전의 계약을 지켜야 한다.**
+  const v = Number(url.searchParams.get('v') || '0');
+  const size = v >= 7 ? '640x628' : '640x366';
   const gs = new URL('https://maps.googleapis.com/maps/api/staticmap');
-  gs.searchParams.set('size', '640x628');
+  gs.searchParams.set('size', size);
   gs.searchParams.set('scale', '2');
   gs.searchParams.set('maptype', 'roadmap');
   gs.searchParams.set('language', lang);
@@ -38,9 +45,11 @@ export async function GET(req: Request) {
     'feature:all|element:geometry|saturation:-18|lightness:6',
     'feature:poi|element:labels|visibility:off',
     'feature:transit|visibility:off',
-    // v7: 영역이 카드 상단 전체로 커져 라벨이 빽빽하지 않다 → 간선도로 라벨 복구
-    // (어디를 달렸는지 짚는 단서가 동네 이름만으론 부족했다). 이면도로 라벨만 계속 off.
     'feature:road.local|element:labels|visibility:off',
+    // v7 은 영역이 카드 상단 전체로 커져 라벨이 빽빽하지 않다 → 간선도로 라벨 복구
+    // (어디를 달렸는지 짚는 단서가 동네 이름만으론 부족했다).
+    // v6 이하는 작은 박스라 라벨이 겹쳐 경로가 묻힌다 → 계속 off.
+    ...(v >= 7 ? [] : ['feature:road.arterial|element:labels|visibility:off']),
   ]) gs.searchParams.append('style', st);
   // path 만 주고 center/zoom 을 비우면 Google 이 경로에 맞춰 자동 프레이밍한다.
   // ⚠️ 이 줄이 빠지면 경로도 프레이밍도 사라져 **세계지도**가 돌아온다 (2026-08-16 실측).
