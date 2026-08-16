@@ -195,8 +195,13 @@ struct GoalPickerView: View {
             .padding(.horizontal, 4)
             .padding(.bottom, 4)
         }
-        .safeAreaInset(edge: .bottom) {
+        .safeAreaInset(edge: .bottom, spacing: 6) {
             // 바닥 고정 — 스크롤 위치와 무관하게 늘 손가락 닿는 곳에 있다.
+            //
+            // 2026-08-16 (hans "완료 버튼이 그 위에 목표거리를 가려서 잘 안 보이네"):
+            // inset 뒤로 스크롤 내용(프리셋 칩 하프·풀)이 지나가는데 배경이 투명이라
+            // 버튼 옆으로 반쯤 삐져나와 "가려진" 상태로 보였다. 불투명 배경 + 위쪽 페이드로
+            // 버튼 아래는 확실히 끊고, spacing 6 으로 위 내용과 간격도 준다.
             Button {
                 onPick(mode == .distance ? .distanceKm(km) : .timeMin(minutes))
             } label: {
@@ -209,7 +214,15 @@ struct GoalPickerView: View {
             .background(RoundedRectangle(cornerRadius: 14).fill(emerald))
             .foregroundStyle(.black)
             .padding(.horizontal, 4)
+            .padding(.top, 6)
             .padding(.bottom, 2)
+            .background(
+                LinearGradient(
+                    colors: [.black.opacity(0), .black.opacity(0.92), .black],
+                    startPoint: .top, endPoint: .bottom
+                )
+                .allowsHitTesting(false)
+            )
         }
         .onAppear {
             // 현재 목표로 초기화 (미설정이면 거리 5km 기본)
