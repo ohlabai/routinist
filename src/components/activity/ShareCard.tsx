@@ -149,6 +149,10 @@ function drawCard(
    *  카드의 나머지(그라데이션 배경 + 흰 글씨)는 원래 형태 그대로 — 식별성이 가장 좋았다.
    *  이미지에 경로선이 이미 그려져 있으므로 캔버스는 폴리라인/마커를 다시 긋지 않는다. */
   mapInset?: HTMLImageElement | null,
+  /** 2026-08-16 (hans "지도가 안 보이는데" → 다시 누르니 뜸): 경로/지도를 아직 받는 중.
+   *  이 러닝은 좌표가 5,344점(211KB)이라 로딩이 눈에 띄게 걸린다. 그동안 (1) 자리를 미리
+   *  잡아둬 다 받은 뒤 숫자가 튀지 않게 하고 (2) "불러오는 중" 을 보여준다. */
+  mapPending?: boolean,
 ) {
   // build 205 #11: 막대 그래프 애니메이션 진행도. routeProgress 와 동일 timeline (0~1).
   // 일간 카드: 오늘 막대 / 가로 누적바가 0 → 목표 까지 차오른 후 bounce → 원래 색.
@@ -248,6 +252,9 @@ function drawCard(
   const extraRoutes = periodOverrides?.extraRoutes;
   const hasExtraRoutes = Array.isArray(extraRoutes) && extraRoutes.length > 0;
   const hasRoute = hasExtraRoutes || activity.route_data?.coordinates?.length;
+  // 아직 받는 중이어도 경로 자리를 미리 비워둔다 — 도착하는 순간 거리 숫자가 950 으로
+  // 뚝 떨어지며 카드 전체가 재배치되던 것 (사용자에겐 "안 나오다가 갑자기 바뀜" 으로 보인다).
+  const reserveRoute = !!hasRoute || !!mapPending;
 
   // 2026-08-16 (hans): '지도' 테마 — 경로 박스 안이 아니라 **동물이 딛는 구분선 위쪽 전체**를 지도로.
   // 박스(840×480)에 가뒀더니 지도가 작아 어디를 달렸는지 안 읽혔다. 구분선 아래는 단색 유지.
@@ -256,7 +263,7 @@ function drawCard(
   // hans: "지도 위 흰색글씨를 다른 컬러로 하고 배경에 검정색을 빼는 게 낫지 않을까" — 맞다.
   // → 스크림을 걷어내고 **지도 위 글씨만 어두운 잉크 + 흰 후광**으로 뒤집는다.
   //   구분선 아래(단색 배경)의 글씨는 그대로 흰색. 카드 안에서 두 영역이 각자 대비를 갖는다.
-  const mapCutY = (hasRoute ? 950 : H * 0.36) + 110;   // = lineY (구분선/동물 라인)
+  const mapCutY = (reserveRoute ? 950 : H * 0.36) + 110;   // = lineY (구분선/동물 라인)
   // 사진·영상 배경이 있으면 그쪽이 우선 (지도로 덮지 않는다).
   const onMapInk = !!mapInset && !hasMedia;
   const INK_MAIN = '#0b1f17';      // 카드 하단 배경과 같은 계열의 딥그린 — 밝은 지도 위에서 또렷
@@ -289,6 +296,19 @@ function drawCard(
     ctx.fillStyle = gEdge;
     ctx.fillRect(0, mapCutY - 90, W, 90);
     ctx.restore();
+  }
+
+  // 아직 받는 중 — 빈 공간만 두면 "지도가 안 나온다" 로 읽힌다 (hans 신고).
+  // 경로선도 지도도 없는 이 구간에 한 줄만 남긴다.
+  if (mapPending && !mapInset) {
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '600 34px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillStyle = hasMedia ? 'rgba(255,255,255,0.55)' : (theme.textSub || 'rgba(255,255,255,0.5)');
+    ctx.fillText(ttl('지도 불러오는 중…'), W / 2, mapCutY / 2);
+    ctx.restore();
+    ctx.textBaseline = 'alphabetic';
   }
 
   if (hasExtraRoutes) {
@@ -839,7 +859,7 @@ function drawCard(
   // 거리 (메인). 최종 값의 dot 위치를 화면 중앙 기준 offset 으로 미리 계산 → 카운트업
   // 중에도 dot 좌표 고정. 정수/소수 자릿수가 동일하면 흔들림 0, 자릿수 변화 시에도
   // 한쪽 정렬이라 안정. 최종 텍스트 전체가 W/2 에 정확히 중심 정렬됨 (build 178 fix).
-  const distY = hasRoute ? 950 : H * 0.36;
+  const distY = reserveRoute ? 950 : H * 0.36;
   const kmFont = 'bold 180px -apple-system, BlinkMacSystemFont, sans-serif';
   ctx.save();
   inkHalo(22);
@@ -1270,15 +1290,21 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
       .then(({ data }) => { if (!cancelled && data && data.length > 0) setIsPB(true); });
     return () => { cancelled = true; };
   }, [baseActivity.id]);
+  // 2026-08-16: 경로 fetch 가 도는 동안 true — 카드가 자리를 미리 잡고 "불러오는 중" 을 띄운다.
+  // 14.5km 워치 러닝은 좌표가 5,344점(211KB)이라 체감될 만큼 걸린다.
+  const [routeLoading, setRouteLoading] = useState(false);
   useEffect(() => {
-    if (routeData) return;
+    if (routeData) { setRouteLoading(false); return; }
     // 2026-07-15 리뷰 fix: 주간/월간 카드의 합성 id ('period-week-…') 가 uuid 컬럼에 발사돼
     // 매번 22P02 에러 요청을 만들었음 — uuid 형식일 때만 fetch.
     if (!/^[0-9a-f-]{36}$/i.test(baseActivity.id)) return;
     let cancelled = false;
+    setRouteLoading(true);
     fetchActivityRoute(baseActivity.id).then(r => {
-      if (!cancelled && r?.route_data) setRouteData(r.route_data);
-    }).catch(() => { /* silent */ });
+      if (cancelled) return;
+      if (r?.route_data) setRouteData(r.route_data);
+      setRouteLoading(false);
+    }).catch(() => { if (!cancelled) setRouteLoading(false); });
     return () => { cancelled = true; };
   }, [baseActivity.id, routeData]);
 
@@ -1343,6 +1369,10 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
   // 2026-08-16: '지도' 테마용 배경. 사용자 사진(bgImage) 이 있으면 사진이 우선.
   const [mapImage, setMapImage] = useState<HTMLImageElement | null>(null);
+  // 공유 직전 대기용 — state 는 클로저에 갇히므로 ref 로 현재값을 본다.
+  const [waitingMap, setWaitingMap] = useState(false);
+  const mapImageRef = useRef<HTMLImageElement | null>(null);
+  const routeLoadingRef = useRef(false);
   const isMapTheme = THEMES[themeIdx]?.name === '지도';
   const [registering, setRegistering] = useState(false);
   const [registerToast, setRegisterToast] = useState<string | null>(null);
@@ -1458,9 +1488,12 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
     if (!canvasRef.current) return;
     // 지도는 카드 상단 전체 배경 (mapInset). 사진/영상 배경이 있으면 그쪽이 우선 — onMapInk 참조.
     const inset = isMapTheme ? mapImage : null;
-    drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel ?? undefined, 1, undefined, periodOverrides, videoStill, isPB, inset);
+    // 경로를 받는 중이거나, 경로는 왔는데 지도 이미지가 아직이면 pending
+    const hasCoords = ((activity.route_data?.coordinates as unknown[] | undefined)?.length ?? 0) >= 2;
+    const pending = routeLoading || (isMapTheme && hasCoords && !mapImage);
+    drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel ?? undefined, 1, undefined, periodOverrides, videoStill, isPB, inset, pending);
     // locale: 캔버스 안 ttl()/getCurrentLocale() 텍스트가 언어 전환 시 다시 그려지도록 (build 291 i18n Phase D).
-  }, [activity, displayName, themeIdx, bgImage, mapImage, isMapTheme, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel, locale, videoStill, isPB]);
+  }, [activity, displayName, themeIdx, bgImage, mapImage, isMapTheme, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel, locale, videoStill, isPB, routeLoading]);
 
   // 지도 테마가 선택되면 경로에 맞춘 Static Map 을 받아온다 (한 번 받으면 재사용).
   // 실패하면 mapImage 가 null 로 남아 테마의 폴백 그라데이션이 그대로 쓰인다.
@@ -1476,6 +1509,9 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
     loadStaticMap(url).then((img) => { if (!cancelled) setMapImage(img); });
     return () => { cancelled = true; };
   }, [isMapTheme, mapImage, activity, periodOverrides, themeIdx]);
+
+  useEffect(() => { mapImageRef.current = mapImage; }, [mapImage]);
+  useEffect(() => { routeLoadingRef.current = routeLoading; }, [routeLoading]);
 
   useEffect(() => { generate(); }, [generate]);
 
@@ -1779,6 +1815,19 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
   // build 167 #3: 캡션·해시태그·딥링크 모두 제거. 동영상/이미지 파일만 공유 → 채팅창 깔끔.
   const handleShare = async () => {
     if (!canvasRef.current) return;
+    // 2026-08-16: 로딩 중에 누르면 "지도 불러오는 중…" 이 박힌 이미지가 그대로 나간다.
+    // 최대 6초까지 기다려주고, 그래도 안 오면 지도 없이 (경로 폴리라인으로) 내보낸다.
+    if (routeLoading || (isMapTheme && !mapImage && (activity.route_data?.coordinates?.length ?? 0) >= 2)) {
+      setWaitingMap(true);
+      const deadline = Date.now() + 6000;
+      while (Date.now() < deadline) {
+        await new Promise(r => setTimeout(r, 150));
+        if (!routeLoadingRef.current && mapImageRef.current) break;
+      }
+      setWaitingMap(false);
+      generate();
+      await new Promise(r => requestAnimationFrame(() => r(null)));
+    }
     track('share_card_share', {
       activity_id: activity.id,
       distance_km: activity.distance_km,
@@ -2087,10 +2136,15 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
                 setTimeout(() => onClose(), 800);
               }
             }}
-            disabled={registering || renderingVideo}
+            disabled={registering || renderingVideo || waitingMap}
             className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[var(--accent)] text-white font-semibold text-base disabled:opacity-50 active:scale-[0.99] transition"
           >
-            {renderingVideo ? (
+            {waitingMap ? (
+              <>
+                <span className="animate-spin w-4 h-4 border-2 border-white/70 border-t-transparent rounded-full" />
+                <span>{tt('지도 기다리는 중...')}</span>
+              </>
+            ) : renderingVideo ? (
               <>
                 <span className="animate-spin w-4 h-4 border-2 border-white/70 border-t-transparent rounded-full" />
                 <span>{tt('동영상 만드는 중...')}</span>
