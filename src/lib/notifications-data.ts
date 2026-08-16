@@ -93,7 +93,9 @@ export const SOCIAL_KINDS = ['cheer', 'photo_comment', 'activity_comment', 'foll
 export type NotificationKind =
   | 'cheer' | 'photo_comment' | 'activity_comment' | 'follow'
   | 'friend_request' | 'friend_accepted' | 'referral_joined'
-  | 'friend_pb' | 'friend_live_run' | 'friend_overtake' | 'social_rival' | 'first_place_month';
+  | 'friend_pb' | 'friend_live_run' | 'friend_overtake' | 'social_rival' | 'first_place_month'
+  // 2026-08-17: 성취·보상 미러 (푸시만 가고 인박스엔 안 남던 것)
+  | 'prediction_result' | 'pb_distance' | 'referral' | 'club_course_complete';
 
 export interface NotificationItem {
   id: string;

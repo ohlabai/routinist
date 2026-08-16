@@ -5,7 +5,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Bell, Trophy, Users, Award, MessageSquare, TrendingUp, Megaphone, Flag, Save, Heart, UserPlus, AlarmClock, CalendarDays, MapPin } from 'lucide-react';
+import { ArrowLeft, Bell, Trophy, Users, Award, MessageSquare, TrendingUp, Megaphone, Flag, Save, Heart, UserPlus, AlarmClock, CalendarDays, MapPin, Target } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 import AppToast from '@/components/AppToast';
@@ -27,7 +27,9 @@ type CategoryKey = 'chat_message' | 'mileage_gift' | 'feedback_reply' | 'likes' 
   | 'friend_pb' | 'course_progress' | 'course_complete' | 'club_course_start' | 'club_course_complete'
   | 'world_chase' | 'idle_reminder' | 'month_end_recap'
   | 'weekly_recap' | 'streak_risk' | 'referral' | 'first_place_month' | 'pb_distance'
-  | 'weekly_best_quote' | 'review_request' | 'goal_achieved';
+  | 'weekly_best_quote' | 'review_request' | 'goal_achieved'
+  // 2026-08-17 리뷰: 설정에 없어서 **끌 수 없던** 카테고리 (should_send_push 기본 TRUE)
+  | 'prediction_result';
 
 // build 175 #5: 핵심 알림 4종을 상단에 노출 — 채팅·선물·답글·좋아요. 기본 ON.
 // 친선런(contest) 은 메뉴 숨김 (build 144) 과 동일하게 알림 설정에서도 표시 안 함.
@@ -57,6 +59,7 @@ function getCategories(tt: (ko: string) => string, locale: 'ko' | 'en'): Categor
     { key: 'streak_risk', label: locale === 'en' ? 'Streak at risk' : '연속 기록 알림', description: locale === 'en' ? 'A weekend heads-up when your weekly streak needs one more run' : '주간 연속 기록이 끊기기 전 주말에 살짝 알려드려요', Icon: AlarmClock },
     // weekly_recap — 2026-08-01 hans 지시로 폐기 (DB 함수 DROP)
     { key: 'month_end_recap', label: tt('월말 결산'), description: locale === 'en' ? 'Your monthly running recap at month-end' : '월말에 받아보는 이달의 내 러닝 요약', Icon: CalendarDays },
+    { key: 'prediction_result', label: locale === 'en' ? 'Winner pick result' : '우승자 맞히기 결과', description: locale === 'en' ? 'When the runner you picked wins the week' : '내가 고른 러너가 이번 주 우승했을 때', Icon: Target },
     { key: 'first_place_month', label: locale === 'en' ? 'Monthly 1st place' : '월간 1위 달성', description: locale === 'en' ? 'When you reach #1 in your ranking scope this month' : '이번 달 내 랭킹 범위에서 1위에 올랐을 때', Icon: Trophy },
     { key: 'goal_achieved', label: locale === 'en' ? 'Goal achieved' : '월간 목표 달성', description: locale === 'en' ? 'A one-time cheer when you hit your monthly km goal' : '이달 목표 km 를 달성한 순간 축하해드려요 (월 1회)', Icon: Flag },
     { key: 'pb_distance', label: locale === 'en' ? 'New longest run' : '최장 거리 신기록', description: locale === 'en' ? 'When you set a new personal longest distance' : '내 최장 거리 기록을 갱신했을 때', Icon: Trophy },
@@ -97,6 +100,7 @@ const DEFAULTS: Record<CategoryKey, boolean> = {
   referral: true,
   first_place_month: true,
   pb_distance: true,
+  prediction_result: true,
   weekly_best_quote: true,
   review_request: true,
   goal_achieved: true,   // 2026-08-02 신설 — 월간 목표 100% 교차 순간 1회

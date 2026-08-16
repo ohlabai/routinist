@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Heart, MessageSquare, UserPlus, Bell, Check, X, CheckCheck, Trophy, Zap, Crown, Footprints } from 'lucide-react';
+import { ArrowLeft, Heart, MessageSquare, UserPlus, Bell, Check, X, CheckCheck, Trophy, Zap, Crown, Footprints, Target, Flag } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -52,6 +52,11 @@ const KIND_ICONS: Record<NotificationKind, typeof Heart> = {
   friend_overtake: Footprints,
   social_rival: Footprints,
   first_place_month: Crown,
+  // 2026-08-17: 성취·보상 미러
+  prediction_result: Target,
+  pb_distance: Trophy,
+  referral: UserPlus,
+  club_course_complete: Flag,
 };
 
 const KIND_COLORS: Record<NotificationKind, string> = {
@@ -68,6 +73,11 @@ const KIND_COLORS: Record<NotificationKind, string> = {
   friend_overtake: 'bg-orange-100 text-orange-600 dark:bg-orange-950/40 dark:text-orange-400',
   social_rival: 'bg-orange-100 text-orange-600 dark:bg-orange-950/40 dark:text-orange-400',
   first_place_month: 'bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400',
+  // 2026-08-17: 성취·보상 미러
+  prediction_result: 'bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400',
+  pb_distance: 'bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400',
+  referral: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400',
+  club_course_complete: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400',
 };
 
 // 알림 클릭 시 라우팅. 각 kind 가 가리키는 컨텐츠로 이동.
@@ -100,6 +110,15 @@ function getHref(item: NotificationItem): string {
     case 'friend_overtake':
     case 'first_place_month':
       return '/ranking';
+    // 2026-08-17: 성취·보상 — 전부 본인 소식이라 actor 로 가면 안 된다
+    case 'prediction_result':
+      return '/dashboard';
+    case 'pb_distance':
+      return item.source_id ? `/activity?id=${item.source_id}` : '/dashboard';
+    case 'referral':
+      return '/social?tab=friends';
+    case 'club_course_complete':
+      return '/social?tab=clubs';
     default:
       // 서버가 새 kind 를 먼저 배포해도 페이지가 깨지지 않게 (build 294 — referral_joined 크래시 교훈)
       return '/social?tab=friends';
@@ -122,6 +141,10 @@ function describeKind(kind: NotificationKind, actorName: string, locale: 'ko' | 
       case 'friend_overtake': return `${actorName} pulled ahead of you ⚡`;
       case 'social_rival': return `${actorName} just finished a run 👟`;
       case 'first_place_month': return `${actorName} reached #1 this month 👑`;
+      case 'prediction_result': return `You picked this week's winner 🎯`;
+      case 'pb_distance': return `New personal best 🏆`;
+      case 'referral': return `Invite reward earned 🎉`;
+      case 'club_course_complete': return `Your club finished a course 🚩`;
       default: return `${actorName} sent you a notification`;
     }
   }
@@ -139,6 +162,11 @@ function describeKind(kind: NotificationKind, actorName: string, locale: 'ko' | 
     case 'friend_overtake': return `${actorName}님이 나를 앞질렀어요 ⚡`;
     case 'social_rival': return `${actorName}님이 방금 달렸어요 👟`;
     case 'first_place_month': return `${actorName}님이 이번 달 1위에 올랐어요 👑`;
+    // 본인 소식 — actorName 을 붙이면 "hans님이 우승자를 맞혔어요" 처럼 남 얘기가 된다
+    case 'prediction_result': return `이번 주 우승자를 맞혔어요 🎯`;
+    case 'pb_distance': return `자기 기록을 깼어요 🏆`;
+    case 'referral': return `초대 보상을 받았어요 🎉`;
+    case 'club_course_complete': return `클럽이 코스를 완주했어요 🚩`;
     default: return `${actorName}님의 새 알림`;
   }
 }
