@@ -306,7 +306,8 @@ function drawCard(
     ctx.textBaseline = 'middle';
     ctx.font = '600 34px -apple-system, BlinkMacSystemFont, sans-serif';
     ctx.fillStyle = hasMedia ? 'rgba(255,255,255,0.55)' : (theme.textSub || 'rgba(255,255,255,0.5)');
-    ctx.fillText(ttl('지도 불러오는 중…'), W / 2, mapCutY / 2);
+    // 지도 테마가 아니면 지도를 안 받는다 — 오는 건 경로선이다. 문구를 맞춘다.
+    ctx.fillText(ttl(theme.name === '지도' ? '지도 불러오는 중…' : '경로 불러오는 중…'), W / 2, mapCutY / 2);
     ctx.restore();
     ctx.textBaseline = 'alphabetic';
   }
@@ -1371,7 +1372,11 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
   const [mapImage, setMapImage] = useState<HTMLImageElement | null>(null);
   // 공유 직전 대기용 — state 는 클로저에 갇히므로 ref 로 현재값을 본다.
   const [waitingMap, setWaitingMap] = useState(false);
-  const mapImageRef = useRef<HTMLImageElement | null>(null);
+  // 2026-08-17 리뷰: "이미지가 왔는가" 가 아니라 "지도 요청이 **끝났는가**" 를 봐야 한다.
+  // 실패(null)로 끝난 경우 mapImage 는 영영 null 이라, 이걸로 대기 조건을 걸면 공유할 때마다
+  // 매번 6초를 통째로 기다린다.
+  const [mapSettled, setMapSettled] = useState(false);
+  const mapSettledRef = useRef(false);
   const routeLoadingRef = useRef(false);
   const isMapTheme = THEMES[themeIdx]?.name === '지도';
   const [registering, setRegistering] = useState(false);
@@ -1504,13 +1509,17 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
       (activity.route_data?.coordinates as Array<[number, number]> | undefined) ?? [];
     if (pts.length < 2) return;
     const url = staticMapUrl(pts, { isNative: isNativeApp(), routeColor: THEMES[themeIdx]?.routeColor });
-    if (!url) return;
+    if (!url) { setMapSettled(true); return; }
     let cancelled = false;
-    loadStaticMap(url).then((img) => { if (!cancelled) setMapImage(img); });
+    loadStaticMap(url).then((img) => {
+      if (cancelled) return;
+      setMapImage(img);
+      setMapSettled(true);   // 실패(null)도 '끝난 것' — 무한 대기 방지
+    });
     return () => { cancelled = true; };
   }, [isMapTheme, mapImage, activity, periodOverrides, themeIdx]);
 
-  useEffect(() => { mapImageRef.current = mapImage; }, [mapImage]);
+  useEffect(() => { mapSettledRef.current = mapSettled; }, [mapSettled]);
   useEffect(() => { routeLoadingRef.current = routeLoading; }, [routeLoading]);
 
   useEffect(() => { generate(); }, [generate]);
@@ -1815,14 +1824,19 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
   // build 167 #3: 캡션·해시태그·딥링크 모두 제거. 동영상/이미지 파일만 공유 → 채팅창 깔끔.
   const handleShare = async () => {
     if (!canvasRef.current) return;
-    // 2026-08-16: 로딩 중에 누르면 "지도 불러오는 중…" 이 박힌 이미지가 그대로 나간다.
-    // 최대 6초까지 기다려주고, 그래도 안 오면 지도 없이 (경로 폴리라인으로) 내보낸다.
-    if (routeLoading || (isMapTheme && !mapImage && (activity.route_data?.coordinates?.length ?? 0) >= 2)) {
+    // 2026-08-16: 로딩 중에 누르면 "불러오는 중…" 이 박힌 이미지가 그대로 나간다.
+    // 최대 6초까지 기다려주고, 그래도 안 오면 있는 것만으로 내보낸다.
+    //
+    // 2026-08-17 리뷰 fix 2건:
+    //  (1) 지도 테마가 아닐 땐 지도를 기다리면 안 된다 — 로더 자체가 안 돌아서 6초를 통째로 날린다.
+    //  (2) 대기 해제 기준은 '이미지 도착' 이 아니라 '요청 종료(mapSettled)' — 실패 시 무한 대기 방지.
+    const needMap = isMapTheme && (activity.route_data?.coordinates?.length ?? 0) >= 2;
+    if (routeLoading || (needMap && !mapSettled)) {
       setWaitingMap(true);
       const deadline = Date.now() + 6000;
       while (Date.now() < deadline) {
         await new Promise(r => setTimeout(r, 150));
-        if (!routeLoadingRef.current && mapImageRef.current) break;
+        if (!routeLoadingRef.current && (!needMap || mapSettledRef.current)) break;
       }
       setWaitingMap(false);
       generate();

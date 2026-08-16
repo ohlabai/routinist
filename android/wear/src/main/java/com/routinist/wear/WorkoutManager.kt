@@ -183,6 +183,32 @@ object WorkoutManager {
         if (n in 1..3) speak(words[n])
     }
 
+    /**
+     * 2026-08-16 (hans): 구간 페이스 → 동물 비유.
+     * ⚠️ src/lib/pace-animal.ts 사다리의 **복사본**이다 (워치는 JS 를 못 받는다).
+     *    애플워치(ios/App/RoutinistWatch/WorkoutManager.swift)에도 같은 복사본이 있어
+     *    임계값·문구를 바꾸면 **세 곳을 같이** 고쳐야 한다. 한쪽만 고치면 기기마다 다른 동물을 말한다.
+     */
+    private val animalTiers: List<Pair<Double, List<String>>> = listOf(
+        240.0 to listOf("치타처럼 어마어마하게 빨라요!", "치타가 따로 없어요. 엄청난데요!"),
+        280.0 to listOf("말처럼 힘차게 달리고 있어요!", "말처럼 시원하게 나가고 있어요!"),
+        320.0 to listOf("강아지처럼 신나게 달리고 있어요!", "강아지처럼 즐겁게 가고 있어요!"),
+        360.0 to listOf("토끼처럼 가볍게 뛰고 있어요!", "토끼처럼 통통 튀는 발걸음이에요!"),
+        400.0 to listOf("고양이처럼 사뿐사뿐 달리고 있어요!", "고양이처럼 부드럽게 흐르고 있어요!"),
+        440.0 to listOf("원숭이처럼 경쾌해요!", "원숭이처럼 리듬을 잘 타고 있어요!"),
+        480.0 to listOf("총총총, 닭처럼 부지런해요!", "닭처럼 쉬지 않고 총총 가고 있어요!"),
+        540.0 to listOf("코끼리처럼 묵직하게 가고 있어요!", "코끼리처럼 단단하게 밀고 있어요!"),
+        0.0 to listOf("거북이처럼 꾸준하게 잘 달리고 있어요!", "거북이처럼 한 걸음씩, 그게 제일 강해요!"),
+    )
+
+    private fun animalPhrase(splitPaceSecPerKm: Double?, index: Int): String {
+        val tier = animalTiers.firstOrNull { (max, _) ->
+            max > 0 && splitPaceSecPerKm != null && splitPaceSecPerKm > 0 &&
+                splitPaceSecPerKm.isFinite() && splitPaceSecPerKm < max
+        } ?: animalTiers.last()
+        return tier.second[Math.abs(index) % tier.second.size]
+    }
+
     /** 1~99 한자어 수사 ("십일 킬로미터" 오독 방지 — 폰·애플워치와 동일) */
     private fun sinoKorean(n: Int): String {
         if (n !in 1..99) return n.toString()
@@ -437,7 +463,8 @@ object WorkoutManager {
                 val t = Math.round(split).toInt(); val mm = t / 60; val ss = t % 60
                 text += if (ss == 0) " 이번 구간 $mm 분." else " 이번 구간 $mm 분 $ss 초."
             }
-            text += " 잘하고 있어요."
+            // 2026-08-16 (hans): 고정 응원 대신 구간 페이스에 맞는 동물 비유 (폰·애플워치와 동일)
+            text += " " + animalPhrase(split, km - 1)
             speak(text)
         }
     }

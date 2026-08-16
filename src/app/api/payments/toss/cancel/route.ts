@@ -65,8 +65,17 @@ export async function POST(req: NextRequest) {
   if (order.status === 'cancelled' || order.status === 'refunded') {
     return NextResponse.json({ success: true, alreadyCancelled: true });
   }
-  if (order.status === 'delivered') {
-    return NextResponse.json({ error: '배송 완료된 주문은 반품 신청을 통해서만 환불할 수 있어요' }, { status: 400 });
+  // 2026-08-17 리뷰: 'shipped' 가 빠져 있었다. orders.status CHECK 에는
+  // pending / paid / shipped / delivered / cancelled / refunded 가 모두 있는데
+  // 여기서 delivered 만 막으면 **배송 중인 주문을 본인이 취소 → 전액 환불 + 물건 수령** 이 된다.
+  // (지금은 shipped 주문이 0건이라 실피해는 없지만, 첫 출고와 동시에 열리는 구멍)
+  // 이미 출고된 건은 사람이 개입해야 한다 — 반품 절차로 보낸다.
+  if (order.status === 'shipped' || order.status === 'delivered') {
+    return NextResponse.json({
+      error: order.status === 'shipped'
+        ? '이미 출고된 주문이에요. 반품 신청으로 진행해주세요.'
+        : '배송 완료된 주문은 반품 신청을 통해서만 환불할 수 있어요',
+    }, { status: 400 });
   }
 
   // ── paid 이상이면 토스 환불 먼저 (돈 → DB 순서: PG 실패 시 DB 를 건드리지 않음) ──

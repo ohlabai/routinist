@@ -125,9 +125,13 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
     const orderId = (payment as { order_id: string } | null)?.order_id;
     if (orderId) {
+      // 2026-08-17 리뷰: p_only_if_pending 을 빼고 부르면 2인자/3인자 오버로드가 겹쳐
+      // 42725 "function is not unique" 로 **매번 실패**했다 (재고·마일리지가 복구되지 않음).
+      // 죽은 2인자 오버로드는 제거했고, 여기서도 3인자를 명시한다.
       const { error: cancelErr } = await supabase.rpc('cancel_order', {
         p_order_id: orderId,
         p_reason: '토스 webhook 환불 처리',
+        p_only_if_pending: false,
       });
       if (cancelErr) {
         console.error('[toss/webhook] cancel_order RPC fail', cancelErr);

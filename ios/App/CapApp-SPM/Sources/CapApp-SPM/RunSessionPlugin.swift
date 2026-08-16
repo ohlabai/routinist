@@ -803,6 +803,12 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         for loc in locations {
             let acc = loc.horizontalAccuracy
             if acc < 0 { continue }   // invalid fix
+            // 2026-08-17 리뷰: NaN 은 `< 0` 도 `> gate` 도 **둘 다 false** 라 아래 게이트를 통과한다.
+            // NaN 좌표가 route 에 섞이면 JSONSerialization 이 throw 해서 그 세션의 경로 저장이
+            // 영구히 죽는다 (조용히). 드물지만 대가가 커서 입구에서 막는다.
+            guard acc.isFinite,
+                  loc.coordinate.latitude.isFinite, loc.coordinate.longitude.isFinite,
+                  CLLocationCoordinate2DIsValid(loc.coordinate) else { continue }
 
             // 신호 등급용 — accuracy 게이트에 걸려도 "수신 자체" 는 기록 (lost 판정 기준).
             lastFixAt = Date()
@@ -1299,9 +1305,14 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         ]
         UserDefaults.standard.set(snapshot, forKey: Self.persistKey)
         if route.count != lastPersistedRouteCount {
-            lastPersistedRouteCount = route.count
-            if let data = try? JSONSerialization.data(withJSONObject: route) {
-                try? data.write(to: Self.routeFileURL, options: .atomic)
+            // 2026-08-17 리뷰: 카운터를 **쓰기 성공 뒤에** 올린다. 먼저 올리면 쓰기가 실패해도
+            // "저장됨" 으로 기록돼, 새 좌표가 안 들어오는 구간(마지막 저장 등)에서 재시도가 사라진다.
+            do {
+                let data = try JSONSerialization.data(withJSONObject: route)
+                try data.write(to: Self.routeFileURL, options: .atomic)
+                lastPersistedRouteCount = route.count
+            } catch {
+                NSLog("[RunSession] route persist failed (\(route.count) pts): \(error.localizedDescription)")
             }
         }
     }

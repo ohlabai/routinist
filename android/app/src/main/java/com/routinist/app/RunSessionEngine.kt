@@ -603,6 +603,9 @@ object RunSessionEngine {
         for (loc in locations) {
             if (!loc.hasAccuracy()) continue
             val acc = loc.accuracy.toDouble()
+            // 2026-08-17 리뷰 (iOS 와 동일): NaN 은 모든 부등호 비교가 false 라 아래 게이트를 통과한다.
+            // NaN 좌표가 route 에 섞이면 JSON 직렬화가 깨져 그 세션의 경로 저장이 조용히 죽는다.
+            if (!acc.isFinite() || !loc.latitude.isFinite() || !loc.longitude.isFinite()) continue
 
             // 신호 등급용 — accuracy 게이트에 걸려도 "수신 자체" 는 기록 (lost 판정 기준).
             val nowMs = System.currentTimeMillis()
@@ -1096,11 +1099,13 @@ object RunSessionEngine {
         }
         prefs(ctx).edit().putString(PERSIST_KEY, snap.toString()).apply()
         if (route.size != lastPersistedRouteCount) {
-            lastPersistedRouteCount = route.size
+            // 2026-08-17 리뷰 (iOS 와 동일 수정): 카운터는 **쓰기 성공 뒤에** 올린다.
+            // 먼저 올리면 실패해도 "저장됨" 으로 남아, 새 좌표가 안 들어오는 구간에서 재시도가 사라진다.
             try {
                 routeFile(ctx).writeText(routeToJson().toString())
+                lastPersistedRouteCount = route.size
             } catch (e: Exception) {
-                Log.w(TAG, "route persist failed", e)
+                Log.w(TAG, "route persist failed (${route.size} pts)", e)
             }
         }
     }
