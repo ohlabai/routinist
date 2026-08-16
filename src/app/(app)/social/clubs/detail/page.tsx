@@ -32,6 +32,7 @@ import ClubWorldRunPanel from '@/components/clubs/ClubWorldRunPanel';
 import ClubChallengesCard from '@/components/club/ClubChallengesCard';
 import ClubExternalArchive from '@/components/clubs/ClubExternalArchive';
 import ClubChallengeSection from '@/components/club/ClubChallengeSection';
+import ClubRaceSection from '@/components/club/ClubRaceSection';
 import Link from 'next/link';
 import type { Club, ClubMember } from '@/types';
 import AppLogo from '@/components/AppLogo';
@@ -985,6 +986,9 @@ function ClubDetail() {
       {/* 챌린지·모임 탭 */}
       {activeTab === 'challenges' && (
         <div className="space-y-5">
+          {/* 클럽 대회 — 2인 1조 합산 레이스 (2026-08-16). 진행 중인 대회가 있으면 최상단. */}
+          <ClubRaceSection clubId={clubId!} canManage={isAdmin} />
+
           {/* build 200 / Phase 4: 활성 챌린지 leaderboard 카드 (멤버 순위 자동) */}
           <ClubChallengesCard clubId={clubId!} />
 
