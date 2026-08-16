@@ -3,6 +3,7 @@
 import { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import { Share2, X, ImagePlus, Check, Shuffle, Video, ImageIcon } from 'lucide-react';
 import { isNativeApp } from '@/lib/health-sync';
+import { staticMapUrl, loadStaticMap } from '@/lib/static-map';
 import { useAuth } from '@/components/AuthProvider';
 import { useUserData } from '@/components/UserDataProvider';
 import { fetchRandomQuote, isFallbackQuote, type DailyQuote } from '@/lib/quotes-data';
@@ -51,6 +52,17 @@ type Theme = {
 };
 
 const THEMES: Theme[] = [
+  {
+    // 2026-08-16 (hans): 배경을 컬러 대신 실제 지도로 — "어디를 뛰었나" 가 보인다.
+    // 지도 이미지는 비동기라, 받기 전 / 실패 시엔 아래 그라데이션이 그대로 폴백된다.
+    name: '지도',
+    bg: (ctx, W, H) => {
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, '#0b1f17'); g.addColorStop(1, '#04120c');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    },
+    accent: '#34d399', textMain: '#ffffff', textSub: '#a7f3d0', routeColor: '#34d399',
+  },
   {
     name: '새벽',
     bg: (ctx, W, H) => {
@@ -133,6 +145,8 @@ function drawCard(
   videoBgEl?: HTMLVideoElement | null,
   /** PB→용 (2026-08-02): 신기록 러닝이면 페이스 동물 대신 용 */
   isPB?: boolean,
+  /** 2026-08-16: 배경이 지도 이미지면 경로가 이미 지도에 그려져 있다 — 카드가 또 긋지 않는다. */
+  bgIsMap?: boolean,
 ) {
   // build 205 #11: 막대 그래프 애니메이션 진행도. routeProgress 와 동일 timeline (0~1).
   // 일간 카드: 오늘 막대 / 가로 누적바가 0 → 목표 까지 차오른 후 bounce → 원래 색.
@@ -230,7 +244,7 @@ function drawCard(
   // build 209 #2/#3: periodOverrides.extraRoutes 있으면 주간/월간 모드 — 여러 경로 합성.
   const extraRoutes = periodOverrides?.extraRoutes;
   const hasExtraRoutes = Array.isArray(extraRoutes) && extraRoutes.length > 0;
-  const hasRoute = hasExtraRoutes || activity.route_data?.coordinates?.length;
+  const hasRoute = !bgIsMap && (hasExtraRoutes || activity.route_data?.coordinates?.length);
   if (hasExtraRoutes) {
     // build 214 #5: 주간/월간 카드 멀티 국가 분할 렌더링.
     // 같은 국가/지역끼리 cluster (centroid 5도 ≈ 555km 이내 같은 cluster).
@@ -1244,6 +1258,9 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
   useEffect(() => () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); }, []);
   const [themeIdx, setThemeIdx] = useState(0);
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
+  // 2026-08-16: '지도' 테마용 배경. 사용자 사진(bgImage) 이 있으면 사진이 우선.
+  const [mapImage, setMapImage] = useState<HTMLImageElement | null>(null);
+  const isMapTheme = THEMES[themeIdx]?.name === '지도';
   const [registering, setRegistering] = useState(false);
   const [registerToast, setRegisterToast] = useState<string | null>(null);
   // build 291 i18n Phase D: 이전엔 registerToast.startsWith('등록 실패') 로 warn tone 판정 —
@@ -1356,9 +1373,25 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
 
   const generate = useCallback(() => {
     if (!canvasRef.current) return;
-    drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel ?? undefined, 1, undefined, periodOverrides, videoStill, isPB);
+    const mapBg = !bgImage && !videoStill && isMapTheme ? mapImage : null;
+    drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage ?? mapBg, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel ?? undefined, 1, undefined, periodOverrides, videoStill, isPB, !!mapBg);
     // locale: 캔버스 안 ttl()/getCurrentLocale() 텍스트가 언어 전환 시 다시 그려지도록 (build 291 i18n Phase D).
-  }, [activity, displayName, themeIdx, bgImage, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel, locale, videoStill, isPB]);
+  }, [activity, displayName, themeIdx, bgImage, mapImage, isMapTheme, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel, locale, videoStill, isPB]);
+
+  // 지도 테마가 선택되면 경로에 맞춘 Static Map 을 받아온다 (한 번 받으면 재사용).
+  // 실패하면 mapImage 가 null 로 남아 테마의 폴백 그라데이션이 그대로 쓰인다.
+  useEffect(() => {
+    if (!isMapTheme || mapImage) return;
+    const pts: Array<[number, number]> =
+      (periodOverrides?.extraRoutes?.flat() as Array<[number, number]>) ??
+      (activity.route_data?.coordinates as Array<[number, number]> | undefined) ?? [];
+    if (pts.length < 2) return;
+    const url = staticMapUrl(pts, { isNative: isNativeApp(), routeColor: THEMES[themeIdx]?.routeColor });
+    if (!url) return;
+    let cancelled = false;
+    loadStaticMap(url).then((img) => { if (!cancelled) setMapImage(img); });
+    return () => { cancelled = true; };
+  }, [isMapTheme, mapImage, activity, periodOverrides, themeIdx]);
 
   useEffect(() => { generate(); }, [generate]);
 
