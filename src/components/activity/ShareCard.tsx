@@ -267,24 +267,27 @@ function drawCard(
     else { dh = W / ir; dy = mapCutY - dh; }
     ctx.drawImage(mapInset, dx, dy, dw, dh);
 
-    // 스크림 4겹 — 지도는 텍스처로 남기고 글씨 있는 자리만 눌러준다. 값은 프리뷰로 튜닝.
-    ctx.fillStyle = 'rgba(7,25,15,0.46)';                       // 전면 (카드 톤 유지)
+    // 스크림 4겹 — **글씨가 앉는 자리만** 눌러주고 나머지 지도는 그대로 둔다.
+    // 2026-08-16 (hans "지도가 너무 어두워 보이지 않나?"): 전면 0.46 은 과했다. 지도를 보여주려고
+    // 깐 배경인데 지도를 눌러버렸다. 전면을 0.10 까지 낮추고, 대신 인용문/숫자 뒤의 국소
+    // 그라데이션에 일을 맡긴다 (프리뷰로 4단계 비교해 확정).
+    ctx.fillStyle = 'rgba(7,25,15,0.10)';                       // 전면 — 아주 얇게만
     ctx.fillRect(0, 0, W, mapCutY);
-    const gTop = ctx.createLinearGradient(0, 0, 0, 420);        // 인용문 뒤
-    gTop.addColorStop(0, 'rgba(7,25,15,0.74)');
+    const gTop = ctx.createLinearGradient(0, 0, 0, 320);        // 인용문 뒤
+    gTop.addColorStop(0, 'rgba(7,25,15,0.54)');
     gTop.addColorStop(1, 'rgba(7,25,15,0)');
     ctx.fillStyle = gTop;
-    ctx.fillRect(0, 0, W, 420);
+    ctx.fillRect(0, 0, W, 320);
     // 거리 숫자 뒤 — 가운데만 원형으로 눌러 좌우 하단 모서리의 Google 표기는 살린다.
-    const gNum = ctx.createRadialGradient(W / 2, mapCutY - 160, 80, W / 2, mapCutY - 160, 700);
-    gNum.addColorStop(0, 'rgba(7,25,15,0.80)');
+    const gNum = ctx.createRadialGradient(W / 2, mapCutY - 160, 80, W / 2, mapCutY - 160, 520);
+    gNum.addColorStop(0, 'rgba(7,25,15,0.66)');
     gNum.addColorStop(1, 'rgba(7,25,15,0)');
     ctx.fillStyle = gNum;
     ctx.fillRect(0, 0, W, mapCutY);
     // 아래 단색 배경으로 넘어가는 경계를 살짝 눌러 계단이 덜 보이게 (표기는 살아 있을 정도만).
     const gEdge = ctx.createLinearGradient(0, mapCutY - 90, 0, mapCutY);
     gEdge.addColorStop(0, 'rgba(7,25,15,0)');
-    gEdge.addColorStop(1, 'rgba(7,25,15,0.30)');
+    gEdge.addColorStop(1, 'rgba(7,25,15,0.16)');
     ctx.fillStyle = gEdge;
     ctx.fillRect(0, mapCutY - 90, W, 90);
     ctx.restore();
