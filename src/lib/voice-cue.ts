@@ -1,4 +1,5 @@
 // build 214 #3: 1km 마일스톤 음성 알림 (Web Speech API).
+import { paceAnimalVoicePhrase } from './pace-animal';
 // build 223: 백그라운드 재생 + 남/여 voice 선택 + 자연스러운 voice 우선.
 // build 226 #1: male voice 매칭 실패 시 pitch 보정 + 메시지 짧고 친근하게 다듬음 +
 //   milestone (5/10/half/full) 차별 메시지. Premium/Enhanced quality 가중치 강화.
@@ -134,8 +135,13 @@ function primeVoices() {
 
 // build 226 #1: 마일스톤별 친근하고 짧은 메시지. 너무 길면 기계음 티가 나기 쉬워서 한 호흡으로
 // 마칠 수 있는 분량. 5km / 10km / 21.0975 (하프) / 42.195 (풀) 는 더 응원하는 톤.
-function buildMilestoneMessage(totalKm: number, locale: 'ko' | 'en'): string {
+// 2026-08-16 (hans): 일반 구간의 고정 응원("잘하고 있어요")을 페이스에 맞춘 동물 비유로.
+// 하프·풀·5·10km 는 그 자체로 특별한 순간이라 기존 축하 문구를 유지한다.
+// (이 경로는 웹 폴백 — 실기기 러닝은 native RunSession 이 담당하고 거기선 구간 페이스를 쓴다.
+//  여기는 구간 페이스가 없어 누적 평균으로 티어를 고른다.)
+function buildMilestoneMessage(totalKm: number, locale: 'ko' | 'en', paceSecPerKm?: number | null): string {
   const km = Math.round(totalKm * 10) / 10;
+  const animal = () => paceAnimalVoicePhrase(paceSecPerKm, locale, Math.round(km));
   const isHalf = Math.abs(km - 21.1) < 0.1 || Math.abs(km - 21.0) < 0.1;
   const isFull = Math.abs(km - 42.2) < 0.1 || Math.abs(km - 42.0) < 0.1;
   if (locale === 'en') {
@@ -144,8 +150,8 @@ function buildMilestoneMessage(totalKm: number, locale: 'ko' | 'en'): string {
     if (km === 10) return `Ten kilometers! You're on fire today.`;
     if (km === 5) return `Five kilometers! Nice and steady.`;
     if (km === 1) return `One kilometer. Nice pace, off to a good start.`;
-    if (km % 1 === 0) return `${km} kilometers. Looking strong.`;
-    return `${km} kilometers. You've got this.`;
+    if (km % 1 === 0) return `${km} kilometers. ${animal()}`;
+    return `${km} kilometers. ${animal()}`;
   }
   // ko
   if (isFull) return `풀 마라톤! 해냈어요. 정말 대단해요.`;
@@ -153,8 +159,8 @@ function buildMilestoneMessage(totalKm: number, locale: 'ko' | 'en'): string {
   if (km === 10) return `10킬로 통과! 오늘 컨디션 좋네요.`;
   if (km === 5) return `5킬로 통과! 페이스 좋아요.`;
   if (km === 1) return `1킬로 통과. 가볍게 시작했어요.`;
-  if (km % 1 === 0) return `${km}킬로 통과. 잘하고 있어요.`;
-  return `${km}킬로 통과. 천천히 같이 가요.`;
+  if (km % 1 === 0) return `${km}킬로 통과. ${animal()}`;
+  return `${km}킬로 통과. ${animal()}`;
 }
 
 // build 229.B: 활성 코스 컨텍스트 — 코스명 + 현재 누적 + 다음 랜드마크 정보.
@@ -179,8 +185,8 @@ export function speakMilestone(args: {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
   primeVoices();
 
-  const { totalKm, locale, courseContext } = args;
-  let text = buildMilestoneMessage(totalKm, locale);
+  const { totalKm, locale, courseContext, avgPaceSecPerKm } = args;
+  let text = buildMilestoneMessage(totalKm, locale, avgPaceSecPerKm);
 
   // build 229.B: 활성 코스 진행 한 줄 + 다음 landmark 카운트다운 추가.
   if (courseContext) {

@@ -119,6 +119,13 @@ object RunSessionEngine {
         val start: String,
     )
 
+    /**
+     * 2026-08-16 (hans): 구간 페이스 → 동물 비유 한 마디 (milestone 의 {animal}).
+     * 사다리는 JS(pace-animal.ts)가 내려준다 — 문구·임계값을 한 곳에서만 고치기 위해.
+     * maxPaceSec **미만**이면 그 티어. 0 이면 폴백(가장 느린 구간).
+     */
+    data class PaceAnimalTier(val maxPaceSec: Double, val phrases: List<String>)
+
     /** 플러그인이 구현 — update/milestone 을 WebView 로 릴레이 (foreground 필터는 플러그인 몫). */
     interface EventSink {
         /** 반환값 = 실제 전달 여부. false (백그라운드 등) 면 엔진이 newCoords 커서를 유지해
@@ -148,6 +155,7 @@ object RunSessionEngine {
     private var voiceEnabled = true
     private var milestoneEveryKm = 1.0
     private var templates = VoiceTemplates("", "", "", "")
+    private var paceAnimals: List<PaceAnimalTier> = emptyList()
 
     private var gpsDistanceM = 0.0
     // build 327 진단: GPS 공백 gap-fill 로 적산된 거리 (gpsDistanceM 에 이미 포함, 관측용)
@@ -233,6 +241,7 @@ object RunSessionEngine {
         voice: Boolean,
         everyKm: Double,
         parsedTemplates: VoiceTemplates,
+        parsedAnimals: List<PaceAnimalTier>,
         onSuccess: (Double) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -256,6 +265,7 @@ object RunSessionEngine {
             voiceEnabled = voice
             milestoneEveryKm = if (everyKm > 0) everyKm else 1.0
             templates = parsedTemplates
+            paceAnimals = parsedAnimals
             activeSegmentStartMs = nowMs
             inWarmup = true
             warmupStartedAtMs = nowMs
@@ -866,12 +876,31 @@ object RunSessionEngine {
                 if (isKo) sinoKoreanNumber(km.toInt()) + " " else km.toInt().toString()
             } else String.format(Locale.US, "%.1f", km)
             val paceText = splitPace?.let { formatPaceForSpeech(it, sessionLocale) } ?: ""
+            val animalText = animalPhrase(splitPace, milestonesFired - 1)
             speak(
                 templates.milestone
                     .replace("{km}", kmText)
                     .replace("{pace}", paceText)
+                    .replace("{animal}", animalText)
+                    // 티어 미제공 시 남는 이중 공백·꼬리 공백 정리
+                    .replace("  ", " ")
+                    .trim()
             )
         }
+    }
+
+    /**
+     * splitPace 에 맞는 동물 문구. 사다리가 안 내려왔으면 빈 문자열 →
+     * 템플릿의 {animal} 이 사라진다 (구버전 JS + 신버전 네이티브 조합에서 그대로 읽지 않게).
+     */
+    private fun animalPhrase(splitPaceSecPerKm: Double?, index: Int): String {
+        if (paceAnimals.isEmpty()) return ""
+        val tier = paceAnimals.firstOrNull { t ->
+            t.maxPaceSec > 0 && splitPaceSecPerKm != null &&
+                splitPaceSecPerKm > 0 && splitPaceSecPerKm.isFinite() && splitPaceSecPerKm < t.maxPaceSec
+        } ?: paceAnimals.last()
+        if (tier.phrases.isEmpty()) return ""
+        return tier.phrases[Math.abs(index) % tier.phrases.size]
     }
 
     /** 1~99 를 한자어 수사로 (1→일, 10→십, 11→십일, 21→이십일, 50→오십). 범위 밖은 숫자 폴백. */

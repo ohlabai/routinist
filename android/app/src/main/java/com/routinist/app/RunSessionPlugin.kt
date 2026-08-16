@@ -102,8 +102,21 @@ class RunSessionPlugin : Plugin(), RunSessionEngine.EventSink {
             autoResume = templatesObj.getString("autoResume") ?: if (isKo) "다시 시작합니다" else "Resuming",
             start = templatesObj.getString("start") ?: if (isKo) "출발!" else "Go!",
         )
+        // 2026-08-16: 구간 페이스 → 동물 비유 사다리 (옵션 — 구버전 JS 면 빈 리스트)
+        val animals = mutableListOf<RunSessionEngine.PaceAnimalTier>()
+        call.getArray("paceAnimals")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                val ph = o.optJSONArray("phrases") ?: continue
+                val list = (0 until ph.length()).mapNotNull { ph.optString(it).takeIf { s -> s.isNotEmpty() } }
+                if (list.isNotEmpty()) {
+                    animals.add(RunSessionEngine.PaceAnimalTier(o.optDouble("maxPaceSec", 0.0), list))
+                }
+            }
+        }
+
         RunSessionEngine.startSession(
-            locale, voiceEnabled, everyKm, templates,
+            locale, voiceEnabled, everyKm, templates, animals,
             onSuccess = { startedAtMs ->
                 call.resolve(JSObject().put("ok", true).put("startedAtMs", startedAtMs))
             },

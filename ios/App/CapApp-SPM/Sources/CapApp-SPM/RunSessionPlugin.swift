@@ -128,6 +128,30 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         var start: String
     }
 
+    /// 2026-08-16 (hans): 구간 페이스 → 동물 비유 한 마디 (milestone 의 {animal}).
+    /// 사다리는 JS(pace-animal.ts)가 내려준다 — 문구·임계값을 한 곳에서만 고치기 위해서.
+    private struct PaceAnimalTier {
+        /// 이 값 **미만**이면 이 티어. 0 이면 폴백(가장 느린 구간).
+        let maxPaceSec: Double
+        let phrases: [String]
+    }
+    private var paceAnimals: [PaceAnimalTier] = []
+
+    /// splitPace 에 맞는 문구. 티어가 안 내려왔으면 빈 문자열 → 템플릿에서 {animal} 이 사라진다
+    /// (구버전 JS + 신버전 네이티브 조합에서 "{animal}" 을 그대로 읽지 않게).
+    private func animalPhrase(splitPaceSecPerKm: Double?, index: Int) -> String {
+        guard !paceAnimals.isEmpty else { return "" }
+        let tier: PaceAnimalTier
+        if let p = splitPaceSecPerKm, p > 0, p.isFinite,
+           let hit = paceAnimals.first(where: { $0.maxPaceSec > 0 && p < $0.maxPaceSec }) {
+            tier = hit
+        } else {
+            tier = paceAnimals[paceAnimals.count - 1]
+        }
+        guard !tier.phrases.isEmpty else { return "" }
+        return tier.phrases[abs(index) % tier.phrases.count]
+    }
+
     private let stateQueue = DispatchQueue(label: "com.routinist.run-session.state")
 
     private var locationManager: CLLocationManager?
@@ -359,6 +383,15 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
             self.localeCode = locale
             self.voiceEnabled = voice
             self.milestoneEveryKm = everyKm > 0 ? everyKm : 1
+            // 동물 사다리 (옵션 — 구버전 JS 면 빈 배열 → {animal} 은 빈 문자열로 치환)
+            if let rawTiers = call.getArray("paceAnimals") as? [[String: Any]] {
+                self.paceAnimals = rawTiers.compactMap { t in
+                    guard let phrases = t["phrases"] as? [String], !phrases.isEmpty else { return nil }
+                    return PaceAnimalTier(maxPaceSec: (t["maxPaceSec"] as? Double) ?? 0, phrases: phrases)
+                }
+            } else {
+                self.paceAnimals = []
+            }
             self.templates = parsedTemplates
             self.activeSegmentStart = now
             self.inWarmup = true
@@ -1095,9 +1128,14 @@ public class RunSessionPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
                 kmText = String(format: "%.1f", km)
             }
             let paceText = splitPace.map { Self.formatPaceForSpeech($0, locale: localeCode) } ?? ""
+            let animalText = animalPhrase(splitPaceSecPerKm: splitPace, index: milestonesFired - 1)
             let text = templates.milestone
                 .replacingOccurrences(of: "{km}", with: kmText)
                 .replacingOccurrences(of: "{pace}", with: paceText)
+                .replacingOccurrences(of: "{animal}", with: animalText)
+                // 티어 미제공 시 남는 이중 공백·꼬리 공백 정리
+                .replacingOccurrences(of: "  ", with: " ")
+                .trimmingCharacters(in: .whitespaces)
             speak(text)
         }
     }

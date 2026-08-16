@@ -12,6 +12,7 @@
 // → 호출자가 기존 gps-tracking.ts 레거시 JS 엔진 사용.
 
 import { registerPlugin, type PluginListenerHandle } from '@capacitor/core';
+import { paceAnimalVoiceTiers } from './pace-animal';
 
 // ── 계약 타입 (run-session-contract.md 와 1:1) ───────────────────────────────
 
@@ -21,7 +22,7 @@ export type RunGpsSignal = 'good' | 'weak' | 'lost';
 export type RunCoord = [lng: number, lat: number, tsMs: number];
 
 export interface RunSessionVoiceTemplates {
-  /** "{km}" "{pace}" 치환자 포함. native 가 마일스톤 도달 시 치환 후 발화. */
+  /** "{km}" "{pace}" "{animal}" 치환자 포함. native 가 마일스톤 도달 시 치환 후 발화. */
   milestone: string;
   autoPause: string;
   autoResume: string;
@@ -37,6 +38,13 @@ export interface RunSessionStartOptions {
   voiceTemplates: RunSessionVoiceTemplates;
   /** 2026-07-15: 프리뷰(성별 선택)와 동일한 성별 voice 를 native 가 우선 선택하도록 힌트 */
   voiceGender?: 'female' | 'male';
+  /**
+   * 2026-08-16: 구간 페이스 → 동물 비유 한 마디 (milestone 의 {animal} 치환자).
+   * native 는 splitPace 가 maxPaceSec **미만**인 첫 티어를 고르고, 없으면 마지막(가장 느린) 티어.
+   * phrases 는 마일스톤 순번으로 번갈아 쓴다. 구버전 native 는 이 필드를 무시하고
+   * {animal} 을 그대로 읽어버리므로, JS 가 템플릿에서 {animal} 을 빼는 폴백을 함께 둔다.
+   */
+  paceAnimals?: Array<{ maxPaceSec: number; phrases: string[] }>;
 }
 
 export interface RunSessionUpdateEvent {
@@ -142,16 +150,17 @@ export function isRunSessionAvailable(): boolean {
 
 export function buildVoiceTemplates(locale: 'ko' | 'en'): RunSessionVoiceTemplates {
   // Phase 1 은 km 고정 (마일 단위 사용자는 Phase 2 에서 처리).
+  // 2026-08-16 (hans): 끝의 고정 응원("잘하고 있어요")을 구간 페이스에 맞춘 동물 비유로 교체.
   if (locale === 'en') {
     return {
-      milestone: '{km} kilometers. Last split {pace}. Looking strong.',
+      milestone: '{km} kilometers. Last split {pace}. {animal}',
       autoPause: 'Auto paused. I will pick it up when you move.',
       autoResume: "Resuming. Let's go.",
       start: 'Go!',
     };
   }
   return {
-    milestone: '{km}킬로미터 통과. 이번 구간 {pace}. 잘하고 있어요.',
+    milestone: '{km}킬로미터 통과. 이번 구간 {pace}. {animal}',
     autoPause: '자동 일시정지. 다시 움직이면 이어서 잴게요.',
     autoResume: '다시 시작합니다. 같이 가요.',
     start: '출발!',
@@ -178,6 +187,7 @@ export async function startRunSession(opts: {
     milestoneEveryKm: opts.milestoneEveryKm ?? 1,
     voiceTemplates: buildVoiceTemplates(opts.locale),
     voiceGender: opts.voiceGender ?? 'female',
+    paceAnimals: paceAnimalVoiceTiers(opts.locale),
   });
 }
 

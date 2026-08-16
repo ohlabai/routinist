@@ -63,11 +63,21 @@ final class WorkoutManager: NSObject, ObservableObject {
         speakLocally(text)
     }
 
-    private func speakLocally(_ text: String) {
+    private func speakLocally(_ text: String, retry: Bool = true) {
         // v10 fix: watchOS 는 AVAudioSession .playback 활성화 없이 TTS 스피커 무음.
         // 세션이 이미 떠 있으면(연속 발화) 활성화도 램프도 필요 없다.
         let wasIdle = !speech.isSpeaking
-        activateAudioSession()
+        // 2026-08-16 (hans "워치에서 음성이 안 나올 때가 간혹 있네"):
+        // setActive(true) 를 `try?` 로 삼키고 있었다. 실패하면 (다른 앱이 오디오 점유,
+        // 라우트 전환 중, 통화 직후 등) 죽은 세션에 대고 speak → **소리 없이 성공**.
+        // 재시도도 로그도 없어서 "간혹 무음" 이 정확히 이 모양이다.
+        // → 실패를 감지해 0.4초 뒤 한 번 더 시도한다. 대부분 그 사이에 풀린다.
+        if !activateAudioSession(), retry {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+                self?.speakLocally(text, retry: false)
+            }
+            return
+        }
         let u = AVSpeechUtterance(string: text)
         u.voice = AVSpeechSynthesisVoice(language: "ko-KR")
         // 워치 스피커는 출력이 작아 0.9 — 이어폰 연결 시에도 과하지 않은 선
@@ -461,6 +471,33 @@ final class WorkoutManager: NSObject, ObservableObject {
         }
     }
 
+    // 2026-08-16 (hans): 구간 페이스 → 동물 비유.
+    // ⚠️ 워치는 JS 를 못 받으므로 **src/lib/pace-animal.ts 의 사다리를 손으로 복사**한 것이다.
+    //    임계값이나 문구를 바꾸면 양쪽을 같이 고쳐야 한다 (한쪽만 고치면 폰과 워치가 다른 동물을
+    //    말한다). 워치는 한국어만 지원 (AVSpeechSynthesisVoice ko-KR 고정).
+    private static let animalTiers: [(maxPaceSec: Double, phrases: [String])] = [
+        (240, ["치타처럼 어마어마하게 빨라요!", "치타가 따로 없어요. 엄청난데요!"]),
+        (280, ["말처럼 힘차게 달리고 있어요!", "말처럼 시원하게 나가고 있어요!"]),
+        (320, ["강아지처럼 신나게 달리고 있어요!", "강아지처럼 즐겁게 가고 있어요!"]),
+        (360, ["토끼처럼 가볍게 뛰고 있어요!", "토끼처럼 통통 튀는 발걸음이에요!"]),
+        (400, ["고양이처럼 사뿐사뿐 달리고 있어요!", "고양이처럼 부드럽게 흐르고 있어요!"]),
+        (440, ["원숭이처럼 경쾌해요!", "원숭이처럼 리듬을 잘 타고 있어요!"]),
+        (480, ["총총총, 닭처럼 부지런해요!", "닭처럼 쉬지 않고 총총 가고 있어요!"]),
+        (540, ["코끼리처럼 묵직하게 가고 있어요!", "코끼리처럼 단단하게 밀고 있어요!"]),
+        (0, ["거북이처럼 꾸준하게 잘 달리고 있어요!", "거북이처럼 한 걸음씩, 그게 제일 강해요!"]),
+    ]
+
+    static func animalPhrase(splitPaceSecPerKm: Double?, index: Int) -> String {
+        let tier: (maxPaceSec: Double, phrases: [String])
+        if let p = splitPaceSecPerKm, p > 0, p.isFinite,
+           let hit = animalTiers.first(where: { $0.maxPaceSec > 0 && p < $0.maxPaceSec }) {
+            tier = hit
+        } else {
+            tier = animalTiers[animalTiers.count - 1]
+        }
+        return tier.phrases[abs(index) % tier.phrases.count]
+    }
+
     /// 1~99 한자어 수사 (폰 네이티브와 동일 — "십일 킬로미터" 오독 방지)
     private static func sinoKorean(_ n: Int) -> String {
         guard n >= 1 && n <= 99 else { return String(n) }
@@ -737,14 +774,31 @@ final class WorkoutManager: NSObject, ObservableObject {
         startLocationUpdates()   // v13: GPS 경로 수집
     }
 
-    private func activateAudioSession() {
+    /// @return 세션이 실제로 활성화됐는지. false 면 지금 발화해봐야 소리가 안 난다.
+    @discardableResult
+    private func activateAudioSession() -> Bool {
         let session = AVAudioSession.sharedInstance()
-        if !Self.audioConfigured {
+        // 2026-08-16: 카테고리를 static 플래그로 "한 번만" 걸던 것이 구멍이었다.
+        // 인터럽션(통화·시리)이나 다른 컴포넌트가 카테고리를 바꿔놓으면 .playback 이 아니게 되고,
+        // 그 상태로 speak 하면 무음이다. 매번 확인 — setCategory 는 이미 같으면 값싸다.
+        if session.category != .playback {
             try? session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
             Self.audioConfigured = true
         }
-        try? session.setActive(true)
+        do {
+            try session.setActive(true)
+            Self.voiceActivateFailures = 0
+            return true
+        } catch {
+            Self.voiceActivateFailures += 1
+            // 진단: 실기기에서만 재현되는 간헐 무음이라 흔적을 남긴다 (Console.app 에서 확인).
+            NSLog("[Watch] audio setActive failed (#\(Self.voiceActivateFailures)): \(error.localizedDescription)")
+            return false
+        }
     }
+
+    /// 진단용 — 세션 활성화 연속 실패 횟수 (무음 신고 시 실기기 로그와 대조)
+    private(set) static var voiceActivateFailures = 0
 
     private static var interruptionObserverRegistered = false
     private func registerAudioInterruptionObserverOnce() {
@@ -986,11 +1040,13 @@ final class WorkoutManager: NSObject, ObservableObject {
                 if splitSec > 60 { lastSplitPaceSecPerKm = splitSec }  // 1km 구간 시간 = 구간 페이스
                 WKInterfaceDevice.current().play(.notification)
                 var text = "\(Self.sinoKorean(km)) 킬로미터 통과."
-                if let p = lastSplitPaceSecPerKm ?? paceSecPerKm {
+                let split = lastSplitPaceSecPerKm ?? paceSecPerKm
+                if let p = split {
                     let t = Int(p.rounded()), m = t / 60, s = t % 60
                     text += s == 0 ? " 이번 구간 \(m)분." : " 이번 구간 \(m)분 \(s)초."
                 }
-                text += " 잘하고 있어요."
+                // 2026-08-16 (hans): 고정 응원 대신 구간 페이스에 맞는 동물 비유.
+                text += " " + Self.animalPhrase(splitPaceSecPerKm: split, index: km - 1)
                 speak(text)
             }
             checkGoal()   // v9: 거리 목표 체크
