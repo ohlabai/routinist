@@ -1,0 +1,17 @@
+# Vercel 은 웹(Next.js)만 빌드한다. 네이티브 산출물까지 올리면 업로드가 GB 단위로 불어나
+# 배포가 느려지고, 파일 개수 상한(15000)에 걸려 아예 실패한다 (2026-08-16 실측: 20025개 / 1.2GB).
+#
+# ⚠️ 여기 넣기 전에 "next build 가 이걸 읽는가?" 를 확인할 것. public/ 과 src/ 는 절대 금지.
+
+ios/
+android/
+out/
+play-upload/
+play-screenshots/
+fastlane/
+supabase/
+*.aab
+*.ipa
+*.apk
+*.keystore
+.claude/claude-code-chat-images/
