@@ -52,11 +52,11 @@ export const MAP_H = 640;
  * 이 값을 올려야 CDN·클라이언트 캐시가 깨진다.
  * (2026-08-16 실측: 다크 스타일로 바꿨는데 캐시된 밝은 지도가 계속 떴다)
  */
-export const MAP_STYLE_VERSION = 2;
+export const MAP_STYLE_VERSION = 3;
 
 export function staticMapUrl(
   points: Array<[number, number]>,
-  opts: { isNative: boolean; routeColor?: string },
+  opts: { isNative: boolean; routeColor?: string; lang?: string },
 ): string | null {
   const pts = decimate(points.filter(p => Array.isArray(p) && p.length >= 2));
   if (pts.length < 2) return null;
@@ -65,6 +65,7 @@ export function staticMapUrl(
     enc: encodePolyline(pts),
     c: (opts.routeColor ?? '#34d399').replace('#', ''),
     v: String(MAP_STYLE_VERSION),
+    lang: opts.lang === 'en' ? 'en' : 'ko',
   });
   return `${base}/api/map-static?${q.toString()}`;
 }

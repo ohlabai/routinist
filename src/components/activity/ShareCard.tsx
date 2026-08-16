@@ -238,6 +238,31 @@ function drawCard(
     theme.bg(ctx, W, H);
   }
 
+  // 2026-08-16 회귀 fix (hans "지도 어디인지 식별이 안 돼"):
+  // 지역·시각 알약은 원래 경로 블록 안에서 출발 핀 옆에 그려졌는데, 지도 배경일 때
+  // 경로 블록을 통째로 끄면서 같이 사라졌다. 지도 배경에서는 핀이 없으므로
+  // 좌상단 고정 위치에 따로 그린다 — "어디를 뛰었나" 를 말하는 핵심 요소다.
+  if (bgIsMap && (regionLabel || activity.started_at)) {
+    const startPart = !periodOverrides
+      ? startTimeLabel(activity.started_at, getCurrentLocale() === 'en' ? 'en' : 'ko', true)
+      : null;
+    const cityPart = regionLabel ? regionLabel.split(' · ')[0] : null;
+    const text = [cityPart, startPart].filter(Boolean).join(' · ');
+    if (text) {
+      ctx.save();
+      ctx.font = 'bold 34px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      const padX = 20, pillH = 54, x = 64, y = 300;
+      const w = ctx.measureText(text).width + padX * 2;
+      ctx.fillStyle = 'rgba(0,0,0,0.62)';
+      ctx.beginPath(); ctx.roundRect(x, y, w, pillH, 27); ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(text, x + padX, y + pillH / 2 + 1);
+      ctx.restore();
+    }
+  }
+
   // 경로 — build 136 (사용자 피드백 #5-C): 지도와 7.19 사이 여백 확대.
   // mapY 290 → 260 위로 + mapH 480 유지. 지역 라벨(regionLabel) 을 지도 위 표시.
   // routeProgress < 1 일 때는 그 비율만큼만 그려 MP4 애니메이션의 한 프레임으로 사용.

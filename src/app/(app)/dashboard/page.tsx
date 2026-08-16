@@ -451,6 +451,11 @@ export default function DashboardPage() {
           )}
         </div>
 
+        {/* 랭킹 Hero — 활성화 핵심 (eager).
+            Phase C 에서 stats 그리드 아래로 승격했고, 2026-08-16 (hans) 그리드·공유버튼
+            **위**로 한 번 더 승격. 앱 컨셉이 "홈 = 랭킹" 이라 첫 시선이 등수에 닿아야 한다. */}
+        <HomeRankingHero />
+
         {/* 5 오늘/이달 stats. build 154: activities 로딩 중엔 "0.0" 대신 dim 점 표시.
             build 260: 4-column → 2×2 grid 로 재구성. 한 칸만 text-2xl 로 작아져 어색했던 문제 해결.
             모든 셀 text-3xl 통일, 셀 너비 2배 → 페이스 "48'50" 자릿수 안전. 좌우 대칭 정돈.
@@ -497,8 +502,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* 랭킹 Hero — 활성화 핵심 (eager). Phase C: 그리드 바로 아래로 승격 */}
-        <HomeRankingHero />
         {secondaryMounted && <LiveRunningIndicator />}
         {/* Today BestRun — 일간 콘텐츠라 오늘 그룹 (2026-07-30 hans 재배치) */}
         <RunOfTheDayCard />

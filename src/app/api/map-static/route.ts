@@ -15,6 +15,9 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const enc = url.searchParams.get('enc');
   const color = (url.searchParams.get('c') || '34d399').replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
+  // 2026-08-16 (hans "지도 어디인지 식별이 안 돼"): 라벨이 영문으로 나와 동네 이름이 안 읽혔다.
+  // 앱의 지도 탭과 같은 한글 라벨로 맞춘다.
+  const lang = url.searchParams.get('lang') === 'en' ? 'en' : 'ko';
   if (!enc) return new Response('missing enc', { status: 400 });
   if (!KEY) return new Response('map key not configured', { status: 503 });
 
@@ -23,13 +26,18 @@ export async function GET(req: Request) {
   gs.searchParams.set('size', '360x640');
   gs.searchParams.set('scale', '2');
   gs.searchParams.set('maptype', 'roadmap');
+  gs.searchParams.set('language', lang);
+  gs.searchParams.set('region', lang === 'ko' ? 'KR' : 'US');
   // 다크 스타일 — 밝은 기본 지도 위에서는 흰 텍스트 대비가 약했다 (실측 확인).
   // 지오메트리를 어둡게·탈채도화하고 POI 라벨을 줄여 카드 텍스트가 주인공이 되게 한다.
   // 에메랄드 경로선이 어두운 바탕에서 훨씬 또렷하게 뜨는 부수 효과도 있다.
   for (const st of [
-    'feature:all|element:geometry|saturation:-65|lightness:-55',
-    'feature:all|element:labels.text.fill|color:0x8899a6',
-    'feature:all|element:labels.text.stroke|color:0x0a1014|weight:2',
+    'feature:all|element:geometry|saturation:-65|lightness:-50',
+    // 라벨은 밝게 — 여기가 "어디를 뛰었나" 를 말하는 유일한 요소다.
+    // 지오메트리만 어둡게 두면 카드의 흰 숫자와도 안 부딪힌다.
+    'feature:all|element:labels.text.fill|color:0xd6e2ea',
+    'feature:all|element:labels.text.stroke|color:0x0a1014|weight:3',
+    'feature:administrative|element:labels.text.fill|color:0xffffff',
     'feature:all|element:labels.icon|visibility:off',
     'feature:poi|element:labels|visibility:off',
     'feature:transit|visibility:off',
