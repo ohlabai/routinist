@@ -20,7 +20,7 @@ import NotificationBell from '@/components/NotificationBell';
 import HomeRankingHero from '@/components/home/HomeRankingHero';
 import SeasonRecapCard from '@/components/home/SeasonRecapCard';
 import StreakWarningCard from '@/components/home/StreakWarningCard';
-import HomeCalendarCard from '@/components/home/HomeCalendarCard';
+import HomeCalendarCard, { SHARE_PICKER_EVENT } from '@/components/home/HomeCalendarCard';
 import { syncHealthData, isNativeApp } from '@/lib/health-sync';
 import WinnerPredictionWidget from '@/components/home/WinnerPredictionWidget';
 // RoutinePhotoCarousel 제거 — 소셜 탭 포토 갤러리와 중복 (build 100)
@@ -45,7 +45,7 @@ import AppToast from '@/components/AppToast';
 import Link from 'next/link';
 import {
   ChevronRight, MapPin, Zap,
-  BarChart3,
+  BarChart3, Share2,
 } from 'lucide-react';
 import { useDistanceUnit, toDisplayDistance, unitLabel, paceUnitLabel, formatPaceForUnit } from '@/lib/units';
 
@@ -481,6 +481,21 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* 공유카드 만들기 — 2026-08-16 (hans): 캘린더 카드 하단에 있어 한참 스크롤해야 보였다.
+            첫 화면에서 바로 닿도록 상단으로. 기간 선택 시트는 HomeCalendarCard 가 그대로 소유하고
+            여기서는 트리거만 쏜다 (SHARE_PICKER_EVENT). */}
+        {activities.length > 0 && (
+          <div className="mx-4">
+            <button
+              onClick={() => window.dispatchEvent(new Event(SHARE_PICKER_EVENT))}
+              className="w-full inline-flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base shadow-md shadow-emerald-500/30 active:scale-[0.98] transition"
+            >
+              <Share2 size={18} />
+              {locale === 'en' ? 'Make share card' : '공유카드 만들기'}
+            </button>
+          </div>
+        )}
 
         {/* 랭킹 Hero — 활성화 핵심 (eager). Phase C: 그리드 바로 아래로 승격 */}
         <HomeRankingHero />

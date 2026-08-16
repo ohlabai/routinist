@@ -32,6 +32,9 @@ function distanceColor(km: number, dateStr: string): string {
   return 'bg-green-800 dark:bg-green-400/90';
 }
 
+/** 홈 상단 공유 버튼 → 이 카드의 기간 선택 시트를 여는 트리거 이벤트 이름. */
+export const SHARE_PICKER_EVENT = 'routinist:open-share-picker';
+
 export default function HomeCalendarCard() {
   const { user, profile } = useAuth();
   const { activities } = useUserData();
@@ -54,6 +57,13 @@ export default function HomeCalendarCard() {
   const [periodPickerOpen, setPeriodPickerOpen] = useState(false);
   const [periodData, setPeriodData] = useState<PeriodChartData | null>(null);
   const [periodLoading, setPeriodLoading] = useState<'week' | 'month' | null>(null);
+
+  // 홈 상단 '공유카드 만들기' 버튼이 쏘는 트리거 (위 주석 참고).
+  useEffect(() => {
+    const open = () => setPeriodPickerOpen(true);
+    window.addEventListener(SHARE_PICKER_EVENT, open);
+    return () => window.removeEventListener(SHARE_PICKER_EVENT, open);
+  }, []);
 
   const openPeriod = async (period: 'week' | 'month') => {
     if (!user || periodLoading) return;
@@ -414,16 +424,10 @@ export default function HomeCalendarCard() {
         <span className="ml-1">3 · 7 · 10 · 15+</span>
       </div>
 
-      {/* 공유카드 만들기 — build 207 #15: 옵션 선택 시트 (오늘 / 이번 주 / 이번 달) 통합 진입점. */}
-      {activities.length > 0 && (
-        <button
-          onClick={() => setPeriodPickerOpen(true)}
-          className="mt-3 w-full inline-flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-extrabold text-base shadow-md shadow-emerald-500/30 active:scale-[0.98] transition"
-        >
-          <Share2 size={18} />
-          {locale === 'en' ? 'Make share card' : '공유카드 만들기'}
-        </button>
-      )}
+      {/* 2026-08-16 (hans "첫 화면에서 바로 보이게 위로"): 버튼은 홈 상단(dashboard)으로 옮겼다.
+          기간 선택 시트 → 데이터 로드 → ShareCard 로 이어지는 로직은 여기 그대로 두고
+          트리거만 커스텀 이벤트로 받는다 — 시트가 fixed 라 이 카드가 화면 아래에 있어도
+          정상 표시된다. (로직 통째 이동은 상태 6개가 얽혀 회귀 위험이 커서 피함) */}
 
       {/* 옵션 선택 시트 */}
       {periodPickerOpen && (
