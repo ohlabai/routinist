@@ -250,11 +250,25 @@ function drawCard(
   const hasRoute = hasExtraRoutes || activity.route_data?.coordinates?.length;
 
   // 2026-08-16 (hans): '지도' 테마 — 경로 박스 안이 아니라 **동물이 딛는 구분선 위쪽 전체**를 지도로.
-  // 박스(840×480)에 가뒀더니 지도가 작아 어디를 달렸는지 안 읽혔다. 그렇다고 카드 전체를
-  // 밝은 지도로 덮는 건 이미 반려됐다 (톤이 바뀌어 식별성이 떨어짐) — 그래서 배경으로 깔되
-  // 스크림을 덮어 카드는 계속 다크 + 흰 글씨로 읽히게 한다. 구분선 아래는 지금처럼 단색.
+  // 박스(840×480)에 가뒀더니 지도가 작아 어디를 달렸는지 안 읽혔다. 구분선 아래는 단색 유지.
+  //
+  // 흰 글씨를 살리려고 검정 스크림을 덮었더니 정작 지도가 어두워졌다 (반복 실패).
+  // hans: "지도 위 흰색글씨를 다른 컬러로 하고 배경에 검정색을 빼는 게 낫지 않을까" — 맞다.
+  // → 스크림을 걷어내고 **지도 위 글씨만 어두운 잉크 + 흰 후광**으로 뒤집는다.
+  //   구분선 아래(단색 배경)의 글씨는 그대로 흰색. 카드 안에서 두 영역이 각자 대비를 갖는다.
   const mapCutY = (hasRoute ? 950 : H * 0.36) + 110;   // = lineY (구분선/동물 라인)
-  if (mapInset) {
+  // 사진·영상 배경이 있으면 그쪽이 우선 (지도로 덮지 않는다).
+  const onMapInk = !!mapInset && !hasMedia;
+  const INK_MAIN = '#0b1f17';      // 카드 하단 배경과 같은 계열의 딥그린 — 밝은 지도 위에서 또렷
+  const INK_SUB = '#1f4b3a';
+  const INK_ACCENT = '#047857';
+  /** 지도 위 글씨용 흰 후광 — 공원·물처럼 어두운 폴리곤 위에서도 잉크가 안 묻히게. */
+  const inkHalo = (blur: number) => {
+    if (!onMapInk) return;
+    ctx.shadowColor = 'rgba(255,255,255,0.9)';
+    ctx.shadowBlur = blur;
+  };
+  if (onMapInk && mapInset) {
     ctx.save();
     ctx.beginPath();
     ctx.rect(0, 0, W, mapCutY);
@@ -267,24 +281,8 @@ function drawCard(
     else { dh = W / ir; dy = mapCutY - dh; }
     ctx.drawImage(mapInset, dx, dy, dw, dh);
 
-    // 스크림 4겹 — **글씨가 앉는 자리만** 눌러주고 나머지 지도는 그대로 둔다.
-    // 2026-08-16 (hans "지도가 너무 어두워 보이지 않나?"): 전면 0.46 은 과했다. 지도를 보여주려고
-    // 깐 배경인데 지도를 눌러버렸다. 전면을 0.10 까지 낮추고, 대신 인용문/숫자 뒤의 국소
-    // 그라데이션에 일을 맡긴다 (프리뷰로 4단계 비교해 확정).
-    ctx.fillStyle = 'rgba(7,25,15,0.10)';                       // 전면 — 아주 얇게만
-    ctx.fillRect(0, 0, W, mapCutY);
-    const gTop = ctx.createLinearGradient(0, 0, 0, 320);        // 인용문 뒤
-    gTop.addColorStop(0, 'rgba(7,25,15,0.54)');
-    gTop.addColorStop(1, 'rgba(7,25,15,0)');
-    ctx.fillStyle = gTop;
-    ctx.fillRect(0, 0, W, 320);
-    // 거리 숫자 뒤 — 가운데만 원형으로 눌러 좌우 하단 모서리의 Google 표기는 살린다.
-    const gNum = ctx.createRadialGradient(W / 2, mapCutY - 160, 80, W / 2, mapCutY - 160, 520);
-    gNum.addColorStop(0, 'rgba(7,25,15,0.66)');
-    gNum.addColorStop(1, 'rgba(7,25,15,0)');
-    ctx.fillStyle = gNum;
-    ctx.fillRect(0, 0, W, mapCutY);
-    // 아래 단색 배경으로 넘어가는 경계를 살짝 눌러 계단이 덜 보이게 (표기는 살아 있을 정도만).
+    // 스크림 없음 — 지도를 있는 그대로 둔다. 글씨는 잉크로 뒤집어 대비를 얻는다.
+    // 아래 단색 배경으로 넘어가는 경계만 살짝 눌러 계단이 덜 보이게 (Google 표기는 살아 있을 정도).
     const gEdge = ctx.createLinearGradient(0, mapCutY - 90, 0, mapCutY);
     gEdge.addColorStop(0, 'rgba(7,25,15,0)');
     gEdge.addColorStop(1, 'rgba(7,25,15,0.16)');
@@ -661,7 +659,7 @@ function drawCard(
     // 아래 폴리라인/마커는 건너뛴다 (우리 투영과 Google 투영이 달라 겹쳐 그리면 어긋난다).
 
     // 지역·시각 알약 — 지도에 출발 핀이 없으므로 카드 좌상단(인용문 아래) 에 고정한다.
-    if (mapInset) {
+    if (onMapInk) {
       const startPart = !periodOverrides
         ? startTimeLabel(activity.started_at, getCurrentLocale() === 'en' ? 'en' : 'ko', true)
         : null;
@@ -683,7 +681,7 @@ function drawCard(
 
     // 그림자 (배경사진 위에서도 또렷하게) — 전체 라인을 흐리게 깔아두면 미리보기가 안정됨.
     // build 327: GPS 공백 지점은 moveTo — "하늘 나는 직선" 제거
-    if (!mapInset) {
+    if (!onMapInk) {
     ctx.beginPath();
     coordsAll.forEach((pt, i) => {
       const [lng, lat] = pt;
@@ -784,7 +782,7 @@ function drawCard(
       ctx.lineWidth = 4;
       ctx.stroke();
     }
-    }   // if (!mapInset)
+    }   // if (!onMapInk)
   }
   // build 209 #1: 등수 suffix 는 카드 최하단 footer 위로 이동 (지도 위 alarm pill 제거).
   // regionLabel 에 "서울 강남 · 1위" 형식이면 rank 부분만 추출해 별도 표시.
@@ -843,8 +841,10 @@ function drawCard(
   // 한쪽 정렬이라 안정. 최종 텍스트 전체가 W/2 에 정확히 중심 정렬됨 (build 178 fix).
   const distY = hasRoute ? 950 : H * 0.36;
   const kmFont = 'bold 180px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.save();
+  inkHalo(22);
   ctx.font = kmFont;
-  ctx.fillStyle = mainColor;
+  ctx.fillStyle = onMapInk ? INK_MAIN : mainColor;
   const kmValue = toDisplayDistance(typeof kmDisplay === 'number' ? kmDisplay : activity.distance_km, distUnit);
   const kmText = kmValue.toFixed(2);
   const dotIdx = kmText.indexOf('.');
@@ -863,12 +863,13 @@ function drawCard(
   ctx.textAlign = 'center';
 
   ctx.font = 'bold 56px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillStyle = accentColor;
+  ctx.fillStyle = onMapInk ? INK_ACCENT : accentColor;
   ctx.fillText(distUnit === 'mi' ? 'MILES' : 'KILOMETERS', W / 2, distY + 60);
+  ctx.restore();   // 잉크 후광 해제
 
   // 구분선
   const lineY = distY + 110;
-  ctx.strokeStyle = hasMedia ?'rgba(255,255,255,0.2)' : theme.accent + '40';
+  ctx.strokeStyle = onMapInk ? 'rgba(11,31,23,0.35)' : (hasMedia ? 'rgba(255,255,255,0.2)' : theme.accent + '40');
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(W * 0.2, lineY);
@@ -887,8 +888,11 @@ function drawCard(
       const aW = (grid[0]?.length ?? 1) * aCell;
       // 기본은 구분선 우측 끝. 단 '지도' 배경일 땐 우측 하단에 Google 저작권 표기가 있어
       // 동물이 그 위에 겹친다 → 좌측 끝으로 옮긴다 (좌하단 Google 로고와도 안 겹치는 자리).
-      const ax = mapInset ? W * 0.2 : W * 0.8 - aW;
-      const SPRITE_COLORS: Record<number, string> = { 1: '#4ade80', 2: '#22c55e', 3: '#16a34a' };
+      const ax = onMapInk ? W * 0.2 : W * 0.8 - aW;
+      // 밝은 지도 위에선 잔디 연두가 날아간다 → 한 단계 진한 팔레트.
+      const SPRITE_COLORS: Record<number, string> = onMapInk
+        ? { 1: '#15803d', 2: '#166534', 3: '#14532d' }
+        : { 1: '#4ade80', 2: '#22c55e', 3: '#16a34a' };
       grid.forEach((row, gy) => {
         row.forEach((v, gx) => {
           if (v === -1) return;
@@ -934,8 +938,10 @@ function drawCard(
   // 명언 (그날의 메시지) — 상단 큰 글씨 hero. author 는 별도 라인(작게)으로 분리.
   if (quote) {
     const quoteText = `"${quote.text}"`;  // author 는 별도 라인
+    ctx.save();
+    inkHalo(20);   // 지도 위 잉크일 때만 흰 후광
     ctx.font = 'italic 600 52px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillStyle = mainColor;
+    ctx.fillStyle = onMapInk ? INK_MAIN : mainColor;
     ctx.textAlign = 'center';
     // 상단 영역. 더 위로 (사용자 피드백). 3줄까지 수용.
     const quoteY = 200;
@@ -1002,10 +1008,11 @@ function drawCard(
     if (author) {
       const authorLineY = startY + (lines.length - 1) * lineH + 56;
       ctx.font = '500 30px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillStyle = subColor;
+      ctx.fillStyle = onMapInk ? INK_SUB : subColor;
       ctx.textAlign = 'center';
       ctx.fillText(`- ${author}`, W / 2, authorLineY);
     }
+    ctx.restore();   // 잉크 후광 해제
     ctx.textBaseline = 'alphabetic';
     ctx.textAlign = 'center';
   }
@@ -1449,7 +1456,7 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
 
   const generate = useCallback(() => {
     if (!canvasRef.current) return;
-    // 지도는 배경이 아니라 **경로 박스 안** 이미지 (mapInset). 사진/영상 배경과 공존한다.
+    // 지도는 카드 상단 전체 배경 (mapInset). 사진/영상 배경이 있으면 그쪽이 우선 — onMapInk 참조.
     const inset = isMapTheme ? mapImage : null;
     drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel ?? undefined, 1, undefined, periodOverrides, videoStill, isPB, inset);
     // locale: 캔버스 안 ttl()/getCurrentLocale() 텍스트가 언어 전환 시 다시 그려지도록 (build 291 i18n Phase D).
