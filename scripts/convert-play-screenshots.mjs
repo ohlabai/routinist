@@ -3,8 +3,8 @@
 import sharp from 'sharp';
 import { readdirSync, mkdirSync } from 'node:fs';
 
-const SRC = '/Users/hans_macmini/bit-runners/ios/fastlane/screenshots/ko';
-const OUT = '/Users/hans_macmini/bit-runners/play-screenshots';
+const SRC = '/Users/hans_macmini/routinist/ios/fastlane/screenshots/ko';
+const OUT = '/Users/hans_macmini/routinist/play-screenshots';
 const W = 1080, H = 1920;
 mkdirSync(OUT, { recursive: true });
 

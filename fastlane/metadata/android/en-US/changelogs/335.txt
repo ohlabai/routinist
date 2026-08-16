@@ -1,0 +1,6 @@
+• Share cards now show a real map — your route is drawn right on it
+• Check your rank and create a share card straight from the home screen
+• Fixed runs being saved twice
+• More accurate resume when you go from walking back to running
+• Fixed the first word of voice guidance being cut off
+• Galaxy Watch app stability improvements

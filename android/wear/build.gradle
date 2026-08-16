@@ -13,8 +13,8 @@ android {
         targetSdkVersion 35                           // Play 정책: Wear 도 2026-08-31 까지 API 35 필수
         // versionCode 는 폰과 반드시 달라야 함 (같은 앱, 다른 폼팩터 APK).
         // 폰 build 324 → 워치는 1_000_000 오프셋 스킴으로 충돌 방지.
-        versionCode 1000328   // v7: Play 거절 fix (8/11) — 스플래시 화면 앱 아이콘 추가
-        versionName "1.2.19"
+        versionCode 1000329   // v8: Play SDK 권고 2건 (fragment 1.1.0 / protolayout-proto beta01)
+        versionName "1.2.21"
     }
 
     signingConfigs {
