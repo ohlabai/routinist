@@ -52,7 +52,9 @@ export const MAP_H = 640;
  * 이 값을 올려야 CDN·클라이언트 캐시가 깨진다.
  * (2026-08-16 실측: 다크 스타일로 바꿨는데 캐시된 밝은 지도가 계속 떴다)
  */
-export const MAP_STYLE_VERSION = 3;
+// v4 는 path 가 빠진 채 배포된 순간이 있어 '세계지도' 이미지가 캐시에 남았다.
+// immutable 캐시라 같은 v 로는 못 씻어낸다 → 5 로 건너뛴다.
+export const MAP_STYLE_VERSION = 5;
 
 export function staticMapUrl(
   points: Array<[number, number]>,
@@ -63,7 +65,7 @@ export function staticMapUrl(
   const base = opts.isNative ? 'https://app.routinist.kr' : '';
   const q = new URLSearchParams({
     enc: encodePolyline(pts),
-    c: (opts.routeColor ?? '#34d399').replace('#', ''),
+    c: (opts.routeColor ?? '#059669').replace('#', ''),
     v: String(MAP_STYLE_VERSION),
     lang: opts.lang === 'en' ? 'en' : 'ko',
   });
