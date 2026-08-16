@@ -39,9 +39,13 @@ export function decimate(points: Array<[number, number]>, max = 120): Array<[num
   return out;
 }
 
-/** 카드의 경로 박스는 840×480 (1.75:1). Static Maps 상한(각 변 640) 안에서 640×366 @2. */
+/**
+ * 지도 영역 = 카드 상단 전체 (0,0)~(1080,1060) — 동물이 딛는 구분선까지. 비율 1.019:1.
+ * Static Maps 상한(각 변 640) 안에서 640×628 @2 = 1280×1256. 비율을 맞춰야 cover-fit 이
+ * 거의 안 자르고, 하단의 Google 로고·저작권도 잘리지 않는다 (ToS).
+ */
 export const MAP_W = 640;
-export const MAP_H = 366;
+export const MAP_H = 628;
 
 /**
  * 프록시 URL. 네이티브 앱은 정적 export 라 API 라우트가 번들에 없으므로 절대경로로 호출한다
@@ -55,7 +59,9 @@ export const MAP_H = 366;
 // v4 는 path 가 빠진 채 배포된 순간이 있어 '세계지도' 이미지가 캐시에 남았다.
 // immutable 캐시라 같은 v 로는 못 씻어낸다 → 5 로 건너뛰었다.
 // v6: 전면 배경(9:16) → 경로 박스(1.75:1) 로 비율 변경.
-export const MAP_STYLE_VERSION = 6;
+// v7: 박스 안이 너무 작아 동네가 안 읽혔다 (hans) → 카드 상단 전체(1.019:1) 로 다시 확대.
+//     넓어진 만큼 간선도로 라벨도 복구.
+export const MAP_STYLE_VERSION = 7;
 
 export function staticMapUrl(
   points: Array<[number, number]>,

@@ -248,6 +248,48 @@ function drawCard(
   const extraRoutes = periodOverrides?.extraRoutes;
   const hasExtraRoutes = Array.isArray(extraRoutes) && extraRoutes.length > 0;
   const hasRoute = hasExtraRoutes || activity.route_data?.coordinates?.length;
+
+  // 2026-08-16 (hans): '지도' 테마 — 경로 박스 안이 아니라 **동물이 딛는 구분선 위쪽 전체**를 지도로.
+  // 박스(840×480)에 가뒀더니 지도가 작아 어디를 달렸는지 안 읽혔다. 그렇다고 카드 전체를
+  // 밝은 지도로 덮는 건 이미 반려됐다 (톤이 바뀌어 식별성이 떨어짐) — 그래서 배경으로 깔되
+  // 스크림을 덮어 카드는 계속 다크 + 흰 글씨로 읽히게 한다. 구분선 아래는 지금처럼 단색.
+  const mapCutY = (hasRoute ? 950 : H * 0.36) + 110;   // = lineY (구분선/동물 라인)
+  if (mapInset) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, W, mapCutY);
+    ctx.clip();
+    // cover-fit. 세로가 남을 땐 **아래를 맞춰** 자른다 — Google 로고·저작권이 이미지 하단에
+    // 있어서 위를 자르는 쪽이 안전하다 (ToS: 표기를 잘라내지 말 것).
+    const ir = mapInset.width / mapInset.height, br = W / mapCutY;
+    let dw = W, dh = mapCutY, dx = 0, dy = 0;
+    if (ir > br) { dw = mapCutY * ir; dx = -(dw - W) / 2; }
+    else { dh = W / ir; dy = mapCutY - dh; }
+    ctx.drawImage(mapInset, dx, dy, dw, dh);
+
+    // 스크림 4겹 — 지도는 텍스처로 남기고 글씨 있는 자리만 눌러준다. 값은 프리뷰로 튜닝.
+    ctx.fillStyle = 'rgba(7,25,15,0.46)';                       // 전면 (카드 톤 유지)
+    ctx.fillRect(0, 0, W, mapCutY);
+    const gTop = ctx.createLinearGradient(0, 0, 0, 420);        // 인용문 뒤
+    gTop.addColorStop(0, 'rgba(7,25,15,0.74)');
+    gTop.addColorStop(1, 'rgba(7,25,15,0)');
+    ctx.fillStyle = gTop;
+    ctx.fillRect(0, 0, W, 420);
+    // 거리 숫자 뒤 — 가운데만 원형으로 눌러 좌우 하단 모서리의 Google 표기는 살린다.
+    const gNum = ctx.createRadialGradient(W / 2, mapCutY - 160, 80, W / 2, mapCutY - 160, 700);
+    gNum.addColorStop(0, 'rgba(7,25,15,0.80)');
+    gNum.addColorStop(1, 'rgba(7,25,15,0)');
+    ctx.fillStyle = gNum;
+    ctx.fillRect(0, 0, W, mapCutY);
+    // 아래 단색 배경으로 넘어가는 경계를 살짝 눌러 계단이 덜 보이게 (표기는 살아 있을 정도만).
+    const gEdge = ctx.createLinearGradient(0, mapCutY - 90, 0, mapCutY);
+    gEdge.addColorStop(0, 'rgba(7,25,15,0)');
+    gEdge.addColorStop(1, 'rgba(7,25,15,0.30)');
+    ctx.fillStyle = gEdge;
+    ctx.fillRect(0, mapCutY - 90, W, 90);
+    ctx.restore();
+  }
+
   if (hasExtraRoutes) {
     // build 214 #5: 주간/월간 카드 멀티 국가 분할 렌더링.
     // 같은 국가/지역끼리 cluster (centroid 5도 ≈ 555km 이내 같은 cluster).
@@ -612,28 +654,10 @@ function drawCard(
       ];
     }
 
-    // 2026-08-16 (hans): 경로 영역만 실제 지도로.
-    // Google 이 경로선까지 그려 보내주므로 이 박스에 이미지를 깔고 아래 폴리라인/마커는 건너뛴다
-    // (우리 투영과 Google 투영이 달라 겹쳐 그리면 어긋난다).
-    if (mapInset) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.roundRect(padding, mapY, mapW, mapH, 28);
-      ctx.clip();
-      // cover-fit — 박스를 꽉 채우고 넘치는 쪽을 가운데 기준으로 자른다.
-      const ir = mapInset.width / mapInset.height, br = mapW / mapH;
-      let dw = mapW, dh = mapH, dx = padding, dy = mapY;
-      if (ir > br) { dw = mapH * ir; dx = padding - (dw - mapW) / 2; }
-      else { dh = mapW / ir; dy = mapY - (dh - mapH) / 2; }
-      ctx.drawImage(mapInset, dx, dy, dw, dh);
-      ctx.restore();
-      // 카드 배경(어두움) 과 밝은 지도 사이 경계를 정리
-      ctx.strokeStyle = 'rgba(255,255,255,0.22)';
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.roundRect(padding, mapY, mapW, mapH, 28); ctx.stroke();
-    }
+    // 지도는 이 위(카드 상단 전체)에 이미 배경으로 깔렸다. Google 이 경로선까지 그려 보내주므로
+    // 아래 폴리라인/마커는 건너뛴다 (우리 투영과 Google 투영이 달라 겹쳐 그리면 어긋난다).
 
-    // 지역·시각 알약 — 지도 인셋일 땐 출발 핀이 없으므로 박스 좌상단에 고정한다.
+    // 지역·시각 알약 — 지도에 출발 핀이 없으므로 카드 좌상단(인용문 아래) 에 고정한다.
     if (mapInset) {
       const startPart = !periodOverrides
         ? startTimeLabel(activity.started_at, getCurrentLocale() === 'en' ? 'en' : 'ko', true)
@@ -644,7 +668,7 @@ function drawCard(
         ctx.save();
         ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont, sans-serif';
         ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-        const padX = 14, pillH = 38, lx = padding + 16, ly = mapY + 16;
+        const padX = 14, pillH = 38, lx = 60, ly = 372;
         const lw = ctx.measureText(text).width + padX * 2;
         ctx.fillStyle = 'rgba(15,23,42,0.82)';
         ctx.beginPath(); ctx.roundRect(lx, ly, lw, pillH, 19); ctx.fill();
@@ -858,7 +882,9 @@ function drawCard(
       // roundRect 는 iOS 15 WKWebView 미지원 — fillRect 사용 (작은 셀이라 시각차 없음).
       const aCell = 48 / grid.length;
       const aW = (grid[0]?.length ?? 1) * aCell;
-      const ax = W * 0.8 - aW; // 구분선 우측 끝 정렬
+      // 기본은 구분선 우측 끝. 단 '지도' 배경일 땐 우측 하단에 Google 저작권 표기가 있어
+      // 동물이 그 위에 겹친다 → 좌측 끝으로 옮긴다 (좌하단 Google 로고와도 안 겹치는 자리).
+      const ax = mapInset ? W * 0.2 : W * 0.8 - aW;
       const SPRITE_COLORS: Record<number, string> = { 1: '#4ade80', 2: '#22c55e', 3: '#16a34a' };
       grid.forEach((row, gy) => {
         row.forEach((v, gx) => {
