@@ -21,9 +21,11 @@ export async function GET(req: Request) {
   if (!enc) return new Response('missing enc', { status: 400 });
   if (!KEY) return new Response('map key not configured', { status: 503 });
 
-  // size 는 각 변 640 이 상한 — 9:16 로 최대치를 뽑고 scale=2 로 720×1280.
+  // 2026-08-16 v6: 전면 배경(9:16) → **경로 박스 전용** 비율로. 카드의 지도 박스는
+  // 840×480 (1.75:1) 이라 640×366 @scale2 = 1280×732 를 받아 채운다.
+  // (각 변 640 이 Static Maps 상한)
   const gs = new URL('https://maps.googleapis.com/maps/api/staticmap');
-  gs.searchParams.set('size', '360x640');
+  gs.searchParams.set('size', '640x366');
   gs.searchParams.set('scale', '2');
   gs.searchParams.set('maptype', 'roadmap');
   gs.searchParams.set('language', lang);
@@ -36,8 +38,9 @@ export async function GET(req: Request) {
     'feature:all|element:geometry|saturation:-18|lightness:6',
     'feature:poi|element:labels|visibility:off',
     'feature:transit|visibility:off',
-    // 도로 라벨이 너무 많으면 경로선을 가린다 — 큰 길만 남긴다.
+    // 박스가 작아 라벨이 빽빽하면 경로가 묻힌다 — 동네 이름과 큰 길만 남긴다.
     'feature:road.local|element:labels|visibility:off',
+    'feature:road.arterial|element:labels|visibility:off',
   ]) gs.searchParams.append('style', st);
   // path 만 주고 center/zoom 을 비우면 Google 이 경로에 맞춰 자동 프레이밍한다.
   // ⚠️ 이 줄이 빠지면 경로도 프레이밍도 사라져 **세계지도**가 돌아온다 (2026-08-16 실측).

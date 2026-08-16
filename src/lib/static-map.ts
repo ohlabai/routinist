@@ -39,9 +39,9 @@ export function decimate(points: Array<[number, number]>, max = 120): Array<[num
   return out;
 }
 
-/** Static Maps 는 가로·세로 각각 640 이 상한. scale=2 로 720×1280 을 받아 카드(1080×1920)에 업스케일. */
-export const MAP_W = 360;
-export const MAP_H = 640;
+/** 카드의 경로 박스는 840×480 (1.75:1). Static Maps 상한(각 변 640) 안에서 640×366 @2. */
+export const MAP_W = 640;
+export const MAP_H = 366;
 
 /**
  * 프록시 URL. 네이티브 앱은 정적 export 라 API 라우트가 번들에 없으므로 절대경로로 호출한다
@@ -53,8 +53,9 @@ export const MAP_H = 640;
  * (2026-08-16 실측: 다크 스타일로 바꿨는데 캐시된 밝은 지도가 계속 떴다)
  */
 // v4 는 path 가 빠진 채 배포된 순간이 있어 '세계지도' 이미지가 캐시에 남았다.
-// immutable 캐시라 같은 v 로는 못 씻어낸다 → 5 로 건너뛴다.
-export const MAP_STYLE_VERSION = 5;
+// immutable 캐시라 같은 v 로는 못 씻어낸다 → 5 로 건너뛰었다.
+// v6: 전면 배경(9:16) → 경로 박스(1.75:1) 로 비율 변경.
+export const MAP_STYLE_VERSION = 6;
 
 export function staticMapUrl(
   points: Array<[number, number]>,

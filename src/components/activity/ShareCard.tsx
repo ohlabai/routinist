@@ -57,12 +57,11 @@ const THEMES: Theme[] = [
     // 지도 이미지는 비동기라, 받기 전 / 실패 시엔 아래 그라데이션이 그대로 폴백된다.
     name: '지도',
     bg: (ctx, W, H) => {
-      // 지도를 못 받았을 때의 폴백 — 밝은 지도와 같은 톤이어야 글씨 색이 안 깨진다.
       const g = ctx.createLinearGradient(0, 0, 0, H);
-      g.addColorStop(0, '#eef2f4'); g.addColorStop(1, '#dfe6e9');
+      g.addColorStop(0, '#0b1f17'); g.addColorStop(1, '#04120c');
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     },
-    accent: '#047857', textMain: '#0f172a', textSub: '#475569', routeColor: '#059669',
+    accent: '#34d399', textMain: '#ffffff', textSub: '#a7f3d0', routeColor: '#34d399',
   },
   {
     name: '새벽',
@@ -146,8 +145,10 @@ function drawCard(
   videoBgEl?: HTMLVideoElement | null,
   /** PB→용 (2026-08-02): 신기록 러닝이면 페이스 동물 대신 용 */
   isPB?: boolean,
-  /** 2026-08-16: 배경이 지도 이미지면 경로가 이미 지도에 그려져 있다 — 카드가 또 긋지 않는다. */
-  bgIsMap?: boolean,
+  /** 2026-08-16 v2 (hans): 전면 배경이 아니라 **경로 영역 안에만** 실제 지도를 깐다.
+   *  카드의 나머지(그라데이션 배경 + 흰 글씨)는 원래 형태 그대로 — 식별성이 가장 좋았다.
+   *  이미지에 경로선이 이미 그려져 있으므로 캔버스는 폴리라인/마커를 다시 긋지 않는다. */
+  mapInset?: HTMLImageElement | null,
 ) {
   // build 205 #11: 막대 그래프 애니메이션 진행도. routeProgress 와 동일 timeline (0~1).
   // 일간 카드: 오늘 막대 / 가로 누적바가 0 → 목표 까지 차오른 후 bounce → 원래 색.
@@ -204,11 +205,7 @@ function drawCard(
 
   // build 218 #3: 배경 — videoBgEl 있으면 영상 프레임 (사진 대체). bgImage 있으면 사진. 둘 다 없으면 테마.
   const hasMedia = !!videoBgEl || !!bgImage;
-  // 2026-08-16 (hans "글씨를 흰색 말고 다른 색으로 바꾸고 지도를 보이게"):
-  // 사진/영상 배경은 무엇이 깔릴지 모르니 흰 글씨 + 어두운 오버레이가 안전하다.
-  // 하지만 지도는 우리가 스타일을 정하므로, 밝은 지도 + 어두운 글씨가 지도를 훨씬 잘 살린다.
-  // → 지도 배경만 이 규칙에서 뺀다 (테마의 textMain/textSub/accent 를 그대로 쓴다).
-  const onDarkMedia = hasMedia && !bgIsMap;
+
   if (videoBgEl && videoBgEl.readyState >= 2) {
     const vw = videoBgEl.videoWidth || W;
     const vh = videoBgEl.videoHeight || H;
@@ -235,45 +232,13 @@ function drawCard(
     }
     ctx.drawImage(bgImage, drawX, drawY, drawW, drawH);
     const overlay = ctx.createLinearGradient(0, 0, 0, H);
-    if (bgIsMap) {
-      // 지도는 살리되 글씨 뒤만 살짝 띄운다 — 검게 덮으면 지도가 안 보인다 (hans 지적).
-      overlay.addColorStop(0, 'rgba(255,255,255,0.42)');
-      overlay.addColorStop(0.45, 'rgba(255,255,255,0.20)');
-      overlay.addColorStop(1, 'rgba(255,255,255,0.45)');
-    } else {
-      overlay.addColorStop(0, 'rgba(0,0,0,0.3)');
-      overlay.addColorStop(0.4, 'rgba(0,0,0,0.5)');
-      overlay.addColorStop(1, 'rgba(0,0,0,0.7)');
-    }
+    overlay.addColorStop(0, 'rgba(0,0,0,0.3)');
+    overlay.addColorStop(0.4, 'rgba(0,0,0,0.5)');
+    overlay.addColorStop(1, 'rgba(0,0,0,0.7)');
     ctx.fillStyle = overlay;
     ctx.fillRect(0, 0, W, H);
   } else {
     theme.bg(ctx, W, H);
-  }
-
-  // 2026-08-16 회귀 fix (hans "지도 어디인지 식별이 안 돼"):
-  // 지역·시각 알약은 원래 경로 블록 안에서 출발 핀 옆에 그려졌는데, 지도 배경일 때
-  // 경로 블록을 통째로 끄면서 같이 사라졌다. 지도 배경에서는 핀이 없으므로
-  // 좌상단 고정 위치에 따로 그린다 — "어디를 뛰었나" 를 말하는 핵심 요소다.
-  if (bgIsMap && (regionLabel || activity.started_at)) {
-    const startPart = !periodOverrides
-      ? startTimeLabel(activity.started_at, getCurrentLocale() === 'en' ? 'en' : 'ko', true)
-      : null;
-    const cityPart = regionLabel ? regionLabel.split(' · ')[0] : null;
-    const text = [cityPart, startPart].filter(Boolean).join(' · ');
-    if (text) {
-      ctx.save();
-      ctx.font = 'bold 34px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      const padX = 20, pillH = 54, x = 64, y = 300;
-      const w = ctx.measureText(text).width + padX * 2;
-      ctx.fillStyle = 'rgba(15,23,42,0.82)';
-      ctx.beginPath(); ctx.roundRect(x, y, w, pillH, 27); ctx.fill();
-      ctx.fillStyle = '#ffffff';
-      ctx.fillText(text, x + padX, y + pillH / 2 + 1);
-      ctx.restore();
-    }
   }
 
   // 경로 — build 136 (사용자 피드백 #5-C): 지도와 7.19 사이 여백 확대.
@@ -282,7 +247,7 @@ function drawCard(
   // build 209 #2/#3: periodOverrides.extraRoutes 있으면 주간/월간 모드 — 여러 경로 합성.
   const extraRoutes = periodOverrides?.extraRoutes;
   const hasExtraRoutes = Array.isArray(extraRoutes) && extraRoutes.length > 0;
-  const hasRoute = !bgIsMap && (hasExtraRoutes || activity.route_data?.coordinates?.length);
+  const hasRoute = hasExtraRoutes || activity.route_data?.coordinates?.length;
   if (hasExtraRoutes) {
     // build 214 #5: 주간/월간 카드 멀티 국가 분할 렌더링.
     // 같은 국가/지역끼리 cluster (centroid 5도 ≈ 555km 이내 같은 cluster).
@@ -392,7 +357,7 @@ function drawCard(
           const y = offsetY + scaledH - (lat - minLat) * scale;
           if (i === 0 || isRouteGap(route[i - 1], pt)) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         });
-        ctx.strokeStyle = onDarkMedia ?'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.35)';
+        ctx.strokeStyle = hasMedia ?'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.35)';
         ctx.lineWidth = 14;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
@@ -453,7 +418,7 @@ function drawCard(
           // build 327: sliced 는 [lng,lat] 2-tuple — 거리 기반 공백 판정만 적용
           if (i === 0 || isRouteGap(sliced[i - 1], sliced[i])) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         });
-        ctx.strokeStyle = onDarkMedia ?'#ffffff' : theme.routeColor;
+        ctx.strokeStyle = hasMedia ?'#ffffff' : theme.routeColor;
         ctx.lineWidth = 7;
         ctx.stroke();
         const last = sliced[sliced.length - 1];
@@ -469,7 +434,7 @@ function drawCard(
         let otherKm = 0;
         for (let i = 1; i < clusters.length; i++) otherKm += clusters[i].totalM / 1000;
         ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, sans-serif';
-        ctx.fillStyle = onDarkMedia ?'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.75)';
+        ctx.fillStyle = hasMedia ?'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.75)';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'alphabetic';
         const text = getCurrentLocale() === 'en'
@@ -574,7 +539,7 @@ function drawCard(
         : null);
     if (rankPart) {
       ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillStyle = onDarkMedia ?'#ffffff' : (theme.accent || '#10b981');
+      ctx.fillStyle = hasMedia ?'#ffffff' : (theme.accent || '#10b981');
       ctx.textAlign = 'center';
       ctx.textBaseline = 'alphabetic';
       ctx.fillText(rankPart, W / 2, H - 220);
@@ -647,8 +612,51 @@ function drawCard(
       ];
     }
 
+    // 2026-08-16 (hans): 경로 영역만 실제 지도로.
+    // Google 이 경로선까지 그려 보내주므로 이 박스에 이미지를 깔고 아래 폴리라인/마커는 건너뛴다
+    // (우리 투영과 Google 투영이 달라 겹쳐 그리면 어긋난다).
+    if (mapInset) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(padding, mapY, mapW, mapH, 28);
+      ctx.clip();
+      // cover-fit — 박스를 꽉 채우고 넘치는 쪽을 가운데 기준으로 자른다.
+      const ir = mapInset.width / mapInset.height, br = mapW / mapH;
+      let dw = mapW, dh = mapH, dx = padding, dy = mapY;
+      if (ir > br) { dw = mapH * ir; dx = padding - (dw - mapW) / 2; }
+      else { dh = mapW / ir; dy = mapY - (dh - mapH) / 2; }
+      ctx.drawImage(mapInset, dx, dy, dw, dh);
+      ctx.restore();
+      // 카드 배경(어두움) 과 밝은 지도 사이 경계를 정리
+      ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.roundRect(padding, mapY, mapW, mapH, 28); ctx.stroke();
+    }
+
+    // 지역·시각 알약 — 지도 인셋일 땐 출발 핀이 없으므로 박스 좌상단에 고정한다.
+    if (mapInset) {
+      const startPart = !periodOverrides
+        ? startTimeLabel(activity.started_at, getCurrentLocale() === 'en' ? 'en' : 'ko', true)
+        : null;
+      const cityPart = regionLabel ? regionLabel.split(' · ')[0] : null;
+      const text = [cityPart, startPart].filter(Boolean).join(' · ');
+      if (text) {
+        ctx.save();
+        ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        const padX = 14, pillH = 38, lx = padding + 16, ly = mapY + 16;
+        const lw = ctx.measureText(text).width + padX * 2;
+        ctx.fillStyle = 'rgba(15,23,42,0.82)';
+        ctx.beginPath(); ctx.roundRect(lx, ly, lw, pillH, 19); ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(text, lx + padX, ly + pillH / 2 + 1);
+        ctx.restore();
+      }
+    }
+
     // 그림자 (배경사진 위에서도 또렷하게) — 전체 라인을 흐리게 깔아두면 미리보기가 안정됨.
     // build 327: GPS 공백 지점은 moveTo — "하늘 나는 직선" 제거
+    if (!mapInset) {
     ctx.beginPath();
     coordsAll.forEach((pt, i) => {
       const [lng, lat] = pt;
@@ -656,7 +664,7 @@ function drawCard(
       const y = offsetY + scaledH - (lat - minLat) * scale;
       if (i === 0 || isRouteGap(coordsAll[i - 1], pt)) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     });
-    ctx.strokeStyle = onDarkMedia ?'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.35)';
+    ctx.strokeStyle = hasMedia ?'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.35)';
     ctx.lineWidth = 16;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -670,7 +678,7 @@ function drawCard(
       const y = offsetY + scaledH - (lat - minLat) * scale;
       if (i === 0 || isRouteGap(coords[i - 1], pt)) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     });
-    ctx.strokeStyle = onDarkMedia ?'#ffffff' : theme.routeColor;
+    ctx.strokeStyle = hasMedia ?'#ffffff' : theme.routeColor;
     ctx.lineWidth = 8;
     ctx.stroke();
 
@@ -749,6 +757,7 @@ function drawCard(
       ctx.lineWidth = 4;
       ctx.stroke();
     }
+    }   // if (!mapInset)
   }
   // build 209 #1: 등수 suffix 는 카드 최하단 footer 위로 이동 (지도 위 alarm pill 제거).
   // regionLabel 에 "서울 강남 · 1위" 형식이면 rank 부분만 추출해 별도 표시.
@@ -756,16 +765,16 @@ function drawCard(
     const rankPart = regionLabel.split(' · ').slice(1).join(' · ');
     if (rankPart) {
       ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillStyle = onDarkMedia ?'#ffffff' : (theme.accent || '#10b981');
+      ctx.fillStyle = hasMedia ?'#ffffff' : (theme.accent || '#10b981');
       ctx.textAlign = 'center';
       ctx.textBaseline = 'alphabetic';
       ctx.fillText(rankPart, W / 2, H - 220);
     }
   }
 
-  const mainColor = onDarkMedia ?'#ffffff' : theme.textMain;
-  const subColor = onDarkMedia ?'rgba(255,255,255,0.7)' : theme.textSub;
-  const accentColor = onDarkMedia ?'#ffffff' : theme.accent;
+  const mainColor = hasMedia ?'#ffffff' : theme.textMain;
+  const subColor = hasMedia ?'rgba(255,255,255,0.7)' : theme.textSub;
+  const accentColor = hasMedia ?'#ffffff' : theme.accent;
 
   // 날짜는 하단 월간 막대그래프의 today 라벨로 대체 (사용자 피드백 #13). 상단 공간 확보.
   ctx.textAlign = 'center';
@@ -832,7 +841,7 @@ function drawCard(
 
   // 구분선
   const lineY = distY + 110;
-  ctx.strokeStyle = onDarkMedia ?'rgba(255,255,255,0.2)' : theme.accent + '40';
+  ctx.strokeStyle = hasMedia ?'rgba(255,255,255,0.2)' : theme.accent + '40';
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(W * 0.2, lineY);
@@ -988,7 +997,7 @@ function drawCard(
     const maxDay = Math.max(...Array.from(dailyKm.values()), 1);
     const barWidth = (chartW - 4 * (daysInMonth - 1)) / daysInMonth;
 
-    const onPhoto = !!bgImage && !bgIsMap;
+    const onPhoto = !!bgImage;
     const barFillToday = onPhoto ? '#ffffff' : accentColor;
     const barFillOther = onPhoto ? 'rgba(255,255,255,0.55)' : accentColor + 'AA';
     const barFillEmpty = onPhoto ? 'rgba(255,255,255,0.15)' : subColor + '22';
@@ -1050,7 +1059,7 @@ function drawCard(
       const x = chartPadX + (lastRunDay - 1) * (barWidth + 4) + barWidth / 2;
       const labelY = chartTop + chartH + 32;
       ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillStyle = onDarkMedia ?'rgba(255,255,255,0.95)' : mainColor;
+      ctx.fillStyle = hasMedia ?'rgba(255,255,255,0.95)' : mainColor;
       ctx.textAlign = 'center';
       ctx.fillText(getCurrentLocale() === 'en' ? `${monthRunCount} runs` : `${monthRunCount}회`, x, labelY);
     }
@@ -1073,7 +1082,7 @@ function drawCard(
     const radius = goalBarH / 2;
 
     // 트랙 (배경)
-    ctx.fillStyle = onDarkMedia ?'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.20)';
+    ctx.fillStyle = hasMedia ?'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.20)';
     ctx.beginPath();
     ctx.roundRect(goalBarPadX, goalBarTop, goalBarW, goalBarH, radius);
     ctx.fill();
@@ -1110,7 +1119,7 @@ function drawCard(
 
     // 위: 오늘 마커 ("5/21") — 진행 끝점 위에 작게
     ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillStyle = onDarkMedia ?'#ffffff' : accentColor;
+    ctx.fillStyle = hasMedia ?'#ffffff' : accentColor;
     ctx.textAlign = 'center';
     // 끝점이 막대 시작·끝 너무 가까우면 안쪽으로 클램프 (라벨 잘림 방지)
     const minX = goalBarPadX + 30;
@@ -1120,7 +1129,7 @@ function drawCard(
 
     // 아래: 누적/목표 — 우측 끝, 굵게 (메인 정보)
     ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillStyle = onDarkMedia ?'rgba(255,255,255,0.95)' : mainColor;
+    ctx.fillStyle = hasMedia ?'rgba(255,255,255,0.95)' : mainColor;
     ctx.textAlign = 'right';
     ctx.fillText(`${monthSum.toFixed(1)} / ${monthlyGoalKm.toFixed(0)}km`, goalBarPadX + goalBarW, bottomLabelY);
   }
@@ -1136,7 +1145,7 @@ function drawCard(
   const userText = `@${userIdLabel ?? displayName}`;
   const sep = ' | ';
   const brand = 'Routinist';
-  const userColor = onDarkMedia ?'#34d399' : '#10b981';
+  const userColor = hasMedia ?'#34d399' : '#10b981';
 
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
@@ -1411,8 +1420,9 @@ export default function ShareCard({ activity: baseActivity, displayName, onClose
 
   const generate = useCallback(() => {
     if (!canvasRef.current) return;
-    const mapBg = !bgImage && !videoStill && isMapTheme ? mapImage : null;
-    drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage ?? mapBg, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel ?? undefined, 1, undefined, periodOverrides, videoStill, isPB, !!mapBg);
+    // 지도는 배경이 아니라 **경로 박스 안** 이미지 (mapInset). 사진/영상 배경과 공존한다.
+    const inset = isMapTheme ? mapImage : null;
+    drawCard(canvasRef.current, activity, displayName, THEMES[themeIdx], bgImage, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel ?? undefined, 1, undefined, periodOverrides, videoStill, isPB, inset);
     // locale: 캔버스 안 ttl()/getCurrentLocale() 텍스트가 언어 전환 시 다시 그려지도록 (build 291 i18n Phase D).
   }, [activity, displayName, themeIdx, bgImage, mapImage, isMapTheme, activities, userIdLabel, effectiveQuote, monthlyGoalKm, regionLabel, locale, videoStill, isPB]);
 

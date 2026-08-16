@@ -103,7 +103,20 @@ struct StartView: View {
             if ProcessInfo.processInfo.arguments.contains("-uipreview-goal") { showGoalPicker = true }
             #endif
         }
-        .sheet(isPresented: $showGoalPicker) { GoalPickerView() }
+        // 2026-08-16 (hans "목표를 설정하면 달리기 시작 버튼이 안 눌러진다"):
+        // workout.goal 은 @Published 라 값을 쓰는 순간 RootView(=phase 감시) 부터 통째로
+        // 다시 그려진다. 그걸 시트 해제와 같은 런루프에서 하면 모달 표시 상태가 어정쩡하게
+        // 남아 밑의 StartView 가 탭을 못 받는다 — "버튼이 안 눌리는" 증상의 정체.
+        // → ① 해제는 부모 바인딩(showGoalPicker)이 단독으로 소유하고
+        //    ② 목표 쓰기는 해제 애니메이션이 끝난 다음 틱으로 미룬다.
+        .sheet(isPresented: $showGoalPicker) {
+            GoalPickerView(current: workout.goal) { picked in
+                showGoalPicker = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    workout.goal = picked
+                }
+            }
+        }
     }
 
     /// v14: 미설정 = 초대 카피 / 설정 = "오늘 목표 · 5km"
@@ -120,8 +133,10 @@ struct StartView: View {
 
 // v10: 목표 선택 시트 — ± 버튼으로 1km/5분 단위 자유 조정 (hans: "13km 목표를 못 잡네")
 struct GoalPickerView: View {
-    @EnvironmentObject var workout: WorkoutManager
-    @Environment(\.dismiss) private var dismiss
+    /// 진입 시 초기값 (workout 을 직접 읽지 않는다 — 시트가 부모 상태에 의존하지 않게)
+    let current: WorkoutManager.RunGoal
+    /// 완료 — 해제와 목표 쓰기 순서는 부모가 통제한다 (위 주석 참고)
+    let onPick: (WorkoutManager.RunGoal) -> Void
 
     private let emerald = Color(red: 0.20, green: 0.83, blue: 0.60)
 
@@ -183,11 +198,7 @@ struct GoalPickerView: View {
         .safeAreaInset(edge: .bottom) {
             // 바닥 고정 — 스크롤 위치와 무관하게 늘 손가락 닿는 곳에 있다.
             Button {
-                switch mode {
-                case .distance: workout.goal = .distanceKm(km)
-                case .time: workout.goal = .timeMin(minutes)
-                }
-                dismiss()
+                onPick(mode == .distance ? .distanceKm(km) : .timeMin(minutes))
             } label: {
                 Text("완료")
                     .font(.system(size: 16, weight: .heavy, design: .rounded))
@@ -202,7 +213,7 @@ struct GoalPickerView: View {
         }
         .onAppear {
             // 현재 목표로 초기화 (미설정이면 거리 5km 기본)
-            switch workout.goal {
+            switch current {
             case .open: mode = .distance; km = 5
             case .distanceKm(let v): mode = .distance; km = v
             case .timeMin(let m): mode = .time; minutes = m
