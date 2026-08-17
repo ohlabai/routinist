@@ -44,6 +44,11 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       if (regionSi) {
         patch.region_si = regionSi;
         patch.region_gu = regionGu || null;
+        // 2026-08-17 리뷰: country_code 를 안 채우고 있었다.
+        // 랭킹의 기본 스코프가 '대한민국'(country_code='KR') 이라, 온보딩을 제대로 마쳐도
+        // 전국 순위에서 통째로 빠졌다 (실측: 이번 달 24.6km·10.7km 달린 사람이 랭킹에 없음).
+        // 이 선택지는 KR_REGIONS(한국 시/도) 전용이므로 지역을 골랐다면 국가는 KR 이다.
+        patch.country_code = 'KR';
       }
       await supabase.from('profiles').update(patch).eq('id', user.id);
 
