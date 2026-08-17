@@ -29,7 +29,9 @@ android {
         //      걷는 중 오재개·음성 첫마디 잘림 / health-sync 중복 저장(시간 구간 겹침) /
         //      공유카드 지도 테마(경로 영역 인셋) / 홈 최상단 랭킹·공유카드 CTA.
         //      Wear 1000329 와 세트 (Play SDK 권고 2건 반영).
-        versionCode 335
+        // 336: 8/17 전체 리뷰 수리 일괄 (심각 5건) + GPS 지역 자동 추론.
+        //      335 는 심사 중이었으나 hans 판단으로 최종본으로 교체 (Play 는 이전 제출을 자동 취소).
+        versionCode 336
         versionName "1.2.21"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

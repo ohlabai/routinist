@@ -150,6 +150,22 @@ export default function TrackSummarySheet({ finalState, userId, nativeEngine, on
       // 2026-07-18: 저장 성공 — 완주 핸드오프 아카이브 소비 (mount 복구 재제안 차단).
       clearFinishArchive();
 
+      // 2026-08-17 (hans "앞으로도 gps로 지역 추론해서 입력해줘"):
+      // 지역 자동 등록이 health-sync 경로에만 걸려 있었다 — 애플 헬스 동기화를 타는 사용자만
+      // 지역이 채워지고, 앱으로 직접 달리는 사용자는 영영 미설정으로 남았다.
+      // 그 결과 랭킹 기본 스코프(대한민국)에서 통째로 빠진다 (실측 사례 있음).
+      // 여기가 GPS 경로가 막 생긴 지점이라 추론에 가장 좋은 자리다.
+      // autoDetectAndSetRegion 은 이미 설정된 사용자를 덮지 않는다 (내부 가드 + update 조건).
+      // fire-and-forget — 저장·화면 전환을 절대 막지 않는다.
+      if (routeData) {
+        void (async () => {
+          try {
+            const { autoDetectAndSetRegion } = await import('@/lib/profile-region-auto');
+            await autoDetectAndSetRegion(userId);
+          } catch { /* 지역 추론 실패가 러닝 저장에 영향 주면 안 됨 */ }
+        })();
+      }
+
       // build 254: HealthKit distanceWalkingRunning 자동 보정. fire-and-forget.
       // 운동 종료 후 15~45초 사이에 HealthKit sample 이 적재되면 Apple 의 sensor-fusion
       // 결과로 distance/pace 를 UPDATE 한다. GPS 자체 누적은 jitter / multipath 로 부풀려질 수

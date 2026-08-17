@@ -1,0 +1,7 @@
+• Your share card now has a real map — see where you ran at a glance
+• Split pace is called out as an animal (cheetah fast to turtle steady)
+• Club races: run in pairs, your two times added together
+• Your region is detected from where you run, so you appear in the ranking
+• Fixed the same run being saved twice
+• Winner picks and personal bests now stay in your inbox
+• Galaxy Watch stability (run delivery, voice cues)

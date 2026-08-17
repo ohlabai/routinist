@@ -1,11 +1,29 @@
-v1.2.20 — Three fixes found on an actual run
+v1.2.21 — Your share card now has a real map
 
-[Auto-pause]
-• Fixed runs resuming on their own while you were still walking. It now waits until you're really running again.
-• Resume is judged from the path you actually covered rather than a single GPS speed reading, so a noisy signal no longer triggers it.
+[Share card]
+• The top of the card is now a real map, so anyone can see where you ran.
+• Text over the map is dark ink — readable without hiding the map underneath.
+• A loading note appears while the map arrives, and sharing waits until it's ready.
 
 [Voice cues]
-• Fixed the first word of a voice cue being cut off while music or video was playing.
+• Your split pace is now called out as an animal. Fast is "cheetah fast", steady is "turtle steady — that's the strongest kind".
+• Phrases alternate so you don't hear the same line every kilometre.
 
-[Lock screen]
-• Distance and time now show correctly on your iPhone lock screen during an Apple Watch run — the phone app was clearing the watch's run display.
+[Apple Watch]
+• Fixed the start button not responding after you set a goal.
+• The goal screen fits on one page, and the Done button no longer covers what's above it.
+• Fewer cases where voice cues were silent on your earphones or watch speaker.
+
+[Clubs]
+• Club races are here. Run in pairs and your two times are added together for the ranking.
+• Just tap join before the start — runs during the race window are timed automatically.
+• Organisers can enter times by hand for participants who don't use the app.
+
+[Records & ranking]
+• Fixed the same run being saved twice.
+• Your region is now detected from where you run, so you appear in the ranking even without setting it.
+• Fixed finishing onboarding but still being left out of the national ranking.
+
+[Notifications]
+• Winner picks, personal bests and invite rewards now stay in your inbox — you can find them even if you miss the push.
+• Winner pick notifications can be turned off in settings.

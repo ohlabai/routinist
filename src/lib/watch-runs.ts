@@ -175,6 +175,12 @@ export async function drainWatchRuns(userId: string): Promise<number> {
   if (done.size > 0) {
     await removeFromQueue(done);
     logClientInfo('watch-run', 'drain-done', { saved: done.size });
+    // 2026-08-17 (hans): 워치 러닝에도 지역 자동 추론. 워치로 달리는 사용자는 앱 GPS 경로도
+    // health-sync 경로도 안 타서 지역이 영영 미설정으로 남았다 (랭킹 기본 스코프에서 누락).
+    // 이미 설정된 사용자는 내부 가드가 막는다. fire-and-forget.
+    void import('./profile-region-auto')
+      .then(m => m.autoDetectAndSetRegion(userId))
+      .catch(() => { /* 지역 추론 실패가 러닝 저장에 영향 주면 안 됨 */ });
   }
   return done.size;
 }

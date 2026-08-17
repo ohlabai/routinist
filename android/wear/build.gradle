@@ -13,7 +13,7 @@ android {
         targetSdkVersion 35                           // Play 정책: Wear 도 2026-08-31 까지 API 35 필수
         // versionCode 는 폰과 반드시 달라야 함 (같은 앱, 다른 폼팩터 APK).
         // 폰 build 324 → 워치는 1_000_000 오프셋 스킴으로 충돌 방지.
-        versionCode 1000329   // v8: Play SDK 권고 2건 (fragment 1.1.0 / protolayout-proto beta01)
+        versionCode 1000330   // v9: 동물 음성 + 완주 전송 실패 로깅·NaN 가드 (8/17 리뷰)
         versionName "1.2.21"
     }
 
