@@ -10,7 +10,7 @@ import Link from 'next/link';
 import {
   ChevronRight, HelpCircle, Shield, Heart, Award, LogOut, MapPin,
   MessageCircle, Coins, Gift, Sun, Moon, Monitor, Settings, Activity as ActivityIcon,
-  AlertTriangle, X, FileText, Bell, BellOff, PenLine, Camera, ShoppingBag,
+  AlertTriangle, X, FileText, Bell, BellOff, PenLine, Camera, ShoppingBag, Stethoscope,
 } from 'lucide-react';
 import { useEffect } from 'react';
 import { checkPushPermission, requestPushPermissionAgain, type PushPermissionState } from '@/lib/push-notifications';
@@ -242,6 +242,9 @@ export default function ProfilePage() {
     { href: '/profile/push-settings', label: t('profile.menuPushSettings'), Icon: HelpCircle },
     // build 291: 차단 관리 (Apple 1.2 — 차단 해제 경로 제공)
     { href: '/profile/blocked', label: tt('차단한 사용자'), Icon: Shield },
+    // 2026-08-17: 데이터 점검(3년 경로 재동기화)이 어드민에서만 링크돼 있어 아무도 못 찾았다.
+    // 지도 탭의 조건부 안내가 '발견', 여기가 '상설 위치' — 안내를 닫은 사람이 다시 올 곳.
+    { href: '/profile/audit', label: tt('기록·지도 점검'), Icon: Stethoscope },
     // build 291: 거리 단위 km/mi — UnitToggle 카드는 아래 별도 렌더 (액션 아님)
     { href: '/shop/orders', label: t('profile.menuOrders'), Icon: HelpCircle },
     { href: '/shop/addresses', label: t('profile.menuAddresses'), Icon: HelpCircle },

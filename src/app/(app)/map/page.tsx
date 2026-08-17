@@ -11,6 +11,7 @@ import type { Activity, Profile } from '@/types';
 import PullToRefresh from '@/components/PullToRefresh';
 import AppLogo from '@/components/AppLogo';
 import { syncRouteData, isNativeApp } from '@/lib/health-sync';
+import { getSupabase } from '@/lib/supabase';
 import { detectRegionLabel } from '@/lib/region-from-gps';
 import { useI18n } from '@/lib/i18n';
 
@@ -257,6 +258,27 @@ function MapPageInner() {
 
   const [allActivities, setAllActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
+  // 2026-08-17: 지도가 없는 옛 러닝 안내.
+  // 평소 sync 는 **최근 90일만** 훑고 빈 chunk 2개면 조기 종료한다 → 가입 시 대량 임포트한
+  // 과거 기록에는 경로가 영영 안 붙는다 (실측: 90일 밖 경로없음 1,041건 / 40명).
+  // 복구 수단(/profile/audit 의 3년 재동기화)은 있는데 어드민에서만 링크돼 있어 아무도 모른다.
+  // 조건을 "지도가 비었나" 가 아니라 "경로 없는 활동이 있나" 로 잡는 이유:
+  // 최근 러닝 경로는 있고 옛 기록만 빠진 사람은 빈 상태 CTA 를 영영 못 본다.
+  const [routelessCount, setRoutelessCount] = useState(0);
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    void (async () => {
+      // head:true — 행은 안 받고 개수만. 지도 탭 진입 비용을 늘리지 않는다.
+      const { count } = await getSupabase()
+        .from('activities')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .is('route_data', null);
+      if (!cancelled) setRoutelessCount(count ?? 0);
+    })().catch(() => { /* 안내용이라 실패해도 조용히 */ });
+    return () => { cancelled = true; };
+  }, [user]);
   const [mapLoaded, setMapLoaded] = useState(false);
   // 2026-07-19 (hans): 기본 30일 — 반복 코스가 진해지는 효과는 누적에서 나오는데
   // 7일 기본에선 취지가 안 보였음.
@@ -638,6 +660,22 @@ function MapPageInner() {
             <Link href={`/activity?id=${selectedActivity.id}`} className="text-sm text-[var(--accent)] font-semibold">{tt('상세 보기')}</Link>
           </div>
         </div>
+      )}
+
+      {/* 지도 없는 옛 러닝 안내 — 5건 이상일 때만 (한두 건은 실내 러닝일 수 있어 노이즈) */}
+      {!loading && routelessCount >= 5 && (
+        <Link href="/profile/audit" className="card p-4 flex items-center gap-3">
+          <span className="text-2xl">🗺️</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-[var(--foreground)]">
+              {tt('지도가 없는 러닝이 {n}건 있어요').replace('{n}', String(routelessCount))}
+            </p>
+            <p className="text-xs text-[var(--muted)] mt-0.5">
+              {tt('애플 헬스에 경로가 남아 있다면 가져올 수 있어요. 몇 분 걸려요.')}
+            </p>
+          </div>
+          <span className="text-[var(--accent)] text-sm font-bold shrink-0">{tt('가져오기')}</span>
+        </Link>
       )}
 
       {!loading && routeCount === 0 && (

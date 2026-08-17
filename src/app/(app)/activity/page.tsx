@@ -50,6 +50,10 @@ function ActivityDetail() {
   // build 161 #12-1: UserDataProvider 의 활동은 route_data 가 없는 lite 버전 (첫 로그인 가속).
   // 활동 상세 진입 시 단건 route_data 만 lazy fetch → 메인 fetch 부담은 그대로 둠.
   const [route, setRoute] = useState<import('@/types').GeoJSONLineString | null>(null);
+  // 2026-08-17: lazy fetch 가 끝나기 전에 "경로 없음" 안내가 깜빡이지 않게.
+  // 결과를 id 에 묶어 파생 — id 가 바뀌면 자동 리셋된다 (fallbackResult 와 같은 패턴).
+  // effect 안에서 동기 setState 로 리셋하면 set-state-in-effect 룰에 걸린다.
+  const [routeTriedFor, setRouteTriedFor] = useState<string | null>(null);
   // build 222 #3: 캐시 miss (저장 직후 router.push) 폴백 — 단건 DB fetch.
   // 2026-07-12: fetch 시작과 동시에 tried=true 가 되어 응답 도착 전에 "찾을 수 없습니다" 가
   // 먼저 렌더되던 버그 fix (본인 활동은 캐시 hit 라 안 걸리고, Run of the Day 등 남의 활동만
@@ -62,6 +66,8 @@ function ActivityDetail() {
   const fallbackDone = fallbackResult?.id === id;
   const cachedActivity = useMemo(() => activities.find(a => a.id === id), [activities, id]);
   const baseActivity = cachedActivity ?? fallbackActivity;
+  // baseActivity 가 이미 route 를 갖고 있으면 fetch 자체가 필요 없다 → 즉시 '시도 완료'.
+  const routeTried = routeTriedFor === id || !!baseActivity?.route_data;
 
   // 캐시에 없으면 단건 DB fetch (저장 직후 race 회피). 백그라운드로 UserDataProvider refresh 도 트리거.
   useEffect(() => {
@@ -81,11 +87,15 @@ function ActivityDetail() {
 
   useEffect(() => {
     if (!id || !baseActivity) return;
-    if (baseActivity.route_data) { setRoute(baseActivity.route_data); return; }
+    // 이미 route 가 있으면 setRoute 불필요 — 아래 activity 메모가 baseActivity.route_data 를 그대로 쓴다.
+    // (effect 안 동기 setState 는 cascading render 를 만든다 — react-hooks/set-state-in-effect)
+    if (baseActivity.route_data) return;
     let cancelled = false;
     (async () => {
       const r = await fetchActivityRoute(id);
-      if (!cancelled && r?.route_data) setRoute(r.route_data);
+      if (cancelled) return;
+      if (r?.route_data) setRoute(r.route_data);
+      setRouteTriedFor(id);   // 성공·실패 모두 '시도 완료' — 안내는 이 뒤에만 뜬다
     })();
     return () => { cancelled = true; };
   }, [id, baseActivity]);
@@ -285,6 +295,27 @@ function ActivityDetail() {
       {/* 지도 (GPS 데이터가 있을 때) */}
       {activity.route_data && (
         <RouteMap routeData={activity.route_data} height="240px" />
+      )}
+
+      {/* 2026-08-17: 경로가 없으면 아무것도 안 보여서 "지도가 고장났다" 로 읽힌다.
+          실제로는 실내 러닝이거나, 기록을 만든 앱이 경로를 저장하지 않은 경우가 대부분이다
+          (I BE 실측: HealthKit 이 워크아웃 36건에 대해 경로 0건을 정상 응답).
+          옛 임포트라면 '기록·지도 점검' 의 3년 재동기화로 살아날 수 있으므로 그리로 안내한다. */}
+      {!activity.route_data && routeTried && (
+        <div className="card p-4 flex items-center gap-3">
+          <span className="text-xl">🗺️</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-[var(--foreground)]">{tt('이 러닝은 경로 정보가 없어요')}</p>
+            <p className="text-xs text-[var(--muted)] mt-0.5">
+              {tt('실내 러닝이거나, 기록한 앱이 GPS 경로를 저장하지 않았어요.')}
+            </p>
+          </div>
+          {activity.user_id === user?.id && (
+            <Link href="/profile/audit" className="shrink-0 text-xs font-bold text-[var(--accent)]">
+              {tt('점검')}
+            </Link>
+          )}
+        </div>
       )}
 
       {/* 페이스 그래프 — 거리/시간 축 토글 (2026-08-02 hans: 지도 아래 전문성 차트) */}
