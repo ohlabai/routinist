@@ -1,6 +1,7 @@
 package com.routinist.wear
 
 import android.content.Context
+import android.util.Log
 import com.google.android.gms.wearable.Asset
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
@@ -55,15 +56,35 @@ object RunSender {
             dataMap.putDouble("maxHr", run.maxHr)
         }.asPutDataRequest().setUrgent()
 
+        // 2026-08-17 리뷰: 이전엔 반환 Task 를 그냥 버렸다 (fire-and-forget).
+        // 애플워치와 달리 워치 로컬 대기열이 없어 Data Layer 가 유일한 경로인데,
+        // putDataItem 이 실패하면 **러닝 한 건이 조용히 사라진다**. 최소한 흔적은 남긴다.
+        // (store-and-forward 가 폰 오프라인은 알아서 처리하므로, 여기 실패는 진짜 실패다)
         Wearable.getDataClient(context).putDataItem(req)
+            .addOnSuccessListener {
+                Log.i(TAG, "run sent: ${run.clientRecordId} (${run.route.size} pts)")
+            }
+            .addOnFailureListener { e ->
+                Log.e(TAG, "run send FAILED: ${run.clientRecordId} — 폰에 전달되지 않음", e)
+            }
     }
+
+    private const val TAG = "RunSender"
 
     private fun buildRouteJson(route: List<DoubleArray>): String {
         val sb = StringBuilder("[")
-        route.forEachIndexed { i, p ->
-            if (i > 0) sb.append(",")
+        var written = 0
+        route.forEach { p ->
+            // 2026-08-17 리뷰: NaN/Infinity 가 한 점이라도 섞이면 "NaN" 이 찍혀 **JSON 이 깨지고**
+            // 폰의 파서가 통째로 실패한다 → 경로 전체(때로는 러닝 전체) 유실.
+            // 폰 엔진(iOS·Android)에도 같은 게이트를 넣었다.
+            if (p.size < 4) return@forEach
+            if (!p[0].isFinite() || !p[1].isFinite() || !p[3].isFinite()) return@forEach
+            val alt = if (p[2].isFinite()) p[2] else 0.0
+            if (written > 0) sb.append(",")
             sb.append("[").append(p[0]).append(",").append(p[1]).append(",")
-                .append(p[2]).append(",").append(p[3].toLong()).append("]")
+                .append(alt).append(",").append(p[3].toLong()).append("]")
+            written++
         }
         sb.append("]")
         return sb.toString()
